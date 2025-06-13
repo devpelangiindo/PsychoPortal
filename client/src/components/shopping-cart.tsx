@@ -70,7 +70,7 @@ export default function ShoppingCartSidebar({ isOpen, onClose }: ShoppingCartSid
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-neutral-900 dark:text-foreground text-sm">
-                        ${parseFloat(item.price).toFixed(2)}
+                        Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
                       </div>
                       <button 
                         onClick={() => removeItem(item.id)}
@@ -94,7 +94,7 @@ export default function ShoppingCartSidebar({ isOpen, onClose }: ShoppingCartSid
                   Total
                 </span>
                 <span className="text-2xl font-bold text-primary">
-                  ${getTotalAmount().toFixed(2)}
+                  Rp {new Intl.NumberFormat('id-ID').format(getTotalAmount())}
                 </span>
               </div>
               

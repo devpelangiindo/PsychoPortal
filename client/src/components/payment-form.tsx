@@ -331,7 +331,7 @@ export default function PaymentForm({ paymentMethod, amount, onSubmit, isLoading
             <span>Processing Payment...</span>
           </div>
         ) : (
-          `Pay $${amount.toFixed(2)}`
+          `Bayar Rp ${new Intl.NumberFormat('id-ID').format(amount)}`
         )}
       </Button>
 

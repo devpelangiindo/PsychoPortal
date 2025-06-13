@@ -69,6 +69,7 @@ export default function Checkout() {
   const handlePayment = () => {
     if (!order) return;
     
+    console.log('Processing payment for order:', order.id);
     paymentMutation.mutate({
       orderId: order.id,
       paymentMethod: selectedPaymentMethod,
