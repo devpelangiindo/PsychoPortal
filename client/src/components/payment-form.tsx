@@ -106,7 +106,7 @@ export default function PaymentForm({ paymentMethod, amount, onSubmit, isLoading
         <div className="flex items-center space-x-2 text-green-800 dark:text-green-200">
           <Shield className="w-5 h-5" />
           <span className="text-sm font-medium">
-            Your payment information is encrypted and secure
+            Informasi pembayaran Anda terenkripsi dan aman
           </span>
         </div>
       </div>
@@ -116,7 +116,7 @@ export default function PaymentForm({ paymentMethod, amount, onSubmit, isLoading
         <div className="space-y-4">
           <div>
             <Label htmlFor="email" className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              Email Address *
+              Alamat Email *
             </Label>
             <Input
               id="email"
@@ -131,7 +131,7 @@ export default function PaymentForm({ paymentMethod, amount, onSubmit, isLoading
 
           <div>
             <Label htmlFor="cardNumber" className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              Card Number *
+              Nomor Kartu *
             </Label>
             <div className="relative mt-1">
               <Input
@@ -150,7 +150,7 @@ export default function PaymentForm({ paymentMethod, amount, onSubmit, isLoading
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="expiryDate" className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                Expiry Date *
+                Tanggal Kadaluarsa *
               </Label>
               <Input
                 id="expiryDate"
