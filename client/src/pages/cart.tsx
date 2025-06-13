@@ -106,13 +106,13 @@ export default function Cart() {
             <CardContent className="p-12 text-center">
               <div className="text-6xl mb-4">🛒</div>
               <h2 className="text-2xl font-semibold text-neutral-900 dark:text-foreground mb-4">
-                Your cart is empty
+                Keranjang Anda kosong
               </h2>
               <p className="text-neutral-500 dark:text-muted-foreground mb-8">
-                Add some assessments to get started with your psychological evaluation journey.
+                Tambahkan beberapa asesmen untuk memulai perjalanan evaluasi psikologi Anda.
               </p>
               <Link href="/assessments">
-                <Button size="lg">Browse Assessments</Button>
+                <Button size="lg">Jelajahi Asesmen</Button>
               </Link>
             </CardContent>
           </Card>
@@ -147,7 +147,7 @@ export default function Cart() {
                           className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
                         >
                           <Trash2 className="w-4 h-4 mr-1" />
-                          Remove
+                          Hapus
                         </Button>
                       </div>
                     </div>
@@ -160,7 +160,7 @@ export default function Cart() {
             <div>
               <Card className="sticky top-4">
                 <CardHeader>
-                  <CardTitle>Order Summary</CardTitle>
+                  <CardTitle>Ringkasan Pesanan</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -191,12 +191,12 @@ export default function Cart() {
                     onClick={handleCheckout}
                     disabled={createOrderMutation.isPending}
                   >
-                    {createOrderMutation.isPending ? "Processing..." : "Proceed to Checkout"}
+                    {createOrderMutation.isPending ? "Memproses..." : "Lanjut ke Checkout"}
                   </Button>
 
                   {!isAuthenticated && (
                     <p className="text-sm text-center text-neutral-500 dark:text-muted-foreground">
-                      You'll be asked to sign in during checkout
+                      Anda akan diminta masuk saat checkout
                     </p>
                   )}
                 </CardContent>

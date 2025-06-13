@@ -27,8 +27,8 @@ export default function Dashboard() {
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
+        title: "Tidak Diizinkan",
+        description: "Anda telah keluar. Masuk lagi...",
         variant: "destructive",
       });
       setTimeout(() => {
@@ -44,11 +44,11 @@ export default function Dashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'available':
-        return <Badge className="status-available">Available</Badge>;
+        return <Badge className="status-available">Tersedia</Badge>;
       case 'completed':
-        return <Badge className="status-completed">Completed</Badge>;
+        return <Badge className="status-completed">Selesai</Badge>;
       case 'in_progress':
-        return <Badge className="status-in-progress">In Progress</Badge>;
+        return <Badge className="status-in-progress">Sedang Berlangsung</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
