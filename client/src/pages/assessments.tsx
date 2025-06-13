@@ -17,19 +17,19 @@ export default function Assessments() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
-            Psychological Assessments
+            Asesmen Psikologi
           </h1>
           <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-3xl mx-auto">
-            Choose from our professionally validated psychological assessment tools. 
-            Each assessment is scientifically backed and designed to provide accurate insights.
+            Pilih dari alat asesmen psikologi yang telah divalidasi secara profesional. 
+            Setiap asesmen didukung secara ilmiah dan dirancang untuk memberikan wawasan yang akurat.
           </p>
         </div>
 
         {error && (
           <div className="text-center py-12">
-            <p className="text-red-500 mb-4">Failed to load assessments</p>
+            <p className="text-red-500 mb-4">Gagal memuat asesmen</p>
             <p className="text-neutral-500 dark:text-muted-foreground">
-              Please try refreshing the page or contact support if the problem persists.
+              Silakan refresh halaman atau hubungi dukungan jika masalah berlanjut.
             </p>
           </div>
         )}

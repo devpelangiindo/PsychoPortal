@@ -32,16 +32,16 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
 
   const getIconLabel = (type: string) => {
     if (type === 'sensory') {
-      return 'Sensory Processing';
+      return 'Pemrosesan Sensoris';
     }
-    return 'Learning Preferences';
+    return 'Preferensi Belajar';
   };
 
   const handleAddToCart = () => {
     if (isInCart) {
       toast({
-        title: "Already in Cart",
-        description: "This assessment is already in your cart.",
+        title: "Sudah di Keranjang",
+        description: "Asesmen ini sudah ada di keranjang Anda.",
         variant: "default",
       });
       return;
@@ -58,8 +58,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
     });
 
     toast({
-      title: "Added to Cart",
-      description: `${assessment.name} has been added to your cart.`,
+      title: "Ditambahkan ke Keranjang",
+      description: `${assessment.name} telah ditambahkan ke keranjang Anda.`,
       variant: "default",
     });
   };
