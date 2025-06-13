@@ -1,0 +1,119 @@
+import { Brain, GraduationCap, Clock, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/lib/cart";
+import type { Assessment } from "@shared/schema";
+
+interface AssessmentCardProps {
+  assessment: Assessment;
+  showAddToCart: boolean;
+}
+
+export default function AssessmentCard({ assessment, showAddToCart }: AssessmentCardProps) {
+  const { toast } = useToast();
+  const { addItem, items } = useCart();
+
+  const isInCart = items.some(item => item.id === assessment.id);
+
+  const getIcon = (type: string) => {
+    if (type === 'sensory') {
+      return <Brain className="w-12 h-12 text-secondary" />;
+    }
+    return <GraduationCap className="w-12 h-12 text-accent" />;
+  };
+
+  const getGradientClass = (type: string) => {
+    if (type === 'sensory') {
+      return 'bg-secondary-light';
+    }
+    return 'bg-accent-light';
+  };
+
+  const getIconLabel = (type: string) => {
+    if (type === 'sensory') {
+      return 'Sensory Processing';
+    }
+    return 'Learning Preferences';
+  };
+
+  const handleAddToCart = () => {
+    if (isInCart) {
+      toast({
+        title: "Already in Cart",
+        description: "This assessment is already in your cart.",
+        variant: "default",
+      });
+      return;
+    }
+
+    addItem({
+      id: assessment.id,
+      name: assessment.name,
+      price: assessment.price,
+      description: assessment.description,
+      duration: assessment.duration,
+      ageRange: assessment.ageRange,
+      type: assessment.type,
+    });
+
+    toast({
+      title: "Added to Cart",
+      description: `${assessment.name} has been added to your cart.`,
+      variant: "default",
+    });
+  };
+
+  return (
+    <Card className="assessment-card-hover bg-white dark:bg-card rounded-2xl shadow-lg border border-gray-100 dark:border-border overflow-hidden">
+      {/* Professional assessment illustration */}
+      <div className={`h-48 ${getGradientClass(assessment.type)} flex items-center justify-center`}>
+        <div className="text-center">
+          {getIcon(assessment.type)}
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-foreground mt-4">
+            {getIconLabel(assessment.type)}
+          </h3>
+        </div>
+      </div>
+      
+      <CardContent className="p-8">
+        <h3 className="text-2xl font-bold text-neutral-900 dark:text-foreground mb-4">
+          {assessment.name}
+        </h3>
+        <p className="text-neutral-500 dark:text-muted-foreground mb-6 leading-relaxed">
+          {assessment.description}
+        </p>
+        
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center text-sm text-neutral-500 dark:text-muted-foreground">
+            <Clock className="w-4 h-4 mr-2" />
+            <span>{assessment.duration}</span>
+          </div>
+          <div className="flex items-center text-sm text-neutral-500 dark:text-muted-foreground">
+            <Users className="w-4 h-4 mr-2" />
+            <span>{assessment.ageRange}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div className="text-3xl font-bold text-primary">
+            ${parseFloat(assessment.price).toFixed(2)}
+          </div>
+          {showAddToCart && (
+            <Button
+              onClick={handleAddToCart}
+              disabled={isInCart}
+              className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+                isInCart 
+                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                  : 'bg-secondary hover:bg-green-700 text-white'
+              }`}
+            >
+              {isInCart ? "In Cart" : "Add to Cart"}
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
