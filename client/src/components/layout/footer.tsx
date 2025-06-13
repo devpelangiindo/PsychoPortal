@@ -75,17 +75,17 @@ export default function Footer() {
             <ul className="space-y-2">
               <li>
                 <a href="#" className="text-neutral-400 hover:text-white transition-colors">
-                  Privacy Policy
+                  Kebijakan Privasi
                 </a>
               </li>
               <li>
                 <a href="#" className="text-neutral-400 hover:text-white transition-colors">
-                  Terms of Service
+                  Syarat Layanan
                 </a>
               </li>
               <li>
                 <a href="#" className="text-neutral-400 hover:text-white transition-colors">
-                  HIPAA Compliance
+                  Kepatuhan HIPAA
                 </a>
               </li>
             </ul>
@@ -94,7 +94,7 @@ export default function Footer() {
         
         <div className="border-t border-neutral-800 mt-12 pt-8 text-center">
           <p className="text-neutral-400">
-            &copy; 2024 PsyAssess Pro. All rights reserved.
+            &copy; 2024 Rumah Psikologi Indonesia. Seluruh hak cipta dilindungi.
           </p>
         </div>
       </div>

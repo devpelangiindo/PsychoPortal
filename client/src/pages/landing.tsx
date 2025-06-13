@@ -25,10 +25,10 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-neutral-900 dark:text-foreground mb-6">
-              Professional Psychological <span className="text-primary">Assessment</span> Platform
+              Platform <span className="text-primary">Asesmen</span> Psikologi Profesional
             </h1>
             <p className="text-xl text-neutral-500 dark:text-muted-foreground mb-8 max-w-3xl mx-auto">
-              Access scientifically validated psychological assessments including Sensory Profile and Learning Style Inventory. Pay-per-test model with secure payment processing.
+              Akses asesmen psikologi yang tervalidasi secara ilmiah termasuk Profil Sensoris dan Inventori Gaya Belajar. Model bayar per tes dengan proses pembayaran yang aman.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
@@ -36,14 +36,14 @@ export default function Landing() {
                 className="px-8 py-4 text-lg font-semibold"
                 onClick={handleGetStarted}
               >
-                Browse Assessments
+                Jelajahi Asesmen
               </Button>
               <Button 
                 variant="outline" 
                 size="lg" 
                 className="px-8 py-4 text-lg font-semibold border-2"
               >
-                Learn More
+                Pelajari Lebih Lanjut
               </Button>
             </div>
           </div>
@@ -55,10 +55,10 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
-              Available Assessments
+              Asesmen yang Tersedia
             </h2>
             <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-2xl mx-auto">
-              Choose from our professionally validated psychological assessment tools
+              Pilih dari alat asesmen psikologi yang telah divalidasi secara profesional
             </p>
           </div>
           
@@ -94,10 +94,10 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
-              How It Works
+              Cara Kerja
             </h2>
             <p className="text-lg text-neutral-500 dark:text-muted-foreground">
-              Simple, secure, and professional assessment process
+              Proses asesmen yang sederhana, aman, dan profesional
             </p>
           </div>
           
@@ -107,10 +107,10 @@ export default function Landing() {
                 <ShoppingCart className="w-8 h-8 text-primary" />
               </div>
               <h3 className="text-xl font-semibold text-neutral-900 dark:text-foreground mb-3">
-                1. Select Assessment
+                1. Pilih Asesmen
               </h3>
               <p className="text-neutral-500 dark:text-muted-foreground">
-                Choose from our validated psychological assessment tools
+                Pilih dari alat asesmen psikologi yang telah divalidasi
               </p>
             </div>
             
@@ -119,10 +119,10 @@ export default function Landing() {
                 <Lock className="w-8 h-8 text-secondary" />
               </div>
               <h3 className="text-xl font-semibold text-neutral-900 dark:text-foreground mb-3">
-                2. Secure Payment
+                2. Pembayaran Aman
               </h3>
               <p className="text-neutral-500 dark:text-muted-foreground">
-                Pay securely using Xendit payment gateway
+                Bayar dengan aman menggunakan gateway pembayaran Xendit
               </p>
             </div>
             
@@ -131,10 +131,10 @@ export default function Landing() {
                 <Brain className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-neutral-900 dark:text-foreground mb-3">
-                3. Take Assessment
+                3. Ikuti Asesmen
               </h3>
               <p className="text-neutral-500 dark:text-muted-foreground">
-                Complete the assessment at your own pace
+                Selesaikan asesmen sesuai dengan kecepatan Anda
               </p>
             </div>
             
