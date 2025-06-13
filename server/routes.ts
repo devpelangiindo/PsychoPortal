@@ -250,7 +250,7 @@ async function initializeAssessments() {
       await storage.createAssessment({
         name: "Inventori Gaya Belajar",
         description: "Mengidentifikasi preferensi belajar individu dan pendekatan pendidikan yang optimal. Menilai modalitas belajar visual, auditori, kinestetik, dan membaca/menulis.",
-        price: "39.99",
+        price: "200000",
         duration: "20-30 menit",
         ageRange: "Usia 12+",
         type: "learning",
