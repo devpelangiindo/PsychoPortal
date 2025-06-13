@@ -21,13 +21,15 @@ export default function Checkout() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'bank'>('card');
 
   // Get order ID from URL params
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
 
   const { data: order, isLoading, error } = useQuery<OrderWithItems>({
     queryKey: [`/api/orders/${orderId}`],
     enabled: !!orderId && isAuthenticated,
   });
+
+  console.log('Checkout page - orderId:', orderId, 'order:', order, 'isLoading:', isLoading);
 
   const paymentMutation = useMutation({
     mutationFn: async (paymentData: { orderId: number; paymentMethod: string }) => {

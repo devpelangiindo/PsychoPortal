@@ -22,12 +22,31 @@ export default function Cart() {
   const createOrderMutation = useMutation({
     mutationFn: async () => {
       const assessmentIds = items.map(item => item.id);
-      const response = await apiRequest("POST", "/api/orders", { assessmentIds });
-      return response.json();
+      const orderResponse = await apiRequest("POST", "/api/orders", { assessmentIds });
+      const order = await orderResponse.json();
+      
+      // Immediately process demo payment
+      console.log('Processing demo payment for order:', order.id);
+      const paymentResponse = await apiRequest("POST", "/api/payments/create", {
+        orderId: order.id,
+        paymentMethod: 'demo',
+      });
+      const paymentResult = await paymentResponse.json();
+      
+      return { order, payment: paymentResult };
     },
-    onSuccess: (order) => {
+    onSuccess: (result) => {
+      // Clear cart and invalidate cache to refresh user assessments
       clearCart();
-      setLocation(`/checkout?orderId=${order.id}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/user-assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      
+      toast({
+        title: "Pembayaran Demo Berhasil!",
+        description: "Asesmen Anda sekarang tersedia di dashboard.",
+        variant: "default",
+      });
+      setLocation("/dashboard");
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -191,7 +210,7 @@ export default function Cart() {
                     onClick={handleCheckout}
                     disabled={createOrderMutation.isPending}
                   >
-                    {createOrderMutation.isPending ? "Memproses..." : "Lanjut ke Checkout"}
+                    {createOrderMutation.isPending ? "Memproses Pembayaran Demo..." : "Bayar Sekarang (Demo)"}
                   </Button>
 
                   {!isAuthenticated && (
