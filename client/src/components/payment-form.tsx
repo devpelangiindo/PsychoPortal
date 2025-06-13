@@ -300,10 +300,10 @@ export default function PaymentForm({ paymentMethod, amount, onSubmit, isLoading
         <CardContent className="p-4">
           <div className="flex justify-between items-center">
             <span className="font-medium text-neutral-900 dark:text-foreground">
-              Total Amount
+              Total Pembayaran
             </span>
             <span className="text-2xl font-bold text-primary">
-              ${amount.toFixed(2)}
+              Rp {new Intl.NumberFormat('id-ID').format(amount)}
             </span>
           </div>
         </CardContent>

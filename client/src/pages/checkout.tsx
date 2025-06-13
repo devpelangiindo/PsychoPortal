@@ -136,13 +136,13 @@ export default function Checkout() {
         <div className="mb-8">
           <Button variant="ghost" onClick={() => setLocation("/cart")} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Cart
+            Kembali ke Keranjang
           </Button>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">
-            Secure Checkout
+            Checkout Aman
           </h1>
           <p className="text-neutral-500 dark:text-muted-foreground mt-2">
-            Complete your purchase to access your selected assessments
+            Selesaikan pembelian Anda untuk mengakses asesmen yang dipilih
           </p>
         </div>
 
@@ -151,7 +151,7 @@ export default function Checkout() {
           <div>
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
+                <CardTitle>Ringkasan Pesanan</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {order.orderItems.map((item) => (
@@ -174,7 +174,7 @@ export default function Checkout() {
                   <div className="flex justify-between items-center text-xl font-bold">
                     <span>Total</span>
                     <span className="text-primary">
-                      ${parseFloat(order.totalAmount).toFixed(2)}
+                      Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
                     </span>
                   </div>
                 </div>
@@ -185,20 +185,20 @@ export default function Checkout() {
             <Card>
               <CardContent className="p-6">
                 <h3 className="font-semibold text-neutral-900 dark:text-foreground mb-4">
-                  Secure Payment
+                  Pembayaran Aman
                 </h3>
                 <div className="space-y-2 text-sm text-neutral-500 dark:text-muted-foreground">
                   <div className="flex items-center">
                     <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    SSL Encrypted Transaction
+                    Transaksi Terenkripsi SSL
                   </div>
                   <div className="flex items-center">
                     <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Powered by Xendit
+                    Didukung oleh Xendit
                   </div>
                   <div className="flex items-center">
                     <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    HIPAA Compliant
+                    Kepatuhan HIPAA
                   </div>
                 </div>
               </CardContent>
