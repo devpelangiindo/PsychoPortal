@@ -205,17 +205,17 @@ export default function Dashboard() {
                       <div className="ml-4">
                         {userAssessment.status === 'available' && (
                           <Link href={`/assessment/${userAssessment.assessmentId}`}>
-                            <Button size="sm">Start</Button>
+                            <Button size="sm">Mulai Tes</Button>
                           </Link>
                         )}
                         {userAssessment.status === 'in_progress' && (
                           <Link href={`/assessment/${userAssessment.assessmentId}`}>
-                            <Button size="sm" variant="outline">Continue</Button>
+                            <Button size="sm" variant="outline">Lanjutkan</Button>
                           </Link>
                         )}
                         {userAssessment.status === 'completed' && (
                           <Button size="sm" variant="outline">
-                            View Report
+                            Lihat Laporan
                           </Button>
                         )}
                       </div>
@@ -260,7 +260,7 @@ export default function Dashboard() {
                         </div>
                         <p className="text-sm text-neutral-500 dark:text-muted-foreground">
                           {order.orderItems.length} item{order.orderItems.length !== 1 ? 's' : ''} • 
-                          ${parseFloat(order.totalAmount).toFixed(2)}
+                          Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
                         </p>
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
                           {new Date(order.createdAt!).toLocaleDateString()}

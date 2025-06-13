@@ -240,7 +240,7 @@ async function initializeAssessments() {
       await storage.createAssessment({
         name: "Asesmen Profil Sensoris",
         description: "Evaluasi komprehensif pola dan preferensi pemrosesan sensoris. Mengidentifikasi ambang batas sensoris individu dan respons perilaku di berbagai sistem sensoris.",
-        price: "49.99",
+        price: "400000",
         duration: "30-45 menit",
         ageRange: "Usia 3-65+",
         type: "sensory",

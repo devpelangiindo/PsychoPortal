@@ -38,8 +38,8 @@ export default function AssessmentDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/user-assessments/${assessmentId}`] });
       toast({
-        title: "Assessment Started",
-        description: "You can now begin taking the assessment.",
+        title: "Asesmen Dimulai",
+        description: "Anda sekarang dapat mulai mengikuti asesmen.",
       });
     },
     onError: (error) => {
@@ -71,8 +71,8 @@ export default function AssessmentDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/user-assessments/${assessmentId}`] });
       toast({
-        title: "Assessment Completed!",
-        description: "Your results have been saved and are being processed.",
+        title: "Asesmen Selesai!",
+        description: "Hasil Anda telah disimpan dan sedang diproses.",
       });
     },
     onError: (error) => {
@@ -260,7 +260,7 @@ export default function AssessmentDetail() {
         <div className="mb-8">
           <Button variant="ghost" onClick={() => window.history.back()} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            Kembali ke Dashboard
           </Button>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">
             {userAssessment.assessment.name}
@@ -273,7 +273,7 @@ export default function AssessmentDetail() {
         {userAssessment.status === 'available' && (
           <Card>
             <CardHeader>
-              <CardTitle>Ready to Begin</CardTitle>
+              <CardTitle>Siap untuk Memulai</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
