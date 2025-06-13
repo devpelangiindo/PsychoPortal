@@ -36,8 +36,8 @@ export default function Checkout() {
     },
     onSuccess: (result) => {
       toast({
-        title: "Payment Successful!",
-        description: "Your assessments are now available in your dashboard.",
+        title: "Pembayaran Berhasil!",
+        description: "Asesmen Anda sekarang tersedia di dashboard.",
         variant: "default",
       });
       setLocation("/dashboard");
@@ -45,8 +45,8 @@ export default function Checkout() {
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
+          title: "Tidak Diizinkan",
+          description: "Anda telah keluar. Masuk lagi...",
           variant: "destructive",
         });
         setTimeout(() => {
@@ -165,7 +165,7 @@ export default function Checkout() {
                       </p>
                     </div>
                     <div className="text-lg font-semibold text-neutral-900 dark:text-foreground ml-4">
-                      ${parseFloat(item.price).toFixed(2)}
+                      Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
                     </div>
                   </div>
                 ))}

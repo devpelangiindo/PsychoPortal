@@ -138,7 +138,7 @@ export default function Cart() {
                       </div>
                       <div className="text-right ml-6">
                         <div className="text-2xl font-bold text-primary mb-2">
-                          ${parseFloat(item.price).toFixed(2)}
+                          Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
                         </div>
                         <Button
                           variant="ghost"
@@ -170,7 +170,7 @@ export default function Cart() {
                           {item.name}
                         </span>
                         <span className="font-medium">
-                          ${parseFloat(item.price).toFixed(2)}
+                          Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
                         </span>
                       </div>
                     ))}
@@ -180,7 +180,7 @@ export default function Cart() {
                     <div className="flex justify-between text-lg font-semibold">
                       <span>Total</span>
                       <span className="text-primary">
-                        ${getTotalAmount().toFixed(2)}
+                        Rp {new Intl.NumberFormat('id-ID').format(getTotalAmount())}
                       </span>
                     </div>
                   </div>

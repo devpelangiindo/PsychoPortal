@@ -97,7 +97,7 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
         
         <div className="flex items-center justify-between">
           <div className="text-3xl font-bold text-primary">
-            ${parseFloat(assessment.price).toFixed(2)}
+            Rp {new Intl.NumberFormat('id-ID').format(parseFloat(assessment.price))}
           </div>
           {showAddToCart && (
             <Button
