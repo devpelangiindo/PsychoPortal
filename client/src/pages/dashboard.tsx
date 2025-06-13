@@ -121,7 +121,7 @@ export default function Dashboard() {
                 </h1>
                 <p className="opacity-90 mt-1">{user?.email}</p>
                 <p className="opacity-75 text-sm mt-2">
-                  Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recently'}
+                  Anggota sejak {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Baru-baru ini'}
                 </p>
               </div>
             </div>
@@ -136,7 +136,7 @@ export default function Dashboard() {
                 {availableAssessments.length}
               </div>
               <div className="text-neutral-500 dark:text-muted-foreground">
-                Available
+                Tersedia
               </div>
             </CardContent>
           </Card>
@@ -147,7 +147,7 @@ export default function Dashboard() {
                 {inProgressAssessments.length}
               </div>
               <div className="text-neutral-500 dark:text-muted-foreground">
-                In Progress
+                Sedang Berlangsung
               </div>
             </CardContent>
           </Card>
@@ -158,7 +158,7 @@ export default function Dashboard() {
                 {completedAssessments.length}
               </div>
               <div className="text-neutral-500 dark:text-muted-foreground">
-                Completed
+                Selesai
               </div>
             </CardContent>
           </Card>
@@ -169,7 +169,7 @@ export default function Dashboard() {
                 {orders?.filter(o => o.status === 'completed').length || 0}
               </div>
               <div className="text-neutral-500 dark:text-muted-foreground">
-                Orders
+                Pesanan
               </div>
             </CardContent>
           </Card>
