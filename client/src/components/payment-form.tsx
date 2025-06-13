@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shield, CreditCard, Building } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Shield, CreditCard, Building, InfoIcon } from "lucide-react";
 
 interface PaymentFormProps {
   paymentMethod: 'card' | 'bank';
@@ -101,6 +102,15 @@ export default function PaymentForm({ paymentMethod, amount, onSubmit, isLoading
 
   return (
     <div className="space-y-6">
+      {/* Demo Mode Notice */}
+      <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+        <InfoIcon className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800 dark:text-blue-200">
+          <strong>Mode Demo:</strong> Ini adalah transaksi simulasi. Tidak ada uang yang akan ditagih.
+          Gunakan nomor kartu test: 4242 4242 4242 4242
+        </AlertDescription>
+      </Alert>
+
       {/* Security Notice */}
       <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
         <div className="flex items-center space-x-2 text-green-800 dark:text-green-200">

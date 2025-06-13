@@ -77,14 +77,22 @@ export interface XenditBankTransferPaymentMethod {
 export class XenditClient {
   private apiKey: string;
   private baseUrl: string;
+  private isDemoMode: boolean;
 
   constructor() {
     // In production, get this from environment variables
     this.apiKey = import.meta.env.VITE_XENDIT_API_KEY || process.env.XENDIT_API_KEY || '';
     this.baseUrl = import.meta.env.VITE_XENDIT_BASE_URL || 'https://api.xendit.co';
+    // Enable demo mode if no API key is provided or explicitly set
+    this.isDemoMode = !this.apiKey || import.meta.env.VITE_DEMO_MODE === 'true';
   }
 
   private async makeRequest(endpoint: string, options: RequestInit = {}) {
+    // In demo mode, return mock responses instead of making real API calls
+    if (this.isDemoMode) {
+      return this.getMockResponse(endpoint, options);
+    }
+
     const url = `${this.baseUrl}${endpoint}`;
     
     const defaultHeaders = {
@@ -106,6 +114,59 @@ export class XenditClient {
     }
 
     return response.json();
+  }
+
+  private getMockResponse(endpoint: string, options: RequestInit = {}) {
+    // Simulate API delay
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (endpoint === '/payment_methods' && options.method === 'POST') {
+          resolve({
+            id: `pm_demo_${Date.now()}`,
+            type: 'CARD',
+            status: 'ACTIVE',
+            card: {
+              last4: '4242',
+              brand: 'VISA'
+            }
+          });
+        } else if (endpoint === '/payments' && options.method === 'POST') {
+          resolve({
+            id: `payment_demo_${Date.now()}`,
+            status: 'SUCCEEDED',
+            amount: JSON.parse(options.body as string).amount,
+            currency: 'IDR',
+            payment_method: {
+              id: `pm_demo_${Date.now()}`,
+              type: 'CARD',
+              card: {
+                last4: '4242',
+                brand: 'VISA'
+              }
+            },
+            created: new Date().toISOString(),
+            updated: new Date().toISOString()
+          });
+        } else if (endpoint.startsWith('/payments/') && options.method === 'GET') {
+          resolve({
+            id: endpoint.split('/')[2],
+            status: 'SUCCEEDED',
+            amount: 400000,
+            currency: 'IDR',
+            payment_method: {
+              id: `pm_demo_${Date.now()}`,
+              type: 'CARD',
+              card: {
+                last4: '4242',
+                brand: 'VISA'
+              }
+            },
+            created: new Date().toISOString(),
+            updated: new Date().toISOString()
+          });
+        }
+      }, 1000); // 1 second delay to simulate real API
+    });
   }
 
   async createPaymentMethod(
