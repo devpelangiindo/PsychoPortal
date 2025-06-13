@@ -153,13 +153,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateOrderStatus(orderId, 'completed', paymentId, 'demo_paid');
 
       // Create user assessments for completed order
+      console.log(`Creating user assessments for order ${orderId}, user ${order.userId}`);
       for (const item of order.orderItems) {
-        await storage.createUserAssessment({
+        console.log(`Creating user assessment for assessment ${item.assessmentId}`);
+        const userAssessment = await storage.createUserAssessment({
           userId: order.userId,
           assessmentId: item.assessmentId,
           orderId: order.id,
           status: 'available',
         });
+        console.log(`Created user assessment:`, userAssessment);
       }
 
       res.json({
@@ -177,7 +180,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/user-assessments', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log(`Fetching user assessments for user: ${userId}`);
       const userAssessments = await storage.getUserAssessments(userId);
+      console.log(`Found ${userAssessments.length} user assessments:`, userAssessments);
       res.json(userAssessments);
     } catch (error) {
       console.error("Error fetching user assessments:", error);

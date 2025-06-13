@@ -8,7 +8,7 @@ import { ArrowLeft, CreditCard, Building, InfoIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import PaymentForm from "@/components/payment-form";
@@ -35,6 +35,10 @@ export default function Checkout() {
       return response.json();
     },
     onSuccess: (result) => {
+      // Invalidate cache to refresh user assessments
+      queryClient.invalidateQueries({ queryKey: ["/api/user-assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      
       toast({
         title: "Pembayaran Berhasil!",
         description: "Asesmen Anda sekarang tersedia di dashboard.",
