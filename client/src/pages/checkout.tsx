@@ -31,8 +31,11 @@ export default function Checkout() {
 
   const paymentMutation = useMutation({
     mutationFn: async (paymentData: { orderId: number; paymentMethod: string }) => {
+      console.log('Sending payment request:', paymentData);
       const response = await apiRequest("POST", "/api/payments/create", paymentData);
-      return response.json();
+      const result = await response.json();
+      console.log('Payment response:', result);
+      return result;
     },
     onSuccess: (result) => {
       // Invalidate cache to refresh user assessments
