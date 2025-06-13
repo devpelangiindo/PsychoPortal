@@ -30,7 +30,7 @@ export default function Header() {
             <div className="flex items-center">
               <Link href="/">
                 <h1 className="text-2xl font-bold text-primary cursor-pointer">
-                  PsyAssess Pro
+                  Rumah Psikologi Indonesia
                 </h1>
               </Link>
               
@@ -38,12 +38,12 @@ export default function Header() {
               <nav className="hidden md:ml-8 md:flex space-x-8">
                 <Link href="/">
                   <a className="text-neutral-900 dark:text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
-                    Home
+                    Beranda
                   </a>
                 </Link>
                 <Link href="/assessments">
                   <a className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
-                    Assessments
+                    Asesmen
                   </a>
                 </Link>
                 {isAuthenticated && (
@@ -93,12 +93,12 @@ export default function Header() {
                     </span>
                   </div>
                   <Button variant="outline" size="sm" onClick={handleSignOut}>
-                    Sign Out
+                    Keluar
                   </Button>
                 </div>
               ) : (
                 <Button onClick={handleSignIn} size="sm">
-                  Sign In
+                  Masuk
                 </Button>
               )}
             </div>
@@ -132,12 +132,12 @@ export default function Header() {
               <nav className="py-4 space-y-2">
                 <Link href="/">
                   <a className="block px-3 py-2 text-neutral-900 dark:text-foreground hover:text-primary font-medium transition-colors">
-                    Home
+                    Beranda
                   </a>
                 </Link>
                 <Link href="/assessments">
                   <a className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
-                    Assessments
+                    Asesmen
                   </a>
                 </Link>
                 {isAuthenticated && (
@@ -172,13 +172,13 @@ export default function Header() {
                         </span>
                       </div>
                       <Button variant="outline" size="sm" onClick={handleSignOut} className="w-full">
-                        Sign Out
+                        Keluar
                       </Button>
                     </div>
                   ) : (
                     <div className="px-3 py-2">
                       <Button onClick={handleSignIn} size="sm" className="w-full">
-                        Sign In
+                        Masuk
                       </Button>
                     </div>
                   )}

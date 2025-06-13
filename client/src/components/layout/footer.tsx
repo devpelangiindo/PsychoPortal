@@ -7,9 +7,9 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-2xl font-bold mb-4">PsyAssess Pro</h3>
+            <h3 className="text-2xl font-bold mb-4">Rumah Psikologi Indonesia</h3>
             <p className="text-neutral-400 mb-4">
-              Professional psychological assessment platform for modern practitioners and researchers.
+              Platform asesmen psikologi profesional untuk praktisi dan peneliti modern.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-neutral-400 hover:text-white transition-colors">
@@ -25,46 +25,46 @@ export default function Footer() {
           </div>
           
           <div>
-            <h4 className="text-lg font-semibold mb-4">Assessments</h4>
+            <h4 className="text-lg font-semibold mb-4">Asesmen</h4>
             <ul className="space-y-2">
               <li>
                 <Link href="/assessments">
                   <a className="text-neutral-400 hover:text-white transition-colors">
-                    Sensory Profile
+                    Profil Sensoris
                   </a>
                 </Link>
               </li>
               <li>
                 <Link href="/assessments">
                   <a className="text-neutral-400 hover:text-white transition-colors">
-                    Learning Style Inventory
+                    Inventori Gaya Belajar
                   </a>
                 </Link>
               </li>
               <li>
                 <a href="#" className="text-neutral-400 hover:text-white transition-colors">
-                  Custom Assessments
+                  Asesmen Kustom
                 </a>
               </li>
             </ul>
           </div>
           
           <div>
-            <h4 className="text-lg font-semibold mb-4">Support</h4>
+            <h4 className="text-lg font-semibold mb-4">Bantuan</h4>
             <ul className="space-y-2">
               <li>
                 <a href="#" className="text-neutral-400 hover:text-white transition-colors">
-                  Help Center
+                  Pusat Bantuan
                 </a>
               </li>
               <li>
                 <a href="#" className="text-neutral-400 hover:text-white transition-colors">
-                  Contact Us
+                  Hubungi Kami
                 </a>
               </li>
               <li>
                 <a href="#" className="text-neutral-400 hover:text-white transition-colors">
-                  Technical Support
+                  Dukungan Teknis
                 </a>
               </li>
             </ul>
