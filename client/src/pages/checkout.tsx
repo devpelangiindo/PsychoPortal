@@ -253,13 +253,44 @@ export default function Checkout() {
                   </button>
                 </div>
 
-                {/* Payment Form Component */}
-                <PaymentForm
-                  paymentMethod={selectedPaymentMethod}
-                  amount={parseFloat(order.totalAmount)}
-                  onSubmit={handlePayment}
-                  isLoading={paymentMutation.isPending}
-                />
+                {/* Simple Demo Payment Button */}
+                <div className="space-y-6">
+                  <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+                    <InfoIcon className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800 dark:text-blue-200">
+                      <strong>Mode Demo:</strong> Klik tombol di bawah untuk mensimulasi pembayaran. 
+                      Tidak ada uang sungguhan yang akan ditagih.
+                    </AlertDescription>
+                  </Alert>
+
+                  <Card className="bg-neutral-50 dark:bg-muted/20">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="font-medium text-neutral-900 dark:text-foreground">
+                          Total Pembayaran
+                        </span>
+                        <span className="text-2xl font-bold text-primary">
+                          Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
+                        </span>
+                      </div>
+                      
+                      <Button
+                        onClick={handlePayment}
+                        disabled={paymentMutation.isPending}
+                        className="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors text-lg"
+                      >
+                        {paymentMutation.isPending ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Memproses Pembayaran...</span>
+                          </div>
+                        ) : (
+                          `Bayar Sekarang - Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}`
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
               </CardContent>
             </Card>
           </div>
