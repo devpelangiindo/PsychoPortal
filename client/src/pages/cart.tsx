@@ -32,8 +32,8 @@ export default function Cart() {
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
+          title: "Tidak Diizinkan",
+          description: "Anda telah keluar. Masuk lagi...",
           variant: "destructive",
         });
         setTimeout(() => {
@@ -43,7 +43,7 @@ export default function Cart() {
       }
       toast({
         title: "Error",
-        description: "Failed to create order. Please try again.",
+        description: "Gagal membuat pesanan. Silakan coba lagi.",
         variant: "destructive",
       });
     },
@@ -52,8 +52,8 @@ export default function Cart() {
   const handleCheckout = () => {
     if (!isAuthenticated) {
       toast({
-        title: "Please sign in",
-        description: "You need to sign in to proceed with checkout",
+        title: "Silakan masuk",
+        description: "Anda perlu masuk untuk melanjutkan checkout",
         variant: "destructive",
       });
       setTimeout(() => {
@@ -93,11 +93,11 @@ export default function Cart() {
           <Link href="/assessments">
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Continue Shopping
+              Lanjutkan Berbelanja
             </Button>
           </Link>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">
-            Shopping Cart
+            Keranjang Belanja
           </h1>
         </div>
 

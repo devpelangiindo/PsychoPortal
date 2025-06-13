@@ -109,7 +109,7 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
                   : 'bg-secondary hover:bg-green-700 text-white'
               }`}
             >
-              {isInCart ? "In Cart" : "Add to Cart"}
+              {isInCart ? "Di Keranjang" : "Tambah ke Keranjang"}
             </Button>
           )}
         </div>

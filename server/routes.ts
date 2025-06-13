@@ -238,26 +238,26 @@ async function initializeAssessments() {
     if (existingAssessments.length === 0) {
       // Create default assessments
       await storage.createAssessment({
-        name: "Sensory Profile Assessment",
-        description: "Comprehensive evaluation of sensory processing patterns and preferences. Identifies individual sensory thresholds and behavioral responses across multiple sensory systems.",
+        name: "Asesmen Profil Sensoris",
+        description: "Evaluasi komprehensif pola dan preferensi pemrosesan sensoris. Mengidentifikasi ambang batas sensoris individu dan respons perilaku di berbagai sistem sensoris.",
         price: "49.99",
-        duration: "30-45 minutes",
-        ageRange: "Ages 3-65+",
+        duration: "30-45 menit",
+        ageRange: "Usia 3-65+",
         type: "sensory",
         isActive: true,
       });
 
       await storage.createAssessment({
-        name: "Learning Style Inventory",
-        description: "Identifies individual learning preferences and optimal educational approaches. Assesses visual, auditory, kinesthetic, and reading/writing learning modalities.",
+        name: "Inventori Gaya Belajar",
+        description: "Mengidentifikasi preferensi belajar individu dan pendekatan pendidikan yang optimal. Menilai modalitas belajar visual, auditori, kinestetik, dan membaca/menulis.",
         price: "39.99",
-        duration: "20-30 minutes",
-        ageRange: "Ages 12+",
+        duration: "20-30 menit",
+        ageRange: "Usia 12+",
         type: "learning",
         isActive: true,
       });
 
-      console.log("Default assessments created successfully");
+      console.log("Asesmen default berhasil dibuat");
     }
   } catch (error) {
     console.error("Error initializing assessments:", error);
