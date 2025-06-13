@@ -138,6 +138,16 @@ export default function Checkout() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Kembali ke Keranjang
           </Button>
+          
+          {/* Demo Mode Banner */}
+          <Alert className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+            <InfoIcon className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              <strong>Mode Demo:</strong> Sistem pembayaran ini adalah simulasi untuk testing. 
+              Tidak ada transaksi uang sungguhan yang akan diproses.
+            </AlertDescription>
+          </Alert>
+          
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">
             Checkout Aman
           </h1>

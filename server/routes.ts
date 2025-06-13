@@ -146,12 +146,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Xendit payment creation would go here
-      // For now, we'll simulate a successful payment
-      const paymentId = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Demo payment simulation - no real money is charged
+      const paymentId = `demo_payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Update order with payment info
-      await storage.updateOrderStatus(orderId, 'completed', paymentId, 'paid');
+      // Update order with demo payment info
+      await storage.updateOrderStatus(orderId, 'completed', paymentId, 'demo_paid');
 
       // Create user assessments for completed order
       for (const item of order.orderItems) {
