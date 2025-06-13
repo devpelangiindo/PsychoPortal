@@ -204,12 +204,16 @@ export default function Dashboard() {
                       </div>
                       <div className="ml-4">
                         {userAssessment.status === 'available' && (
-                          <Link href={`/assessment/${userAssessment.assessmentId}`}>
+                          <Link href={userAssessment.assessment.type === 'sensory' 
+                            ? `/sensory-profile/${userAssessment.assessmentId}` 
+                            : `/assessment/${userAssessment.assessmentId}`}>
                             <Button size="sm">Mulai Tes</Button>
                           </Link>
                         )}
                         {userAssessment.status === 'in_progress' && (
-                          <Link href={`/assessment/${userAssessment.assessmentId}`}>
+                          <Link href={userAssessment.assessment.type === 'sensory' 
+                            ? `/sensory-profile/${userAssessment.assessmentId}` 
+                            : `/assessment/${userAssessment.assessmentId}`}>
                             <Button size="sm" variant="outline">Lanjutkan</Button>
                           </Link>
                         )}

@@ -11,6 +11,7 @@ import Cart from "@/pages/cart";
 import Checkout from "@/pages/checkout";
 import Dashboard from "@/pages/dashboard";
 import AssessmentDetail from "@/pages/assessment/[id]";
+import SensoryProfile from "@/pages/sensory-profile";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -31,6 +32,7 @@ function Router() {
           <Route path="/checkout" component={Checkout} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/assessment/:id" component={AssessmentDetail} />
+          <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
         </>
       )}
       <Route component={NotFound} />
