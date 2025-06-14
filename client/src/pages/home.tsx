@@ -136,7 +136,7 @@ export default function Home() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                Completed Assessments
+                Asesmen Selesai
                 <span className="bg-accent text-white text-sm px-3 py-1 rounded-full">
                   {completedAssessments.length}
                 </span>
@@ -155,7 +155,7 @@ export default function Home() {
               ) : completedAssessments.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-neutral-500 dark:text-muted-foreground">
-                    No completed assessments yet
+                    Belum ada asesmen yang selesai
                   </p>
                 </div>
               ) : (
@@ -167,11 +167,11 @@ export default function Home() {
                           {userAssessment.assessment.name}
                         </div>
                         <div className="text-sm text-neutral-500 dark:text-muted-foreground">
-                          Completed {userAssessment.completedAt ? new Date(userAssessment.completedAt).toLocaleDateString() : 'Recently'}
+                          Selesai {userAssessment.completedAt ? new Date(userAssessment.completedAt).toLocaleDateString('id-ID') : 'Baru-baru ini'}
                         </div>
                       </div>
                       <Button variant="outline" size="sm">
-                        View Report
+                        Lihat Laporan
                       </Button>
                     </div>
                   ))}
@@ -185,12 +185,12 @@ export default function Home() {
         <div className="mt-12 flex flex-wrap gap-4 justify-center">
           <Link href="/assessments">
             <Button variant="outline" size="lg">
-              Browse More Assessments
+              Lihat Asesmen Lainnya
             </Button>
           </Link>
           <Link href="/dashboard">
             <Button variant="outline" size="lg">
-              View Full Dashboard
+              Lihat Dashboard Lengkap
             </Button>
           </Link>
         </div>

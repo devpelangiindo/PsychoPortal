@@ -57,11 +57,11 @@ export default function Dashboard() {
   const getOrderStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="default">Completed</Badge>;
+        return <Badge variant="default">Selesai</Badge>;
       case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
+        return <Badge variant="secondary">Menunggu</Badge>;
       case 'cancelled':
-        return <Badge variant="destructive">Cancelled</Badge>;
+        return <Badge variant="destructive">Dibatalkan</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -179,7 +179,7 @@ export default function Dashboard() {
           {/* My Assessments */}
           <Card>
             <CardHeader>
-              <CardTitle>My Assessments</CardTitle>
+              <CardTitle>Asesmen Saya</CardTitle>
             </CardHeader>
             <CardContent>
               {userAssessments && userAssessments.length > 0 ? (
@@ -198,7 +198,7 @@ export default function Dashboard() {
                         </p>
                         {userAssessment.completedAt && (
                           <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
-                            Completed {new Date(userAssessment.completedAt).toLocaleDateString()}
+                            Selesai {new Date(userAssessment.completedAt).toLocaleDateString('id-ID')}
                           </p>
                         )}
                       </div>
@@ -239,10 +239,10 @@ export default function Dashboard() {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-neutral-500 dark:text-muted-foreground mb-4">
-                    No assessments purchased yet
+                    Belum ada asesmen yang dibeli
                   </p>
                   <Link href="/assessments">
-                    <Button>Browse Assessments</Button>
+                    <Button>Lihat Asesmen</Button>
                   </Link>
                 </div>
               )}
@@ -252,7 +252,7 @@ export default function Dashboard() {
           {/* Order History */}
           <Card>
             <CardHeader>
-              <CardTitle>Order History</CardTitle>
+              <CardTitle>Riwayat Pesanan</CardTitle>
             </CardHeader>
             <CardContent>
               {ordersLoading ? (
