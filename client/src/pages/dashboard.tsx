@@ -268,16 +268,16 @@ export default function Dashboard() {
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="font-medium text-neutral-900 dark:text-foreground">
-                            Order #{order.id}
+                            Pesanan #{order.id}
                           </h3>
                           {getOrderStatusBadge(order.status)}
                         </div>
                         <p className="text-sm text-neutral-500 dark:text-muted-foreground">
-                          {order.orderItems.length} item{order.orderItems.length !== 1 ? 's' : ''} • 
+                          {order.orderItems.length} item • 
                           Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
                         </p>
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
-                          {new Date(order.createdAt!).toLocaleDateString()}
+                          {new Date(order.createdAt!).toLocaleDateString('id-ID')}
                         </p>
                       </div>
                     </div>
@@ -286,7 +286,7 @@ export default function Dashboard() {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-neutral-500 dark:text-muted-foreground">
-                    No orders yet
+                    Belum ada pesanan
                   </p>
                 </div>
               )}
