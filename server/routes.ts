@@ -207,6 +207,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/user-assessments/result/:userAssessmentId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userAssessmentId = parseInt(req.params.userAssessmentId);
+      
+      const userAssessments = await storage.getUserAssessments(userId);
+      const userAssessment = userAssessments.find(ua => ua.id === userAssessmentId);
+      
+      if (!userAssessment) {
+        return res.status(404).json({ message: "Assessment result not found or access denied" });
+      }
+
+      res.json(userAssessment);
+    } catch (error) {
+      console.error("Error fetching user assessment result:", error);
+      res.status(500).json({ message: "Failed to fetch assessment result" });
+    }
+  });
+
   app.post('/api/user-assessments/:id/start', isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);

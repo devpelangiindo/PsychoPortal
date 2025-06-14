@@ -14,15 +14,15 @@ import type { UserAssessmentWithDetails } from "@shared/schema";
 
 export default function AssessmentResults() {
   const { isAuthenticated } = useAuth();
-  const [, params] = useRoute("/results/:assessmentId");
+  const [, params] = useRoute("/results/:userAssessmentId");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const assessmentId = params?.assessmentId ? parseInt(params.assessmentId) : null;
+  const userAssessmentId = params?.userAssessmentId ? parseInt(params.userAssessmentId) : null;
 
   const { data: userAssessment, isLoading } = useQuery<UserAssessmentWithDetails>({
-    queryKey: [`/api/user-assessments/${assessmentId}`],
-    enabled: !!assessmentId && isAuthenticated,
+    queryKey: [`/api/user-assessments/result/${userAssessmentId}`],
+    enabled: !!userAssessmentId && isAuthenticated,
   });
 
   useEffect(() => {
