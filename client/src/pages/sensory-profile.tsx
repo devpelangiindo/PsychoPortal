@@ -68,10 +68,193 @@ const sections: Section[] = [
       { id: 10, text: 'Menyatakan ketidaknyamanan dengan cahaya atau menghindari cahaya terang (misalnya: bersembunyi dari sinar matahari melalui jendela di dalam mobil)', threshold: 'L' },
       { id: 11, text: 'Senang berada dalam kegelapan', threshold: 'L' },
       { id: 12, text: 'Menjadi frustrasi saat mencoba menemukan objek/benda di latar belakang yang \'kacau\' (misalnya: laci yang berantakan)', threshold: 'L' },
-      { id: 13, text: 'Memiliki kesulitan menyusun puzzle bersama (dibandingkan dengan anak-anak seusianya)', threshold: 'L' }
+      { id: 13, text: 'Memiliki kesulitan menyusun puzzle bersama (dibandingkan dengan anak-anak seusianya)', threshold: 'L' },
+      { id: 14, text: 'Menghindari kontak mata atau memiliki kesulitan dengan kontak mata', threshold: 'L' },
+      { id: 15, text: 'Memandang orang atau objek dari sudut matanya (tidak menatap langsung)', threshold: 'L' },
+      { id: 16, text: 'Memandang objek dengan teliti atau dari jarak dekat', threshold: 'H' },
+      { id: 17, text: 'Menyukai lampu terang atau sinar matahari', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'C',
+    title: 'C. Pemrosesan Vestibular',
+    questions: [
+      { id: 18, text: 'Menjadi cemas atau kesulitan saat kaki terangkat dari tanah', threshold: 'L' },
+      { id: 19, text: 'Tidak menyukai aktivitas dimana kepala tidak tegak lurus atau terbalik', threshold: 'L' },
+      { id: 20, text: 'Menghindari perosotan atau peralatan taman bermain lainnya', threshold: 'L' },
+      { id: 21, text: 'Tidak menyukai naik escalator atau elevator', threshold: 'L' },
+      { id: 22, text: 'Menghindari permainan yang tidak dapat diprediksi atau tidak terkendali', threshold: 'L' },
+      { id: 23, text: 'Tidak suka berputar-putar atau akan menjadi pusing dengan mudah', threshold: 'L' },
+      { id: 24, text: 'Mencari semua jenis gerakan dan ini mengganggu aktivitas sehari-hari (misalnya: tidak dapat duduk diam)', threshold: 'H' },
+      { id: 25, text: 'Menikmati gerakan yang intens (misalnya: carnival rides, berputar-putar)', threshold: 'H' },
+      { id: 26, text: 'Suka dilempar ke udara', threshold: 'H' },
+      { id: 27, text: 'Melompat-lompat di permukaan empuk', threshold: 'H' },
+      { id: 28, text: 'Suka berputar-putar dan jarang merasa pusing', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'D',
+    title: 'D. Pemrosesan Sentuhan',
+    questions: [
+      { id: 29, text: 'Menghindari bertelanjang kaki, terutama di pasir atau rumput', threshold: 'L' },
+      { id: 30, text: 'Kesulitan dengan aktivitas perawatan diri (misalnya: pemotongan kuku, menyikat gigi, menyisir rambut)', threshold: 'L' },
+      { id: 31, text: 'Menghindari bermain dengan finger paint, lem, atau bahan yang lengket', threshold: 'L' },
+      { id: 32, text: 'Menghindari/tidak menyukai makanan yang berantakan', threshold: 'L' },
+      { id: 33, text: 'Tidak suka disentuh oleh orang lain', threshold: 'L' },
+      { id: 34, text: 'Tidak suka memiliki wajah yang kotor', threshold: 'L' },
+      { id: 35, text: 'Tidak menyukai aktivitas dimana tangannya menjadi kotor', threshold: 'L' },
+      { id: 36, text: 'Suka menyentuh orang dan objek', threshold: 'H' },
+      { id: 37, text: 'Menyentuh permukaan atau tekstur yang menimbulkan respon dari orang lain (misalnya: meraba tempat yang kotor)', threshold: 'H' },
+      { id: 38, text: 'Terlibat dalam perilaku yang melukai diri sendiri', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'E',
+    title: 'E. Pemrosesan Multisensory',
+    questions: [
+      { id: 39, text: 'Menjadi bingung dalam lingkungan yang tidak dikenal', threshold: 'L' },
+      { id: 40, text: 'Terganggu oleh suara keras, cahaya terang, atau bau yang tidak dikenal', threshold: 'L' },
+      { id: 41, text: 'Kesulitan fokus di lingkungan yang sibuk', threshold: 'L' },
+      { id: 42, text: 'Mencari input sensoris dengan menggabungkan banyak sensori', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'F',
+    title: 'F. Pemrosesan Oral Sensory',
+    questions: [
+      { id: 43, text: 'Memilih makanan berdasarkan tekstur tertentu', threshold: 'L' },
+      { id: 44, text: 'Membatasi diri pada tekstur makanan tertentu/memiliki pola makan yang terbatas', threshold: 'L' },
+      { id: 45, text: 'Menghindari makanan tertentu karena baunya', threshold: 'L' },
+      { id: 46, text: 'Hanya akan makan makanan bersuhu tertentu', threshold: 'L' },
+      { id: 47, text: 'Pilih-pilih makanan, terutama yang berkaitan dengan tekstur makanan', threshold: 'L' },
+      { id: 48, text: 'Memiliki kesulitan menelan', threshold: 'L' },
+      { id: 49, text: 'Memasukkan objek ke dalam mulut (misalnya: tangan, mainan, baju)', threshold: 'H' },
+      { id: 50, text: 'Mengunyah atau mengisap pakaian atau objek lainnya', threshold: 'H' },
+      { id: 51, text: 'Mengeksplorasi objek dengan memasukkannya ke dalam mulut', threshold: 'H' },
+      { id: 52, text: 'Suka makanan yang sangat pedas', threshold: 'H' },
+      { id: 53, text: 'Suka makanan dengan tekstur yang intens (misalnya: sangat renyah, kenyal, dll)', threshold: 'H' },
+      { id: 54, text: 'Menggertakkan atau menggeretakkan gigi', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'G',
+    title: 'G. Pemrosesan Perencanaan Gerakan',
+    questions: [
+      { id: 55, text: 'Memiliki kesulitan dengan keterampilan motorik kasar yang membutuhkan koordinasi', threshold: 'L' },
+      { id: 56, text: 'Memiliki kesulitan mengendarai sepeda', threshold: 'L' },
+      { id: 57, text: 'Memiliki kesulitan dengan keterampilan motorik halus (misalnya: menggunakan pensil, gunting)', threshold: 'L' },
+      { id: 58, text: 'Memiliki kesulitan motorik dalam aktivitas baru sampai belajar mereka', threshold: 'L' },
+      { id: 59, text: 'Klak atau tersandung saat berjalan', threshold: 'L' },
+      { id: 60, text: 'Memiliki keseimbangan yang buruk', threshold: 'L' },
+      { id: 61, text: 'Takut jatuh atau berada di ketinggian', threshold: 'L' },
+      { id: 62, text: 'Tidak aman secara fisik; sering terluka', threshold: 'H' },
+      { id: 63, text: 'Mengambil risiko fisik yang tidak perlu selama bermain', threshold: 'H' },
+      { id: 64, text: 'Tampaknya tidak menyadari saat terluka', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'H',
+    title: 'H. Pemrosesan Energi Tubuh',
+    questions: [
+      { id: 65, text: 'Memiliki tingkat aktivitas yang rendah', threshold: 'L' },
+      { id: 66, text: 'Lelah dengan mudah, terutama saat berdiri atau memegang posisi tertentu', threshold: 'L' },
+      { id: 67, text: 'Memiliki tonus otot yang lemah', threshold: 'L' },
+      { id: 68, text: 'Menyandarkan tubuh pada orang, furnitur, dinding (yaitu cari dukungan)', threshold: 'L' },
+      { id: 69, text: 'Memiliki "limp" handshake', threshold: 'L' },
+      { id: 70, text: 'Memiliki kesulitan membuka botol, kaleng, atau kemasan', threshold: 'L' },
+      { id: 71, text: 'Memiliki kesulitan mengangkat objek berat', threshold: 'L' },
+      { id: 72, text: 'Suka tekanan berat (misalnya: selimut berat, beban berat)', threshold: 'H' },
+      { id: 73, text: 'Suka pakaian ketat', threshold: 'H' },
+      { id: 74, text: 'Suka "bear hugs" atau dipeluk kuat', threshold: 'H' },
+      { id: 75, text: 'Suka sandwich diantara bantal atau furnitur', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'I',
+    title: 'I. Modulasi Sensory Processing yang Berkaitan dengan Tonus Tubuh dan Endurance',
+    questions: [
+      { id: 76, text: 'Menunjukkan fluktuasi dalam tingkat waspada/responsivitas sepanjang hari', threshold: 'L' },
+      { id: 77, text: 'Memiliki kesulitan untuk "memulai"', threshold: 'L' },
+      { id: 78, text: 'Tampak lelah; memiliki energi yang sedikit', threshold: 'L' },
+      { id: 79, text: 'Mempengaruhi emosional; sering tampak khawatir', threshold: 'L' },
+      { id: 80, text: 'Memiliki tingkat aktivitas yang tinggi', threshold: 'H' },
+      { id: 81, text: 'Selalu bergerak', threshold: 'H' },
+      { id: 82, text: 'Tampak tidak pernah lelah', threshold: 'H' },
+      { id: 83, text: 'Impulsif; kurang menunjukkan restraint', threshold: 'H' },
+      { id: 84, text: 'Tidak dapat berhenti dirinya untuk berbicara atau bergerak', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'J',
+    title: 'J. Modulasi Gerakan yang Mempengaruhi Tingkat Aktivitas',
+    questions: [
+      { id: 85, text: 'Lambat untuk merespon', threshold: 'L' },
+      { id: 86, text: 'Berhati-hati dengan gerakan atau bermain', threshold: 'L' },
+      { id: 87, text: 'Mencari gerakan yang menenangkan (misalnya: goyang, memantul)', threshold: 'H' },
+      { id: 88, text: 'Mencari gerakan yang memutar atau berputar', threshold: 'H' },
+      { id: 89, text: 'Menikmati, atau mencari, gerakan yang cepat, intens, atau berputar', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'K',
+    title: 'K. Modulasi Input Sensoris yang Mempengaruhi Respon Emosional',
+    questions: [
+      { id: 90, text: 'Memiliki outburst emosional saat terlibat dalam aktivitas sehari-hari', threshold: 'L' },
+      { id: 91, text: 'Memperlihatkan ekstrim distress emosional selama aktivitas perawatan sehari-hari', threshold: 'L' },
+      { id: 92, text: 'Memerlukan perlindungan dari stimulasi sehari-hari', threshold: 'L' },
+      { id: 93, text: 'Menangis dengan mudah', threshold: 'L' },
+      { id: 94, text: 'Tidak merespon atau kurang merespon terhadap rangsangan yang menyakitkan (misalnya: suntikan, jatuh)', threshold: 'H' },
+      { id: 95, text: 'Tidak merespon nama saat dipanggil tetapi pendengaran OK', threshold: 'H' },
+      { id: 96, text: 'Tampak tidak sadar akan tangan atau kaki disentuh atau dipindahkan oleh orang lain', threshold: 'H' },
+      { id: 97, text: 'Menunjukkan tidak ada reaksi terhadap suhu ekstrem', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'L',
+    title: 'L. Modulasi Input Visual yang Mempengaruhi Respon Emosional dan Tingkat Aktivitas',
+    questions: [
+      { id: 98, text: 'Bereaksi emosional atau agresif terhadap input visual yang tidak terduga', threshold: 'L' },
+      { id: 99, text: 'Mencari objek, orang, atau aktivitas visual', threshold: 'H' },
+      { id: 100, text: 'Terpesona dengan lampu atau gerakan yang berputar', threshold: 'H' },
+      { id: 101, text: 'Menatap intensely pada objek atau orang', threshold: 'H' },
+      { id: 102, text: 'Mencari visual stimulation', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'M',
+    title: 'M. Modulasi Input Pendengaran yang Mempengaruhi Respon Emosional dan Tingkat Aktivitas',
+    questions: [
+      { id: 103, text: 'Bereaksi emosional atau agresif terhadap suara yang tidak terduga atau keras', threshold: 'L' },
+      { id: 104, text: 'Memegang tangan di atas telinga untuk melindungi telinga dari suara', threshold: 'L' },
+      { id: 105, text: 'Mengalami overload emosional yang berkaitan dengan suara di lingkungan', threshold: 'L' },
+      { id: 106, text: 'Mencari suara-suara keras, musik, atau kebisingan', threshold: 'H' },
+      { id: 107, text: 'Membuat suara-suara ketika bosan atau stressed', threshold: 'H' }
+    ]
+  },
+  {
+    id: 'N',
+    title: 'N. Item yang Menunjukkan Ambang Batas untuk Respons',
+    questions: [
+      { id: 108, text: 'Melompat dari satu aktivitas ke aktivitas lainnya sehingga mengganggu permainan', threshold: 'H' },
+      { id: 109, text: 'Sengaja mencium benda', threshold: 'H' },
+      { id: 110, text: 'Tampak tidak mencium bau-bauan yang kuat', threshold: 'H' },
+      { id: 111, text: 'Tidak memperhatikan saat namanya dipanggil', threshold: 'H' },
+      { id: 112, text: 'Mengabaikan atau lambat merespon instruksi verbal', threshold: 'H' },
+      { id: 113, text: 'Tampak tidak menyadari saat orang lain berbicara kepadanya', threshold: 'H' },
+      { id: 114, text: 'Fokus pada detail daripada gambaran umum', threshold: 'L' },
+      { id: 115, text: 'Tidak menyadari bahwa tangannya kotor', threshold: 'H' },
+      { id: 116, text: 'Makan dengan cara yang berantakan', threshold: 'H' },
+      { id: 117, text: 'Tidak dapat merasakan makanan di wajah atau tangan saat makan', threshold: 'H' },
+      { id: 118, text: 'Menabrak atau mendorong orang lain', threshold: 'H' },
+      { id: 119, text: 'Tampak clumsy atau ceroboh', threshold: 'H' },
+      { id: 120, text: 'Memiliki kesulitan mentolerir perubahan pada rutinitas', threshold: 'L' },
+      { id: 121, text: 'Memiliki kesulitan mentolerir perubahan pada perencanaan dan harapan', threshold: 'L' },
+      { id: 122, text: 'Memiliki kesulitan mentolerir perubahan dalam rutinitas', threshold: 'L' },
+      { id: 123, text: 'Menunjukkan perilaku yang ekstrim atau emosional saat rutinitas berubah', threshold: 'L' },
+      { id: 124, text: 'Perlu ritual tertentu untuk menyelesaikan tugas', threshold: 'L' },
+      { id: 125, text: 'Menunjukkan perilaku pengulangan yang mengganggu aktivitas sehari-hari', threshold: 'L' }
     ]
   }
-  // Note: Only including first 2 sections for demo - full implementation would include all 14 sections
 ];
 
 export default function SensoryProfile() {
