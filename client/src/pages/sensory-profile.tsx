@@ -290,6 +290,21 @@ export default function SensoryProfile() {
     enabled: !!assessmentId && isAuthenticated,
   });
 
+  // Restore progress when assessment loads
+  useEffect(() => {
+    if (userAssessment?.results && userAssessment.status === 'in_progress') {
+      const savedData = userAssessment.results;
+      if (savedData.responses) setResponses(savedData.responses);
+      if (savedData.participantInfo) setParticipantInfo(savedData.participantInfo);
+      if (savedData.currentSection !== undefined) setCurrentSectionIndex(savedData.currentSection);
+      if (savedData.notApplicable) setNotApplicable(savedData.notApplicable);
+      if (savedData.comments) setComments(savedData.comments);
+      if (savedData.participantInfo && Object.values(savedData.participantInfo).some(v => v)) {
+        setCurrentPhase('assessment');
+      }
+    }
+  }, [userAssessment]);
+
   const startAssessmentMutation = useMutation({
     mutationFn: async () => {
       if (!userAssessment) throw new Error("No assessment found");
@@ -705,14 +720,24 @@ export default function SensoryProfile() {
                         id={`na-${question.id}`}
                         checked={isNotApplicable || false}
                         onChange={(e) => {
-                          setNotApplicable(prev => ({...prev, [question.id]: e.target.checked}));
+                          const newNotApplicable = {...notApplicable, [question.id]: e.target.checked};
+                          setNotApplicable(newNotApplicable);
+                          
+                          let newResponses = responses;
                           if (e.target.checked && responses[question.id]) {
-                            setResponses(prev => {
-                              const newResponses = { ...prev };
-                              delete newResponses[question.id];
-                              return newResponses;
-                            });
+                            newResponses = { ...responses };
+                            delete newResponses[question.id];
+                            setResponses(newResponses);
                           }
+                          
+                          // Auto-save progress
+                          saveProgressMutation.mutate({
+                            responses: newResponses,
+                            participantInfo,
+                            currentSection: currentSectionIndex,
+                            notApplicable: newNotApplicable,
+                            comments
+                          });
                         }}
                         className="w-4 h-4"
                       />

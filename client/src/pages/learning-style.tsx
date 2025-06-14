@@ -171,6 +171,16 @@ export default function LearningStyle() {
     enabled: !!assessmentId && isAuthenticated,
   });
 
+  // Restore progress when assessment loads
+  useEffect(() => {
+    if (userAssessment?.results && userAssessment.status === 'in_progress') {
+      const savedData = userAssessment.results;
+      if (savedData.responses) setResponses(savedData.responses);
+      if (savedData.currentStep !== undefined) setCurrentStep(savedData.currentStep);
+      setIsStarted(true);
+    }
+  }, [userAssessment]);
+
   const startAssessmentMutation = useMutation({
     mutationFn: async () => {
       if (!userAssessment) throw new Error("No assessment found");
@@ -198,6 +208,13 @@ export default function LearningStyle() {
         description: "Gagal memulai asesmen. Silakan coba lagi.",
         variant: "destructive",
       });
+    },
+  });
+
+  const saveProgressMutation = useMutation({
+    mutationFn: async (progressData: any) => {
+      if (!userAssessment) throw new Error("No assessment found");
+      return apiRequest("POST", `/api/user-assessments/${userAssessment.id}/save-progress`, progressData);
     },
   });
 
@@ -262,10 +279,17 @@ export default function LearningStyle() {
   };
 
   const handleResponse = (questionId: number, value: 'visual' | 'auditori' | 'kinestetik') => {
-    setResponses(prev => ({
-      ...prev,
+    const newResponses = {
+      ...responses,
       [questionId]: value
-    }));
+    };
+    setResponses(newResponses);
+    
+    // Auto-save progress
+    saveProgressMutation.mutate({
+      responses: newResponses,
+      currentStep,
+    });
   };
 
   const handleNext = () => {
