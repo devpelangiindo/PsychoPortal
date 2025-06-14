@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -293,13 +293,13 @@ export default function SensoryProfile() {
   // Restore progress when assessment loads
   useEffect(() => {
     if (userAssessment?.results && userAssessment.status === 'in_progress') {
-      const savedData = userAssessment.results;
+      const savedData = userAssessment.results as any;
       if (savedData.responses) setResponses(savedData.responses);
       if (savedData.participantInfo) setParticipantInfo(savedData.participantInfo);
       if (savedData.currentSection !== undefined) setCurrentSectionIndex(savedData.currentSection);
       if (savedData.notApplicable) setNotApplicable(savedData.notApplicable);
       if (savedData.comments) setComments(savedData.comments);
-      if (savedData.participantInfo && Object.values(savedData.participantInfo).some(v => v)) {
+      if (savedData.participantInfo && Object.values(savedData.participantInfo).some((v: any) => v)) {
         setCurrentPhase('assessment');
       }
     }
@@ -340,6 +340,17 @@ export default function SensoryProfile() {
       return apiRequest("POST", `/api/user-assessments/${userAssessment.id}/save-progress`, progressData);
     },
   });
+
+  // Debounced auto-save to prevent excessive API calls
+  const saveProgressDebounced = useRef<NodeJS.Timeout>();
+  const autoSaveProgress = (data: any) => {
+    if (saveProgressDebounced.current) {
+      clearTimeout(saveProgressDebounced.current);
+    }
+    saveProgressDebounced.current = setTimeout(() => {
+      saveProgressMutation.mutate(data);
+    }, 1000); // Wait 1 second before saving
+  };
 
   const completeAssessmentMutation = useMutation({
     mutationFn: async (results: any) => {
@@ -679,8 +690,8 @@ export default function SensoryProfile() {
                           setNotApplicable(newNotApplicable);
                         }
                         
-                        // Auto-save progress
-                        saveProgressMutation.mutate({
+                        // Auto-save progress with debounce
+                        autoSaveProgress({
                           responses: newResponses,
                           participantInfo,
                           currentSection: currentSectionIndex,
@@ -730,8 +741,8 @@ export default function SensoryProfile() {
                             setResponses(newResponses);
                           }
                           
-                          // Auto-save progress
-                          saveProgressMutation.mutate({
+                          // Auto-save progress with debounce
+                          autoSaveProgress({
                             responses: newResponses,
                             participantInfo,
                             currentSection: currentSectionIndex,

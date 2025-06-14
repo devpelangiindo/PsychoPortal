@@ -252,14 +252,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Assessment not found or access denied" });
       }
 
-      // Update progress in database
+      // Merge with existing results to preserve all data
+      const existingResults = (userAssessment.results as any) || {};
       const progressData = {
-        responses: responses || {},
-        participantInfo: participantInfo || {},
-        currentSection: currentSection || 0,
-        currentStep: currentStep || 0,
-        notApplicable: notApplicable || {},
-        comments: comments || {},
+        ...existingResults,
+        responses: responses || existingResults.responses || {},
+        participantInfo: participantInfo || existingResults.participantInfo || {},
+        currentSection: currentSection !== undefined ? currentSection : existingResults.currentSection || 0,
+        currentStep: currentStep !== undefined ? currentStep : existingResults.currentStep || 0,
+        notApplicable: notApplicable || existingResults.notApplicable || {},
+        comments: comments || existingResults.comments || {},
         lastSaved: new Date().toISOString()
       };
 
