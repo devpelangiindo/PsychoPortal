@@ -226,9 +226,11 @@ export default function Dashboard() {
                           </Link>
                         )}
                         {userAssessment.status === 'completed' && (
-                          <Button size="sm" variant="outline">
-                            Lihat Laporan
-                          </Button>
+                          <Link href={`/results/${userAssessment.id}`}>
+                            <Button size="sm" variant="outline">
+                              Lihat Laporan
+                            </Button>
+                          </Link>
                         )}
                       </div>
                     </div>
