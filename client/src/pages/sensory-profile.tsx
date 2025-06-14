@@ -319,6 +319,13 @@ export default function SensoryProfile() {
     },
   });
 
+  const saveProgressMutation = useMutation({
+    mutationFn: async (progressData: any) => {
+      if (!userAssessment) throw new Error("No assessment found");
+      return apiRequest("POST", `/api/user-assessments/${userAssessment.id}/save-progress`, progressData);
+    },
+  });
+
   const completeAssessmentMutation = useMutation({
     mutationFn: async (results: any) => {
       if (!userAssessment) throw new Error("No assessment found");
@@ -648,10 +655,23 @@ export default function SensoryProfile() {
                     <RadioGroup
                       value={questionResponse || ""}
                       onValueChange={(value) => {
-                        setResponses(prev => ({...prev, [question.id]: value}));
+                        const newResponses = {...responses, [question.id]: value};
+                        setResponses(newResponses);
+                        
+                        let newNotApplicable = notApplicable;
                         if (notApplicable[question.id]) {
-                          setNotApplicable(prev => ({...prev, [question.id]: false}));
+                          newNotApplicable = {...notApplicable, [question.id]: false};
+                          setNotApplicable(newNotApplicable);
                         }
+                        
+                        // Auto-save progress
+                        saveProgressMutation.mutate({
+                          responses: newResponses,
+                          participantInfo,
+                          currentSection: currentSectionIndex,
+                          notApplicable: newNotApplicable,
+                          comments
+                        });
                       }}
                       disabled={isNotApplicable}
                       className="grid grid-cols-5 gap-4"

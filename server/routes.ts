@@ -237,6 +237,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save assessment progress
+  app.post('/api/user-assessments/:id/save-progress', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userAssessmentId = parseInt(req.params.id);
+      const { responses, participantInfo, currentSection, currentStep, notApplicable, comments } = req.body;
+
+      // Verify ownership
+      const userAssessments = await storage.getUserAssessments(userId);
+      const userAssessment = userAssessments.find(ua => ua.id === userAssessmentId);
+      
+      if (!userAssessment) {
+        return res.status(404).json({ message: "Assessment not found or access denied" });
+      }
+
+      // Update progress in database
+      const progressData = {
+        responses: responses || {},
+        participantInfo: participantInfo || {},
+        currentSection: currentSection || 0,
+        currentStep: currentStep || 0,
+        notApplicable: notApplicable || {},
+        comments: comments || {},
+        lastSaved: new Date().toISOString()
+      };
+
+      await storage.updateUserAssessmentStatus(userAssessmentId, 'in_progress', progressData);
+
+      res.json({ message: "Progress saved successfully" });
+    } catch (error) {
+      console.error("Error saving assessment progress:", error);
+      res.status(500).json({ message: "Failed to save progress" });
+    }
+  });
+
   app.post('/api/user-assessments/:id/complete', isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
