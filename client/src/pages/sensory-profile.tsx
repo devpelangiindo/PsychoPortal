@@ -32,7 +32,6 @@ interface Section {
 
 interface ParticipantInfo {
   childName: string;
-  childAge: string;
   childBirthDate: string;
   childGender: string;
   parentName: string;
@@ -272,7 +271,6 @@ export default function SensoryProfile() {
   
   const [participantInfo, setParticipantInfo] = useState<ParticipantInfo>({
     childName: '',
-    childAge: '',
     childBirthDate: '',
     childGender: '',
     parentName: '',
@@ -485,7 +483,7 @@ export default function SensoryProfile() {
   // Information Collection Phase
   if (currentPhase === 'info') {
     const validateInfo = (): boolean => {
-      const required = ['childName', 'childAge', 'childGender', 'parentName', 'relationship'];
+      const required = ['childName', 'childGender', 'parentName', 'relationship'];
       return required.every(field => participantInfo[field as keyof ParticipantInfo].trim() !== '');
     };
 
@@ -523,15 +521,7 @@ export default function SensoryProfile() {
                       placeholder="Masukkan nama lengkap anak"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="childAge">Usia *</Label>
-                    <Input
-                      id="childAge"
-                      value={participantInfo.childAge}
-                      onChange={(e) => setParticipantInfo(prev => ({...prev, childAge: e.target.value}))}
-                      placeholder="Contoh: 5 tahun 6 bulan"
-                    />
-                  </div>
+
                   <div>
                     <Label htmlFor="childBirthDate">Tanggal Lahir</Label>
                     <Input
@@ -736,14 +726,38 @@ export default function SensoryProfile() {
               if (currentSectionIndex < totalSections - 1) {
                 setCurrentSectionIndex(prev => prev + 1);
               } else {
+                // Calculate section scores
+                const sectionScores: Record<string, number> = {};
+                sections.forEach(section => {
+                  const sectionResponses = section.questions
+                    .filter(q => responses[q.id] && !notApplicable[q.id])
+                    .map(q => parseInt(responses[q.id]));
+                  
+                  if (sectionResponses.length > 0) {
+                    sectionScores[section.id] = sectionResponses.reduce((sum, score) => sum + score, 0);
+                  }
+                });
+
+                const totalScore = Object.values(sectionScores).reduce((sum, score) => sum + score, 0);
+                
+                // Generate interpretation based on scores
+                const getInterpretation = (score: number) => {
+                  if (score <= 142) return "Sensitivitas Rendah - Memerlukan input sensoris yang lebih intens";
+                  if (score <= 169) return "Sensitivitas Sedang Rendah - Beberapa area memerlukan perhatian";
+                  if (score <= 183) return "Sensitivitas Normal - Respons sensoris dalam batas normal";
+                  if (score <= 215) return "Sensitivitas Sedang Tinggi - Menunjukkan beberapa sensitivitas";
+                  return "Sensitivitas Tinggi - Sangat sensitif terhadap input sensoris";
+                };
+
                 const results = {
                   participantInfo,
                   responses,
                   comments,
                   notApplicable,
-                  sectionScores: {},
-                  totalScore: Object.values(responses).reduce((total, response) => total + (parseInt(response) || 0), 0),
-                  interpretation: 'Asesmen sensory profile telah diselesaikan.'
+                  sectionScores,
+                  totalScore,
+                  interpretation: getInterpretation(totalScore),
+                  completionDate: new Date().toISOString()
                 };
                 completeAssessmentMutation.mutate(results);
               }
