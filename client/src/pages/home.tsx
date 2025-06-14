@@ -33,10 +33,10 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-3xl font-bold">
-                  Welcome back, {user?.firstName || user?.email || 'User'}!
+                  Selamat datang kembali, {user?.firstName || user?.email || 'Pengguna'}!
                 </h1>
                 <p className="opacity-90 mt-1">
-                  Ready to continue your psychological assessment journey?
+                  Siap melanjutkan perjalanan asesmen psikologi Anda?
                 </p>
               </div>
             </div>
@@ -51,7 +51,7 @@ export default function Home() {
                 {availableAssessments.length}
               </div>
               <div className="text-neutral-500 dark:text-muted-foreground">
-                Available Assessments
+                Asesmen Tersedia
               </div>
             </CardContent>
           </Card>
@@ -62,7 +62,7 @@ export default function Home() {
                 {completedAssessments.length}
               </div>
               <div className="text-neutral-500 dark:text-muted-foreground">
-                Completed Assessments
+                Asesmen Selesai
               </div>
             </CardContent>
           </Card>
@@ -73,7 +73,7 @@ export default function Home() {
                 {inProgressAssessments.length}
               </div>
               <div className="text-neutral-500 dark:text-muted-foreground">
-                In Progress
+                Sedang Berjalan
               </div>
             </CardContent>
           </Card>
@@ -85,7 +85,7 @@ export default function Home() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                Available Assessments
+                Asesmen Tersedia
                 <span className="bg-secondary text-white text-sm px-3 py-1 rounded-full">
                   {availableAssessments.length}
                 </span>
@@ -104,10 +104,10 @@ export default function Home() {
               ) : availableAssessments.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-neutral-500 dark:text-muted-foreground mb-4">
-                    No assessments available. Purchase some assessments to get started!
+                    Tidak ada asesmen tersedia. Beli asesmen untuk mulai!
                   </p>
                   <Link href="/assessments">
-                    <Button>Browse Assessments</Button>
+                    <Button>Lihat Asesmen</Button>
                   </Link>
                 </div>
               ) : (
@@ -123,7 +123,7 @@ export default function Home() {
                         </div>
                       </div>
                       <Link href={`/assessment/${userAssessment.assessmentId}`}>
-                        <Button size="sm">Start</Button>
+                        <Button size="sm">Mulai</Button>
                       </Link>
                     </div>
                   ))}
