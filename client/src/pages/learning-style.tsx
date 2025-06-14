@@ -269,8 +269,20 @@ export default function LearningStyle() {
   };
 
   const handleNext = () => {
+    // Validate current question is answered
+    if (!currentResponse) {
+      toast({
+        title: "Pertanyaan Belum Dijawab",
+        description: "Silakan pilih salah satu jawaban sebelum melanjutkan.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (currentStep < questions.length - 1) {
       setCurrentStep(prev => prev + 1);
+      // Auto-scroll to top after moving to next question
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       const results = calculateResults();
       completeAssessmentMutation.mutate(results);
@@ -280,6 +292,8 @@ export default function LearningStyle() {
   const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1);
+      // Auto-scroll to top after moving to previous question
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -465,7 +479,7 @@ export default function LearningStyle() {
           
           <Button
             onClick={handleNext}
-            disabled={!currentResponse || completeAssessmentMutation.isPending}
+            disabled={completeAssessmentMutation.isPending}
           >
             {currentStep === questions.length - 1 ? (
               completeAssessmentMutation.isPending ? (

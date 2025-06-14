@@ -713,6 +713,8 @@ export default function SensoryProfile() {
             onClick={() => {
               if (currentSectionIndex > 0) {
                 setCurrentSectionIndex(prev => prev - 1);
+                // Auto-scroll to top after moving to previous section
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }
             }}
             disabled={currentSectionIndex === 0}
@@ -723,8 +725,25 @@ export default function SensoryProfile() {
           
           <Button
             onClick={() => {
+              // Validate all questions in current section are answered
+              const currentSectionQuestions = sections[currentSectionIndex].questions;
+              const unansweredQuestions = currentSectionQuestions.filter(q => 
+                !responses[q.id] && !notApplicable[q.id]
+              );
+
+              if (unansweredQuestions.length > 0) {
+                toast({
+                  title: "Pertanyaan Belum Lengkap",
+                  description: `Silakan jawab ${unansweredQuestions.length} pertanyaan yang belum dijawab di bagian ini.`,
+                  variant: "destructive",
+                });
+                return;
+              }
+
               if (currentSectionIndex < totalSections - 1) {
                 setCurrentSectionIndex(prev => prev + 1);
+                // Auto-scroll to top after moving to next section
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               } else {
                 // Calculate section scores
                 const sectionScores: Record<string, number> = {};
