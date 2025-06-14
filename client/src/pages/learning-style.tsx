@@ -174,7 +174,7 @@ export default function LearningStyle() {
   // Restore progress when assessment loads
   useEffect(() => {
     if (userAssessment?.results && userAssessment.status === 'in_progress') {
-      const savedData = userAssessment.results;
+      const savedData = userAssessment.results as any;
       if (savedData.responses) setResponses(savedData.responses);
       if (savedData.currentStep !== undefined) setCurrentStep(savedData.currentStep);
       setIsStarted(true);
@@ -217,6 +217,17 @@ export default function LearningStyle() {
       return apiRequest("POST", `/api/user-assessments/${userAssessment.id}/save-progress`, progressData);
     },
   });
+
+  // Debounced auto-save to prevent excessive API calls
+  const saveProgressDebounced = useRef<NodeJS.Timeout>();
+  const autoSaveProgress = (data: any) => {
+    if (saveProgressDebounced.current) {
+      clearTimeout(saveProgressDebounced.current);
+    }
+    saveProgressDebounced.current = setTimeout(() => {
+      saveProgressMutation.mutate(data);
+    }, 1000); // Wait 1 second before saving
+  };
 
   const completeAssessmentMutation = useMutation({
     mutationFn: async (results: any) => {
@@ -285,8 +296,8 @@ export default function LearningStyle() {
     };
     setResponses(newResponses);
     
-    // Auto-save progress
-    saveProgressMutation.mutate({
+    // Auto-save progress with debounce
+    autoSaveProgress({
       responses: newResponses,
       currentStep,
     });
