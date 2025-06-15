@@ -206,10 +206,10 @@ export default function Dashboard() {
                         {userAssessment.status === 'available' && (
                           <Link href={
                             userAssessment.assessment.type === 'sensory' 
-                              ? `/sensory-profile/${userAssessment.assessmentId}`
+                              ? `/sensory-profile/${userAssessment.id}`
                               : userAssessment.assessment.type === 'learning'
-                                ? `/learning-style/${userAssessment.assessmentId}`
-                                : `/assessment/${userAssessment.assessmentId}`
+                                ? `/learning-style/${userAssessment.id}`
+                                : `/assessment/${userAssessment.id}`
                           }>
                             <Button size="sm">Mulai Tes</Button>
                           </Link>
@@ -217,10 +217,10 @@ export default function Dashboard() {
                         {userAssessment.status === 'in_progress' && (
                           <Link href={
                             userAssessment.assessment.type === 'sensory' 
-                              ? `/sensory-profile/${userAssessment.assessmentId}`
+                              ? `/sensory-profile/${userAssessment.id}`
                               : userAssessment.assessment.type === 'learning'
-                                ? `/learning-style/${userAssessment.assessmentId}`
-                                : `/assessment/${userAssessment.assessmentId}`
+                                ? `/learning-style/${userAssessment.id}`
+                                : `/assessment/${userAssessment.id}`
                           }>
                             <Button size="sm" variant="outline">Lanjutkan</Button>
                           </Link>

@@ -247,7 +247,7 @@ const sections: Section[] = [
 
 export default function SensoryProfile() {
   const [, navigate] = useLocation();
-  const [match, params] = useRoute("/assessment/:id");
+  const [match, params] = useRoute("/sensory-profile/:assessmentId");
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -317,11 +317,11 @@ export default function SensoryProfile() {
   // Initialize assessment
   useEffect(() => {
     const initializeAssessment = async () => {
-      if (!user || !params?.id) return;
+      if (!user || !params?.assessmentId) return;
       
       try {
-        const assessmentId = parseInt(params.id);
-        const response = await fetch(`/api/user-assessments/${assessmentId}`);
+        const userAssessmentId = parseInt(params.assessmentId);
+        const response = await fetch(`/api/user-assessments/${userAssessmentId}`);
         const data = await response.json();
         setUserAssessment(data);
         
@@ -354,7 +354,7 @@ export default function SensoryProfile() {
     };
 
     initializeAssessment();
-  }, [user, params, navigate, toast]);
+  }, [user, params, navigate, toast, participantInfo]);
 
   // Auto-save when responses change
   useEffect(() => {
