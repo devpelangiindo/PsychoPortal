@@ -738,7 +738,11 @@ export default function SensoryProfile() {
                     type="date"
                     value={participantInfo.testDate}
                     onChange={(e) => setParticipantInfo(prev => ({ ...prev, testDate: e.target.value }))}
+                    className={validationErrors.testDate ? "border-red-500" : ""}
                   />
+                  {validationErrors.testDate && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.testDate}</p>
+                  )}
                 </div>
               </div>
 
@@ -752,8 +756,11 @@ export default function SensoryProfile() {
                 </Button>
                 
                 <Button 
-                  onClick={() => setCurrentStep('questions')}
-                  disabled={!participantInfo.childName || !participantInfo.childBirthDate || !participantInfo.parentName}
+                  onClick={() => {
+                    if (validateParticipantInfo()) {
+                      setCurrentStep('questions');
+                    }
+                  }}
                 >
                   Mulai Asesmen
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -794,82 +801,104 @@ export default function SensoryProfile() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
-                {currentPageQuestions.map((question, index) => (
-                  <div key={question.id} className="border-b pb-6 last:border-b-0">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                          Item {question.id} - Pertanyaan {(currentPage * questionsPerPage) + index + 1} dari {totalQuestions}
-                        </p>
-                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                          <p className="text-gray-800 dark:text-gray-200 leading-relaxed">
-                            {question.text}
-                          </p>
+                {showValidationAlert && (
+                  <Alert className="border-red-500 bg-red-50 dark:bg-red-900/20">
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                    <AlertDescription className="text-red-700 dark:text-red-300">
+                      Mohon jawab semua pertanyaan di halaman ini sebelum melanjutkan ke halaman berikutnya.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {currentPageQuestions.map((question, index) => {
+                  const hasAnswer = responses[question.id] || notApplicable[question.id];
+                  const isAnswered = Boolean(hasAnswer);
+                  
+                  return (
+                    <div key={question.id} className={`border-2 rounded-lg p-6 transition-all duration-200 ${
+                      isAnswered 
+                        ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' 
+                        : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 hover:border-green-300 dark:hover:border-green-700'
+                    }`}>
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                              isAnswered 
+                                ? 'bg-green-500 text-white' 
+                                : 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300'
+                            }`}>
+                              {isAnswered ? '✓' : (currentPage * questionsPerPage) + index + 1}
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Item {question.id} - Pertanyaan {(currentPage * questionsPerPage) + index + 1} dari {totalQuestions}
+                            </p>
+                          </div>
+                          <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                            <p className="text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
+                              {question.text}
+                            </p>
+                          </div>
+                        </div>
+                        {question.threshold && (
+                          <span className="ml-4 px-3 py-1 bg-blue-100 dark:bg-blue-800 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300">
+                            {question.threshold}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Response Options */}
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Pilih frekuensi yang paling sesuai:</p>
+                        <RadioGroup
+                          value={responses[question.id] || ''}
+                          onValueChange={(value) => handleResponseChange(question.id, value)}
+                          className="space-y-2"
+                        >
+                          {[
+                            { value: "5", label: "SELALU", desc: "100% dari waktu", color: "bg-red-500" },
+                            { value: "4", label: "SERING", desc: "75% dari waktu", color: "bg-orange-500" },
+                            { value: "3", label: "KADANG-KADANG", desc: "50% dari waktu", color: "bg-yellow-500" },
+                            { value: "2", label: "JARANG", desc: "25% dari waktu", color: "bg-blue-500" },
+                            { value: "1", label: "TIDAK PERNAH", desc: "0% dari waktu", color: "bg-green-500" }
+                          ].map((option) => (
+                            <div key={option.value} className={`flex items-center space-x-3 p-3 rounded-lg border-2 transition-all cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                              responses[question.id] === option.value 
+                                ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                                : 'border-gray-200 dark:border-gray-600'
+                            }`}>
+                              <RadioGroupItem value={option.value} id={`q${question.id}_option${option.value}`} />
+                              <div className={`w-3 h-3 rounded-full ${option.color}`}></div>
+                              <Label htmlFor={`q${question.id}_option${option.value}`} className="flex-1 cursor-pointer">
+                                <span className="font-semibold text-gray-800 dark:text-gray-200">{option.label}</span>
+                                <span className="text-gray-600 dark:text-gray-400 ml-2">({option.desc})</span>
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+
+                        {/* Not Applicable Option */}
+                        <div className="border-t-2 border-dashed border-gray-300 dark:border-gray-600 pt-4 mt-4">
+                          <div className={`flex items-center space-x-3 p-3 rounded-lg border-2 transition-all cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                            notApplicable[question.id] 
+                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' 
+                              : 'border-gray-200 dark:border-gray-600'
+                          }`}>
+                            <input
+                              type="checkbox"
+                              id={`q${question.id}_notApplicable`}
+                              checked={notApplicable[question.id] || false}
+                              onChange={(e) => handleNotApplicableChange(question.id, e.target.checked)}
+                              className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <Label htmlFor={`q${question.id}_notApplicable`} className="text-gray-700 dark:text-gray-300 cursor-pointer font-medium">
+                              ❌ Tidak berlaku / Belum pernah mengamati perilaku ini
+                            </Label>
+                          </div>
                         </div>
                       </div>
-                      {question.threshold && (
-                        <span className="ml-4 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">
-                          {question.threshold}
-                        </span>
-                      )}
                     </div>
-
-                    {/* Response Options */}
-                    <div className="space-y-3">
-                      <RadioGroup
-                        value={responses[question.id] || ''}
-                        onValueChange={(value) => handleResponseChange(question.id, value)}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="5" id={`q${question.id}_option5`} />
-                          <Label htmlFor={`q${question.id}_option5`}>
-                            <span className="font-medium">SELALU</span> (100% dari waktu)
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="4" id={`q${question.id}_option4`} />
-                          <Label htmlFor={`q${question.id}_option4`}>
-                            <span className="font-medium">SERING</span> (75% dari waktu)
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="3" id={`q${question.id}_option3`} />
-                          <Label htmlFor={`q${question.id}_option3`}>
-                            <span className="font-medium">KADANG-KADANG</span> (50% dari waktu)
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="2" id={`q${question.id}_option2`} />
-                          <Label htmlFor={`q${question.id}_option2`}>
-                            <span className="font-medium">JARANG</span> (25% dari waktu)
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="1" id={`q${question.id}_option1`} />
-                          <Label htmlFor={`q${question.id}_option1`}>
-                            <span className="font-medium">TIDAK PERNAH</span> (0% dari waktu)
-                          </Label>
-                        </div>
-                      </RadioGroup>
-
-                      {/* Not Applicable Option */}
-                      <div className="border-t pt-3">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id={`q${question.id}_notApplicable`}
-                            checked={notApplicable[question.id] || false}
-                            onChange={(e) => handleNotApplicableChange(question.id, e.target.checked)}
-                            className="rounded border-gray-300"
-                          />
-                          <Label htmlFor={`q${question.id}_notApplicable`} className="text-gray-700 dark:text-gray-300">
-                            Tidak berlaku / Belum pernah mengamati perilaku ini
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Navigation */}
                 <div className="flex justify-between pt-6">
@@ -888,9 +917,12 @@ export default function SensoryProfile() {
                   {currentPage < totalPages - 1 ? (
                     <Button
                       onClick={() => {
-                        setCurrentPage(prev => prev + 1);
-                        scrollToTop();
+                        if (validateCurrentPageQuestions()) {
+                          setCurrentPage(prev => prev + 1);
+                          scrollToTop();
+                        }
                       }}
+                      className="bg-green-600 hover:bg-green-700"
                     >
                       Halaman Selanjutnya
                       <ArrowRight className="ml-2 h-4 w-4" />
