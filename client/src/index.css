@@ -4,51 +4,51 @@
 
 :root {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(160, 30%, 15%);
-  --muted: hsl(120, 30%, 96%);
-  --muted-foreground: hsl(140, 20%, 50%);
+  --foreground: hsl(200, 30%, 20%);
+  --muted: hsl(180, 25%, 96%);
+  --muted-foreground: hsl(190, 20%, 50%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(160, 30%, 15%);
+  --popover-foreground: hsl(200, 30%, 20%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(160, 30%, 15%);
-  --border: hsl(120, 25%, 88%);
-  --input: hsl(120, 25%, 88%);
-  --primary: hsl(142, 71%, 35%);
+  --card-foreground: hsl(200, 30%, 20%);
+  --border: hsl(180, 20%, 88%);
+  --input: hsl(180, 20%, 88%);
+  --primary: hsl(200, 70%, 45%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(85, 60%, 50%);
-  --secondary-foreground: hsl(160, 30%, 15%);
-  --accent: hsl(85, 60%, 50%);
-  --accent-foreground: hsl(160, 30%, 15%);
+  --secondary: hsl(142, 65%, 45%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(85, 55%, 55%);
+  --accent-foreground: hsl(200, 30%, 20%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(142, 71%, 35%);
+  --ring: hsl(200, 70%, 45%);
   --radius: 0.5rem;
-  --neutral-50: hsl(120, 30%, 98%);
-  --neutral-100: hsl(120, 30%, 96%);
-  --neutral-500: hsl(140, 20%, 50%);
-  --neutral-900: hsl(160, 30%, 15%);
+  --neutral-50: hsl(190, 25%, 98%);
+  --neutral-100: hsl(190, 25%, 96%);
+  --neutral-500: hsl(195, 20%, 50%);
+  --neutral-900: hsl(200, 30%, 20%);
 }
 
 .dark {
-  --background: hsl(160, 40%, 8%);
+  --background: hsl(200, 40%, 8%);
   --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(140, 30%, 12%);
-  --muted-foreground: hsl(120, 20%, 65%);
-  --popover: hsl(160, 40%, 8%);
+  --muted: hsl(185, 30%, 12%);
+  --muted-foreground: hsl(190, 20%, 65%);
+  --popover: hsl(200, 40%, 8%);
   --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(150, 30%, 10%);
+  --card: hsl(195, 30%, 10%);
   --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(140, 30%, 18%);
-  --input: hsl(140, 30%, 18%);
-  --primary: hsl(142, 71%, 45%);
-  --primary-foreground: hsl(160, 30%, 15%);
-  --secondary: hsl(85, 60%, 55%);
-  --secondary-foreground: hsl(160, 30%, 15%);
-  --accent: hsl(85, 60%, 55%);
-  --accent-foreground: hsl(160, 30%, 15%);
+  --border: hsl(185, 30%, 18%);
+  --input: hsl(185, 30%, 18%);
+  --primary: hsl(200, 70%, 55%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(142, 65%, 55%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(85, 55%, 65%);
+  --accent-foreground: hsl(200, 30%, 15%);
   --destructive: hsl(0, 62%, 40%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(142, 71%, 45%);
+  --ring: hsl(200, 70%, 55%);
   --radius: 0.5rem;
 }
 
@@ -64,7 +64,7 @@
 
 /* Custom styles for the professional design */
 .gradient-hero {
-  background: linear-gradient(135deg, rgba(34, 139, 34, 0.05) 0%, rgba(154, 205, 50, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(34, 139, 34, 0.05) 100%);
 }
 
 .assessment-card-hover {
@@ -77,19 +77,19 @@
 }
 
 .icon-secondary {
-  color: hsl(85, 60%, 50%);
+  color: hsl(142, 65%, 45%);
 }
 
 .icon-accent {
-  color: hsl(85, 60%, 50%);
+  color: hsl(85, 55%, 55%);
 }
 
 .bg-secondary-light {
-  background: linear-gradient(135deg, rgba(154, 205, 50, 0.1) 0%, rgba(154, 205, 50, 0.2) 100%);
+  background: linear-gradient(135deg, rgba(34, 139, 34, 0.1) 0%, rgba(34, 139, 34, 0.15) 100%);
 }
 
 .bg-accent-light {
-  background: linear-gradient(135deg, rgba(154, 205, 50, 0.1) 0%, rgba(154, 205, 50, 0.2) 100%);
+  background: linear-gradient(135deg, rgba(154, 205, 50, 0.1) 0%, rgba(154, 205, 50, 0.15) 100%);
 }
 
 /* Professional header styling */
@@ -102,8 +102,8 @@
   position: absolute;
   top: -8px;
   right: -8px;
-  background: hsl(85, 60%, 50%);
-  color: hsl(160, 30%, 15%);
+  background: hsl(85, 55%, 55%);
+  color: hsl(200, 30%, 20%);
   font-size: 0.75rem;
   width: 20px;
   height: 20px;
@@ -121,12 +121,12 @@
 }
 
 .payment-card:hover {
-  border-color: hsl(142, 71%, 35%);
+  border-color: hsl(200, 70%, 45%);
 }
 
 .payment-card.selected {
-  border-color: hsl(142, 71%, 35%);
-  background: rgba(34, 139, 34, 0.05);
+  border-color: hsl(200, 70%, 45%);
+  background: rgba(59, 130, 246, 0.05);
 }
 
 /* Trust indicators */
@@ -134,7 +134,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: hsl(142, 71%, 35%);
+  color: hsl(142, 65%, 45%);
   font-size: 0.875rem;
 }
 
@@ -156,8 +156,8 @@
 
 /* Status badges */
 .status-available {
-  background: hsl(142, 71%, 95%);
-  color: hsl(142, 71%, 30%);
+  background: hsl(200, 70%, 95%);
+  color: hsl(200, 70%, 35%);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
@@ -165,8 +165,8 @@
 }
 
 .status-completed {
-  background: hsl(85, 60%, 95%);
-  color: hsl(85, 60%, 35%);
+  background: hsl(142, 65%, 95%);
+  color: hsl(142, 65%, 30%);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
@@ -174,8 +174,8 @@
 }
 
 .status-in-progress {
-  background: hsl(55, 85%, 95%);
-  color: hsl(55, 85%, 35%);
+  background: hsl(85, 55%, 95%);
+  color: hsl(85, 55%, 35%);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
