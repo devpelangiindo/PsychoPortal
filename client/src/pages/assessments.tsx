@@ -53,14 +53,16 @@ export default function Assessments() {
             ))}
           </div>
         ) : assessments && assessments.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {assessments.map((assessment) => (
-              <AssessmentCard 
-                key={assessment.id} 
-                assessment={assessment} 
-                showAddToCart={true} 
-              />
-            ))}
+          <div className="flex justify-center">
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl">
+              {assessments.map((assessment) => (
+                <AssessmentCard 
+                  key={assessment.id} 
+                  assessment={assessment} 
+                  showAddToCart={true} 
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="text-center py-12">

@@ -217,14 +217,16 @@ export default function Home() {
               ))}
             </div>
           ) : allAssessments && allAssessments.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-6">
-              {allAssessments.map((assessment) => (
-                <AssessmentCard 
-                  key={assessment.id} 
-                  assessment={assessment} 
-                  showAddToCart={true} 
-                />
-              ))}
+            <div className="flex justify-center">
+              <div className="grid md:grid-cols-2 gap-6 max-w-4xl">
+                {allAssessments.map((assessment) => (
+                  <AssessmentCard 
+                    key={assessment.id} 
+                    assessment={assessment} 
+                    showAddToCart={true} 
+                  />
+                ))}
+              </div>
             </div>
           ) : (
             <div className="text-center py-12">
