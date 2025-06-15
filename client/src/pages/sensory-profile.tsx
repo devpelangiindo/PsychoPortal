@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,6 @@ interface ParticipantInfo {
   childBirthDate: string;
   parentName: string;
   relationship: string;
-  testerName: string;
-  testerPosition: string;
   testDate: string;
 }
 
@@ -250,10 +248,12 @@ export default function SensoryProfile() {
   const [match, params] = useRoute("/sensory-profile/:assessmentId");
   const { user } = useAuth();
   const { toast } = useToast();
+  const topRef = useRef<HTMLDivElement>(null);
   
   // Assessment state
   const [currentStep, setCurrentStep] = useState<'instructions' | 'participant-info' | 'questions'>('instructions');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
   const [responses, setResponses] = useState<Record<number, string>>({});
   const [notApplicable, setNotApplicable] = useState<Record<number, boolean>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
@@ -264,8 +264,6 @@ export default function SensoryProfile() {
     childBirthDate: '',
     parentName: '',
     relationship: '',
-    testerName: '',
-    testerPosition: '',
     testDate: new Date().toISOString().split('T')[0]
   });
 
@@ -276,6 +274,17 @@ export default function SensoryProfile() {
   const allQuestions = sections.flatMap(section => 
     section.questions.map(q => ({ ...q, sectionId: section.id, sectionTitle: section.title }))
   );
+
+  // Pagination logic - 10 questions per page
+  const questionsPerPage = 10;
+  const totalPages = Math.ceil(allQuestions.length / questionsPerPage);
+  const currentPageQuestions = allQuestions.slice(
+    currentPage * questionsPerPage, 
+    (currentPage + 1) * questionsPerPage
+  );
+
+  // Get current section for page subtitle
+  const currentPageSection = currentPageQuestions.length > 0 ? currentPageQuestions[0].sectionTitle : '';
 
   // Calculate progress
   const answeredQuestions = Object.keys(responses).length;
@@ -331,11 +340,17 @@ export default function SensoryProfile() {
           setNotApplicable(data.results.notApplicable || {});
           setComments(data.results.comments || {});
           setParticipantInfo(data.results.participantInfo || participantInfo);
+          setCurrentPage(data.results.currentPage || 0);
           
           // If assessment is completed, redirect to results
           if (data.status === 'completed') {
             navigate("/assessment-results");
             return;
+          }
+          
+          // If participant info is filled, go to questions
+          if (data.results.participantInfo?.childName) {
+            setCurrentStep('questions');
           }
         }
         
@@ -364,11 +379,21 @@ export default function SensoryProfile() {
       responses,
       notApplicable,
       comments,
-      participantInfo
+      participantInfo,
+      currentPage
     };
     
     saveProgressMutation.mutate(saveData);
-  }, [responses, notApplicable, comments, participantInfo]);
+  }, [responses, notApplicable, comments, participantInfo, currentPage]);
+
+  // Scroll to top function
+  const scrollToTop = () => {
+    if (topRef.current) {
+      topRef.current.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleResponseChange = (questionId: number, value: string) => {
     setResponses(prev => ({ ...prev, [questionId]: value }));
@@ -604,25 +629,7 @@ export default function SensoryProfile() {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="testerName">Nama Tester:</Label>
-                  <Input
-                    id="testerName"
-                    value={participantInfo.testerName}
-                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, testerName: e.target.value }))}
-                    placeholder="Masukkan nama tester"
-                  />
-                </div>
 
-                <div>
-                  <Label htmlFor="testerPosition">Jabatan:</Label>
-                  <Input
-                    id="testerPosition"
-                    value={participantInfo.testerPosition}
-                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, testerPosition: e.target.value }))}
-                    placeholder="Masukkan jabatan"
-                  />
-                </div>
 
                 <div className="md:col-span-2">
                   <Label htmlFor="testDate">Tanggal Tes:</Label>
