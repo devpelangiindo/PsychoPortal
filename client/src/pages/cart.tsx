@@ -156,8 +156,9 @@ export default function Cart() {
                         </div>
                       </div>
                       <div className="text-right ml-6">
-                        <div className="text-2xl font-bold text-primary mb-2">
-                          Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
+                        <div className="flex items-baseline text-primary mb-2">
+                          <span className="text-lg font-semibold mr-1">Rp</span>
+                          <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}</span>
                         </div>
                         <Button
                           variant="ghost"
@@ -198,8 +199,9 @@ export default function Cart() {
                   <div className="border-t pt-4">
                     <div className="flex justify-between text-lg font-semibold">
                       <span>Total</span>
-                      <span className="text-primary">
-                        Rp {new Intl.NumberFormat('id-ID').format(getTotalAmount())}
+                      <span className="flex items-baseline text-primary">
+                        <span className="text-base font-semibold mr-1">Rp</span>
+                        <span className="text-lg font-semibold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
                       </span>
                     </div>
                   </div>

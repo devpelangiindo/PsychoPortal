@@ -93,8 +93,9 @@ export default function ShoppingCartSidebar({ isOpen, onClose }: ShoppingCartSid
                 <span className="text-lg font-semibold text-neutral-900 dark:text-foreground">
                   Total
                 </span>
-                <span className="text-2xl font-bold text-primary">
-                  Rp {new Intl.NumberFormat('id-ID').format(getTotalAmount())}
+                <span className="flex items-baseline text-primary">
+                  <span className="text-lg font-semibold mr-1">Rp</span>
+                  <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
                 </span>
               </div>
               

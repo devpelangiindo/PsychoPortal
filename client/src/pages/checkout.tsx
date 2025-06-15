@@ -184,8 +184,9 @@ export default function Checkout() {
                         {item.assessment.duration} • {item.assessment.ageRange}
                       </p>
                     </div>
-                    <div className="text-lg font-semibold text-neutral-900 dark:text-foreground ml-4">
-                      Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
+                    <div className="flex items-baseline text-neutral-900 dark:text-foreground ml-4">
+                      <span className="text-base font-semibold mr-1">Rp</span>
+                      <span className="text-lg font-semibold">{new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}</span>
                     </div>
                   </div>
                 ))}
@@ -193,8 +194,9 @@ export default function Checkout() {
                 <div className="pt-4 border-t border-gray-200 dark:border-border">
                   <div className="flex justify-between items-center text-xl font-bold">
                     <span>Total</span>
-                    <span className="text-primary">
-                      Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
+                    <span className="flex items-baseline text-primary">
+                      <span className="text-lg font-semibold mr-1">Rp</span>
+                      <span className="text-xl font-bold">{new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}</span>
                     </span>
                   </div>
                 </div>
