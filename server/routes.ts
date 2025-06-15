@@ -324,10 +324,35 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
         doc.moveDown(0.3);
         
         if (sectionScores) {
-
+          const sectionDetailsForRecommendations = {
+            'A': {
+              name: 'Pemrosesan Auditori',
+              normal: [13, 19]
+            },
+            'B': {
+              name: 'Pemrosesan Visual',
+              normal: [8, 14]
+            },
+            'C': {
+              name: 'Pemrosesan Vestibular',
+              normal: [13, 19]
+            },
+            'D': {
+              name: 'Pemrosesan Taktil',
+              normal: [16, 24]
+            },
+            'E': {
+              name: 'Pemrosesan Multisensoris',
+              normal: [7, 11]
+            },
+            'F': {
+              name: 'Pemrosesan Oral Sensoris',
+              normal: [11, 17]
+            }
+          };
           
           Object.entries(sectionScores).forEach(([section, score]: [string, any]) => {
-            const detail = sectionDetails[section as keyof typeof sectionDetails];
+            const detail = sectionDetailsForRecommendations[section as keyof typeof sectionDetailsForRecommendations];
             if (detail) {
               let isAbnormal = score <= detail.normal[0] - 1 || score >= detail.normal[1] + 1;
               
