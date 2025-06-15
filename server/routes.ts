@@ -5,63 +5,137 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import type { UserAssessmentWithDetails } from "@shared/schema";
 import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema } from "@shared/schema";
 import { z } from "zod";
+import PDFDocument from "pdfkit";
 
 // PDF Generation Function
-function generatePdfContent(userAssessment: UserAssessmentWithDetails): string {
-  const results = userAssessment.results as any;
-  const assessmentType = userAssessment.assessment.type;
-  
-  // Create a simple PDF content structure
-  let content = `
-    LAPORAN HASIL ASESMEN
-    
-    Nama Asesmen: ${userAssessment.assessment.name}
-    Tanggal Selesai: ${new Date(userAssessment.completedAt!).toLocaleDateString('id-ID')}
-    
-    `;
+function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: {
+          top: 50,
+          bottom: 50,
+          left: 50,
+          right: 50
+        }
+      });
 
-  if (assessmentType === 'learning') {
-    const { scores, dominantStyle } = results;
-    content += `
-    HASIL INVENTORI GAYA BELAJAR
-    
-    Gaya Belajar Dominan: ${dominantStyle.toUpperCase()}
-    
-    Skor Detail:
-    - Visual: ${scores.visual || 0}
-    - Auditori: ${scores.auditori || 0}
-    - Kinestetik: ${scores.kinestetik || 0}
-    
-    Interpretasi:
-    ${dominantStyle === 'visual' ? 'Anda belajar terbaik melalui melihat dan mengamati.' :
-      dominantStyle === 'auditori' ? 'Anda belajar terbaik melalui mendengar dan berbicara.' :
-      'Anda belajar terbaik melalui praktik langsung dan gerakan.'}
-    `;
-  } else if (assessmentType === 'sensory') {
-    const { totalScore, interpretation, sectionScores } = results;
-    content += `
-    HASIL ASESMEN PROFIL SENSORIS
-    
-    Skor Total: ${totalScore}
-    Interpretasi: ${interpretation}
-    
-    Skor Per Bagian:
-    ${Object.entries(sectionScores || {}).map(([section, score]: [string, any]) => 
-      `- ${section}: ${score}`
-    ).join('\n')}
-    `;
-  }
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-  content += `
-    
-    Laporan ini dibuat secara otomatis oleh sistem Rumah Psikologi Indonesia.
-    Untuk konsultasi lebih lanjut, silakan hubungi profesional terkait.
-  `;
+      const results = userAssessment.results as any;
+      const assessmentType = userAssessment.assessment.type;
 
-  // For demo purposes, return base64 encoded content
-  // In production, you'd use a proper PDF library like PDFKit
-  const base64Content = Buffer.from(content).toString('base64');
-  return base64Content;
+      // Header
+      doc.fontSize(20).font('Helvetica-Bold')
+         .text('LAPORAN HASIL ASESMEN', { align: 'center' });
+      
+      doc.fontSize(16).font('Helvetica-Bold')
+         .text('Rumah Psikologi Indonesia', { align: 'center' });
+
+      doc.moveDown(2);
+
+      // Assessment Info
+      doc.fontSize(14).font('Helvetica-Bold')
+         .text('Informasi Asesmen', { underline: true });
+      
+      doc.moveDown(0.5);
+      
+      doc.fontSize(12).font('Helvetica')
+         .text(`Nama Asesmen: ${userAssessment.assessment.name}`)
+         .text(`Tanggal Selesai: ${new Date(userAssessment.completedAt!).toLocaleDateString('id-ID')}`)
+         .text(`Durasi: ${userAssessment.assessment.duration}`)
+         .text(`Rentang Usia: ${userAssessment.assessment.ageRange}`);
+
+      doc.moveDown(1.5);
+
+      // Results Section
+      if (assessmentType === 'learning') {
+        const { scores, dominantStyle } = results;
+        
+        doc.fontSize(14).font('Helvetica-Bold')
+           .text('HASIL INVENTORI GAYA BELAJAR', { underline: true });
+        
+        doc.moveDown(0.5);
+        
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text(`Gaya Belajar Dominan: ${dominantStyle.toUpperCase()}`);
+        
+        doc.moveDown(0.5);
+        
+        doc.fontSize(12).font('Helvetica')
+           .text('Skor Detail:')
+           .text(`• Visual: ${scores.visual || 0}`)
+           .text(`• Auditori: ${scores.auditori || 0}`)
+           .text(`• Kinestetik: ${scores.kinestetik || 0}`);
+        
+        doc.moveDown(1);
+        
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text('Interpretasi:');
+        
+        doc.fontSize(12).font('Helvetica');
+        const interpretation = dominantStyle === 'visual' 
+          ? 'Anda belajar terbaik melalui melihat dan mengamati. Lebih mudah memahami informasi melalui diagram, grafik, dan presentasi visual.'
+          : dominantStyle === 'auditori' 
+          ? 'Anda belajar terbaik melalui mendengar dan berbicara. Lebih mudah memahami informasi melalui penjelasan lisan dan diskusi.'
+          : 'Anda belajar terbaik melalui praktik langsung dan gerakan. Lebih mudah memahami informasi melalui aktivitas hands-on.';
+        
+        doc.text(interpretation, { align: 'justify' });
+        
+      } else if (assessmentType === 'sensory') {
+        const { totalScore, interpretation, sectionScores, participantInfo } = results;
+        
+        doc.fontSize(14).font('Helvetica-Bold')
+           .text('HASIL ASESMEN PROFIL SENSORIS', { underline: true });
+        
+        doc.moveDown(0.5);
+
+        // Participant Info
+        if (participantInfo && Object.keys(participantInfo).length > 0) {
+          doc.fontSize(12).font('Helvetica-Bold')
+             .text('Informasi Partisipan:');
+          
+          doc.fontSize(11).font('Helvetica')
+             .text(`Nama Anak: ${participantInfo.childName || '-'}`)
+             .text(`Tanggal Lahir: ${participantInfo.childBirthDate || '-'}`)
+             .text(`Jenis Kelamin: ${participantInfo.childGender || '-'}`)
+             .text(`Nama Orang Tua: ${participantInfo.parentName || '-'}`);
+          
+          doc.moveDown(0.5);
+        }
+        
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text(`Skor Total: ${totalScore}`)
+           .text(`Interpretasi: ${interpretation}`);
+        
+        doc.moveDown(0.5);
+        
+        if (sectionScores && Object.keys(sectionScores).length > 0) {
+          doc.fontSize(12).font('Helvetica-Bold')
+             .text('Skor Per Bagian:');
+          
+          doc.fontSize(11).font('Helvetica');
+          Object.entries(sectionScores).forEach(([section, score]: [string, any]) => {
+            doc.text(`• ${section}: ${score}`);
+          });
+        }
+      }
+
+      doc.moveDown(2);
+
+      // Footer
+      doc.fontSize(10).font('Helvetica')
+         .text('Laporan ini dibuat secara otomatis oleh sistem Rumah Psikologi Indonesia.', { align: 'center' })
+         .text('Untuk konsultasi lebih lanjut, silakan hubungi profesional terkait.', { align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -361,11 +435,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate PDF content
-      const pdfContent = generatePdfContent(userAssessment);
+      const pdfBuffer = await generatePdfContent(userAssessment);
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="Hasil_${userAssessment.assessment.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf"`);
-      res.send(Buffer.from(pdfContent, 'base64'));
+      res.send(pdfBuffer);
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ message: "Failed to generate PDF" });
