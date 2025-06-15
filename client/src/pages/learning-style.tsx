@@ -167,7 +167,7 @@ export default function LearningStyle() {
   const assessmentId = params?.assessmentId ? parseInt(params.assessmentId) : null;
 
   const { data: userAssessment, isLoading } = useQuery<UserAssessmentWithDetails>({
-    queryKey: [`/api/user-assessments/${assessmentId}`],
+    queryKey: [`/api/user-assessments/by-id/${assessmentId}`],
     enabled: !!assessmentId && isAuthenticated,
   });
 
@@ -218,7 +218,7 @@ export default function LearningStyle() {
     },
   });
 
-  // Debounced auto-save to prevent excessive API calls
+  // Enhanced auto-save with immediate reliability
   const saveProgressDebounced = useRef<NodeJS.Timeout>();
   const autoSaveProgress = (data: any) => {
     if (saveProgressDebounced.current) {
@@ -226,8 +226,27 @@ export default function LearningStyle() {
     }
     saveProgressDebounced.current = setTimeout(() => {
       saveProgressMutation.mutate(data);
-    }, 1000); // Wait 1 second before saving
+    }, 500); // Wait 0.5 seconds for better responsiveness
   };
+
+  // Save when user navigates away from the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isStarted && userAssessment?.id && Object.keys(responses).length > 0) {
+        // Synchronous save when leaving page
+        navigator.sendBeacon(`/api/user-assessments/${userAssessment.id}/save-progress`, 
+          JSON.stringify({
+            responses,
+            currentStep,
+            isStarted
+          })
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isStarted, userAssessment?.id, responses, currentStep]);
 
   const completeAssessmentMutation = useMutation({
     mutationFn: async (results: any) => {

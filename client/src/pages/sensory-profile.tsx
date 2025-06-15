@@ -307,9 +307,9 @@ export default function SensoryProfile() {
     }
   });
 
-  // Auto-save when responses change
+  // Auto-save when responses change - immediate save for better reliability
   useEffect(() => {
-    if (currentStep === 'questions' && userAssessment?.id) {
+    if (currentStep === 'questions' && userAssessment?.id && Object.keys(responses).length > 0) {
       const saveTimer = setTimeout(() => {
         saveProgressMutation.mutate({
           responses,
@@ -319,11 +319,33 @@ export default function SensoryProfile() {
           currentPage,
           currentStep
         });
-      }, 1000); // Save after 1 second of inactivity
+      }, 500); // Save after 0.5 seconds for better responsiveness
 
       return () => clearTimeout(saveTimer);
     }
   }, [responses, notApplicable, comments, participantInfo, currentPage, currentStep]);
+
+  // Save when user navigates away from the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (currentStep === 'questions' && userAssessment?.id && Object.keys(responses).length > 0) {
+        // Synchronous save when leaving page
+        navigator.sendBeacon(`/api/user-assessments/${userAssessment.id}/save-progress`, 
+          JSON.stringify({
+            responses,
+            notApplicable,
+            comments,
+            participantInfo,
+            currentPage,
+            currentStep
+          })
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentStep, userAssessment?.id, responses, notApplicable, comments, participantInfo, currentPage]);
 
   const completeMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -351,7 +373,7 @@ export default function SensoryProfile() {
       
       try {
         const userAssessmentId = parseInt(params.assessmentId);
-        const response = await fetch(`/api/user-assessments/${userAssessmentId}`);
+        const response = await fetch(`/api/user-assessments/by-id/${userAssessmentId}`);
         const data = await response.json();
         setUserAssessment(data);
         

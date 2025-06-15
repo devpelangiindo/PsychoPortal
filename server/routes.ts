@@ -673,6 +673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user assessment by assessment ID (for starting assessment from dashboard)
   app.get('/api/user-assessments/:assessmentId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -681,6 +682,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userAssessment = await storage.getUserAssessment(userId, assessmentId);
       if (!userAssessment) {
         return res.status(404).json({ message: "Assessment not found or not purchased" });
+      }
+
+      res.json(userAssessment);
+    } catch (error) {
+      console.error("Error fetching user assessment:", error);
+      res.status(500).json({ message: "Failed to fetch user assessment" });
+    }
+  });
+
+  // Get user assessment by user assessment ID (for continuing assessment)
+  app.get('/api/user-assessments/by-id/:userAssessmentId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userAssessmentId = parseInt(req.params.userAssessmentId);
+      
+      const userAssessments = await storage.getUserAssessments(userId);
+      const userAssessment = userAssessments.find(ua => ua.id === userAssessmentId);
+      
+      if (!userAssessment) {
+        return res.status(404).json({ message: "Assessment not found or access denied" });
       }
 
       res.json(userAssessment);
