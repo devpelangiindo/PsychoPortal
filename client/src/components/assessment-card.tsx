@@ -104,14 +104,14 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
             <Button
               onClick={handleAddToCart}
               disabled={isInCart}
-              size="lg"
-              className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md hover:shadow-lg ${
+              size="sm"
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm ${
                 isInCart 
                   ? 'bg-gray-400 text-white cursor-not-allowed' 
                   : 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
               }`}
             >
-              {isInCart ? "✓ Di Keranjang" : "🛒 Tambah ke Keranjang"}
+              {isInCart ? "✓ Di Keranjang" : "+ Keranjang"}
             </Button>
           )}
         </div>
