@@ -252,7 +252,6 @@ export default function SensoryProfile() {
   
   // Assessment state
   const [currentStep, setCurrentStep] = useState<'instructions' | 'participant-info' | 'questions'>('instructions');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [responses, setResponses] = useState<Record<number, string>>({});
   const [notApplicable, setNotApplicable] = useState<Record<number, boolean>>({});
@@ -421,8 +420,6 @@ export default function SensoryProfile() {
     }
   };
 
-
-
   const calculateResults = () => {
     // Calculate section scores
     const sectionScores: Record<string, number> = {};
@@ -467,7 +464,20 @@ export default function SensoryProfile() {
     };
   };
 
+  const isAllQuestionsAnswered = () => {
+    return allQuestions.every(q => responses[q.id] || notApplicable[q.id]);
+  };
 
+  const handleComplete = () => {
+    const results = calculateResults();
+    completeMutation.mutate({
+      responses,
+      notApplicable,
+      comments,
+      participantInfo,
+      results
+    });
+  };
 
   if (!user) {
     return (
@@ -576,9 +586,12 @@ export default function SensoryProfile() {
           <Card>
             <CardHeader>
               <CardTitle>Informasi Partisipan</CardTitle>
+              <p className="text-gray-600 dark:text-gray-400">
+                Silakan lengkapi informasi berikut sebelum memulai asesmen.
+              </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="childName">Nama Anak:</Label>
                   <Input
@@ -586,16 +599,18 @@ export default function SensoryProfile() {
                     value={participantInfo.childName}
                     onChange={(e) => setParticipantInfo(prev => ({ ...prev, childName: e.target.value }))}
                     placeholder="Masukkan nama anak"
+                    required
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="childBirthDate">Tanggal Lahir:</Label>
+                  <Label htmlFor="childBirthDate">Tanggal Lahir Anak:</Label>
                   <Input
                     id="childBirthDate"
                     type="date"
                     value={participantInfo.childBirthDate}
                     onChange={(e) => setParticipantInfo(prev => ({ ...prev, childBirthDate: e.target.value }))}
+                    required
                   />
                 </div>
 
@@ -605,7 +620,8 @@ export default function SensoryProfile() {
                     id="parentName"
                     value={participantInfo.parentName}
                     onChange={(e) => setParticipantInfo(prev => ({ ...prev, parentName: e.target.value }))}
-                    placeholder="Masukkan nama"
+                    placeholder="Masukkan nama orangtua/pengasuh"
+                    required
                   />
                 </div>
 
@@ -618,8 +634,6 @@ export default function SensoryProfile() {
                     placeholder="Contoh: Ibu, Ayah, Pengasuh"
                   />
                 </div>
-
-
 
                 <div className="md:col-span-2">
                   <Label htmlFor="testDate">Tanggal Tes:</Label>
@@ -795,6 +809,7 @@ export default function SensoryProfile() {
                       <FileText className="ml-2 h-4 w-4" />
                     </Button>
                   )}
+                </div>
               </CardContent>
             </Card>
           </div>

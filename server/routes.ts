@@ -725,7 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const userAssessmentId = parseInt(req.params.id);
-      const { responses, participantInfo, currentSection, currentStep, notApplicable, comments } = req.body;
+      const { responses, participantInfo, currentPage, currentStep, notApplicable, comments } = req.body;
 
       // Verify ownership
       const userAssessments = await storage.getUserAssessments(userId);
@@ -741,8 +741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...existingResults,
         responses: responses || existingResults.responses || {},
         participantInfo: participantInfo || existingResults.participantInfo || {},
-        currentSection: currentSection !== undefined ? currentSection : existingResults.currentSection || 0,
-        currentStep: currentStep !== undefined ? currentStep : existingResults.currentStep || 0,
+        currentPage: currentPage !== undefined ? currentPage : existingResults.currentPage || 0,
         notApplicable: notApplicable || existingResults.notApplicable || {},
         comments: comments || existingResults.comments || {},
         lastSaved: new Date().toISOString()
