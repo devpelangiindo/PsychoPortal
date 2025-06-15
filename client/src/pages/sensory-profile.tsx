@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -8,8 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Save, User, Users, FileText, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -21,6 +20,7 @@ import type { UserAssessmentWithDetails } from "@shared/schema";
 interface Question {
   id: number;
   text: string;
+  threshold?: 'L' | 'H';
 }
 
 interface Section {
@@ -32,225 +32,215 @@ interface Section {
 interface ParticipantInfo {
   childName: string;
   childBirthDate: string;
-  childGender: string;
   parentName: string;
   relationship: string;
-  parentAge: string;
-  parentEducation: string;
-  parentOccupation: string;
+  testerName: string;
+  testerPosition: string;
   testDate: string;
-  concerns: string;
-  otherInfo: string;
 }
 
 const sections: Section[] = [
   {
     id: 'A',
-    title: 'A. Pemrosesan Auditori',
+    title: 'A. Pemrosesan Pendengaran',
     questions: [
-      { id: 1, text: 'Menanggapi secara negatif terhadap suara yang tidak terduga atau keras (misalnya: menangis atau bersembunyi dari kebisingan penyedot debu, gonggongan anjing, pengering rambut)' },
-      { id: 2, text: 'Menutup telinga dengan tangan untuk melindungi telinga dari suara' },
-      { id: 3, text: 'Kesulitan menyelesaikan tugas saat radio menyala' },
-      { id: 4, text: 'Akan terganggu atau mengalami kesulitan melakukan fungsinya jika ada banyak kebisingan di sekitarnya' },
-      { id: 5, text: 'Tidak dapat bekerja dengan latar belakang kebisingan (misalnya: suara kipas angin, lemari es)' },
-      { id: 6, text: 'Tampaknya tidak mendengar apa yang Anda katakan (misalnya: tidak "mendengarkan" apa yang Anda katakan, tampaknya mengabaikan Anda)' },
-      { id: 7, text: 'Tidak merespon saat namanya dipanggil tapi Anda tahu pendengaran anak baik-baik saja' },
-      { id: 8, text: 'Menikmati suara-suara aneh/berusaha membuat suara-suara demi kebisingan' }
+      { id: 1, text: 'Menanggapi secara negatif terhadap suara yang tidak terduga atau keras (misalnya: menangis atau bersembunyi dari kebisingan penyedot debu, gonggongan anjing, pengering rambut)', threshold: 'L' },
+      { id: 2, text: 'Menutup telinga dengan tangan untuk melindungi telinga dari suara', threshold: 'L' },
+      { id: 3, text: 'Kesulitan menyelesaikan tugas saat radio menyala', threshold: 'L' },
+      { id: 4, text: 'Akan terganggu atau mengalami kesulitan melakukan fungsinya jika ada banyak kebisingan di sekitarnya', threshold: 'L' },
+      { id: 5, text: 'Tidak dapat bekerja dengan latar belakang kebisingan (misalnya: suara kipas angin, lemari es)', threshold: 'L' },
+      { id: 6, text: 'Tampaknya tidak mendengar apa yang Anda katakan (misalnya: tidak "mendengarkan" apa yang Anda katakan, tampaknya mengabaikan Anda)', threshold: 'H' },
+      { id: 7, text: 'Tidak merespon saat namanya dipanggil tapi Anda tahu pendengaran anak baik-baik saja', threshold: 'H' },
+      { id: 8, text: 'Menikmati suara-suara aneh/berusaha membuat suara-suara demi kebisingan', threshold: 'H' }
     ]
   },
   {
     id: 'B',
     title: 'B. Pemrosesan Visual',
     questions: [
-      { id: 9, text: 'Lebih suka berada dalam kegelapan' },
-      { id: 10, text: 'Menyatakan ketidaknyamanan dengan cahaya atau menghindari cahaya terang (misalnya: bersembunyi dari sinar matahari melalui jendela di dalam mobil)' },
-      { id: 11, text: 'Senang berada dalam kegelapan' },
-      { id: 12, text: 'Menjadi frustrasi saat mencoba menemukan objek/benda di latar belakang yang \'kacau\' (misalnya: laci yang berantakan)' },
-      { id: 13, text: 'Memiliki kesulitan menyusun puzzle bersama (dibandingkan dengan anak-anak seusianya)' },
-      { id: 14, text: 'Menghindari kontak mata atau memiliki kesulitan dengan kontak mata' },
-      { id: 15, text: 'Memandang orang atau objek dari sudut matanya (tidak menatap langsung)' },
-      { id: 16, text: 'Memandang objek dengan teliti atau dari jarak dekat' },
-      { id: 17, text: 'Menyukai lampu terang atau sinar matahari' }
+      { id: 9, text: 'Lebih suka berada dalam kegelapan', threshold: 'L' },
+      { id: 10, text: 'Menyatakan ketidaknyamanan dengan cahaya atau menghindari cahaya terang (misalnya: bersembunyi dari sinar matahari melalui jendela di dalam mobil)', threshold: 'L' },
+      { id: 11, text: 'Senang berada dalam kegelapan', threshold: 'L' },
+      { id: 12, text: 'Menjadi frustrasi saat mencoba menemukan objek/benda di latar belakang yang \'kacau\' (misalnya: laci yang berantakan)', threshold: 'L' },
+      { id: 13, text: 'Memiliki kesulitan menyusun puzzle bersama (dibandingkan dengan anak-anak seusianya)', threshold: 'L' },
+      { id: 14, text: 'Terganggu oleh cahaya terang setelah orang lain beradaptasi dengan cahaya itu', threshold: 'L' },
+      { id: 15, text: 'Menutupi mata atau juling untuk melindungi mata dari cahaya', threshold: 'L' },
+      { id: 16, text: 'Melihat dengan hati-hati atau intens pada objek/orang (misalnya: tatapan)', threshold: 'H' },
+      { id: 17, text: 'Sulit menemukan objek di latar belakang yang \'kacau\' (misalnya: sepatu di ruangan yang berantakan, mainan favorit di dalam "kotak barang-barang bekas")', threshold: 'H' }
     ]
   },
   {
     id: 'C',
     title: 'C. Pemrosesan Vestibular',
     questions: [
-      { id: 18, text: 'Menjadi cemas atau kesulitan saat kaki terangkat dari tanah' },
-      { id: 19, text: 'Tidak menyukai aktivitas dimana kepala tidak tegak lurus atau terbalik' },
-      { id: 20, text: 'Menghindari perosotan atau peralatan taman bermain lainnya' },
-      { id: 21, text: 'Tidak menyukai naik escalator atau elevator' },
-      { id: 22, text: 'Menghindari permainan yang tidak dapat diprediksi atau tidak terkendali' },
-      { id: 23, text: 'Tidak suka berputar-putar atau akan menjadi pusing dengan mudah' },
-      { id: 24, text: 'Mencari semua jenis gerakan dan ini mengganggu aktivitas sehari-hari (misalnya: tidak dapat duduk diam)' },
-      { id: 25, text: 'Menikmati gerakan yang intens (misalnya: carnival rides, berputar-putar)' },
-      { id: 26, text: 'Suka dilempar ke udara' },
-      { id: 27, text: 'Melompat-lompat di permukaan empuk' },
-      { id: 28, text: 'Suka berputar-putar dan jarang merasa pusing' }
+      { id: 18, text: 'Menjadi cemas atau tertekan saat kaki beranjak dari tanah', threshold: 'L' },
+      { id: 19, text: 'Tidak menyukai aktivitas kepala terbalik (misalnya: jungkir balik, gerakan fisik yang aktif seperti bergulat, melompat diatas sofa)', threshold: 'L' },
+      { id: 20, text: 'Menghindari peralatan yang ada di taman bermain atau mainan yang bergerak (misalnya: ayunan, komidi putar)', threshold: 'L' },
+      { id: 21, text: 'Tidak suka mengendarai mobil', threshold: 'L' },
+      { id: 22, text: 'Menahan kepala tegak, bahkan saat membungkuk atau bersandar (misalnya: mempertahankan posisi/postur kaku selama aktivitas)', threshold: 'L' },
+      { id: 23, text: 'Menjadi bingung setelah membungkuk di wastafel atau meja (misalnya: jatuh atau pusing)', threshold: 'L' },
+      { id: 24, text: 'Mencari segala macam gerakan yang mengganggu rutinitas sehari-hari (misalnya : tidak bisa duduk diam, gelisah)', threshold: 'H' },
+      { id: 25, text: 'Mencari semua jenis aktivitas gerakan (misalnya: diputar oleh orang dewasa, komidi putar, peralatan bermain, mainan yang bergerak)', threshold: 'H' },
+      { id: 26, text: 'Sering berputar-putar sendiri sepanjang hari (misalnya: jadi suka merasa pusing)', threshold: 'H' },
+      { id: 27, text: 'Bergoyang secara tidak sadar (misalnya: saat menonton TV)', threshold: 'H' },
+      { id: 28, text: 'Bergoyang di meja/kursi/lantai', threshold: 'H' }
     ]
   },
   {
     id: 'D',
-    title: 'D. Pemrosesan Taktil',
+    title: 'D. Pemrosesan Sentuhan',
     questions: [
-      { id: 29, text: 'Menghindari bertelanjang kaki, terutama di pasir atau rumput' },
-      { id: 30, text: 'Kesulitan dengan aktivitas perawatan diri (misalnya: pemotongan kuku, menyikat gigi, menyisir rambut)' },
-      { id: 31, text: 'Menghindari bermain dengan finger paint, lem, atau bahan yang lengket' },
-      { id: 32, text: 'Menghindari/tidak menyukai makanan yang berantakan' },
-      { id: 33, text: 'Tidak suka disentuh oleh orang lain' },
-      { id: 34, text: 'Tidak suka memiliki wajah yang kotor' },
-      { id: 35, text: 'Tidak menyukai aktivitas dimana tangannya menjadi kotor' },
-      { id: 36, text: 'Suka menyentuh orang dan objek' },
-      { id: 37, text: 'Menyentuh permukaan atau tekstur yang menimbulkan respon dari orang lain (misalnya: meraba tempat yang kotor)' },
-      { id: 38, text: 'Terlibat dalam perilaku yang melukai diri sendiri' }
+      { id: 29, text: 'Menghindari "berantakan" (misalnya: di pasta, pasir, cat jari, lem, selotip)', threshold: 'L' },
+      { id: 30, text: 'Mengekspresikan "kesusahan" saat melakukan kegiatan harian seperti berkelahi atau menangis saat potong rambut, mencuci muka, memotong kuku', threshold: 'L' },
+      { id: 31, text: 'Lebih suka pakaian lengan panjang saat hangat atau lengan pendek saat cuaca dingin', threshold: 'L' },
+      { id: 32, text: 'Menyatakan ketidaknyamanan pada perawatan gigi atau menyikat gigi (misalnya: menangis atau berkelahi)', threshold: 'L' },
+      { id: 33, text: 'Peka terhadap kain tertentu (misalnya: khusus tentang pakaian atau seprai tertentu)', threshold: 'L' },
+      { id: 34, text: 'Teriritasi oleh sepatu atau kaus kaki', threshold: 'L' },
+      { id: 35, text: 'Menghindari bertelanjang kaki, terutama di pasir atau rumput', threshold: 'L' },
+      { id: 36, text: 'Bereaksi secara emosional atau agresif terhadap sentuhan', threshold: 'L' },
+      { id: 37, text: 'Menarik diri dari percikan air', threshold: 'L' },
+      { id: 38, text: 'Mengalami kesulitan berdiri dalam antrean atau dekat dengan orang lain', threshold: 'L' },
+      { id: 39, text: 'Menggosok atau menggores tempat yang telah disentuh', threshold: 'L' },
+      { id: 40, text: 'Menyentuh orang dan benda hingga membuat orang lain kesal', threshold: 'H' },
+      { id: 41, text: 'Menampilkan kebutuhan yang tidak biasa untuk menyentuh mainan, permukaan, atau tekstur tertentu (misalnya: terus-menerus menyentuh benda-benda)', threshold: 'H' },
+      { id: 42, text: 'Penurunan kesadaran akan rasa sakit dan suhu', threshold: 'H' },
+      { id: 43, text: 'Tidak menyadari saat seseorang menyentuh lengan atau punggungnya', threshold: 'H' },
+      { id: 44, text: 'Menghindari memakai sepatu; suka bertelanjang kaki', threshold: 'H' },
+      { id: 45, text: 'Menyentuh orang dan benda', threshold: 'H' },
+      { id: 46, text: 'Sepertinya tidak memperhatikan saat wajah atau tangannya berantakan', threshold: 'H' }
     ]
   },
   {
     id: 'E',
-    title: 'E. Pemrosesan Multisensoris',
+    title: 'E. Pemrosesan Multisensori',
     questions: [
-      { id: 39, text: 'Menjadi bingung dalam lingkungan yang tidak dikenal' },
-      { id: 40, text: 'Terganggu oleh suara keras, cahaya terang, atau bau yang tidak dikenal' },
-      { id: 41, text: 'Kesulitan fokus di lingkungan yang sibuk' },
-      { id: 42, text: 'Mencari input sensoris dengan menggabungkan banyak sensori' }
+      { id: 47, text: 'Tersesat dengan mudah (bahkan di tempat yang familiar)' },
+      { id: 48, text: 'Memiliki kesulitan memperhatikan sesuatu' },
+      { id: 49, text: 'Berpaling dari tugas untuk memperhatikan semua tindakan di dalam ruangan', threshold: 'L' },
+      { id: 50, text: 'Tampak tidak sadar dalam lingkungan yang aktif (misalnya: tidak menyadari aktivitas)', threshold: 'H' },
+      { id: 51, text: 'Berpegangan pada orang, furnitur, atau objek bahkan dalam situasi yang biasa', threshold: 'H' },
+      { id: 52, text: 'Berjalan dengan jari kaki/berjinjit', threshold: 'H' },
+      { id: 53, text: 'Menanggalkan pakaian yang membelit di tubuh', threshold: 'H' }
     ]
   },
   {
     id: 'F',
-    title: 'F. Pemrosesan Oral Sensoris',
+    title: 'F. Pengolahan Sensorik Oral',
     questions: [
-      { id: 43, text: 'Memilih makanan berdasarkan tekstur tertentu' },
-      { id: 44, text: 'Membatasi diri pada tekstur makanan tertentu/memiliki pola makan yang terbatas' },
-      { id: 45, text: 'Menghindari makanan tertentu karena baunya' },
-      { id: 46, text: 'Hanya akan makan makanan bersuhu tertentu' },
-      { id: 47, text: 'Pilih-pilih makanan, terutama yang berkaitan dengan tekstur makanan' },
-      { id: 48, text: 'Memiliki kesulitan menelan' },
-      { id: 49, text: 'Memasukkan objek ke dalam mulut (misalnya: tangan, mainan, baju)' },
-      { id: 50, text: 'Mengunyah atau mengisap pakaian atau objek lainnya' },
-      { id: 51, text: 'Mengeksplorasi objek dengan memasukkannya ke dalam mulut' },
-      { id: 52, text: 'Suka makanan yang sangat pedas' },
-      { id: 53, text: 'Suka makanan dengan tekstur yang intens (misalnya: sangat renyah, kenyal, dll)' },
-      { id: 54, text: 'Menggertakkan atau menggeretakkan gigi' }
+      { id: 54, text: 'Mudah muntah dengan tekstur makanan atau peralatan makanan di mulut', threshold: 'L' },
+      { id: 55, text: 'Menghindari rasa atau bau makanan tertentu yang biasanya menjadi bagian dari makanan anak-anak', threshold: 'L' },
+      { id: 56, text: 'Hanya akan memakan menu tertentu', threshold: 'L' },
+      { id: 57, text: 'Membatasi diri pada tekstur/suhu makanan tertentu', threshold: 'L' },
+      { id: 58, text: 'Pemilih makanan, terutama soal tekstur makanan', threshold: 'L' },
+      { id: 59, text: 'Secara rutin mencium bau benda yang bukan makanan', threshold: 'H' },
+      { id: 60, text: 'Menunjukkan pilihan yang kuat untuk bau tertentu', threshold: 'H' },
+      { id: 61, text: 'Menunjukkan pilihan yang kuat untuk menu tertentu', threshold: 'H' },
+      { id: 62, text: 'Mengidam makanan tertentu', threshold: 'H' },
+      { id: 63, text: 'Mencari rasa atau bau tertentu', threshold: 'H' },
+      { id: 64, text: 'Mengunyah atau menjilat benda yang bukan makanan', threshold: 'H' },
+      { id: 65, text: 'Suka memasukkan benda ke dalam mulut (misalnya: pensil, tangan)', threshold: 'H' }
     ]
   },
   {
     id: 'G',
-    title: 'G. Perencanaan Gerakan',
+    title: 'G. Pemrosesan Sensorik Terkait Daya Tahan/Keselarasan',
     questions: [
-      { id: 55, text: 'Memiliki kesulitan dengan keterampilan motorik kasar yang membutuhkan koordinasi' },
-      { id: 56, text: 'Memiliki kesulitan mengendarai sepeda' },
-      { id: 57, text: 'Memiliki kesulitan dengan keterampilan motorik halus (misalnya: menggunakan pensil, gunting)' },
-      { id: 58, text: 'Memiliki kesulitan motorik dalam aktivitas baru sampai belajar mereka' },
-      { id: 59, text: 'Klak atau tersandung saat berjalan' },
-      { id: 60, text: 'Memiliki keseimbangan yang buruk' },
-      { id: 61, text: 'Takut jatuh atau berada di ketinggian' },
-      { id: 62, text: 'Tidak aman secara fisik; sering terluka' },
-      { id: 63, text: 'Mengambil risiko fisik yang tidak perlu selama bermain' },
-      { id: 64, text: 'Tampaknya tidak menyadari saat terluka' }
+      { id: 66, text: 'Bergerak dengan kaku' },
+      { id: 67, text: 'Mudah lelah, terutama saat berdiri atau menopang posisi tubuh tertentu', threshold: 'H' },
+      { id: 68, text: 'Mengunci sendi (misalnya: siku, lutut) untuk stabilitas', threshold: 'H' },
+      { id: 69, text: 'Tampaknya memiliki otot yang lemah', threshold: 'H' },
+      { id: 70, text: 'Memiliki genggaman yang lemah', threshold: 'H' },
+      { id: 71, text: 'Tidak dapat mengangkat benda berat (misalnya: lemah dibandingkan dengan anak seusianya)', threshold: 'H' },
+      { id: 72, text: 'Butuh alat untuk menopang diri (bahkan selama aktivitas)', threshold: 'H' },
+      { id: 73, text: 'Daya tahan yang buruk/mudah lelah', threshold: 'H' },
+      { id: 74, text: 'Tampak lesu (misalnya: tidak bertenaga, lesu)', threshold: 'H' }
     ]
   },
   {
     id: 'H',
-    title: 'H. Modulasi Endurance dan Tonus',
+    title: 'H. Modulasi Berkaitan dengan Posisi dan Gerakan Tubuh',
     questions: [
-      { id: 65, text: 'Memiliki tingkat aktivitas yang rendah' },
-      { id: 66, text: 'Lelah dengan mudah, terutama saat berdiri atau memegang posisi tertentu' },
-      { id: 67, text: 'Memiliki tonus otot yang lemah' },
-      { id: 68, text: 'Menyandarkan tubuh pada orang, furnitur, dinding (yaitu cari dukungan)' },
-      { id: 69, text: 'Memiliki "limp" handshake' },
-      { id: 70, text: 'Memiliki kesulitan membuka botol, kaleng, atau kemasan' },
-      { id: 71, text: 'Memiliki kesulitan mengangkat objek berat' },
-      { id: 72, text: 'Suka tekanan berat (misalnya: selimut berat, beban berat)' },
-      { id: 73, text: 'Suka pakaian ketat' },
-      { id: 74, text: 'Suka "bear hugs" atau dipeluk kuat' },
-      { id: 75, text: 'Suka sandwich diantara bantal atau furnitur' }
+      { id: 75, text: 'Rawan kecelakaan' },
+      { id: 76, text: 'Ragu-ragu naik atau turun trotoar atau tangga (misalnya: hati-hati, berhenti sebelum bergerak)' },
+      { id: 77, text: 'Takut jatuh atau takut ketinggian', threshold: 'L' },
+      { id: 78, text: 'Menghindari untuk memanjat/melompat atau menghindari tanah bergelombang/tidak rata', threshold: 'L' },
+      { id: 79, text: 'Memegang dinding atau pegangan tangga (misalnya: menempel)', threshold: 'L' },
+      { id: 80, text: 'Mengambil risiko berlebihan saat bermain (misalnya: memanjat pohon tinggi, melompat dari furnitur yang tinggi)', threshold: 'H' },
+      { id: 81, text: 'Mengambil risiko gerakan atau memanjat yang membahayakan keselamatan pribadi selama bermain', threshold: 'H' },
+      { id: 82, text: 'Membalikkan seluruh tubuhnya untuk melihat Anda', threshold: 'H' },
+      { id: 83, text: 'Mencari peluang untuk jatuh tanpa memperhatikan keselamatan pribadi', threshold: 'H' },
+      { id: 84, text: 'Tampaknya menikmati untuk jatuh', threshold: 'H' }
     ]
   },
   {
     id: 'I',
-    title: 'I. Modulasi Sensory Processing yang Berkaitan dengan Tonus Tubuh dan Endurance',
+    title: 'I. Modulasi Gerakan yang Mempengaruhi Tingkat Aktivitas',
     questions: [
-      { id: 76, text: 'Menunjukkan fluktuasi dalam tingkat waspada/responsivitas sepanjang hari' },
-      { id: 77, text: 'Memiliki kesulitan untuk "memulai"' },
-      { id: 78, text: 'Tampak lelah; memiliki energi yang sedikit' },
-      { id: 79, text: 'Mempengaruhi emosional; sering tampak khawatir' },
-      { id: 80, text: 'Memiliki tingkat aktivitas yang tinggi' },
-      { id: 81, text: 'Selalu bergerak' },
-      { id: 82, text: 'Tampak tidak pernah lelah' },
-      { id: 83, text: 'Impulsif; kurang menunjukkan restraint' },
-      { id: 84, text: 'Tidak dapat berhenti dirinya untuk berbicara atau bergerak' }
+      { id: 85, text: 'Menghabiskan sebagian besar harinya dalam permainan yang tidak banyak bergerak (misalnya: melakukan hal-hal yang tenang)', threshold: 'L' },
+      { id: 86, text: 'Lebih suka permainan yang tenang dan tidak banyak bergerak (misalnya: menonton TV, buku, komputer)', threshold: 'L' },
+      { id: 87, text: 'Mencari opsi bermain yang tidak banyak bergerak', threshold: 'L' },
+      { id: 88, text: 'Lebih suka aktivitas menetap/tidak banyak bergerak', threshold: 'L' },
+      { id: 89, text: 'Menjadi terlalu bersemangat selama aktivitas gerakan', threshold: 'H' },
+      { id: 90, text: '"Serba bergerak"', threshold: 'H' },
+      { id: 91, text: 'Menghindari aktivitas bermain yang tenang', threshold: 'H' }
     ]
   },
   {
     id: 'J',
-    title: 'J. Modulasi Gerakan yang Mempengaruhi Tingkat Aktivitas',
+    title: 'J. Modulasi Input Sensorik yang Mempengaruhi Respon Emosional',
     questions: [
-      { id: 85, text: 'Lambat untuk merespon' },
-      { id: 86, text: 'Berhati-hati dengan gerakan atau bermain' },
-      { id: 87, text: 'Mencari gerakan yang menenangkan (misalnya: goyang, memantul)' },
-      { id: 88, text: 'Mencari gerakan yang memutar atau berputar' },
-      { id: 89, text: 'Menikmati, atau mencari, gerakan yang cepat, intens, atau berputar' }
+      { id: 92, text: 'Membutuhkan lebih banyak perlindungan dari kehidupan, dibandingkan anak-anak lain (misalnya: tidak berdaya secara fisik atau emosional)' },
+      { id: 93, text: 'Ritual/kebiasaan yang kaku dalam hal kebersihan pribadi', threshold: 'L' },
+      { id: 94, text: 'Terlalu sayang/penuh kasih sayang dengan orang lain', threshold: 'H' },
+      { id: 95, text: 'Tidak menyadari bahasa tubuh atau ekspresi wajah (misalnya: tidak dapat menafsirkan)', threshold: 'H' }
     ]
   },
   {
     id: 'K',
-    title: 'K. Modulasi Input Sensoris yang Mempengaruhi Respon Emosional',
+    title: 'K. Modulasi Input Visual yang Mempengaruhi Respon Emosional dan Tingkat Aktivitas',
     questions: [
-      { id: 90, text: 'Tampaknya tidak tertarik dengan aktivitas yang menarik bagi anak lain' },
-      { id: 91, text: 'Tidak mengekspresikan dirinya terlalu baik' },
-      { id: 92, text: 'Tampaknya memiliki tingkat aktivitas yang sama terlepas dari situasinya' },
-      { id: 93, text: 'Tidak menanggapi rangsangan eksternal yang berbahaya (misalnya: tidak menjauh dari situasi yang berbahaya)' },
-      { id: 94, text: 'Mengambil bagian dalam gerakan yang berbahaya; tidak merasakan bahaya' },
-      { id: 95, text: 'Tampaknya tidak menyadari konsekuensi dari tindakannya' },
-      { id: 96, text: 'Bereaksi secara emosional tidak tepat terhadap situasi (misalnya: tertawa ketika seseorang terluka)' },
-      { id: 97, text: 'Tidak merespons atau membutuhkan respon lebih intens dari yang Anda harapkan' },
-      { id: 98, text: 'Menunjukkan respon ekstrem terhadap suara yang tidak terduga, cahaya, gerakan, sentuhan, bau, atau rasa' },
-      { id: 99, text: 'Respon emosional tidak tepat untuk situasi' }
+      { id: 96, text: 'Menghindari kontak mata', threshold: 'L' },
+      { id: 97, text: 'Menatap objek atau orang secara intens', threshold: 'H' },
+      { id: 98, text: 'Memperhatikan setiap orang yang bergerak di sekitar ruangan', threshold: 'H' },
+      { id: 99, text: 'Tidak memperhatikan ketika orang masuk ke ruangan', threshold: 'H' }
     ]
   },
   {
     id: 'L',
-    title: 'L. Modulasi Input Visual yang Mempengaruhi Respon Emosional dan Tingkat Aktivitas',
+    title: 'L. Respon Emosional/Sosial',
     questions: [
-      { id: 100, text: 'Bereaksi secara ekstrem terhadap rangsangan visual yang tidak terduga (misalnya: mengekspresikan ketidaknyamanan/menangis)' },
-      { id: 101, text: 'Menghindari kontak mata' },
-      { id: 102, text: 'Menonton TV dengan jarak dekat' },
-      { id: 103, text: 'Senang melihat objek berputar (misalnya: mencuci dalam mesin cuci, roda berputar)' }
+      { id: 100, text: 'Tampaknya mengalami kesulitan menyukai diri sendiri (misalnya: harga diri rendah)' },
+      { id: 101, text: 'Mengalami kesulitan "bertumbuh" (misalnya: bereaksi tidak dewasa terhadap situasi)' },
+      { id: 102, text: 'Peka terhadap kritik' },
+      { id: 103, text: 'Memiliki ketakutan tertentu (misalnya: ketakutan dapat diprediksi)' },
+      { id: 104, text: 'Terlihat cemas' },
+      { id: 105, text: 'Menunjukkan ledakan emosi yang berlebihan saat tidak berhasil dalam suatu tugas' },
+      { id: 106, text: 'Mengungkapkan perasaan gagal' },
+      { id: 107, text: 'Keras kepala atau tidak kooperatif' },
+      { id: 108, text: 'Memiliki amarah' },
+      { id: 109, text: 'Toleransi frustrasi yang buruk' },
+      { id: 110, text: 'Mudah menangis' },
+      { id: 111, text: 'Terlalu serius' },
+      { id: 112, text: 'Sulit berteman (misalnya: tidak berinteraksi atau berpartisipasi dalam permainan kelompok)' },
+      { id: 113, text: 'Mengalami mimpi buruk' },
+      { id: 114, text: 'Memiliki masalah tidur' }
     ]
   },
   {
     id: 'M',
-    title: 'M. Modulasi Input Taktil yang Mempengaruhi Respon Emosional',
+    title: 'M. Hasil Pemrosesan Sensorik',
     questions: [
-      { id: 104, text: 'Menghindari kerumunan atau berdiri dekat dengan orang' },
-      { id: 105, text: 'Tidak menyukai sentuhan tak terduga (misalnya: menjadi marah jika ada yang menyentuhnya dari belakang)' },
-      { id: 106, text: 'Bereaksi secara emosional atau agresif terhadap sentuhan' },
-      { id: 107, text: 'Menarik diri saat disentuh' },
-      { id: 108, text: 'Bereaksi secara negatif untuk bersentuhan dengan tekstur tertentu' }
-    ]
-  },
-  {
-    id: 'N',
-    title: 'N. Sensory Processing yang Berkaitan dengan Threshold Rendah',
-    questions: [
-      { id: 109, text: 'Memiliki respon yang dapat diprediksi terhadap rasa sakit (misalnya: menangis setiap kali terluka)' },
-      { id: 110, text: 'Bereaksi terhadap ketidaknyamanan (misalnya: suhu, kebisingan)' },
-      { id: 111, text: 'Merespon secara negatif untuk suara keras' },
-      { id: 112, text: 'Terganggu oleh kegiatan yang memerlukan berpakaian dan menanggalkan pakaian' },
-      { id: 113, text: 'Terganggu oleh kaus kaki, sepatu, atau pakaian' },
-      { id: 114, text: 'Menghindari naik atau turun tangga atau eskalator' },
-      { id: 115, text: 'Menjadi terganggu saat berpindah dari satu permukaan ke permukaan lain (misalnya: dari karpet ke linoleum, rumput ke trotoar)' },
-      { id: 116, text: 'Kesulitan berdiri di antrean atau duduk di karpet dengan anak-anak lain karena kekhawatiran bahwa orang lain akan menyentuhnya' },
-      { id: 117, text: 'Menghindari makanan dengan tekstur/suhu campuran' },
-      { id: 118, text: 'Respon berlebihan terhadap panas, dingin, atau rasa sakit' },
-      { id: 119, text: 'Mengurangi kegiatan yang melibatkan pergerakan' },
-      { id: 120, text: 'Terganggu dengan kegiatan yang memiliki lebih dari satu bagian' },
-      { id: 121, text: 'Mengekspresikan tekanan dari aktivitas sehari-hari' },
-      { id: 122, text: 'Memerlukan istirahat lebih sering dari anak-anak lain' },
-      { id: 123, text: 'Memiliki masalah untuk tidur' },
-      { id: 124, text: 'Protes atau menolak untuk mengikuti aktivitas' },
-      { id: 125, text: 'Menghindari aktivitas atau lingkungan tertentu' }
+      { id: 115, text: 'Tampak tidak termotivasi' },
+      { id: 116, text: 'Tampak lemas atau tidak bertenaga (tidak seperti anak seusianya)' },
+      { id: 117, text: 'Impulsif' },
+      { id: 118, text: 'Tidak bisa menunggu; butuh kepuasan segera' },
+      { id: 119, text: 'Kesulitan memulai suatu aktivitas' },
+      { id: 120, text: 'Frustrasi dengan mudah' },
+      { id: 121, text: 'Sulit untuk menenangkan/menghibur diri' },
+      { id: 122, text: 'Miskin perhatian/konsentrasi' },
+      { id: 123, text: 'Tidak dapat tinggal dalam tugas untuk menyelesaikan/mengakhirinya' },
+      { id: 124, text: 'Tidak memperhatikan detail dalam tugas (misalnya: membuat kesalahan yang ceroboh)' },
+      { id: 125, text: 'Cenderung tidak berprestasi secara akademis' }
     ]
   }
 ];
@@ -260,28 +250,23 @@ export default function SensoryProfile() {
   const [match, params] = useRoute("/assessment/:id");
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   
   // Assessment state
   const [currentStep, setCurrentStep] = useState<'instructions' | 'participant-info' | 'questions'>('instructions');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Record<number, string>>({});
   const [notApplicable, setNotApplicable] = useState<Record<number, boolean>>({});
-  const [comments, setComments] = useState<Record<number, string>>({});
+  const [comments, setComments] = useState<Record<string, string>>({});
   
   // Participant info state
   const [participantInfo, setParticipantInfo] = useState<ParticipantInfo>({
     childName: '',
     childBirthDate: '',
-    childGender: '',
     parentName: '',
     relationship: '',
-    parentAge: '',
-    parentEducation: '',
-    parentOccupation: '',
-    testDate: new Date().toISOString().split('T')[0],
-    concerns: '',
-    otherInfo: ''
+    testerName: '',
+    testerPosition: '',
+    testDate: new Date().toISOString().split('T')[0]
   });
 
   const [userAssessment, setUserAssessment] = useState<UserAssessmentWithDetails | null>(null);
@@ -301,20 +286,22 @@ export default function SensoryProfile() {
   const saveProgressMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!userAssessment?.id) return;
-      return apiRequest(`/api/user-assessments/${userAssessment.id}/save-progress`, {
+      return await fetch(`/api/user-assessments/${userAssessment.id}/save-progress`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-      });
+      }).then(res => res.json());
     }
   });
 
   const completeMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!userAssessment?.id) return;
-      return apiRequest(`/api/user-assessments/${userAssessment.id}/complete`, {
+      return await fetch(`/api/user-assessments/${userAssessment.id}/complete`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-      });
+      }).then(res => res.json());
     },
     onSuccess: () => {
       toast({
@@ -424,7 +411,7 @@ export default function SensoryProfile() {
     // Calculate total score
     const totalScore = Object.values(sectionScores).reduce((sum, score) => sum + score, 0);
     
-    // Determine interpretation
+    // Determine interpretation based on total score
     let interpretation = '';
     if (totalScore < 155) {
       interpretation = 'Sensitivitas Rendah - Kemungkinan memerlukan stimulasi sensoris yang lebih kuat';
@@ -504,48 +491,51 @@ export default function SensoryProfile() {
         {currentStep === 'instructions' && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-6 w-6" />
-                Instruksi Asesmen Profil Sensoris
+              <CardTitle className="text-center text-xl font-bold">
+                Sensory Profile
               </CardTitle>
+              <p className="text-center text-lg">Winnie Dunn, Ph.D., OTR, FAOTA</p>
+              <p className="text-center text-lg font-semibold mt-4">Kuesioner bagi Orangtua/Pengasuh</p>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg">
-                <h3 className="text-lg font-semibold mb-4 text-blue-800 dark:text-blue-200">
-                  Tujuan Asesmen
+                <h3 className="text-lg font-semibold mb-4 text-center">
+                  INSTRUKSI
                 </h3>
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                  Profil Sensoris adalah alat asesmen yang dirancang untuk mengukur pola pemrosesan 
-                  sensoris anak dalam kehidupan sehari-hari. Asesmen ini akan membantu memahami bagaimana 
-                  anak merespons berbagai rangsangan sensoris di lingkungannya.
-                </p>
-              </div>
-
-              <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg">
-                <h3 className="text-lg font-semibold mb-4 text-green-800 dark:text-green-200">
-                  Cara Pengisian
-                </h3>
-                <div className="space-y-3 text-gray-700 dark:text-gray-300">
-                  <p>• <strong>Nilai 1:</strong> Hampir Tidak Pernah (bila perilaku terjadi 0-10% dari waktu)</p>
-                  <p>• <strong>Nilai 2:</strong> Kadang-kadang (bila perilaku terjadi 25% dari waktu)</p>
-                  <p>• <strong>Nilai 3:</strong> Sering (bila perilaku terjadi 50% dari waktu)</p>
-                  <p>• <strong>Nilai 4:</strong> Hampir Selalu (bila perilaku terjadi 75% dari waktu)</p>
-                  <p>• <strong>Nilai 5:</strong> Selalu (bila perilaku terjadi 90-100% dari waktu)</p>
-                  <p>• <strong>Tidak Berlaku:</strong> Pilih ini jika item tidak sesuai dengan situasi anak</p>
-                </div>
-              </div>
-
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg">
-                <h3 className="text-lg font-semibold mb-4 text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5" />
-                  Penting untuk Diingat
-                </h3>
-                <div className="space-y-2 text-gray-700 dark:text-gray-300">
-                  <p>• Jawablah berdasarkan pengamatan perilaku anak dalam 2-3 bulan terakhir</p>
-                  <p>• Tidak ada jawaban yang benar atau salah</p>
-                  <p>• Jika ragu, pilih frekuensi yang paling mendekati perilaku anak</p>
-                  <p>• Asesmen akan disimpan otomatis setiap kali Anda menjawab</p>
-                  <p>• Total waktu pengisian sekitar 30-45 menit</p>
+                <div className="space-y-4 text-gray-700 dark:text-gray-300">
+                  <p>
+                    Silakan mencentang kotak yang paling menggambarkan frekuensi perilaku yang 
+                    dilakukan anak Anda seperti pada keterangan di bawah ini. Tolong jawab semua 
+                    pernyataan. Jika Anda tidak dapat memberi komentar karena Anda tidak mengamati 
+                    perilaku tersebut atau percaya bahwa perilaku yang dimaksud itu tidak berlaku 
+                    untuk anak Anda, maka silakan beri tanda X pada nomor untuk item tersebut. Tulis 
+                    komentar apa pun di akhir setiap bagian. Harap jangan menulis pada baris Total 
+                    Bagian Skor Mentah.
+                  </p>
+                  <p className="font-semibold">Gunakan kata kunci berikut untuk menandai tanggapan Anda:</p>
+                  
+                  <div className="space-y-3 ml-4">
+                    <div>
+                      <p className="font-semibold">SELALU</p>
+                      <p className="text-sm ml-4">Saat diberi kesempatan, anak Anda selalu merespons dengan cara ini, 100% setiap saat.</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold">SERING</p>
+                      <p className="text-sm ml-4">Saat diberi kesempatan, anak Anda sering merespons dengan cara ini, sekitar 75% dari rutinas kesehariannya.</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold">KADANG-KADANG</p>
+                      <p className="text-sm ml-4">Saat diberi kesempatan, anak Anda terkadang merespons dengan cara ini, sekitar 50% dari rutinas kesehariannya.</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold">JARANG</p>
+                      <p className="text-sm ml-4">Saat diberi kesempatan, anak Anda jarang merespons dengan cara ini, sekitar 25% dari rutinas kesehariannya.</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold">TIDAK PERNAH</p>
+                      <p className="text-sm ml-4">Saat diberi kesempatan, anak Anda tidak pernah merespons dengan cara ini, 0% dari rutinas kesehariannya.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -567,152 +557,77 @@ export default function SensoryProfile() {
         {currentStep === 'participant-info' && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-6 w-6" />
-                Informasi Anak dan Orang Tua/Pengasuh
-              </CardTitle>
+              <CardTitle>Informasi Partisipan</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                    Informasi Anak
-                  </h3>
-                  
-                  <div>
-                    <Label htmlFor="childName">Nama Anak *</Label>
-                    <Input
-                      id="childName"
-                      value={participantInfo.childName}
-                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, childName: e.target.value }))}
-                      placeholder="Masukkan nama anak"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="childBirthDate">Tanggal Lahir *</Label>
-                    <Input
-                      id="childBirthDate"
-                      type="date"
-                      value={participantInfo.childBirthDate}
-                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, childBirthDate: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="childGender">Jenis Kelamin *</Label>
-                    <Select 
-                      value={participantInfo.childGender} 
-                      onValueChange={(value) => setParticipantInfo(prev => ({ ...prev, childGender: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih jenis kelamin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="L">Laki-laki</SelectItem>
-                        <SelectItem value="P">Perempuan</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                    Informasi Orang Tua/Pengasuh
-                  </h3>
-
-                  <div>
-                    <Label htmlFor="parentName">Nama Orang Tua/Pengasuh *</Label>
-                    <Input
-                      id="parentName"
-                      value={participantInfo.parentName}
-                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, parentName: e.target.value }))}
-                      placeholder="Masukkan nama"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="relationship">Hubungan dengan Anak *</Label>
-                    <Select 
-                      value={participantInfo.relationship} 
-                      onValueChange={(value) => setParticipantInfo(prev => ({ ...prev, relationship: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih hubungan" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ibu">Ibu</SelectItem>
-                        <SelectItem value="ayah">Ayah</SelectItem>
-                        <SelectItem value="pengasuh">Pengasuh</SelectItem>
-                        <SelectItem value="guru">Guru</SelectItem>
-                        <SelectItem value="terapis">Terapis</SelectItem>
-                        <SelectItem value="lainnya">Lainnya</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="parentAge">Usia</Label>
-                    <Input
-                      id="parentAge"
-                      value={participantInfo.parentAge}
-                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, parentAge: e.target.value }))}
-                      placeholder="Masukkan usia"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="parentEducation">Pendidikan Terakhir</Label>
-                    <Input
-                      id="parentEducation"
-                      value={participantInfo.parentEducation}
-                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, parentEducation: e.target.value }))}
-                      placeholder="Contoh: S1, SMA, dll"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="parentOccupation">Pekerjaan</Label>
-                    <Input
-                      id="parentOccupation"
-                      value={participantInfo.parentOccupation}
-                      onChange={(e) => setParticipantInfo(prev => ({ ...prev, parentOccupation: e.target.value }))}
-                      placeholder="Masukkan pekerjaan"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="testDate">Tanggal Tes</Label>
+                  <Label htmlFor="childName">Nama Anak:</Label>
+                  <Input
+                    id="childName"
+                    value={participantInfo.childName}
+                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, childName: e.target.value }))}
+                    placeholder="Masukkan nama anak"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="childBirthDate">Tanggal Lahir:</Label>
+                  <Input
+                    id="childBirthDate"
+                    type="date"
+                    value={participantInfo.childBirthDate}
+                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, childBirthDate: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="parentName">Nama Orangtua/Pengasuh:</Label>
+                  <Input
+                    id="parentName"
+                    value={participantInfo.parentName}
+                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, parentName: e.target.value }))}
+                    placeholder="Masukkan nama"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="relationship">Hubungan dengan Anak:</Label>
+                  <Input
+                    id="relationship"
+                    value={participantInfo.relationship}
+                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, relationship: e.target.value }))}
+                    placeholder="Contoh: Ibu, Ayah, Pengasuh"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="testerName">Nama Tester:</Label>
+                  <Input
+                    id="testerName"
+                    value={participantInfo.testerName}
+                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, testerName: e.target.value }))}
+                    placeholder="Masukkan nama tester"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="testerPosition">Jabatan:</Label>
+                  <Input
+                    id="testerPosition"
+                    value={participantInfo.testerPosition}
+                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, testerPosition: e.target.value }))}
+                    placeholder="Masukkan jabatan"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label htmlFor="testDate">Tanggal Tes:</Label>
                   <Input
                     id="testDate"
                     type="date"
                     value={participantInfo.testDate}
                     onChange={(e) => setParticipantInfo(prev => ({ ...prev, testDate: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="concerns">Kekhawatiran atau Keprihatinan Utama</Label>
-                  <Textarea
-                    id="concerns"
-                    value={participantInfo.concerns}
-                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, concerns: e.target.value }))}
-                    placeholder="Jelaskan kekhawatiran atau masalah perilaku yang Anda amati..."
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="otherInfo">Informasi Tambahan</Label>
-                  <Textarea
-                    id="otherInfo"
-                    value={participantInfo.otherInfo}
-                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, otherInfo: e.target.value }))}
-                    placeholder="Informasi lain yang dirasa penting untuk diketahui..."
-                    rows={3}
                   />
                 </div>
               </div>
@@ -728,7 +643,7 @@ export default function SensoryProfile() {
                 
                 <Button 
                   onClick={() => setCurrentStep('questions')}
-                  disabled={!participantInfo.childName || !participantInfo.childBirthDate || !participantInfo.childGender || !participantInfo.parentName || !participantInfo.relationship}
+                  disabled={!participantInfo.childName || !participantInfo.childBirthDate || !participantInfo.parentName}
                 >
                   Mulai Asesmen
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -757,12 +672,21 @@ export default function SensoryProfile() {
             {/* Question */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">
-                  {currentQuestion.sectionTitle}
-                </CardTitle>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Pertanyaan {currentQuestionIndex + 1} dari {totalQuestions}
-                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">
+                      {currentQuestion.sectionTitle}
+                    </CardTitle>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Item {currentQuestion.id} - Pertanyaan {currentQuestionIndex + 1} dari {totalQuestions}
+                    </p>
+                  </div>
+                  {currentQuestion.threshold && (
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-sm">
+                      {currentQuestion.threshold}
+                    </span>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
@@ -778,48 +702,33 @@ export default function SensoryProfile() {
                     onValueChange={(value) => handleResponseChange(currentQuestion.id, value)}
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="1" id="option1" />
-                      <Label htmlFor="option1" className="flex-1">
-                        <span className="font-medium">1 - Hampir Tidak Pernah</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400 block">
-                          (0-10% dari waktu)
-                        </span>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="2" id="option2" />
-                      <Label htmlFor="option2" className="flex-1">
-                        <span className="font-medium">2 - Kadang-kadang</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400 block">
-                          (25% dari waktu)
-                        </span>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="3" id="option3" />
-                      <Label htmlFor="option3" className="flex-1">
-                        <span className="font-medium">3 - Sering</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400 block">
-                          (50% dari waktu)
-                        </span>
+                      <RadioGroupItem value="5" id="option5" />
+                      <Label htmlFor="option5">
+                        <span className="font-medium">SELALU</span> (100% dari waktu)
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="4" id="option4" />
-                      <Label htmlFor="option4" className="flex-1">
-                        <span className="font-medium">4 - Hampir Selalu</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400 block">
-                          (75% dari waktu)
-                        </span>
+                      <Label htmlFor="option4">
+                        <span className="font-medium">SERING</span> (75% dari waktu)
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="5" id="option5" />
-                      <Label htmlFor="option5" className="flex-1">
-                        <span className="font-medium">5 - Selalu</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400 block">
-                          (90-100% dari waktu)
-                        </span>
+                      <RadioGroupItem value="3" id="option3" />
+                      <Label htmlFor="option3">
+                        <span className="font-medium">KADANG-KADANG</span> (50% dari waktu)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="2" id="option2" />
+                      <Label htmlFor="option2">
+                        <span className="font-medium">JARANG</span> (25% dari waktu)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="1" id="option1" />
+                      <Label htmlFor="option1">
+                        <span className="font-medium">TIDAK PERNAH</span> (0% dari waktu)
                       </Label>
                     </div>
                   </RadioGroup>
@@ -835,23 +744,26 @@ export default function SensoryProfile() {
                         className="rounded border-gray-300"
                       />
                       <Label htmlFor="notApplicable" className="text-gray-700 dark:text-gray-300">
-                        Tidak Berlaku untuk situasi anak ini
+                        Tidak berlaku / Belum pernah mengamati perilaku ini
                       </Label>
                     </div>
                   </div>
+                </div>
 
-                  {/* Comment Field */}
-                  <div>
-                    <Label htmlFor="comment">Komentar (opsional)</Label>
+                {/* Section comment at the end of each section */}
+                {currentQuestionIndex < totalQuestions - 1 && 
+                 allQuestions[currentQuestionIndex + 1]?.sectionId !== currentQuestion.sectionId && (
+                  <div className="border-t pt-4">
+                    <Label htmlFor="sectionComment">Komentar untuk bagian {currentQuestion.sectionTitle}:</Label>
                     <Textarea
-                      id="comment"
-                      value={comments[currentQuestion.id] || ''}
-                      onChange={(e) => setComments(prev => ({ ...prev, [currentQuestion.id]: e.target.value }))}
-                      placeholder="Tambahkan komentar jika diperlukan..."
-                      rows={2}
+                      id="sectionComment"
+                      value={comments[currentQuestion.sectionId] || ''}
+                      onChange={(e) => setComments(prev => ({ ...prev, [currentQuestion.sectionId]: e.target.value }))}
+                      placeholder="Tambahkan komentar untuk bagian ini jika diperlukan..."
+                      rows={3}
                     />
                   </div>
-                </div>
+                )}
 
                 {/* Navigation */}
                 <div className="flex justify-between pt-4">
