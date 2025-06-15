@@ -262,8 +262,47 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
         doc.moveDown(0.3);
         
         if (sectionScores) {
+          const sectionDetailsForRecommendations = {
+            'Pemrosesan Auditori': {
+              description: 'Kemampuan memproses informasi yang diterima melalui pendengaran',
+              normal: [13, 19],
+              lowThreshold: '≤12 (Hipersensitif - mudah terganggu suara)',
+              highThreshold: '≥20 (Hiposensitif - butuh stimulasi suara lebih kuat)'
+            },
+            'Pemrosesan Visual': {
+              description: 'Kemampuan memproses informasi yang diterima melalui penglihatan',
+              normal: [8, 14],
+              lowThreshold: '≤7 (Hipersensitif - mudah terganggu cahaya/visual)',
+              highThreshold: '≥15 (Hiposensitif - butuh stimulasi visual lebih kuat)'
+            },
+            'Pemrosesan Vestibular': {
+              description: 'Kemampuan memproses informasi terkait keseimbangan dan gerakan',
+              normal: [13, 19],
+              lowThreshold: '≤12 (Hipersensitif - mudah mual/pusing)',
+              highThreshold: '≥20 (Hiposensitif - mencari gerakan intens)'
+            },
+            'Pemrosesan Taktil': {
+              description: 'Kemampuan memproses informasi melalui sentuhan dan tekstur',
+              normal: [16, 24],
+              lowThreshold: '≤15 (Hipersensitif - menghindari sentuhan)',
+              highThreshold: '≥25 (Hiposensitif - butuh tekanan/sentuhan kuat)'
+            },
+            'Pemrosesan Multisensoris': {
+              description: 'Kemampuan mengintegrasikan informasi dari berbagai sistem sensoris',
+              normal: [7, 11],
+              lowThreshold: '≤6 (Kesulitan integrasi - mudah kewalahan)',
+              highThreshold: '≥12 (Butuh stimulasi multi-sensoris tinggi)'
+            },
+            'Modalitas Oral Sensoris': {
+              description: 'Pemrosesan sensoris terkait mulut, makanan, dan rasa',
+              normal: [11, 17],
+              lowThreshold: '≤10 (Hipersensitif - pemilih makanan)',
+              highThreshold: '≥18 (Hiposensitif - mencari stimulasi oral)'
+            }
+          };
+          
           Object.entries(sectionScores).forEach(([section, score]: [string, any]) => {
-            const detail = sectionDetails[section as keyof typeof sectionDetails];
+            const detail = sectionDetailsForRecommendations[section as keyof typeof sectionDetailsForRecommendations];
             if (detail) {
               let isAbnormal = score <= detail.normal[0] - 1 || score >= detail.normal[1] + 1;
               
