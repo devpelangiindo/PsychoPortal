@@ -21,24 +21,22 @@ function Router() {
 
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <>
-          <Route path="/" component={Landing} />
-          <Route path="/assessments" component={Assessments} />
-        </>
-      ) : (
-        <>
-          <Route path="/" component={Home} />
-          <Route path="/assessments" component={Assessments} />
-          <Route path="/cart" component={Cart} />
-          <Route path="/checkout" component={Checkout} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/assessment/:id" component={AssessmentDetail} />
-          <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
-          <Route path="/learning-style/:assessmentId" component={LearningStyle} />
-          <Route path="/results/:assessmentId" component={AssessmentResults} />
-        </>
-      )}
+      {/* Home route - different component based on auth status */}
+      <Route path="/" component={isLoading || !isAuthenticated ? Landing : Home} />
+      
+      {/* Public routes - always available */}
+      <Route path="/assessments" component={Assessments} />
+      
+      {/* Protected routes - always defined but will redirect if not authenticated */}
+      <Route path="/cart" component={Cart} />
+      <Route path="/checkout" component={Checkout} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/assessment/:id" component={AssessmentDetail} />
+      <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
+      <Route path="/learning-style/:assessmentId" component={LearningStyle} />
+      <Route path="/results/:assessmentId" component={AssessmentResults} />
+      
+      {/* 404 fallback */}
       <Route component={NotFound} />
     </Switch>
   );
