@@ -299,9 +299,21 @@ export default function SensoryProfile() {
       if (savedData.currentSection !== undefined) setCurrentSectionIndex(savedData.currentSection);
       if (savedData.notApplicable) setNotApplicable(savedData.notApplicable);
       if (savedData.comments) setComments(savedData.comments);
-      if (savedData.participantInfo && Object.values(savedData.participantInfo).some((v: any) => v)) {
+      
+      // If participant info is filled and we have responses, go to assessment
+      const hasParticipantInfo = savedData.participantInfo && Object.values(savedData.participantInfo).some((v: any) => v && v.toString().trim() !== '');
+      const hasResponses = savedData.responses && Object.keys(savedData.responses).length > 0;
+      
+      if (hasParticipantInfo && hasResponses) {
         setCurrentPhase('assessment');
+      } else if (hasParticipantInfo) {
+        setCurrentPhase('assessment');
+      } else {
+        setCurrentPhase('info');
       }
+    } else if (userAssessment?.status === 'available') {
+      // For new assessments, always start with instructions
+      setCurrentPhase('instructions');
     }
   }, [userAssessment]);
 
