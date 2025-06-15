@@ -87,42 +87,273 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
         doc.text(interpretation, { align: 'justify' });
         
       } else if (assessmentType === 'sensory') {
-        const { totalScore, interpretation, sectionScores, participantInfo } = results;
+        const { totalScore, interpretation, sectionScores, participantInfo, responses } = results;
         
         doc.fontSize(14).font('Helvetica-Bold')
            .text('HASIL ASESMEN PROFIL SENSORIS', { underline: true });
         
         doc.moveDown(0.5);
 
-        // Participant Info
+        // Participant Info - Enhanced
         if (participantInfo && Object.keys(participantInfo).length > 0) {
           doc.fontSize(12).font('Helvetica-Bold')
-             .text('Informasi Partisipan:');
+             .text('INFORMASI PARTISIPAN', { underline: true });
+          
+          doc.moveDown(0.3);
           
           doc.fontSize(11).font('Helvetica')
              .text(`Nama Anak: ${participantInfo.childName || '-'}`)
              .text(`Tanggal Lahir: ${participantInfo.childBirthDate || '-'}`)
              .text(`Jenis Kelamin: ${participantInfo.childGender || '-'}`)
-             .text(`Nama Orang Tua: ${participantInfo.parentName || '-'}`);
+             .text(`Nama Orang Tua: ${participantInfo.parentName || '-'}`)
+             .text(`Hubungan: ${participantInfo.relationship || '-'}`)
+             .text(`Usia Orang Tua: ${participantInfo.parentAge || '-'}`)
+             .text(`Pendidikan: ${participantInfo.parentEducation || '-'}`)
+             .text(`Pekerjaan: ${participantInfo.parentOccupation || '-'}`)
+             .text(`Tanggal Tes: ${participantInfo.testDate || '-'}`);
           
-          doc.moveDown(0.5);
+          if (participantInfo.concerns) {
+            doc.moveDown(0.3);
+            doc.fontSize(11).font('Helvetica-Bold')
+               .text('Kekhawatiran:');
+            doc.fontSize(11).font('Helvetica')
+               .text(participantInfo.concerns, { align: 'justify' });
+          }
+          
+          if (participantInfo.otherInfo) {
+            doc.moveDown(0.3);
+            doc.fontSize(11).font('Helvetica-Bold')
+               .text('Informasi Tambahan:');
+            doc.fontSize(11).font('Helvetica')
+               .text(participantInfo.otherInfo, { align: 'justify' });
+          }
+          
+          doc.moveDown(1);
         }
         
+        // Summary Results
         doc.fontSize(12).font('Helvetica-Bold')
-           .text(`Skor Total: ${totalScore}`)
+           .text('RINGKASAN HASIL', { underline: true });
+        
+        doc.moveDown(0.3);
+        
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text(`Skor Total: ${totalScore}/625`);
+        
+        doc.fontSize(11).font('Helvetica')
            .text(`Interpretasi: ${interpretation}`);
+        
+        doc.moveDown(1);
+        
+        // Detailed Section Analysis
+        if (sectionScores && Object.keys(sectionScores).length > 0) {
+          doc.fontSize(12).font('Helvetica-Bold')
+             .text('ANALISIS DETAIL PER BAGIAN', { underline: true });
+          
+          doc.moveDown(0.3);
+          
+          const sectionDetails = {
+            'Pemrosesan Auditori': {
+              description: 'Kemampuan memproses informasi yang diterima melalui pendengaran',
+              normal: [13, 19],
+              lowThreshold: '≤12 (Hipersensitif - mudah terganggu suara)',
+              highThreshold: '≥20 (Hiposensitif - butuh stimulasi suara lebih kuat)'
+            },
+            'Pemrosesan Visual': {
+              description: 'Kemampuan memproses informasi yang diterima melalui penglihatan',
+              normal: [8, 14],
+              lowThreshold: '≤7 (Hipersensitif - mudah terganggu cahaya/visual)',
+              highThreshold: '≥15 (Hiposensitif - butuh stimulasi visual lebih kuat)'
+            },
+            'Pemrosesan Vestibular': {
+              description: 'Kemampuan memproses informasi terkait keseimbangan dan gerakan',
+              normal: [13, 19],
+              lowThreshold: '≤12 (Hipersensitif - mudah mual/pusing)',
+              highThreshold: '≥20 (Hiposensitif - mencari gerakan intens)'
+            },
+            'Pemrosesan Taktil': {
+              description: 'Kemampuan memproses informasi melalui sentuhan dan tekstur',
+              normal: [16, 24],
+              lowThreshold: '≤15 (Hipersensitif - menghindari sentuhan)',
+              highThreshold: '≥25 (Hiposensitif - butuh tekanan/sentuhan kuat)'
+            },
+            'Pemrosesan Multisensoris': {
+              description: 'Kemampuan mengintegrasikan informasi dari berbagai sistem sensoris',
+              normal: [7, 11],
+              lowThreshold: '≤6 (Kesulitan integrasi - mudah kewalahan)',
+              highThreshold: '≥12 (Butuh stimulasi multi-sensoris tinggi)'
+            },
+            'Modalitas Oral Sensoris': {
+              description: 'Pemrosesan sensoris terkait mulut, makanan, dan rasa',
+              normal: [11, 17],
+              lowThreshold: '≤10 (Hipersensitif - pemilih makanan)',
+              highThreshold: '≥18 (Hiposensitif - mencari stimulasi oral)'
+            }
+          };
+          
+          Object.entries(sectionScores).forEach(([section, score]: [string, any]) => {
+            const detail = sectionDetails[section as keyof typeof sectionDetails];
+            if (detail) {
+              doc.fontSize(11).font('Helvetica-Bold')
+                 .text(`${section}: ${score}`, { continued: false });
+              
+              // Determine threshold category
+              let category = 'Normal';
+              let categoryColor = 'black';
+              if (score <= detail.normal[0] - 1) {
+                category = 'Hipersensitif (Ambang Rendah)';
+                categoryColor = 'red';
+              } else if (score >= detail.normal[1] + 1) {
+                category = 'Hiposensitif (Ambang Tinggi)';
+                categoryColor = 'blue';
+              }
+              
+              doc.fontSize(10).font('Helvetica')
+                 .text(`  Kategori: ${category}`)
+                 .text(`  ${detail.description}`)
+                 .text(`  Rentang Normal: ${detail.normal[0]}-${detail.normal[1]}`);
+              
+              if (category !== 'Normal') {
+                doc.text(`  ${category === 'Hipersensitif (Ambang Rendah)' ? detail.lowThreshold : detail.highThreshold}`);
+              }
+              
+              doc.moveDown(0.3);
+            }
+          });
+        }
+        
+        // Add new page for recommendations
+        doc.addPage();
+        
+        // Recommendations Section
+        doc.fontSize(14).font('Helvetica-Bold')
+           .text('REKOMENDASI DAN STRATEGI', { underline: true });
         
         doc.moveDown(0.5);
         
-        if (sectionScores && Object.keys(sectionScores).length > 0) {
-          doc.fontSize(12).font('Helvetica-Bold')
-             .text('Skor Per Bagian:');
-          
-          doc.fontSize(11).font('Helvetica');
+        // General recommendations based on total score
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text('Rekomendasi Umum:');
+        
+        doc.fontSize(11).font('Helvetica');
+        if (totalScore < 125) {
+          doc.text('• Kemungkinan mengalami hipersensitivitas sensoris secara umum')
+             .text('• Ciptakan lingkungan yang tenang dan tidak terlalu stimulasi')
+             .text('• Berikan waktu transisi yang cukup untuk perubahan aktivitas')
+             .text('• Gunakan pendekatan bertahap dalam memperkenalkan stimulasi baru');
+        } else if (totalScore > 375) {
+          doc.text('• Kemungkinan mengalami hiposensitivitas sensoris secara umum')
+             .text('• Berikan stimulasi sensoris yang lebih kuat dan bervariasi')
+             .text('• Dorong aktivitas fisik dan eksplorasi sensoris')
+             .text('• Gunakan alat bantu sensoris seperti fidget toys atau weighted blanket');
+        } else {
+          doc.text('• Profil sensoris dalam rentang normal')
+             .text('• Pertahankan keseimbangan stimulasi sensoris dalam keseharian')
+             .text('• Amati respons terhadap lingkungan yang berbeda')
+             .text('• Konsultasikan jika ada perubahan pola perilaku sensoris');
+        }
+        
+        doc.moveDown(0.5);
+        
+        // Specific recommendations by section
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text('Strategi Spesifik Per Area:');
+        
+        doc.moveDown(0.3);
+        
+        if (sectionScores) {
           Object.entries(sectionScores).forEach(([section, score]: [string, any]) => {
-            doc.text(`• ${section}: ${score}`);
+            const detail = sectionDetails[section as keyof typeof sectionDetails];
+            if (detail) {
+              let isAbnormal = score <= detail.normal[0] - 1 || score >= detail.normal[1] + 1;
+              
+              if (isAbnormal) {
+                doc.fontSize(11).font('Helvetica-Bold')
+                   .text(`${section}:`);
+                
+                doc.fontSize(10).font('Helvetica');
+                
+                if (score <= detail.normal[0] - 1) {
+                  // Hypersensitive recommendations
+                  switch (section) {
+                    case 'Pemrosesan Auditori':
+                      doc.text('  • Gunakan ear plugs atau headphone peredam suara')
+                         .text('  • Hindari lingkungan bising, pilih tempat yang tenang')
+                         .text('  • Berikan peringatan sebelum suara keras')
+                         .text('  • Pertimbangkan terapi integrasi sensoris');
+                      break;
+                    case 'Pemrosesan Visual':
+                      doc.text('  • Kurangi pencahayaan yang terlalu terang')
+                         .text('  • Gunakan kacamata anti-silau jika perlu')
+                         .text('  • Hindari pola visual yang terlalu kompleks')
+                         .text('  • Ciptakan area visual yang tenang');
+                      break;
+                    case 'Pemrosesan Vestibular':
+                      doc.text('  • Hindari gerakan yang terlalu cepat atau berputar')
+                         .text('  • Berikan dukungan fisik saat berpindah posisi')
+                         .text('  • Latihan keseimbangan bertahap')
+                         .text('  • Konsultasi dengan terapis okupasi');
+                      break;
+                    case 'Pemrosesan Taktil':
+                      doc.text('  • Respek preferensi tekstur dan sentuhan')
+                         .text('  • Gunakan pakaian dengan bahan yang nyaman')
+                         .text('  • Berikan pilihan dalam aktivitas sentuhan')
+                         .text('  • Latihan desensitisasi bertahap');
+                      break;
+                  }
+                } else {
+                  // Hyposensitive recommendations
+                  switch (section) {
+                    case 'Pemrosesan Auditori':
+                      doc.text('  • Berikan stimulasi suara yang bervariasi')
+                         .text('  • Gunakan musik atau suara latar yang menenangkan')
+                         .text('  • Libatkan dalam aktivitas musik')
+                         .text('  • Berikan instruksi verbal yang jelas dan berulang');
+                      break;
+                    case 'Pemrosesan Visual':
+                      doc.text('  • Gunakan warna-warna cerah dan kontras tinggi')
+                         .text('  • Berikan stimulasi visual yang menarik')
+                         .text('  • Gunakan alat bantu visual untuk fokus')
+                         .text('  • Libatkan dalam aktivitas seni visual');
+                      break;
+                    case 'Pemrosesan Vestibular':
+                      doc.text('  • Dorong aktivitas yang melibatkan gerakan')
+                         .text('  • Berikan kesempatan untuk berayun atau berputar')
+                         .text('  • Libatkan dalam olahraga atau aktivitas fisik')
+                         .text('  • Gunakan alat seperti balance ball');
+                      break;
+                    case 'Pemrosesan Taktil':
+                      doc.text('  • Berikan berbagai tekstur untuk eksplorasi')
+                         .text('  • Gunakan weighted blanket atau deep pressure')
+                         .text('  • Libatkan dalam aktivitas sensory play')
+                         .text('  • Berikan pijatan atau tekanan dalam');
+                      break;
+                  }
+                }
+                doc.moveDown(0.3);
+              }
+            }
           });
         }
+        
+        doc.moveDown(0.5);
+        
+        // Follow-up recommendations
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text('Tindak Lanjut:');
+        
+        doc.fontSize(11).font('Helvetica')
+           .text('• Konsultasikan hasil dengan terapis okupasi untuk evaluasi lebih mendalam')
+           .text('• Amati perubahan perilaku sensoris dalam 3-6 bulan ke depan')
+           .text('• Dokumentasikan strategi yang efektif untuk referensi masa depan')
+           .text('• Libatkan guru atau caregiver dalam implementasi strategi')
+           .text('• Pertimbangkan asesmen ulang jika ada perubahan signifikan');
+        
+        doc.moveDown(1);
+        
+        // Professional note
+        doc.fontSize(10).font('Helvetica-Oblique')
+           .text('Catatan: Hasil ini merupakan gambaran pola pemrosesan sensoris dan bukan diagnosis medis. Konsultasikan dengan profesional kesehatan atau terapis okupasi untuk interpretasi yang lebih komprehensif dan rencana intervensi yang sesuai.', { align: 'justify' });
       }
 
       doc.moveDown(2);
