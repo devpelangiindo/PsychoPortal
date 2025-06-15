@@ -2,8 +2,67 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import type { UserAssessmentWithDetails } from "@shared/schema";
 import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema } from "@shared/schema";
 import { z } from "zod";
+
+// PDF Generation Function
+function generatePdfContent(userAssessment: UserAssessmentWithDetails): string {
+  const results = userAssessment.results as any;
+  const assessmentType = userAssessment.assessment.type;
+  
+  // Create a simple PDF content structure
+  let content = `
+    LAPORAN HASIL ASESMEN
+    
+    Nama Asesmen: ${userAssessment.assessment.name}
+    Tanggal Selesai: ${new Date(userAssessment.completedAt!).toLocaleDateString('id-ID')}
+    
+    `;
+
+  if (assessmentType === 'learning') {
+    const { scores, dominantStyle } = results;
+    content += `
+    HASIL INVENTORI GAYA BELAJAR
+    
+    Gaya Belajar Dominan: ${dominantStyle.toUpperCase()}
+    
+    Skor Detail:
+    - Visual: ${scores.visual || 0}
+    - Auditori: ${scores.auditori || 0}
+    - Kinestetik: ${scores.kinestetik || 0}
+    
+    Interpretasi:
+    ${dominantStyle === 'visual' ? 'Anda belajar terbaik melalui melihat dan mengamati.' :
+      dominantStyle === 'auditori' ? 'Anda belajar terbaik melalui mendengar dan berbicara.' :
+      'Anda belajar terbaik melalui praktik langsung dan gerakan.'}
+    `;
+  } else if (assessmentType === 'sensory') {
+    const { totalScore, interpretation, sectionScores } = results;
+    content += `
+    HASIL ASESMEN PROFIL SENSORIS
+    
+    Skor Total: ${totalScore}
+    Interpretasi: ${interpretation}
+    
+    Skor Per Bagian:
+    ${Object.entries(sectionScores || {}).map(([section, score]: [string, any]) => 
+      `- ${section}: ${score}`
+    ).join('\n')}
+    `;
+  }
+
+  content += `
+    
+    Laporan ini dibuat secara otomatis oleh sistem Rumah Psikologi Indonesia.
+    Untuk konsultasi lebih lanjut, silakan hubungi profesional terkait.
+  `;
+
+  // For demo purposes, return base64 encoded content
+  // In production, you'd use a proper PDF library like PDFKit
+  const base64Content = Buffer.from(content).toString('base64');
+  return base64Content;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -284,6 +343,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error completing assessment:", error);
       res.status(500).json({ message: "Failed to complete assessment" });
+    }
+  });
+
+  // PDF download endpoint
+  app.get('/api/user-assessments/:id/pdf', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userAssessmentId = parseInt(req.params.id);
+
+      // Verify ownership
+      const userAssessments = await storage.getUserAssessments(userId);
+      const userAssessment = userAssessments.find(ua => ua.id === userAssessmentId);
+      
+      if (!userAssessment || userAssessment.status !== 'completed') {
+        return res.status(404).json({ message: "Assessment not found or not completed" });
+      }
+
+      // Generate PDF content
+      const pdfContent = generatePdfContent(userAssessment);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Hasil_${userAssessment.assessment.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf"`);
+      res.send(Buffer.from(pdfContent, 'base64'));
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  // Share results endpoint
+  app.post('/api/user-assessments/:id/share', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userAssessmentId = parseInt(req.params.id);
+
+      // Verify ownership
+      const userAssessments = await storage.getUserAssessments(userId);
+      const userAssessment = userAssessments.find(ua => ua.id === userAssessmentId);
+      
+      if (!userAssessment || userAssessment.status !== 'completed') {
+        return res.status(404).json({ message: "Assessment not found or not completed" });
+      }
+
+      // Generate a unique share token
+      const shareToken = require('crypto').randomBytes(32).toString('hex');
+      
+      // Store the share token (in a real app, you'd save this to database)
+      // For now, we'll use the assessment ID as a simple share mechanism
+      
+      res.json({ 
+        shareToken: `${userAssessmentId}-${shareToken.substring(0, 8)}`,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+      });
+    } catch (error) {
+      console.error("Error creating share link:", error);
+      res.status(500).json({ message: "Failed to create share link" });
     }
   });
 

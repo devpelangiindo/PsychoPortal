@@ -1,13 +1,15 @@
 import { useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText } from "lucide-react";
+import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, Share2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import type { UserAssessmentWithDetails } from "@shared/schema";
@@ -35,6 +37,99 @@ export default function AssessmentResults() {
       window.location.href = "/api/login";
     }
   }, [isAuthenticated, toast]);
+
+  const downloadPdfMutation = useMutation({
+    mutationFn: async () => {
+      if (!userAssessment) throw new Error("No assessment found");
+      const response = await fetch(`/api/user-assessments/${userAssessment.id}/pdf`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Hasil_${userAssessment.assessment.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Berhasil!",
+        description: "Laporan PDF telah berhasil diunduh.",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Tidak Diizinkan",
+          description: "Anda telah keluar. Masuk lagi...", 
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Gagal mengunduh laporan PDF. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const shareResultsMutation = useMutation({
+    mutationFn: async () => {
+      if (!userAssessment) throw new Error("No assessment found");
+      const response = await apiRequest("POST", `/api/user-assessments/${userAssessment.id}/share`);
+      return response;
+    },
+    onSuccess: (data: any) => {
+      const shareUrl = `${window.location.origin}/shared-results/${data.shareToken}`;
+      
+      if (navigator.share) {
+        navigator.share({
+          title: `Hasil ${userAssessment?.assessment.name}`,
+          text: `Lihat hasil asesmen ${userAssessment?.assessment.name} saya`,
+          url: shareUrl,
+        });
+      } else {
+        navigator.clipboard.writeText(shareUrl);
+        toast({
+          title: "Berhasil!",
+          description: "Link hasil asesmen telah disalin ke clipboard.",
+        });
+      }
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Tidak Diizinkan",
+          description: "Anda telah keluar. Masuk lagi...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Gagal membagikan hasil. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const renderLearningStyleResults = (results: any) => {
     const { scores, dominantStyle } = results;
@@ -392,13 +487,23 @@ export default function AssessmentResults() {
         }
 
         <div className="mt-8 flex gap-4">
-          <Button variant="outline" className="flex-1">
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={() => downloadPdfMutation.mutate()}
+            disabled={downloadPdfMutation.isPending}
+          >
             <Download className="w-4 h-4 mr-2" />
-            Unduh Laporan PDF
+            {downloadPdfMutation.isPending ? 'Mengunduh...' : 'Unduh Laporan PDF'}
           </Button>
-          <Button variant="outline" className="flex-1">
-            <FileText className="w-4 h-4 mr-2" />
-            Bagikan Hasil
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={() => shareResultsMutation.mutate()}
+            disabled={shareResultsMutation.isPending}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            {shareResultsMutation.isPending ? 'Membagikan...' : 'Bagikan Hasil'}
           </Button>
         </div>
       </main>
