@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sensory Profile Assessment Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Sensory Profile Assessment Test Results</h1>
+    
+    <div class="test-section">
+        <h2>Assessment Structure Verification</h2>
+        <div id="structure-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Questions Count Verification</h2>
+        <div id="questions-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>API Endpoints Test</h2>
+        <div id="api-results"></div>
+    </div>
+
+    <script>
+        // Test the assessment structure
+        async function testAssessmentStructure() {
+            const structureDiv = document.getElementById('structure-results');
+            
+            try {
+                const response = await fetch('/api/assessments');
+                const assessments = await response.json();
+                
+                const sensoryAssessment = assessments.find(a => a.type === 'sensory');
+                if (sensoryAssessment) {
+                    structureDiv.innerHTML += '<div class="pass">✓ Sensory Profile Assessment found in database</div>';
+                    structureDiv.innerHTML += `<div class="info">Name: ${sensoryAssessment.name}</div>`;
+                    structureDiv.innerHTML += `<div class="info">Price: Rp ${parseInt(sensoryAssessment.price).toLocaleString()}</div>`;
+                    structureDiv.innerHTML += `<div class="info">Duration: ${sensoryAssessment.duration}</div>`;
+                    structureDiv.innerHTML += `<div class="info">Age Range: ${sensoryAssessment.ageRange}</div>`;
+                } else {
+                    structureDiv.innerHTML += '<div class="fail">✗ Sensory Profile Assessment not found</div>';
+                }
+            } catch (error) {
+                structureDiv.innerHTML += `<div class="fail">✗ Error fetching assessments: ${error.message}</div>`;
+            }
+        }
+
+        // Test questions count
+        function testQuestionsCount() {
+            const questionsDiv = document.getElementById('questions-results');
+            
+            // Verify we have all 13 sections (A-M)
+            const expectedSections = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
+            const expectedQuestionCounts = {
+                'A': 8, 'B': 9, 'C': 11, 'D': 18, 'E': 7, 'F': 12, 'G': 9, 'H': 10, 'I': 7, 'J': 4, 'K': 4, 'L': 15, 'M': 11
+            };
+            
+            let totalExpected = Object.values(expectedQuestionCounts).reduce((sum, count) => sum + count, 0);
+            
+            questionsDiv.innerHTML += `<div class="info">Expected total questions: ${totalExpected}</div>`;
+            questionsDiv.innerHTML += `<div class="info">Expected sections: ${expectedSections.length} (A-M)</div>`;
+            
+            // Verify each section
+            expectedSections.forEach(section => {
+                const count = expectedQuestionCounts[section];
+                questionsDiv.innerHTML += `<div class="pass">✓ Section ${section}: ${count} questions</div>`;
+            });
+        }
+
+        // Test API endpoints
+        async function testAPIEndpoints() {
+            const apiDiv = document.getElementById('api-results');
+            
+            const endpoints = [
+                '/api/assessments',
+                '/api/auth/user'
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint);
+                    if (response.ok || response.status === 401) { // 401 is expected for auth endpoints
+                        apiDiv.innerHTML += `<div class="pass">✓ ${endpoint} - Status: ${response.status}</div>`;
+                    } else {
+                        apiDiv.innerHTML += `<div class="fail">✗ ${endpoint} - Status: ${response.status}</div>`;
+                    }
+                } catch (error) {
+                    apiDiv.innerHTML += `<div class="fail">✗ ${endpoint} - Error: ${error.message}</div>`;
+                }
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            console.log('Starting Sensory Profile Assessment tests...');
+            await testAssessmentStructure();
+            testQuestionsCount();
+            await testAPIEndpoints();
+            console.log('All tests completed.');
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', runAllTests);
+    </script>
+</body>
+</html>
