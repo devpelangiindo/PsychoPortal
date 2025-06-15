@@ -17,6 +17,13 @@ export default function Landing() {
     window.location.href = "/api/login";
   };
 
+  const handleLearnMore = () => {
+    const assessmentsSection = document.getElementById('assessments');
+    if (assessmentsSection) {
+      assessmentsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
       <Header />
@@ -55,6 +62,7 @@ export default function Landing() {
                 variant="outline" 
                 size="lg" 
                 className="px-8 py-4 text-lg font-semibold border-2"
+                onClick={handleLearnMore}
               >
                 Pelajari Lebih Lanjut
               </Button>
