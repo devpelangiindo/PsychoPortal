@@ -3,22 +3,22 @@ import { Facebook, Twitter, Linkedin } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-gradient-to-r from-primary to-secondary text-white py-16">
+    <footer className="bg-gradient-to-r from-secondary to-primary text-white py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-4 gap-8">
           <div>
             <h3 className="text-2xl font-bold mb-4">Rumah Psikologi Indonesia</h3>
-            <p className="text-blue-100 mb-4">
+            <p className="text-green-100 mb-4">
               Platform asesmen psikologi profesional untuk praktisi dan peneliti modern.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-blue-200 hover:text-white transition-colors">
+              <a href="#" className="text-green-200 hover:text-white transition-colors">
                 <Twitter className="w-5 h-5" />
               </a>
-              <a href="#" className="text-blue-200 hover:text-white transition-colors">
+              <a href="#" className="text-green-200 hover:text-white transition-colors">
                 <Linkedin className="w-5 h-5" />
               </a>
-              <a href="#" className="text-blue-200 hover:text-white transition-colors">
+              <a href="#" className="text-green-200 hover:text-white transition-colors">
                 <Facebook className="w-5 h-5" />
               </a>
             </div>
@@ -89,7 +89,7 @@ export default function Footer() {
         </div>
         
         <div className="border-t border-white/20 mt-12 pt-8 text-center">
-          <p className="text-blue-100">
+          <p className="text-green-100">
             &copy; 2024 Rumah Psikologi Indonesia. Seluruh hak cipta dilindungi.
           </p>
         </div>
