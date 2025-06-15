@@ -285,23 +285,25 @@ export default function SensoryProfile() {
   // Auto-save functionality
   const saveProgressMutation = useMutation({
     mutationFn: async (data: any) => {
-      if (!userAssessment?.id) return;
-      return await fetch(`/api/user-assessments/${userAssessment.id}/save-progress`, {
+      if (!userAssessment?.id) return null;
+      const response = await fetch(`/api/user-assessments/${userAssessment.id}/save-progress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-      }).then(res => res.json());
+      });
+      return await response.json();
     }
   });
 
   const completeMutation = useMutation({
     mutationFn: async (data: any) => {
-      if (!userAssessment?.id) return;
-      return await fetch(`/api/user-assessments/${userAssessment.id}/complete`, {
+      if (!userAssessment?.id) return null;
+      const response = await fetch(`/api/user-assessments/${userAssessment.id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-      }).then(res => res.json());
+      });
+      return await response.json();
     },
     onSuccess: () => {
       toast({
@@ -319,18 +321,19 @@ export default function SensoryProfile() {
       
       try {
         const assessmentId = parseInt(params.id);
-        const response = await apiRequest(`/api/user-assessments/${assessmentId}`);
-        setUserAssessment(response);
+        const response = await fetch(`/api/user-assessments/${assessmentId}`);
+        const data = await response.json();
+        setUserAssessment(data);
         
         // Load existing progress if any
-        if (response.results) {
-          setResponses(response.results.responses || {});
-          setNotApplicable(response.results.notApplicable || {});
-          setComments(response.results.comments || {});
-          setParticipantInfo(response.results.participantInfo || participantInfo);
+        if (data.results) {
+          setResponses(data.results.responses || {});
+          setNotApplicable(data.results.notApplicable || {});
+          setComments(data.results.comments || {});
+          setParticipantInfo(data.results.participantInfo || participantInfo);
           
           // If assessment is completed, redirect to results
-          if (response.status === 'completed') {
+          if (data.status === 'completed') {
             navigate("/assessment-results");
             return;
           }
