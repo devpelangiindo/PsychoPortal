@@ -421,6 +421,8 @@ export default function SensoryProfile() {
     }
   };
 
+
+
   const calculateResults = () => {
     // Calculate section scores
     const sectionScores: Record<string, number> = {};
@@ -465,18 +467,7 @@ export default function SensoryProfile() {
     };
   };
 
-  const handleComplete = () => {
-    const results = calculateResults();
-    completeMutation.mutate(results);
-  };
 
-  const isAllQuestionsAnswered = () => {
-    return allQuestions.every(q => 
-      responses[q.id] || notApplicable[q.id]
-    );
-  };
-
-  const currentQuestion = allQuestions[currentQuestionIndex];
 
   if (!user) {
     return (
@@ -520,9 +511,8 @@ export default function SensoryProfile() {
           <Card>
             <CardHeader>
               <CardTitle className="text-center text-xl font-bold">
-                Sensory Profile
+                Asesmen Profil Sensoris
               </CardTitle>
-              <p className="text-center text-lg">Winnie Dunn, Ph.D., OTR, FAOTA</p>
               <p className="text-center text-lg font-semibold mt-4">Kuesioner bagi Orangtua/Pengasuh</p>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -664,8 +654,8 @@ export default function SensoryProfile() {
         )}
 
         {/* Questions Step */}
-        {currentStep === 'questions' && currentQuestion && (
-          <div className="space-y-6">
+        {currentStep === 'questions' && (
+          <div ref={topRef} className="space-y-6">
             {/* Progress */}
             <Card>
               <CardContent className="p-4">
@@ -676,122 +666,123 @@ export default function SensoryProfile() {
                   </span>
                 </div>
                 <Progress value={progress} className="h-2" />
+                <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Halaman {currentPage + 1} dari {totalPages}</span>
+                  <span>{currentPageSection}</span>
+                </div>
               </CardContent>
             </Card>
 
-            {/* Question */}
+            {/* Current Page Questions */}
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">
-                      {currentQuestion.sectionTitle}
-                    </CardTitle>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Item {currentQuestion.id} - Pertanyaan {currentQuestionIndex + 1} dari {totalQuestions}
-                    </p>
-                  </div>
-                  {currentQuestion.threshold && (
-                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-sm">
-                      {currentQuestion.threshold}
-                    </span>
-                  )}
-                </div>
+                <CardTitle className="text-lg text-center">
+                  {currentPageSection}
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                  Halaman {currentPage + 1} dari {totalPages}
+                </p>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                  <p className="text-gray-800 dark:text-gray-200 leading-relaxed">
-                    {currentQuestion.text}
-                  </p>
-                </div>
+                {currentPageQuestions.map((question, index) => (
+                  <div key={question.id} className="border-b pb-6 last:border-b-0">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                          Item {question.id} - Pertanyaan {(currentPage * questionsPerPage) + index + 1} dari {totalQuestions}
+                        </p>
+                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                          <p className="text-gray-800 dark:text-gray-200 leading-relaxed">
+                            {question.text}
+                          </p>
+                        </div>
+                      </div>
+                      {question.threshold && (
+                        <span className="ml-4 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+                          {question.threshold}
+                        </span>
+                      )}
+                    </div>
 
-                {/* Response Options */}
-                <div className="space-y-4">
-                  <RadioGroup
-                    value={responses[currentQuestion.id] || ''}
-                    onValueChange={(value) => handleResponseChange(currentQuestion.id, value)}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="5" id="option5" />
-                      <Label htmlFor="option5">
-                        <span className="font-medium">SELALU</span> (100% dari waktu)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="4" id="option4" />
-                      <Label htmlFor="option4">
-                        <span className="font-medium">SERING</span> (75% dari waktu)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="3" id="option3" />
-                      <Label htmlFor="option3">
-                        <span className="font-medium">KADANG-KADANG</span> (50% dari waktu)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="2" id="option2" />
-                      <Label htmlFor="option2">
-                        <span className="font-medium">JARANG</span> (25% dari waktu)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="1" id="option1" />
-                      <Label htmlFor="option1">
-                        <span className="font-medium">TIDAK PERNAH</span> (0% dari waktu)
-                      </Label>
-                    </div>
-                  </RadioGroup>
+                    {/* Response Options */}
+                    <div className="space-y-3">
+                      <RadioGroup
+                        value={responses[question.id] || ''}
+                        onValueChange={(value) => handleResponseChange(question.id, value)}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="5" id={`q${question.id}_option5`} />
+                          <Label htmlFor={`q${question.id}_option5`}>
+                            <span className="font-medium">SELALU</span> (100% dari waktu)
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="4" id={`q${question.id}_option4`} />
+                          <Label htmlFor={`q${question.id}_option4`}>
+                            <span className="font-medium">SERING</span> (75% dari waktu)
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="3" id={`q${question.id}_option3`} />
+                          <Label htmlFor={`q${question.id}_option3`}>
+                            <span className="font-medium">KADANG-KADANG</span> (50% dari waktu)
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="2" id={`q${question.id}_option2`} />
+                          <Label htmlFor={`q${question.id}_option2`}>
+                            <span className="font-medium">JARANG</span> (25% dari waktu)
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="1" id={`q${question.id}_option1`} />
+                          <Label htmlFor={`q${question.id}_option1`}>
+                            <span className="font-medium">TIDAK PERNAH</span> (0% dari waktu)
+                          </Label>
+                        </div>
+                      </RadioGroup>
 
-                  {/* Not Applicable Option */}
-                  <div className="border-t pt-4">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="notApplicable"
-                        checked={notApplicable[currentQuestion.id] || false}
-                        onChange={(e) => handleNotApplicableChange(currentQuestion.id, e.target.checked)}
-                        className="rounded border-gray-300"
-                      />
-                      <Label htmlFor="notApplicable" className="text-gray-700 dark:text-gray-300">
-                        Tidak berlaku / Belum pernah mengamati perilaku ini
-                      </Label>
+                      {/* Not Applicable Option */}
+                      <div className="border-t pt-3">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`q${question.id}_notApplicable`}
+                            checked={notApplicable[question.id] || false}
+                            onChange={(e) => handleNotApplicableChange(question.id, e.target.checked)}
+                            className="rounded border-gray-300"
+                          />
+                          <Label htmlFor={`q${question.id}_notApplicable`} className="text-gray-700 dark:text-gray-300">
+                            Tidak berlaku / Belum pernah mengamati perilaku ini
+                          </Label>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Section comment at the end of each section */}
-                {currentQuestionIndex < totalQuestions - 1 && 
-                 allQuestions[currentQuestionIndex + 1]?.sectionId !== currentQuestion.sectionId && (
-                  <div className="border-t pt-4">
-                    <Label htmlFor="sectionComment">Komentar untuk bagian {currentQuestion.sectionTitle}:</Label>
-                    <Textarea
-                      id="sectionComment"
-                      value={comments[currentQuestion.sectionId] || ''}
-                      onChange={(e) => setComments(prev => ({ ...prev, [currentQuestion.sectionId]: e.target.value }))}
-                      placeholder="Tambahkan komentar untuk bagian ini jika diperlukan..."
-                      rows={3}
-                    />
-                  </div>
-                )}
+                ))}
 
                 {/* Navigation */}
-                <div className="flex justify-between pt-4">
+                <div className="flex justify-between pt-6">
                   <Button
                     variant="outline"
-                    onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
-                    disabled={currentQuestionIndex === 0}
+                    onClick={() => {
+                      setCurrentPage(prev => Math.max(0, prev - 1));
+                      scrollToTop();
+                    }}
+                    disabled={currentPage === 0}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Sebelumnya
+                    Halaman Sebelumnya
                   </Button>
 
-                  {currentQuestionIndex < totalQuestions - 1 ? (
+                  {currentPage < totalPages - 1 ? (
                     <Button
-                      onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                      disabled={!responses[currentQuestion.id] && !notApplicable[currentQuestion.id]}
+                      onClick={() => {
+                        setCurrentPage(prev => prev + 1);
+                        scrollToTop();
+                      }}
                     >
-                      Selanjutnya
+                      Halaman Selanjutnya
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   ) : (
@@ -801,9 +792,9 @@ export default function SensoryProfile() {
                       className="bg-green-600 hover:bg-green-700"
                     >
                       {completeMutation.isPending ? 'Menyelesaikan...' : 'Selesaikan Asesmen'}
+                      <FileText className="ml-2 h-4 w-4" />
                     </Button>
                   )}
-                </div>
               </CardContent>
             </Card>
           </div>
