@@ -5,12 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import type { UserAssessmentWithDetails } from "@shared/schema";
+import AssessmentCard from "@/components/assessment-card";
+import type { UserAssessmentWithDetails, Assessment } from "@shared/schema";
 
 export default function Home() {
   const { user } = useAuth();
   const { data: userAssessments, isLoading } = useQuery<UserAssessmentWithDetails[]>({
     queryKey: ["/api/user-assessments"],
+  });
+
+  const { data: allAssessments, isLoading: isLoadingAssessments } = useQuery<Assessment[]>({
+    queryKey: ["/api/assessments"],
   });
 
   const availableAssessments = userAssessments?.filter(ua => ua.status === 'available') || [];
@@ -182,6 +187,58 @@ export default function Home() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Available Assessments for Purchase */}
+        {user && (
+          <div className="mt-12">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-neutral-900 dark:text-foreground mb-4">
+                Asesmen yang Tersedia
+              </h2>
+              <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-2xl mx-auto">
+                Jelajahi berbagai asesmen psikologi yang tersedia dan tambahkan ke keranjang Anda
+              </p>
+            </div>
+
+            {isLoadingAssessments ? (
+              <div className="grid md:grid-cols-2 gap-6">
+                {[1, 2].map((i) => (
+                  <div key={i} className="bg-white dark:bg-card rounded-2xl shadow-lg border border-gray-100 dark:border-border overflow-hidden">
+                    <div className="h-48 bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                    <div className="p-8 space-y-4">
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse" />
+                      <div className="flex justify-between items-center pt-4">
+                        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse" />
+                        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : allAssessments && allAssessments.length > 0 ? (
+              <div className="grid md:grid-cols-2 gap-6">
+                {allAssessments.map((assessment) => (
+                  <AssessmentCard 
+                    key={assessment.id} 
+                    assessment={assessment} 
+                    showAddToCart={true} 
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-neutral-500 dark:text-muted-foreground mb-4">
+                  Tidak ada asesmen tersedia saat ini
+                </p>
+                <p className="text-sm text-neutral-400 dark:text-muted-foreground">
+                  Silakan coba lagi nanti atau hubungi dukungan untuk bantuan.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="mt-12 flex flex-wrap gap-4 justify-center">
