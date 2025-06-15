@@ -36,21 +36,15 @@ export default function Header() {
               
               {/* Desktop Navigation */}
               <nav className="hidden md:ml-8 md:flex space-x-8">
-                <Link href="/">
-                  <a className="text-neutral-900 dark:text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
-                    Beranda
-                  </a>
+                <Link href="/" className="text-neutral-900 dark:text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                  Beranda
                 </Link>
-                <Link href="/assessments">
-                  <a className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
-                    Asesmen
-                  </a>
+                <Link href="/assessments" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                  Asesmen
                 </Link>
                 {isAuthenticated && (
-                  <Link href="/dashboard">
-                    <a className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
-                      Dashboard
-                    </a>
+                  <Link href="/dashboard" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                    Dashboard
                   </Link>
                 )}
               </nav>
@@ -77,7 +71,7 @@ export default function Header() {
               ) : isAuthenticated ? (
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
-                    {user?.profileImageUrl ? (
+                    {user && user.profileImageUrl ? (
                       <img 
                         src={user.profileImageUrl} 
                         alt="Profile" 
@@ -89,7 +83,7 @@ export default function Header() {
                       </div>
                     )}
                     <span className="text-sm font-medium text-neutral-900 dark:text-foreground">
-                      {user?.firstName || user?.email?.split('@')[0] || 'User'}
+                      {user && (user.firstName || user.email?.split('@')[0]) || 'User'}
                     </span>
                   </div>
                   <Button variant="outline" size="sm" onClick={handleSignOut}>
@@ -130,21 +124,15 @@ export default function Header() {
           {isMenuOpen && (
             <div className="md:hidden border-t border-gray-200 dark:border-border">
               <nav className="py-4 space-y-2">
-                <Link href="/">
-                  <a className="block px-3 py-2 text-neutral-900 dark:text-foreground hover:text-primary font-medium transition-colors">
-                    Beranda
-                  </a>
+                <Link href="/" className="block px-3 py-2 text-neutral-900 dark:text-foreground hover:text-primary font-medium transition-colors">
+                  Beranda
                 </Link>
-                <Link href="/assessments">
-                  <a className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
-                    Asesmen
-                  </a>
+                <Link href="/assessments" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
+                  Asesmen
                 </Link>
                 {isAuthenticated && (
-                  <Link href="/dashboard">
-                    <a className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
-                      Dashboard
-                    </a>
+                  <Link href="/dashboard" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
+                    Dashboard
                   </Link>
                 )}
                 
@@ -156,7 +144,7 @@ export default function Header() {
                   ) : isAuthenticated ? (
                     <div className="px-3 py-2 space-y-3">
                       <div className="flex items-center space-x-2">
-                        {user?.profileImageUrl ? (
+                        {user && user.profileImageUrl ? (
                           <img 
                             src={user.profileImageUrl} 
                             alt="Profile" 
@@ -168,7 +156,7 @@ export default function Header() {
                           </div>
                         )}
                         <span className="text-sm font-medium text-neutral-900 dark:text-foreground">
-                          {user?.firstName || user?.email?.split('@')[0] || 'User'}
+                          {user && (user.firstName || user.email?.split('@')[0]) || 'User'}
                         </span>
                       </div>
                       <Button variant="outline" size="sm" onClick={handleSignOut} className="w-full">
