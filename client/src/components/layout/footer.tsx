@@ -28,17 +28,13 @@ export default function Footer() {
             <h4 className="text-lg font-semibold mb-4">Asesmen</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/assessments">
-                  <a className="text-neutral-400 hover:text-white transition-colors">
-                    Profil Sensoris
-                  </a>
+                <Link href="/assessments" className="text-neutral-400 hover:text-white transition-colors">
+                  Profil Sensoris
                 </Link>
               </li>
               <li>
-                <Link href="/assessments">
-                  <a className="text-neutral-400 hover:text-white transition-colors">
-                    Inventori Gaya Belajar
-                  </a>
+                <Link href="/assessments" className="text-neutral-400 hover:text-white transition-colors">
+                  Inventori Gaya Belajar
                 </Link>
               </li>
               <li>

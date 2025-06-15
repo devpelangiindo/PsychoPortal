@@ -6,6 +6,7 @@ import type { UserAssessmentWithDetails } from "@shared/schema";
 import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema } from "@shared/schema";
 import { z } from "zod";
 import PDFDocument from "pdfkit";
+import { randomBytes } from "crypto";
 
 // PDF Generation Function
 function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<Buffer> {
@@ -466,7 +467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate a unique share token
-      const shareToken = require('crypto').randomBytes(32).toString('hex');
+      const shareToken = randomBytes(32).toString('hex');
       
       // Store the share token (in a real app, you'd save this to database)
       // For now, we'll use the assessment ID as a simple share mechanism
