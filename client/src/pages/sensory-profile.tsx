@@ -488,7 +488,7 @@ export default function SensoryProfile() {
 
               <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <strong>Catatan:</strong> Hak Cipta © 1999 oleh Rumah Psikologi Indonesia. 
+                  <strong>Catatan:</strong> Hak Cipta © 2024 oleh Rumah Psikologi Indonesia. 
                   Asesmen ini terdiri dari 125 pertanyaan yang dibagi dalam 14 bagian.
                 </p>
               </div>

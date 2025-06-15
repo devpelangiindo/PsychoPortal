@@ -170,9 +170,11 @@ export default function Home() {
                           Selesai {userAssessment.completedAt ? new Date(userAssessment.completedAt).toLocaleDateString('id-ID') : 'Baru-baru ini'}
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
-                        Lihat Laporan
-                      </Button>
+                      <Link href={`/results/${userAssessment.id}`}>
+                        <Button variant="outline" size="sm">
+                          Lihat Laporan
+                        </Button>
+                      </Link>
                     </div>
                   ))}
                 </div>
