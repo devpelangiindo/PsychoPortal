@@ -139,11 +139,16 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
+  try {
+    // Auth middleware
+    await setupAuth(app);
 
-  // Initialize default assessments
-  await initializeAssessments();
+    // Initialize default assessments
+    await initializeAssessments();
+  } catch (error) {
+    console.error('Failed to initialize routes:', error);
+    throw error;
+  }
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -482,9 +487,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 async function initializeAssessments() {
   try {
+    console.log("Initializing assessments...");
     const existingAssessments = await storage.getAssessments();
     
     if (existingAssessments.length === 0) {
+      console.log("Creating default assessments...");
       // Create default assessments
       await storage.createAssessment({
         name: "Asesmen Profil Sensoris",
@@ -507,8 +514,11 @@ async function initializeAssessments() {
       });
 
       console.log("Asesmen default berhasil dibuat");
+    } else {
+      console.log(`Found ${existingAssessments.length} existing assessments`);
     }
   } catch (error) {
     console.error("Error initializing assessments:", error);
+    throw error; // Re-throw to prevent silent failures
   }
 }
