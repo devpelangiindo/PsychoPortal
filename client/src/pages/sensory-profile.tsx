@@ -8,7 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, ArrowRight, FileText, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -268,6 +270,8 @@ export default function SensoryProfile() {
 
   const [userAssessment, setUserAssessment] = useState<UserAssessmentWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [showValidationAlert, setShowValidationAlert] = useState(false);
 
   // Get all questions
   const allQuestions = sections.flatMap(section => 
@@ -290,7 +294,7 @@ export default function SensoryProfile() {
   const totalQuestions = allQuestions.length;
   const progress = (answeredQuestions / totalQuestions) * 100;
 
-  // Auto-save functionality
+  // Auto-save functionality with debouncing
   const saveProgressMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!userAssessment?.id) return null;
@@ -302,6 +306,24 @@ export default function SensoryProfile() {
       return await response.json();
     }
   });
+
+  // Auto-save when responses change
+  useEffect(() => {
+    if (currentStep === 'questions' && userAssessment?.id) {
+      const saveTimer = setTimeout(() => {
+        saveProgressMutation.mutate({
+          responses,
+          notApplicable,
+          comments,
+          participantInfo,
+          currentPage,
+          currentStep
+        });
+      }, 1000); // Save after 1 second of inactivity
+
+      return () => clearTimeout(saveTimer);
+    }
+  }, [responses, notApplicable, comments, participantInfo, currentPage, currentStep]);
 
   const completeMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -384,6 +406,50 @@ export default function SensoryProfile() {
     
     saveProgressMutation.mutate(saveData);
   }, [responses, notApplicable, comments, participantInfo, currentPage]);
+
+  // Validation functions
+  const validateParticipantInfo = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!participantInfo.childName.trim()) {
+      errors.childName = "Nama anak harus diisi";
+    }
+    if (!participantInfo.childBirthDate) {
+      errors.childBirthDate = "Tanggal lahir anak harus diisi";
+    }
+    if (!participantInfo.parentName.trim()) {
+      errors.parentName = "Nama orangtua/pengasuh harus diisi";
+    }
+    if (!participantInfo.relationship.trim()) {
+      errors.relationship = "Hubungan dengan anak harus dipilih";
+    }
+    if (!participantInfo.testDate) {
+      errors.testDate = "Tanggal tes harus diisi";
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateCurrentPageQuestions = () => {
+    const unansweredQuestions: number[] = [];
+    
+    currentPageQuestions.forEach(question => {
+      const hasResponse = responses[question.id] || notApplicable[question.id];
+      if (!hasResponse) {
+        unansweredQuestions.push(question.id);
+      }
+    });
+    
+    if (unansweredQuestions.length > 0) {
+      setShowValidationAlert(true);
+      setTimeout(() => setShowValidationAlert(false), 5000);
+      return false;
+    }
+    
+    setShowValidationAlert(false);
+    return true;
+  };
 
   // Scroll to top function
   const scrollToTop = () => {
@@ -599,8 +665,12 @@ export default function SensoryProfile() {
                     value={participantInfo.childName}
                     onChange={(e) => setParticipantInfo(prev => ({ ...prev, childName: e.target.value }))}
                     placeholder="Masukkan nama anak"
+                    className={validationErrors.childName ? "border-red-500" : ""}
                     required
                   />
+                  {validationErrors.childName && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.childName}</p>
+                  )}
                 </div>
 
                 <div>
@@ -610,8 +680,12 @@ export default function SensoryProfile() {
                     type="date"
                     value={participantInfo.childBirthDate}
                     onChange={(e) => setParticipantInfo(prev => ({ ...prev, childBirthDate: e.target.value }))}
+                    className={validationErrors.childBirthDate ? "border-red-500" : ""}
                     required
                   />
+                  {validationErrors.childBirthDate && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.childBirthDate}</p>
+                  )}
                 </div>
 
                 <div>
@@ -621,18 +695,40 @@ export default function SensoryProfile() {
                     value={participantInfo.parentName}
                     onChange={(e) => setParticipantInfo(prev => ({ ...prev, parentName: e.target.value }))}
                     placeholder="Masukkan nama orangtua/pengasuh"
+                    className={validationErrors.parentName ? "border-red-500" : ""}
                     required
                   />
+                  {validationErrors.parentName && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.parentName}</p>
+                  )}
                 </div>
 
                 <div>
                   <Label htmlFor="relationship">Hubungan dengan Anak:</Label>
-                  <Input
-                    id="relationship"
-                    value={participantInfo.relationship}
-                    onChange={(e) => setParticipantInfo(prev => ({ ...prev, relationship: e.target.value }))}
-                    placeholder="Contoh: Ibu, Ayah, Pengasuh"
-                  />
+                  <Select 
+                    value={participantInfo.relationship} 
+                    onValueChange={(value) => setParticipantInfo(prev => ({ ...prev, relationship: value }))}
+                  >
+                    <SelectTrigger className={validationErrors.relationship ? "border-red-500" : ""}>
+                      <SelectValue placeholder="Pilih hubungan dengan anak" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Ibu">Ibu</SelectItem>
+                      <SelectItem value="Ayah">Ayah</SelectItem>
+                      <SelectItem value="Pengasuh">Pengasuh</SelectItem>
+                      <SelectItem value="Nenek">Nenek</SelectItem>
+                      <SelectItem value="Kakek">Kakek</SelectItem>
+                      <SelectItem value="Bibi">Bibi</SelectItem>
+                      <SelectItem value="Paman">Paman</SelectItem>
+                      <SelectItem value="Kakak">Kakak</SelectItem>
+                      <SelectItem value="Adik">Adik</SelectItem>
+                      <SelectItem value="Wali">Wali</SelectItem>
+                      <SelectItem value="Lainnya">Lainnya</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.relationship && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.relationship}</p>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
