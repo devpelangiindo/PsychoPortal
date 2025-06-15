@@ -153,41 +153,103 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
           doc.moveDown(0.3);
           
           const sectionDetails = {
-            'Pemrosesan Auditori': {
+            'A': {
+              name: 'Pemrosesan Auditori',
               description: 'Kemampuan memproses informasi yang diterima melalui pendengaran',
               normal: [13, 19],
               lowThreshold: '≤12 (Hipersensitif - mudah terganggu suara)',
               highThreshold: '≥20 (Hiposensitif - butuh stimulasi suara lebih kuat)'
             },
-            'Pemrosesan Visual': {
+            'B': {
+              name: 'Pemrosesan Visual',
               description: 'Kemampuan memproses informasi yang diterima melalui penglihatan',
               normal: [8, 14],
               lowThreshold: '≤7 (Hipersensitif - mudah terganggu cahaya/visual)',
               highThreshold: '≥15 (Hiposensitif - butuh stimulasi visual lebih kuat)'
             },
-            'Pemrosesan Vestibular': {
+            'C': {
+              name: 'Pemrosesan Vestibular',
               description: 'Kemampuan memproses informasi terkait keseimbangan dan gerakan',
               normal: [13, 19],
               lowThreshold: '≤12 (Hipersensitif - mudah mual/pusing)',
               highThreshold: '≥20 (Hiposensitif - mencari gerakan intens)'
             },
-            'Pemrosesan Taktil': {
+            'D': {
+              name: 'Pemrosesan Taktil',
               description: 'Kemampuan memproses informasi melalui sentuhan dan tekstur',
               normal: [16, 24],
               lowThreshold: '≤15 (Hipersensitif - menghindari sentuhan)',
               highThreshold: '≥25 (Hiposensitif - butuh tekanan/sentuhan kuat)'
             },
-            'Pemrosesan Multisensoris': {
+            'E': {
+              name: 'Pemrosesan Multisensoris',
               description: 'Kemampuan mengintegrasikan informasi dari berbagai sistem sensoris',
               normal: [7, 11],
               lowThreshold: '≤6 (Kesulitan integrasi - mudah kewalahan)',
               highThreshold: '≥12 (Butuh stimulasi multi-sensoris tinggi)'
             },
-            'Modalitas Oral Sensoris': {
+            'F': {
+              name: 'Pemrosesan Oral Sensoris',
               description: 'Pemrosesan sensoris terkait mulut, makanan, dan rasa',
               normal: [11, 17],
               lowThreshold: '≤10 (Hipersensitif - pemilih makanan)',
               highThreshold: '≥18 (Hiposensitif - mencari stimulasi oral)'
+            },
+            'G': {
+              name: 'Pemrosesan Perencanaan Gerakan',
+              description: 'Kemampuan merencanakan dan melaksanakan gerakan motorik',
+              normal: [6, 12],
+              lowThreshold: '≤5 (Kesulitan perencanaan motorik)',
+              highThreshold: '≥13 (Mencari tantangan motorik kompleks)'
+            },
+            'H': {
+              name: 'Pemrosesan Energi Tubuh',
+              description: 'Regulasi energi dan tonus otot untuk aktivitas sehari-hari',
+              normal: [7, 13],
+              lowThreshold: '≤6 (Tonus rendah - mudah lelah)',
+              highThreshold: '≥14 (Mencari input proprioseptif kuat)'
+            },
+            'I': {
+              name: 'Modulasi Tonus Tubuh dan Endurance',
+              description: 'Modulasi tingkat kewaspadaan dan daya tahan tubuh',
+              normal: [6, 12],
+              lowThreshold: '≤5 (Tingkat aktivitas rendah)',
+              highThreshold: '≥13 (Hiperaktif - sulit mengatur diri)'
+            },
+            'J': {
+              name: 'Modulasi Gerakan dan Tingkat Aktivitas',
+              description: 'Regulasi gerakan dan respons terhadap input vestibular',
+              normal: [3, 7],
+              lowThreshold: '≤2 (Under-responsive terhadap gerakan)',
+              highThreshold: '≥8 (Mencari gerakan intens berlebihan)'
+            },
+            'K': {
+              name: 'Modulasi Input Sensoris - Respons Emosional',
+              description: 'Regulasi respons emosional terhadap stimulasi sensoris',
+              normal: [5, 11],
+              lowThreshold: '≤4 (Under-responsive secara emosional)',
+              highThreshold: '≥12 (Over-responsive secara emosional)'
+            },
+            'L': {
+              name: 'Modulasi Input Visual - Respons Emosional',
+              description: 'Regulasi respons emosional terhadap stimulasi visual',
+              normal: [2, 6],
+              lowThreshold: '≤1 (Under-responsive terhadap visual)',
+              highThreshold: '≥7 (Over-responsive terhadap visual)'
+            },
+            'M': {
+              name: 'Modulasi Input Taktil - Respons Emosional',
+              description: 'Regulasi respons emosional terhadap sentuhan',
+              normal: [4, 8],
+              lowThreshold: '≤3 (Under-responsive terhadap sentuhan)',
+              highThreshold: '≥9 (Over-responsive terhadap sentuhan)'
+            },
+            'N': {
+              name: 'Regulasi Threshold untuk Respons Umum',
+              description: 'Threshold umum untuk merespons stimulasi sensoris',
+              normal: [12, 18],
+              lowThreshold: '≤11 (Threshold tinggi - butuh stimulasi kuat)',
+              highThreshold: '≥19 (Threshold rendah - mudah terstimulasi)'
             }
           };
           
@@ -195,7 +257,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
             const detail = sectionDetails[section as keyof typeof sectionDetails];
             if (detail) {
               doc.fontSize(11).font('Helvetica-Bold')
-                 .text(`${section}: ${score}`, { continued: false });
+                 .text(`${detail.name}: ${score}`, { continued: false });
               
               // Determine threshold category
               let category = 'Normal';
@@ -262,110 +324,97 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
         doc.moveDown(0.3);
         
         if (sectionScores) {
-          const sectionDetailsForRecommendations = {
-            'Pemrosesan Auditori': {
-              description: 'Kemampuan memproses informasi yang diterima melalui pendengaran',
-              normal: [13, 19],
-              lowThreshold: '≤12 (Hipersensitif - mudah terganggu suara)',
-              highThreshold: '≥20 (Hiposensitif - butuh stimulasi suara lebih kuat)'
-            },
-            'Pemrosesan Visual': {
-              description: 'Kemampuan memproses informasi yang diterima melalui penglihatan',
-              normal: [8, 14],
-              lowThreshold: '≤7 (Hipersensitif - mudah terganggu cahaya/visual)',
-              highThreshold: '≥15 (Hiposensitif - butuh stimulasi visual lebih kuat)'
-            },
-            'Pemrosesan Vestibular': {
-              description: 'Kemampuan memproses informasi terkait keseimbangan dan gerakan',
-              normal: [13, 19],
-              lowThreshold: '≤12 (Hipersensitif - mudah mual/pusing)',
-              highThreshold: '≥20 (Hiposensitif - mencari gerakan intens)'
-            },
-            'Pemrosesan Taktil': {
-              description: 'Kemampuan memproses informasi melalui sentuhan dan tekstur',
-              normal: [16, 24],
-              lowThreshold: '≤15 (Hipersensitif - menghindari sentuhan)',
-              highThreshold: '≥25 (Hiposensitif - butuh tekanan/sentuhan kuat)'
-            },
-            'Pemrosesan Multisensoris': {
-              description: 'Kemampuan mengintegrasikan informasi dari berbagai sistem sensoris',
-              normal: [7, 11],
-              lowThreshold: '≤6 (Kesulitan integrasi - mudah kewalahan)',
-              highThreshold: '≥12 (Butuh stimulasi multi-sensoris tinggi)'
-            },
-            'Modalitas Oral Sensoris': {
-              description: 'Pemrosesan sensoris terkait mulut, makanan, dan rasa',
-              normal: [11, 17],
-              lowThreshold: '≤10 (Hipersensitif - pemilih makanan)',
-              highThreshold: '≥18 (Hiposensitif - mencari stimulasi oral)'
-            }
-          };
+
           
           Object.entries(sectionScores).forEach(([section, score]: [string, any]) => {
-            const detail = sectionDetailsForRecommendations[section as keyof typeof sectionDetailsForRecommendations];
+            const detail = sectionDetails[section as keyof typeof sectionDetails];
             if (detail) {
               let isAbnormal = score <= detail.normal[0] - 1 || score >= detail.normal[1] + 1;
               
               if (isAbnormal) {
                 doc.fontSize(11).font('Helvetica-Bold')
-                   .text(`${section}:`);
+                   .text(`${detail.name}:`);
                 
                 doc.fontSize(10).font('Helvetica');
                 
                 if (score <= detail.normal[0] - 1) {
                   // Hypersensitive recommendations
                   switch (section) {
-                    case 'Pemrosesan Auditori':
+                    case 'A': // Pemrosesan Auditori
                       doc.text('  • Gunakan ear plugs atau headphone peredam suara')
                          .text('  • Hindari lingkungan bising, pilih tempat yang tenang')
                          .text('  • Berikan peringatan sebelum suara keras')
                          .text('  • Pertimbangkan terapi integrasi sensoris');
                       break;
-                    case 'Pemrosesan Visual':
+                    case 'B': // Pemrosesan Visual
                       doc.text('  • Kurangi pencahayaan yang terlalu terang')
                          .text('  • Gunakan kacamata anti-silau jika perlu')
                          .text('  • Hindari pola visual yang terlalu kompleks')
                          .text('  • Ciptakan area visual yang tenang');
                       break;
-                    case 'Pemrosesan Vestibular':
+                    case 'C': // Pemrosesan Vestibular
                       doc.text('  • Hindari gerakan yang terlalu cepat atau berputar')
                          .text('  • Berikan dukungan fisik saat berpindah posisi')
                          .text('  • Latihan keseimbangan bertahap')
                          .text('  • Konsultasi dengan terapis okupasi');
                       break;
-                    case 'Pemrosesan Taktil':
+                    case 'D': // Pemrosesan Taktil
                       doc.text('  • Respek preferensi tekstur dan sentuhan')
                          .text('  • Gunakan pakaian dengan bahan yang nyaman')
                          .text('  • Berikan pilihan dalam aktivitas sentuhan')
                          .text('  • Latihan desensitisasi bertahap');
                       break;
+                    case 'E': // Pemrosesan Multisensoris
+                      doc.text('  • Kurangi kompleksitas lingkungan sensoris')
+                         .text('  • Berikan satu jenis stimulasi pada satu waktu')
+                         .text('  • Ciptakan ruang tenang untuk beristirahat')
+                         .text('  • Latihan integrasi sensoris bertahap');
+                      break;
+                    case 'F': // Pemrosesan Oral Sensoris
+                      doc.text('  • Respek preferensi makanan dan tekstur')
+                         .text('  • Perkenalkan makanan baru secara bertahap')
+                         .text('  • Hindari memaksa makan makanan tertentu')
+                         .text('  • Konsultasi dengan terapis wicara/okupasi');
+                      break;
                   }
                 } else {
                   // Hyposensitive recommendations
                   switch (section) {
-                    case 'Pemrosesan Auditori':
+                    case 'A': // Pemrosesan Auditori
                       doc.text('  • Berikan stimulasi suara yang bervariasi')
                          .text('  • Gunakan musik atau suara latar yang menenangkan')
                          .text('  • Libatkan dalam aktivitas musik')
                          .text('  • Berikan instruksi verbal yang jelas dan berulang');
                       break;
-                    case 'Pemrosesan Visual':
+                    case 'B': // Pemrosesan Visual
                       doc.text('  • Gunakan warna-warna cerah dan kontras tinggi')
                          .text('  • Berikan stimulasi visual yang menarik')
                          .text('  • Gunakan alat bantu visual untuk fokus')
                          .text('  • Libatkan dalam aktivitas seni visual');
                       break;
-                    case 'Pemrosesan Vestibular':
+                    case 'C': // Pemrosesan Vestibular
                       doc.text('  • Dorong aktivitas yang melibatkan gerakan')
                          .text('  • Berikan kesempatan untuk berayun atau berputar')
                          .text('  • Libatkan dalam olahraga atau aktivitas fisik')
                          .text('  • Gunakan alat seperti balance ball');
                       break;
-                    case 'Pemrosesan Taktil':
+                    case 'D': // Pemrosesan Taktil
                       doc.text('  • Berikan berbagai tekstur untuk eksplorasi')
                          .text('  • Gunakan weighted blanket atau deep pressure')
                          .text('  • Libatkan dalam aktivitas sensory play')
                          .text('  • Berikan pijatan atau tekanan dalam');
+                      break;
+                    case 'E': // Pemrosesan Multisensoris
+                      doc.text('  • Berikan aktivitas multi-sensoris yang kaya')
+                         .text('  • Kombinasikan berbagai jenis stimulasi')
+                         .text('  • Libatkan dalam permainan eksplorasi')
+                         .text('  • Gunakan mainan dengan tekstur dan suara');
+                      break;
+                    case 'F': // Pemrosesan Oral Sensoris
+                      doc.text('  • Berikan makanan dengan tekstur yang bervariasi')
+                         .text('  • Sediakan mainan oral yang aman untuk dikunyah')
+                         .text('  • Libatkan dalam aktivitas oral motorik')
+                         .text('  • Berikan makanan dengan rasa yang kuat');
                       break;
                   }
                 }
