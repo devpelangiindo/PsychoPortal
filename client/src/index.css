@@ -4,51 +4,51 @@
 
 :root {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --foreground: hsl(210, 60%, 17%);
+  --muted: hsl(210, 30%, 96%);
+  --muted-foreground: hsl(210, 20%, 50%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --popover-foreground: hsl(210, 60%, 17%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(142, 71%, 45%);
-  --secondary-foreground: hsl(355.7, 100%, 97.3%);
-  --accent: hsl(262, 83%, 58%);
-  --accent-foreground: hsl(210, 40%, 98%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
+  --card-foreground: hsl(210, 60%, 17%);
+  --border: hsl(210, 30%, 88%);
+  --input: hsl(210, 30%, 88%);
+  --primary: hsl(210, 60%, 25%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(15, 90%, 60%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(15, 90%, 60%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(210, 60%, 25%);
   --radius: 0.5rem;
-  --neutral-50: hsl(210, 40%, 98%);
-  --neutral-100: hsl(210, 40%, 96%);
-  --neutral-500: hsl(215, 16%, 47%);
-  --neutral-900: hsl(222, 84%, 12%);
+  --neutral-50: hsl(210, 30%, 98%);
+  --neutral-100: hsl(210, 30%, 96%);
+  --neutral-500: hsl(210, 20%, 50%);
+  --neutral-900: hsl(210, 60%, 17%);
 }
 
 .dark {
-  --background: hsl(240, 10%, 3.9%);
+  --background: hsl(210, 60%, 10%);
   --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 3.7%, 15.9%);
-  --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
+  --muted: hsl(210, 40%, 15%);
+  --muted-foreground: hsl(210, 20%, 65%);
+  --popover: hsl(210, 60%, 10%);
   --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
+  --card: hsl(210, 50%, 12%);
   --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 3.7%, 15.9%);
-  --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(240, 3.7%, 15.9%);
-  --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(240, 3.7%, 15.9%);
-  --accent-foreground: hsl(0, 0%, 98%);
-  --destructive: hsl(0, 62.8%, 30.6%);
+  --border: hsl(210, 40%, 20%);
+  --input: hsl(210, 40%, 20%);
+  --primary: hsl(210, 60%, 35%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(15, 90%, 55%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(15, 90%, 55%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 62%, 40%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
+  --ring: hsl(210, 60%, 35%);
   --radius: 0.5rem;
 }
 
@@ -64,7 +64,7 @@
 
 /* Custom styles for the professional design */
 .gradient-hero {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(124, 58, 237, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(27, 54, 93, 0.05) 0%, rgba(255, 107, 53, 0.05) 100%);
 }
 
 .assessment-card-hover {
@@ -77,19 +77,19 @@
 }
 
 .icon-secondary {
-  color: hsl(142, 71%, 45%);
+  color: hsl(15, 90%, 60%);
 }
 
 .icon-accent {
-  color: hsl(262, 83%, 58%);
+  color: hsl(15, 90%, 60%);
 }
 
 .bg-secondary-light {
-  background: linear-gradient(135deg, rgba(5, 150, 105, 0.1) 0%, rgba(5, 150, 105, 0.2) 100%);
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(255, 107, 53, 0.2) 100%);
 }
 
 .bg-accent-light {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(124, 58, 237, 0.2) 100%);
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(255, 107, 53, 0.2) 100%);
 }
 
 /* Professional header styling */
@@ -102,7 +102,7 @@
   position: absolute;
   top: -8px;
   right: -8px;
-  background: hsl(262, 83%, 58%);
+  background: hsl(15, 90%, 60%);
   color: white;
   font-size: 0.75rem;
   width: 20px;
@@ -121,12 +121,12 @@
 }
 
 .payment-card:hover {
-  border-color: hsl(207, 90%, 54%);
+  border-color: hsl(210, 60%, 25%);
 }
 
 .payment-card.selected {
-  border-color: hsl(207, 90%, 54%);
-  background: rgba(37, 99, 235, 0.05);
+  border-color: hsl(210, 60%, 25%);
+  background: rgba(27, 54, 93, 0.05);
 }
 
 /* Trust indicators */
@@ -134,7 +134,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: hsl(142, 71%, 45%);
+  color: hsl(15, 90%, 60%);
   font-size: 0.875rem;
 }
 
@@ -156,8 +156,8 @@
 
 /* Status badges */
 .status-available {
-  background: hsl(142, 71%, 95%);
-  color: hsl(142, 71%, 45%);
+  background: hsl(210, 60%, 95%);
+  color: hsl(210, 60%, 25%);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
@@ -165,8 +165,8 @@
 }
 
 .status-completed {
-  background: hsl(262, 83%, 95%);
-  color: hsl(262, 83%, 58%);
+  background: hsl(15, 90%, 95%);
+  color: hsl(15, 90%, 40%);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
@@ -174,8 +174,8 @@
 }
 
 .status-in-progress {
-  background: hsl(43, 96%, 95%);
-  color: hsl(43, 96%, 45%);
+  background: hsl(40, 85%, 95%);
+  color: hsl(40, 85%, 40%);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
