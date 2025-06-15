@@ -303,27 +303,18 @@ export default function SensoryProfile() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
+      if (!response.ok) {
+        throw new Error(`Save failed: ${response.status}`);
+      }
       return await response.json();
+    },
+    onError: (error) => {
+      console.error('Auto-save error:', error);
+      // Don't show toast for auto-save errors to prevent UI disruption
     }
   });
 
-  // Auto-save when responses change - immediate save for better reliability
-  useEffect(() => {
-    if (currentStep === 'questions' && userAssessment?.id && Object.keys(responses).length > 0) {
-      const saveTimer = setTimeout(() => {
-        saveProgressMutation.mutate({
-          responses,
-          notApplicable,
-          comments,
-          participantInfo,
-          currentPage,
-          currentStep
-        });
-      }, 500); // Save after 0.5 seconds for better responsiveness
 
-      return () => clearTimeout(saveTimer);
-    }
-  }, [responses, notApplicable, comments, participantInfo, currentPage, currentStep]);
 
   // Save when user navigates away from the page
   useEffect(() => {
@@ -412,22 +403,30 @@ export default function SensoryProfile() {
     };
 
     initializeAssessment();
-  }, [user, params, navigate, toast, participantInfo]);
+  }, [user, params, navigate, toast]);
 
-  // Auto-save when responses change
+  // Auto-save with debouncing - only for questions step
   useEffect(() => {
-    if (!userAssessment || isLoading) return;
+    if (!userAssessment || isLoading || currentStep !== 'questions') return;
     
-    const saveData = {
-      responses,
-      notApplicable,
-      comments,
-      participantInfo,
-      currentPage
-    };
+    const timeoutId = setTimeout(() => {
+      const saveData = {
+        responses,
+        notApplicable,
+        comments,
+        participantInfo,
+        currentPage,
+        currentStep
+      };
+      
+      // Only save if mutation is not already pending and we have some data to save
+      if (!saveProgressMutation.isPending && (Object.keys(responses).length > 0 || Object.keys(notApplicable).length > 0)) {
+        saveProgressMutation.mutate(saveData);
+      }
+    }, 1500); // Increase debounce to 1.5 seconds to reduce frequency
     
-    saveProgressMutation.mutate(saveData);
-  }, [responses, notApplicable, comments, participantInfo, currentPage]);
+    return () => clearTimeout(timeoutId);
+  }, [responses, notApplicable, comments, currentPage]);
 
   // Validation functions
   const validateParticipantInfo = () => {
