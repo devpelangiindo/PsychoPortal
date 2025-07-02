@@ -294,7 +294,7 @@ export default function SensoryProfile() {
   const totalQuestions = allQuestions.length;
   const progress = (answeredQuestions / totalQuestions) * 100;
 
-  // Auto-save functionality with debouncing
+  // Save progress functionality
   const saveProgressMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!userAssessment?.id) return null;
@@ -308,19 +308,34 @@ export default function SensoryProfile() {
       }
       return await response.json();
     },
+    onSuccess: () => {
+      toast({
+        title: "Progress Tersimpan",
+        description: "Jawaban Anda telah berhasil disimpan.",
+        variant: "default"
+      });
+    },
     onError: (error) => {
-      console.error('Auto-save error:', error);
-      // Don't show toast for auto-save errors to prevent UI disruption
+      console.error('Save error:', error);
+      toast({
+        title: "Gagal Menyimpan",
+        description: "Terjadi masalah saat menyimpan jawaban. Silakan coba lagi.",
+        variant: "destructive"
+      });
     }
   });
 
 
 
-  // Save when user navigates away from the page
+  // Emergency save when user navigates away from the page (only if there are unsaved changes)
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (currentStep === 'questions' && userAssessment?.id && Object.keys(responses).length > 0) {
-        // Synchronous save when leaving page
+        // Show browser confirmation dialog
+        e.preventDefault();
+        e.returnValue = 'Anda memiliki perubahan yang belum disimpan. Yakin ingin meninggalkan halaman?';
+        
+        // Try to save using beacon as backup
         navigator.sendBeacon(`/api/user-assessments/${userAssessment.id}/save-progress`, 
           JSON.stringify({
             responses,
@@ -405,28 +420,21 @@ export default function SensoryProfile() {
     initializeAssessment();
   }, [user, params, navigate, toast]);
 
-  // Auto-save with debouncing - only for questions step
-  useEffect(() => {
-    if (!userAssessment || isLoading || currentStep !== 'questions') return;
+  // Manual save function - only called when user navigates
+  const saveProgress = async () => {
+    if (!userAssessment || saveProgressMutation.isPending) return;
     
-    const timeoutId = setTimeout(() => {
-      const saveData = {
-        responses,
-        notApplicable,
-        comments,
-        participantInfo,
-        currentPage,
-        currentStep
-      };
-      
-      // Only save if mutation is not already pending and we have some data to save
-      if (!saveProgressMutation.isPending && (Object.keys(responses).length > 0 || Object.keys(notApplicable).length > 0)) {
-        saveProgressMutation.mutate(saveData);
-      }
-    }, 1500); // Increase debounce to 1.5 seconds to reduce frequency
+    const saveData = {
+      responses,
+      notApplicable,
+      comments,
+      participantInfo,
+      currentPage,
+      currentStep
+    };
     
-    return () => clearTimeout(timeoutId);
-  }, [responses, notApplicable, comments, currentPage]);
+    return saveProgressMutation.mutateAsync(saveData);
+  };
 
   // Validation functions
   const validateParticipantInfo = () => {
@@ -777,13 +785,15 @@ export default function SensoryProfile() {
                 </Button>
                 
                 <Button 
-                  onClick={() => {
+                  onClick={async () => {
                     if (validateParticipantInfo()) {
+                      await saveProgress();
                       setCurrentStep('questions');
                     }
                   }}
+                  disabled={saveProgressMutation.isPending}
                 >
-                  Mulai Asesmen
+                  {saveProgressMutation.isPending ? 'Menyimpan...' : 'Mulai Asesmen'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -925,36 +935,42 @@ export default function SensoryProfile() {
                 <div className="flex justify-between pt-6">
                   <Button
                     variant="outline"
-                    onClick={() => {
+                    onClick={async () => {
+                      await saveProgress();
                       setCurrentPage(prev => Math.max(0, prev - 1));
                       scrollToTop();
                     }}
-                    disabled={currentPage === 0}
+                    disabled={currentPage === 0 || saveProgressMutation.isPending}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Halaman Sebelumnya
+                    {saveProgressMutation.isPending ? 'Menyimpan...' : 'Halaman Sebelumnya'}
                   </Button>
 
                   {currentPage < totalPages - 1 ? (
                     <Button
-                      onClick={() => {
+                      onClick={async () => {
                         if (validateCurrentPageQuestions()) {
+                          await saveProgress();
                           setCurrentPage(prev => prev + 1);
                           scrollToTop();
                         }
                       }}
+                      disabled={saveProgressMutation.isPending}
                       className="bg-green-600 hover:bg-green-700"
                     >
-                      Halaman Selanjutnya
+                      {saveProgressMutation.isPending ? 'Menyimpan...' : 'Halaman Selanjutnya'}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   ) : (
                     <Button
-                      onClick={handleComplete}
-                      disabled={!isAllQuestionsAnswered() || completeMutation.isPending}
+                      onClick={async () => {
+                        await saveProgress();
+                        handleComplete();
+                      }}
+                      disabled={!isAllQuestionsAnswered() || completeMutation.isPending || saveProgressMutation.isPending}
                       className="bg-green-600 hover:bg-green-700"
                     >
-                      {completeMutation.isPending ? 'Menyelesaikan...' : 'Selesaikan Asesmen'}
+                      {(completeMutation.isPending || saveProgressMutation.isPending) ? 'Menyelesaikan...' : 'Selesaikan Asesmen'}
                       <FileText className="ml-2 h-4 w-4" />
                     </Button>
                   )}
