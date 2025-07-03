@@ -372,15 +372,16 @@ export default function SensoryProfile() {
     }
   });
 
-  // Initialize assessment
+  // Initialize assessment only once when user and params are available
   useEffect(() => {
-    const initializeAssessment = async () => {
-      if (!user || !params?.assessmentId) return;
-      
+    if (!user || !params?.assessmentId || userAssessment) return; // Don't run if already initialized
+    
+    const loadAssessment = async () => {
       try {
         const userAssessmentId = parseInt(params.assessmentId);
         const response = await fetch(`/api/user-assessments/by-id/${userAssessmentId}`);
         const data = await response.json();
+        
         setUserAssessment(data);
         
         // Load existing progress if any
@@ -409,16 +410,13 @@ export default function SensoryProfile() {
           navigate("/");
           return;
         }
-        toast({
-          title: "Error",
-          description: "Gagal memuat asesmen",
-          variant: "destructive"
-        });
+        console.error("Failed to load assessment:", error);
+        setIsLoading(false);
       }
     };
 
-    initializeAssessment();
-  }, [user, params, navigate, toast]);
+    loadAssessment();
+  }, [user?.id, params?.assessmentId]); // Only depend on user ID and assessment ID
 
   // Manual save function - only called when user navigates
   const saveProgress = async () => {
