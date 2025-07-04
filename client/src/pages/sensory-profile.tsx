@@ -368,7 +368,7 @@ export default function SensoryProfile() {
         title: "Asesmen Selesai!",
         description: "Terima kasih telah menyelesaikan asesmen profil sensoris."
       });
-      navigate("/assessment-results");
+      navigate(`/results/${userAssessment?.id}`);
     }
   });
 
@@ -394,7 +394,7 @@ export default function SensoryProfile() {
           
           // If assessment is completed, redirect to results
           if (data.status === 'completed') {
-            navigate("/assessment-results");
+            navigate(`/results/${data.id}`);
             return;
           }
           
