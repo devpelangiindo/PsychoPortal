@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Menu, X, User } from "lucide-react";
+import { ShoppingCart, Menu, X, User, LogIn, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/lib/cart";
 import ShoppingCartSidebar from "@/components/shopping-cart";
@@ -12,12 +12,27 @@ export default function Header() {
   const { items } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   const handleSignIn = () => {
+    setLocation("/login");
+  };
+
+  const handleSignUp = () => {
+    setLocation("/register");
+  };
+
+  const handleReplitAuth = () => {
     window.location.href = "/api/login";
   };
 
   const handleSignOut = () => {
+    // Clear local storage for custom auth
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    
+    // Also handle Replit auth logout
     window.location.href = "/api/logout";
   };
 
@@ -91,9 +106,19 @@ export default function Header() {
                   </Button>
                 </div>
               ) : (
-                <Button onClick={handleSignIn} size="sm">
-                  Masuk
-                </Button>
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" onClick={handleSignIn} size="sm">
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Masuk
+                  </Button>
+                  <Button onClick={handleSignUp} size="sm" className="bg-green-600 hover:bg-green-700">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Daftar
+                  </Button>
+                  <Button onClick={handleReplitAuth} size="sm" variant="secondary" className="text-xs">
+                    🔐 Replit
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -164,10 +189,20 @@ export default function Header() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="px-3 py-2">
-                      <Button onClick={handleSignIn} size="sm" className="w-full">
+                    <div className="px-3 py-2 space-y-2">
+                      <Button onClick={handleSignIn} size="sm" className="w-full" variant="outline">
+                        <LogIn className="w-4 h-4 mr-2" />
                         Masuk
                       </Button>
+                      <Button onClick={handleSignUp} size="sm" className="w-full bg-green-600 hover:bg-green-700">
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Daftar
+                      </Button>
+                      <div className="pt-2 border-t border-gray-200 dark:border-border">
+                        <Button onClick={handleReplitAuth} size="sm" className="w-full" variant="secondary">
+                          🔐 Login dengan Replit
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>

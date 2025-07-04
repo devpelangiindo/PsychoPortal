@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ShoppingCart, Brain, GraduationCap, Clock, Users, Shield, Lock, IdCard, InfoIcon } from "lucide-react";
+import { ShoppingCart, Brain, GraduationCap, Clock, Users, Shield, Lock, IdCard, InfoIcon, UserPlus, LogIn } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
@@ -12,8 +13,17 @@ export default function Landing() {
   const { data: assessments, isLoading } = useQuery<Assessment[]>({
     queryKey: ["/api/assessments"],
   });
+  const [, setLocation] = useLocation();
 
   const handleGetStarted = () => {
+    setLocation("/register");
+  };
+
+  const handleLogin = () => {
+    setLocation("/login");
+  };
+
+  const handleReplitLogin = () => {
     window.location.href = "/api/login";
   };
 
@@ -53,10 +63,11 @@ export default function Landing() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
                 size="lg" 
-                className="px-8 py-4 text-lg font-semibold"
+                className="px-8 py-4 text-lg font-semibold bg-green-600 hover:bg-green-700"
                 onClick={handleGetStarted}
               >
-                Jelajahi Asesmen
+                <UserPlus className="w-5 h-5 mr-2" />
+                Daftar Sekarang
               </Button>
               <Button 
                 variant="outline" 
@@ -65,6 +76,19 @@ export default function Landing() {
                 onClick={handleLearnMore}
               >
                 Pelajari Lebih Lanjut
+              </Button>
+            </div>
+            
+            {/* Authentication Options */}
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
+              <span className="text-sm text-neutral-500 dark:text-muted-foreground">Sudah punya akun?</span>
+              <Button variant="link" onClick={handleLogin} className="text-green-600 hover:text-green-700">
+                <LogIn className="w-4 h-4 mr-2" />
+                Masuk di sini
+              </Button>
+              <span className="text-sm text-neutral-400">atau</span>
+              <Button variant="link" onClick={handleReplitLogin} className="text-blue-600 hover:text-blue-700">
+                🔐 Login dengan Replit
               </Button>
             </div>
           </div>
