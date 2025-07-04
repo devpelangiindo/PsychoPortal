@@ -3,10 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import type { UserAssessmentWithDetails } from "@shared/schema";
-import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema } from "@shared/schema";
+import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema, registerSchema, loginSchema, otpVerificationSchema } from "@shared/schema";
 import { z } from "zod";
 import PDFDocument from "pdfkit";
 import { randomBytes } from "crypto";
+import { AuthUtils } from "./authUtils";
+import { emailService } from "./emailService";
 
 // PDF Generation Function
 function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<Buffer> {
@@ -504,6 +506,270 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Custom Authentication Routes
+  
+  // Register new user
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const validatedData = registerSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Email sudah terdaftar" });
+      }
+
+      // Validate WhatsApp number
+      if (!AuthUtils.isValidWhatsAppNumber(validatedData.whatsappNumber)) {
+        return res.status(400).json({ message: "Nomor WhatsApp tidak valid" });
+      }
+
+      // Hash password
+      const hashedPassword = await AuthUtils.hashPassword(validatedData.password);
+      
+      // Generate user ID
+      const userId = AuthUtils.generateUserId();
+      
+      // Normalize WhatsApp number
+      const normalizedWhatsApp = AuthUtils.normalizeWhatsAppNumber(validatedData.whatsappNumber);
+
+      // Create user (not verified yet)
+      const newUser = await storage.createUser({
+        id: userId,
+        email: validatedData.email,
+        password: hashedPassword,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        whatsappNumber: normalizedWhatsApp,
+        authProvider: 'custom',
+        isEmailVerified: false
+      });
+
+      // Generate and send OTP for email verification
+      const otp = AuthUtils.generateOtp();
+      const otpExpiry = AuthUtils.getOtpExpirationTime();
+
+      await storage.createOtpVerification({
+        email: validatedData.email,
+        otp,
+        purpose: 'email_verification',
+        expiresAt: otpExpiry
+      });
+
+      // Send OTP email
+      const emailSent = await emailService.sendOtpEmail({
+        to: validatedData.email,
+        otp,
+        purpose: 'email_verification',
+        firstName: validatedData.firstName
+      });
+
+      if (!emailSent) {
+        console.warn('Failed to send OTP email, but registration completed');
+      }
+
+      res.status(201).json({
+        message: "Registrasi berhasil. Silakan cek email untuk verifikasi OTP.",
+        userId: newUser.id,
+        email: newUser.email,
+        requiresVerification: true
+      });
+
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Data tidak valid", 
+          errors: error.errors 
+        });
+      }
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Gagal mendaftar akun" });
+    }
+  });
+
+  // Verify email with OTP
+  app.post('/api/auth/verify-email', async (req, res) => {
+    try {
+      const { email, otp } = otpVerificationSchema.parse(req.body);
+
+      // Check if OTP is valid
+      const otpRecord = await storage.getValidOtp(email, otp, 'email_verification');
+      if (!otpRecord) {
+        return res.status(400).json({ message: "OTP tidak valid atau sudah kadaluarsa" });
+      }
+
+      // Get user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User tidak ditemukan" });
+      }
+
+      // Mark email as verified
+      await storage.updateUserVerification(user.id, true);
+      
+      // Mark OTP as used
+      await storage.markOtpAsUsed(otpRecord.id);
+
+      // Generate tokens
+      const accessToken = AuthUtils.generateAccessToken(user.id, user.email);
+      const refreshToken = AuthUtils.generateRefreshToken(user.id);
+
+      // Set session data
+      (req as any).session.user = AuthUtils.generateSessionData(user);
+
+      res.json({
+        message: "Email berhasil diverifikasi",
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          whatsappNumber: user.whatsappNumber,
+          isEmailVerified: true
+        },
+        accessToken,
+        refreshToken
+      });
+
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Data tidak valid", 
+          errors: error.errors 
+        });
+      }
+      console.error("Email verification error:", error);
+      res.status(500).json({ message: "Gagal memverifikasi email" });
+    }
+  });
+
+  // Login user
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.password) {
+        return res.status(401).json({ message: "Email atau password salah" });
+      }
+
+      // Check password
+      const isPasswordValid = await AuthUtils.comparePassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: "Email atau password salah" });
+      }
+
+      // Check if email is verified
+      if (!user.isEmailVerified) {
+        return res.status(401).json({ 
+          message: "Email belum diverifikasi. Silakan cek email Anda.",
+          requiresVerification: true,
+          email: user.email
+        });
+      }
+
+      // Generate tokens
+      const accessToken = AuthUtils.generateAccessToken(user.id, user.email);
+      const refreshToken = AuthUtils.generateRefreshToken(user.id);
+
+      // Set session data
+      (req as any).session.user = AuthUtils.generateSessionData(user);
+
+      res.json({
+        message: "Login berhasil",
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          whatsappNumber: user.whatsappNumber,
+          isEmailVerified: user.isEmailVerified
+        },
+        accessToken,
+        refreshToken
+      });
+
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Data tidak valid", 
+          errors: error.errors 
+        });
+      }
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Gagal login" });
+    }
+  });
+
+  // Resend OTP
+  app.post('/api/auth/resend-otp', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!AuthUtils.isValidEmail(email)) {
+        return res.status(400).json({ message: "Email tidak valid" });
+      }
+
+      // Check if user exists
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User tidak ditemukan" });
+      }
+
+      // Check if already verified
+      if (user.isEmailVerified) {
+        return res.status(400).json({ message: "Email sudah diverifikasi" });
+      }
+
+      // Generate new OTP
+      const otp = AuthUtils.generateOtp();
+      const otpExpiry = AuthUtils.getOtpExpirationTime();
+
+      await storage.createOtpVerification({
+        email,
+        otp,
+        purpose: 'email_verification',
+        expiresAt: otpExpiry
+      });
+
+      // Send OTP email
+      const emailSent = await emailService.sendOtpEmail({
+        to: email,
+        otp,
+        purpose: 'email_verification',
+        firstName: user.firstName
+      });
+
+      if (!emailSent) {
+        return res.status(500).json({ message: "Gagal mengirim email OTP" });
+      }
+
+      res.json({ message: "OTP baru telah dikirim ke email Anda" });
+
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      res.status(500).json({ message: "Gagal mengirim ulang OTP" });
+    }
+  });
+
+  // Logout
+  app.post('/api/auth/logout', async (req, res) => {
+    try {
+      // Destroy session
+      (req as any).session.destroy((err: any) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+          return res.status(500).json({ message: "Gagal logout" });
+        }
+        res.json({ message: "Logout berhasil" });
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Gagal logout" });
     }
   });
 

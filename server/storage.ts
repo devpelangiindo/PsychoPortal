@@ -4,6 +4,7 @@ import {
   orders,
   orderItems,
   userAssessments,
+  otpVerifications,
   type User,
   type UpsertUser,
   type Assessment,
@@ -16,6 +17,8 @@ import {
   type InsertUserAssessment,
   type OrderWithItems,
   type UserAssessmentWithDetails,
+  type OtpVerification,
+  type InsertOtpVerification,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -24,6 +27,17 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+
+  // Custom authentication operations
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: UpsertUser): Promise<User>;
+  updateUserVerification(userId: string, isEmailVerified: boolean): Promise<void>;
+
+  // OTP operations
+  createOtpVerification(otp: InsertOtpVerification): Promise<OtpVerification>;
+  getValidOtp(email: string, otp: string, purpose: string): Promise<OtpVerification | undefined>;
+  markOtpAsUsed(id: number): Promise<void>;
+  deleteExpiredOtps(): Promise<void>;
 
   // Assessment operations
   getAssessments(): Promise<Assessment[]>;
@@ -66,6 +80,69 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  // Custom authentication operations
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .returning();
+    return user;
+  }
+
+  async updateUserVerification(userId: string, isEmailVerified: boolean): Promise<void> {
+    await db
+      .update(users)
+      .set({ isEmailVerified, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  // OTP operations
+  async createOtpVerification(otpData: InsertOtpVerification): Promise<OtpVerification> {
+    const [otp] = await db
+      .insert(otpVerifications)
+      .values(otpData)
+      .returning();
+    return otp;
+  }
+
+  async getValidOtp(email: string, otp: string, purpose: string): Promise<OtpVerification | undefined> {
+    const [otpRecord] = await db
+      .select()
+      .from(otpVerifications)
+      .where(
+        and(
+          eq(otpVerifications.email, email),
+          eq(otpVerifications.otp, otp),
+          eq(otpVerifications.purpose, purpose),
+          eq(otpVerifications.used, false)
+        )
+      );
+    
+    if (!otpRecord || new Date() > otpRecord.expiresAt) {
+      return undefined;
+    }
+    
+    return otpRecord;
+  }
+
+  async markOtpAsUsed(id: number): Promise<void> {
+    await db
+      .update(otpVerifications)
+      .set({ used: true })
+      .where(eq(otpVerifications.id, id));
+  }
+
+  async deleteExpiredOtps(): Promise<void> {
+    await db
+      .delete(otpVerifications)
+      .where(eq(otpVerifications.used, true));
   }
 
   // Assessment operations

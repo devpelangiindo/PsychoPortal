@@ -25,15 +25,30 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table (required for Replit Auth)
+// User storage table (supports both Replit Auth and custom auth)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
+  email: varchar("email").unique().notNull(),
+  password: varchar("password"), // For custom auth (hashed)
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  whatsappNumber: varchar("whatsapp_number"),
   profileImageUrl: varchar("profile_image_url"),
+  isEmailVerified: boolean("is_email_verified").default(false),
+  authProvider: varchar("auth_provider").default("custom"), // 'replit' or 'custom'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// OTP verification table
+export const otpVerifications = pgTable("otp_verifications", {
+  id: serial("id").primaryKey(),
+  email: varchar("email").notNull(),
+  otp: varchar("otp", { length: 6 }).notNull(),
+  purpose: varchar("purpose").notNull(), // 'email_verification', 'password_reset'
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Assessment products
@@ -134,10 +149,32 @@ export const insertAssessmentSchema = createInsertSchema(assessments);
 export const insertOrderSchema = createInsertSchema(orders);
 export const insertOrderItemSchema = createInsertSchema(orderItems);
 export const insertUserAssessmentSchema = createInsertSchema(userAssessments);
+export const insertOtpVerificationSchema = createInsertSchema(otpVerifications);
+
+// Custom validation schemas
+export const registerSchema = z.object({
+  email: z.string().email("Email tidak valid"),
+  password: z.string().min(8, "Password minimal 8 karakter"),
+  firstName: z.string().min(1, "Nama depan wajib diisi"),
+  lastName: z.string().min(1, "Nama belakang wajib diisi"),
+  whatsappNumber: z.string().min(10, "Nomor WhatsApp tidak valid"),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email("Email tidak valid"),
+  password: z.string().min(1, "Password wajib diisi"),
+});
+
+export const otpVerificationSchema = z.object({
+  email: z.string().email("Email tidak valid"),
+  otp: z.string().length(6, "OTP harus 6 digit"),
+});
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type OtpVerification = typeof otpVerifications.$inferSelect;
+export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
 export type Assessment = typeof assessments.$inferSelect;
 export type InsertAssessment = z.infer<typeof insertAssessmentSchema>;
 export type Order = typeof orders.$inferSelect;
@@ -146,6 +183,11 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type UserAssessment = typeof userAssessments.$inferSelect;
 export type InsertUserAssessment = z.infer<typeof insertUserAssessmentSchema>;
+
+// Custom auth types
+export type RegisterRequest = z.infer<typeof registerSchema>;
+export type LoginRequest = z.infer<typeof loginSchema>;
+export type OtpVerificationRequest = z.infer<typeof otpVerificationSchema>;
 
 // Order with items type
 export type OrderWithItems = Order & {
