@@ -209,30 +209,7 @@ export default function Login() {
             </CardContent>
           </Card>
 
-          {/* Alternative Authentication Methods */}
-          <Card className="mt-6 border-gray-200 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-center">Metode Login Lain</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    // This would redirect to Replit OAuth if available
-                    window.location.href = '/api/auth/replit';
-                  }}
-                >
-                  🔐 Login dengan Replit
-                </Button>
-                
-                <div className="text-xs text-center text-gray-500">
-                  Login dengan Replit untuk akses cepat tanpa registrasi
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
         </div>
       </div>
       <Footer />

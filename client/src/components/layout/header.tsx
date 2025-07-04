@@ -22,10 +22,6 @@ export default function Header() {
     setLocation("/register");
   };
 
-  const handleReplitAuth = () => {
-    window.location.href = "/api/login";
-  };
-
   const handleSignOut = () => {
     // Clear local storage for custom auth
     localStorage.removeItem('accessToken');
@@ -115,9 +111,6 @@ export default function Header() {
                     <UserPlus className="w-4 h-4 mr-2" />
                     Daftar
                   </Button>
-                  <Button onClick={handleReplitAuth} size="sm" variant="secondary" className="text-xs">
-                    🔐 Replit
-                  </Button>
                 </div>
               )}
             </div>
@@ -198,11 +191,6 @@ export default function Header() {
                         <UserPlus className="w-4 h-4 mr-2" />
                         Daftar
                       </Button>
-                      <div className="pt-2 border-t border-gray-200 dark:border-border">
-                        <Button onClick={handleReplitAuth} size="sm" className="w-full" variant="secondary">
-                          🔐 Login dengan Replit
-                        </Button>
-                      </div>
                     </div>
                   )}
                 </div>

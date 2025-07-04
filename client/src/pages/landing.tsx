@@ -23,10 +23,6 @@ export default function Landing() {
     setLocation("/login");
   };
 
-  const handleReplitLogin = () => {
-    window.location.href = "/api/login";
-  };
-
   const handleLearnMore = () => {
     const assessmentsSection = document.getElementById('assessments');
     if (assessmentsSection) {
@@ -85,10 +81,6 @@ export default function Landing() {
               <Button variant="link" onClick={handleLogin} className="text-green-600 hover:text-green-700">
                 <LogIn className="w-4 h-4 mr-2" />
                 Masuk di sini
-              </Button>
-              <span className="text-sm text-neutral-400">atau</span>
-              <Button variant="link" onClick={handleReplitLogin} className="text-blue-600 hover:text-blue-700">
-                🔐 Login dengan Replit
               </Button>
             </div>
           </div>
