@@ -41,14 +41,25 @@ export default function AssessmentResults() {
   const downloadPdfMutation = useMutation({
     mutationFn: async () => {
       if (!userAssessment) throw new Error("No assessment found");
+      
+      // Get JWT token from localStorage
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
       const response = await fetch(`/api/user-assessments/${userAssessment.id}/pdf`, {
         method: 'GET',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/pdf',
         },
       });
       
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('UNAUTHORIZED');
+        }
         throw new Error('Failed to download PDF');
       }
       
@@ -69,7 +80,7 @@ export default function AssessmentResults() {
       });
     },
     onError: (error) => {
-      if (isUnauthorizedError(error)) {
+      if (error.message === 'UNAUTHORIZED' || isUnauthorizedError(error)) {
         toast({
           title: "Tidak Diizinkan",
           description: "Anda telah keluar. Masuk lagi...", 

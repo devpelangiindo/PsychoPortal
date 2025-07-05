@@ -106,6 +106,10 @@ Changelog:
 - July 05, 2025. Fixed assessment progress saving - JWT authentication now properly handles save-progress functionality
 - July 05, 2025. All authentication URLs corrected from /api/login to /login
 - July 05, 2025. Assessment progress persistence fully functional
+- July 05, 2025. Fixed PDF download functionality for all assessments
+- July 05, 2025. Implemented proper result calculation for both Sensory Profile and Learning Style assessments
+- July 05, 2025. Updated PDF generation to use correct data structure (primaryStyle instead of dominantStyle)
+- July 05, 2025. All PDF downloads now working with proper JWT authentication
 ```
 
 ## User Preferences

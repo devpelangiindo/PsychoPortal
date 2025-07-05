@@ -32,6 +32,116 @@ function isAuthenticated(req: any, res: any, next: any) {
   }
 }
 
+// Result calculation functions
+function calculateSensoryProfileResults(responses: any, participantInfo: any) {
+  const sectionQuestions = {
+    A: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    B: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+    C: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+    D: [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60],
+    E: [61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75],
+    F: [76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90],
+    G: [91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105],
+    H: [106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120],
+    I: [121, 122, 123, 124, 125]
+  };
+
+  const sectionScores: any = {};
+  let totalScore = 0;
+  let totalResponses = 0;
+
+  // Calculate scores for each section
+  for (const [section, questions] of Object.entries(sectionQuestions)) {
+    let sectionTotal = 0;
+    let sectionCount = 0;
+    
+    for (const questionId of questions) {
+      const response = responses[questionId.toString()];
+      if (response && response !== 'NA') {
+        sectionTotal += parseInt(response);
+        sectionCount++;
+      }
+    }
+    
+    sectionScores[section] = {
+      total: sectionTotal,
+      count: sectionCount,
+      average: sectionCount > 0 ? (sectionTotal / sectionCount).toFixed(2) : 0
+    };
+    
+    totalScore += sectionTotal;
+    totalResponses += sectionCount;
+  }
+
+  // Determine sensory patterns
+  const patterns = determineSensoryPatterns(sectionScores);
+  
+  return {
+    responses,
+    participantInfo,
+    totalScore,
+    totalResponses,
+    averageScore: totalResponses > 0 ? (totalScore / totalResponses).toFixed(2) : 0,
+    sectionScores,
+    patterns,
+    completedAt: new Date().toISOString()
+  };
+}
+
+function calculateLearningStyleResults(responses: any, participantInfo: any) {
+  const styleScores = {
+    visual: 0,
+    auditori: 0,
+    kinestetik: 0
+  };
+
+  // Count responses for each learning style
+  for (const [questionId, response] of Object.entries(responses)) {
+    if (response) {
+      styleScores[response as keyof typeof styleScores]++;
+    }
+  }
+
+  // Determine primary learning style
+  const primaryStyle = Object.entries(styleScores).reduce((a, b) => 
+    styleScores[a[0] as keyof typeof styleScores] > styleScores[b[0] as keyof typeof styleScores] ? a : b
+  )[0];
+
+  const totalResponses = Object.values(styleScores).reduce((a, b) => a + b, 0);
+  
+  return {
+    responses,
+    participantInfo,
+    styleScores,
+    primaryStyle,
+    totalResponses,
+    percentages: {
+      visual: totalResponses > 0 ? ((styleScores.visual / totalResponses) * 100).toFixed(1) : 0,
+      auditori: totalResponses > 0 ? ((styleScores.auditori / totalResponses) * 100).toFixed(1) : 0,
+      kinestetik: totalResponses > 0 ? ((styleScores.kinestetik / totalResponses) * 100).toFixed(1) : 0
+    },
+    completedAt: new Date().toISOString()
+  };
+}
+
+function determineSensoryPatterns(sectionScores: any) {
+  const patterns: any = {};
+  
+  for (const [section, scores] of Object.entries(sectionScores)) {
+    const average = parseFloat((scores as any).average);
+    
+    if (average >= 4.0) {
+      patterns[section] = 'hypersensitive';
+    } else if (average <= 2.0) {
+      patterns[section] = 'hyposensitive';
+    } else {
+      patterns[section] = 'typical';
+    }
+  }
+  
+  return patterns;
+}
+
 // PDF Generation Function
 function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -78,7 +188,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
 
       // Results Section
       if (assessmentType === 'learning') {
-        const { scores, dominantStyle } = results;
+        const { styleScores, primaryStyle, percentages } = results;
         
         doc.fontSize(14).font('Helvetica-Bold')
            .text('HASIL INVENTORI GAYA BELAJAR', { underline: true });
@@ -86,15 +196,15 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
         doc.moveDown(0.5);
         
         doc.fontSize(12).font('Helvetica-Bold')
-           .text(`Gaya Belajar Dominan: ${dominantStyle.toUpperCase()}`);
+           .text(`Gaya Belajar Dominan: ${(primaryStyle || '').toUpperCase()}`);
         
         doc.moveDown(0.5);
         
         doc.fontSize(12).font('Helvetica')
            .text('Skor Detail:')
-           .text(`• Visual: ${scores.visual || 0}`)
-           .text(`• Auditori: ${scores.auditori || 0}`)
-           .text(`• Kinestetik: ${scores.kinestetik || 0}`);
+           .text(`• Visual: ${styleScores?.visual || 0} (${percentages?.visual || 0}%)`)
+           .text(`• Auditori: ${styleScores?.auditori || 0} (${percentages?.auditori || 0}%)`)
+           .text(`• Kinestetik: ${styleScores?.kinestetik || 0} (${percentages?.kinestetik || 0}%)`);
         
         doc.moveDown(1);
         
@@ -102,9 +212,9 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
            .text('Interpretasi:');
         
         doc.fontSize(12).font('Helvetica');
-        const interpretation = dominantStyle === 'visual' 
+        const interpretation = primaryStyle === 'visual' 
           ? 'Anda belajar terbaik melalui melihat dan mengamati. Lebih mudah memahami informasi melalui diagram, grafik, dan presentasi visual.'
-          : dominantStyle === 'auditori' 
+          : primaryStyle === 'auditori' 
           ? 'Anda belajar terbaik melalui mendengar dan berbicara. Lebih mudah memahami informasi melalui penjelasan lisan dan diskusi.'
           : 'Anda belajar terbaik melalui praktik langsung dan gerakan. Lebih mudah memahami informasi melalui aktivitas hands-on.';
         
@@ -1070,10 +1180,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/user-assessments/:id/complete', isAuthenticated, async (req: any, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const { results } = req.body;
+      const userId = req.user.claims.sub;
+      const userAssessmentId = parseInt(req.params.id);
+      const { responses, participantInfo } = req.body;
       
-      await storage.updateUserAssessmentStatus(id, 'completed', results);
+      // Verify ownership
+      const userAssessments = await storage.getUserAssessments(userId);
+      const userAssessment = userAssessments.find(ua => ua.id === userAssessmentId);
+      
+      if (!userAssessment) {
+        return res.status(404).json({ message: "Assessment not found or access denied" });
+      }
+
+      // Calculate results based on assessment type
+      let processedResults;
+      
+      if (userAssessment.assessment.type === 'sensory') {
+        // Calculate sensory profile results
+        processedResults = calculateSensoryProfileResults(responses, participantInfo);
+      } else if (userAssessment.assessment.type === 'learning') {
+        // Calculate learning style results
+        processedResults = calculateLearningStyleResults(responses, participantInfo);
+      } else {
+        // Default results structure
+        processedResults = {
+          responses,
+          participantInfo,
+          totalScore: 0,
+          completedAt: new Date().toISOString()
+        };
+      }
+
+      await storage.updateUserAssessmentStatus(userAssessmentId, 'completed', processedResults);
       res.json({ message: 'Assessment completed' });
     } catch (error) {
       console.error("Error completing assessment:", error);
