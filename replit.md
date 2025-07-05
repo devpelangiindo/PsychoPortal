@@ -110,6 +110,9 @@ Changelog:
 - July 05, 2025. Implemented proper result calculation for both Sensory Profile and Learning Style assessments
 - July 05, 2025. Updated PDF generation to use correct data structure (primaryStyle instead of dominantStyle)
 - July 05, 2025. All PDF downloads now working with proper JWT authentication
+- July 05, 2025. Fixed forgot password page routing - added missing /forgot-password route
+- July 05, 2025. Fixed login form issue - "Lupa password?" button now has proper type="button" attribute
+- July 05, 2025. Database cleared for clean testing environment
 ```
 
 ## User Preferences
