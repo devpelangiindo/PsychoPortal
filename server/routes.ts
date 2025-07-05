@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { getSession } from "./replitAuth";
 import type { UserAssessmentWithDetails } from "@shared/schema";
 import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema, registerSchema, loginSchema, otpVerificationSchema } from "@shared/schema";
 import { z } from "zod";
@@ -9,6 +9,28 @@ import PDFDocument from "pdfkit";
 import { randomBytes } from "crypto";
 import { AuthUtils } from "./authUtils";
 import { emailService } from "./emailService";
+
+// Custom authentication middleware for JWT tokens
+function isAuthenticated(req: any, res: any, next: any) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const decoded = AuthUtils.verifyToken(token);
+    
+    if (!decoded || decoded.type !== 'access') {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    req.user = { claims: { sub: decoded.userId }, email: decoded.email };
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+}
 
 // PDF Generation Function
 function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<Buffer> {
@@ -487,8 +509,8 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
 
 export async function registerRoutes(app: Express): Promise<Server> {
   try {
-    // Auth middleware
-    await setupAuth(app);
+    // Session middleware for custom authentication
+    app.use(getSession());
 
     // Initialize default assessments
     await initializeAssessments();
@@ -498,14 +520,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const token = authHeader.substring(7);
+      const decoded = AuthUtils.verifyToken(token);
+      
+      if (!decoded || decoded.type !== 'access') {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(decoded.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      res.status(401).json({ message: "Unauthorized" });
     }
   });
 

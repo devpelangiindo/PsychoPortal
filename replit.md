@@ -98,6 +98,11 @@ The application is configured for deployment on Replit with:
 ```
 Changelog:
 - July 02, 2025. Initial setup
+- July 05, 2025. Removed email verification with OTP completely
+- July 05, 2025. Removed Replit authentication system entirely
+- July 05, 2025. Implemented custom JWT-based authentication
+- July 05, 2025. Registration now automatically verifies users and logs them in
+- July 05, 2025. Database cleared for fresh testing
 ```
 
 ## User Preferences
