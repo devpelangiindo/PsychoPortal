@@ -116,6 +116,8 @@ Changelog:
 - July 05, 2025. Fixed Inventori Gaya Belajar assessment completion error
 - July 05, 2025. Added support for different data formats in completion endpoint (results vs responses/participantInfo)
 - July 05, 2025. Assessment completion now handles both sensory profile and learning style assessment data structures
+- July 05, 2025. Fixed learning style assessment results display - updated field names from scores/dominantStyle to styleScores/primaryStyle
+- July 05, 2025. Assessment results page now properly handles new data structure with backward compatibility
 ```
 
 ## User Preferences

@@ -143,8 +143,10 @@ export default function AssessmentResults() {
   });
 
   const renderLearningStyleResults = (results: any) => {
-    const { scores, dominantStyle } = results;
-    const total = Object.values(scores).reduce((sum: number, score: any) => sum + score, 0);
+    // Handle both old and new data structures for backward compatibility
+    const styleScores = results.styleScores || results.scores || {};
+    const primaryStyle = results.primaryStyle || results.dominantStyle || 'visual';
+    const total = Object.values(styleScores).reduce((sum: number, score: any) => sum + score, 0);
 
     const getStyleInfo = (style: string) => {
       switch (style) {
@@ -183,7 +185,7 @@ export default function AssessmentResults() {
       }
     };
 
-    const dominantInfo = getStyleInfo(dominantStyle);
+    const dominantInfo = getStyleInfo(primaryStyle);
 
     return (
       <div className="space-y-6">
@@ -219,7 +221,7 @@ export default function AssessmentResults() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {Object.entries(scores).map(([style, score]: [string, any]) => {
+              {Object.entries(styleScores).map(([style, score]: [string, any]) => {
                 const styleInfo = getStyleInfo(style);
                 const percentage = total > 0 ? (score / total) * 100 : 0;
                 
@@ -254,7 +256,7 @@ export default function AssessmentResults() {
             <div className={`p-4 rounded-lg ${dominantInfo.bgColor} mb-4`}>
               <h4 className="font-semibold mb-2">Berdasarkan gaya belajar {dominantInfo.name}:</h4>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                {dominantStyle === 'visual' && (
+                {primaryStyle === 'visual' && (
                   <>
                     <li>Gunakan diagram, grafik, dan mind map</li>
                     <li>Buat catatan dengan warna-warna berbeda</li>
@@ -262,7 +264,7 @@ export default function AssessmentResults() {
                     <li>Gunakan flashcard bergambar</li>
                   </>
                 )}
-                {dominantStyle === 'auditori' && (
+                {primaryStyle === 'auditori' && (
                   <>
                     <li>Ikuti diskusi kelompok dan seminar</li>
                     <li>Rekam dan dengarkan kembali materi</li>
@@ -270,7 +272,7 @@ export default function AssessmentResults() {
                     <li>Gunakan musik atau ritme untuk mengingat</li>
                   </>
                 )}
-                {dominantStyle === 'kinestetik' && (
+                {primaryStyle === 'kinestetik' && (
                   <>
                     <li>Praktik langsung dan eksperimen</li>
                     <li>Gunakan gerakan saat belajar</li>
