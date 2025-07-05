@@ -42,11 +42,8 @@ export default function VerifyEmail() {
 
   const verifyMutation = useMutation({
     mutationFn: async (data: OtpVerificationRequest) => {
-      return await apiRequest('/api/auth/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+      const response = await apiRequest('POST', '/api/auth/verify-email', data);
+      return response.json();
     },
     onSuccess: (data) => {
       // Store user data and tokens
@@ -73,11 +70,8 @@ export default function VerifyEmail() {
 
   const resendMutation = useMutation({
     mutationFn: async (email: string) => {
-      return await apiRequest('/api/auth/resend-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
+      const response = await apiRequest('POST', '/api/auth/resend-otp', { email });
+      return response.json();
     },
     onSuccess: () => {
       toast({
