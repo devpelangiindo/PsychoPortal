@@ -34,7 +34,7 @@ export default function AssessmentResults() {
         description: "Anda perlu masuk untuk melihat hasil asesmen.",
         variant: "destructive",
       });
-      window.location.href = "/api/login";
+      window.location.href = "/login";
     }
   }, [isAuthenticated, toast]);
 
@@ -76,7 +76,7 @@ export default function AssessmentResults() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 500);
         return;
       }
@@ -119,7 +119,7 @@ export default function AssessmentResults() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 500);
         return;
       }
