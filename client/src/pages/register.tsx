@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Mail, Lock, User, Phone, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,8 +18,6 @@ export default function Register() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
-  const [registrationSuccess, setRegistrationSuccess] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
 
   const form = useForm<RegisterRequest>({
     resolver: zodResolver(registerSchema),
@@ -35,15 +32,24 @@ export default function Register() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterRequest) => {
-      return await apiRequest('POST', '/api/auth/register', data);
+      const response = await apiRequest('POST', '/api/auth/register', data);
+      return response.json();
     },
     onSuccess: (data) => {
-      setUserEmail(form.getValues("email"));
-      setRegistrationSuccess(true);
+      // Store user data and tokens in localStorage
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
       toast({
         title: "Registrasi Berhasil!",
-        description: "Silakan cek email Anda untuk kode verifikasi OTP.",
+        description: `Selamat datang, ${data.user.firstName}! Anda sudah masuk ke sistem.`,
       });
+      
+      // Redirect to dashboard
+      setTimeout(() => {
+        setLocation("/dashboard");
+      }, 1000);
     },
     onError: (error: any) => {
       toast({
@@ -58,62 +64,7 @@ export default function Register() {
     registerMutation.mutate(data);
   };
 
-  if (registrationSuccess) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20">
-        <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-md mx-auto">
-            <Card className="border-green-200 shadow-lg">
-              <CardHeader className="text-center">
-                <CardTitle className="text-2xl text-green-700 dark:text-green-400">
-                  ✅ Registrasi Berhasil!
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20">
-                  <Mail className="h-4 w-4" />
-                  <AlertDescription>
-                    Kami telah mengirim kode verifikasi OTP ke email <strong>{userEmail}</strong>. 
-                    Silakan cek inbox atau folder spam Anda.
-                  </AlertDescription>
-                </Alert>
 
-                <div className="space-y-2">
-                  <Button 
-                    onClick={() => setLocation('/verify-email')}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    Verifikasi Email Sekarang
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setLocation('/login')}
-                    className="w-full"
-                  >
-                    Kembali ke Login
-                  </Button>
-                </div>
-
-                <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-                  <p>Tidak menerima email?</p>
-                  <Button 
-                    variant="link" 
-                    onClick={() => setLocation('/verify-email')}
-                    className="p-0 text-green-600 hover:text-green-700"
-                  >
-                    Kirim ulang OTP
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20">

@@ -536,7 +536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Normalize WhatsApp number
       const normalizedWhatsApp = AuthUtils.normalizeWhatsAppNumber(validatedData.whatsappNumber);
 
-      // Create user (not verified yet)
+      // Create user (automatically verified)
       const newUser = await storage.createUser({
         id: userId,
         email: validatedData.email,
@@ -545,37 +545,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: validatedData.lastName,
         whatsappNumber: normalizedWhatsApp,
         authProvider: 'custom',
-        isEmailVerified: false
+        isEmailVerified: true
       });
 
-      // Generate and send OTP for email verification
-      const otp = AuthUtils.generateOtp();
-      const otpExpiry = AuthUtils.getOtpExpirationTime();
+      // Generate tokens for immediate login
+      const accessToken = AuthUtils.generateAccessToken(newUser.id, newUser.email);
+      const refreshToken = AuthUtils.generateRefreshToken(newUser.id);
 
-      await storage.createOtpVerification({
-        email: validatedData.email,
-        otp,
-        purpose: 'email_verification',
-        expiresAt: otpExpiry
-      });
-
-      // Send OTP email
-      const emailSent = await emailService.sendOtpEmail({
-        to: validatedData.email,
-        otp,
-        purpose: 'email_verification',
-        firstName: validatedData.firstName
-      });
-
-      if (!emailSent) {
-        console.warn('Failed to send OTP email, but registration completed');
-      }
+      // Set session data
+      (req as any).session.user = AuthUtils.generateSessionData(newUser);
 
       res.status(201).json({
-        message: "Registrasi berhasil. Silakan cek email untuk verifikasi OTP.",
-        userId: newUser.id,
-        email: newUser.email,
-        requiresVerification: true
+        message: "Registrasi berhasil. Anda sudah masuk ke sistem.",
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          whatsappNumber: newUser.whatsappNumber,
+          isEmailVerified: true
+        },
+        accessToken,
+        refreshToken
       });
 
     } catch (error) {
