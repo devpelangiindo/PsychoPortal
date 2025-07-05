@@ -416,7 +416,13 @@ export default function AssessmentResults() {
                         <div className="text-lg font-semibold">{score.total || score.count || 0}</div>
                         {score.average && (
                           <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                            Rata-rata: {score.average.toFixed(1)}
+                            Rata-rata: {(() => {
+                              if (typeof score.average === 'number') {
+                                return score.average.toFixed(1);
+                              }
+                              const avgNum = parseFloat(score.average);
+                              return isNaN(avgNum) ? score.average : avgNum.toFixed(1);
+                            })()}
                           </div>
                         )}
                       </div>

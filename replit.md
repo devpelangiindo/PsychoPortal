@@ -120,6 +120,7 @@ Changelog:
 - July 05, 2025. Assessment results page now properly handles new data structure with backward compatibility
 - July 05, 2025. Fixed Sensory Profile assessment results display error - resolved "Objects are not valid as a React child" error
 - July 05, 2025. Improved section score display to show total and average values for sensory profile results
+- July 05, 2025. Fixed "score.average.toFixed is not a function" error by adding proper type checking and conversion
 ```
 
 ## User Preferences
