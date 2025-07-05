@@ -113,6 +113,9 @@ Changelog:
 - July 05, 2025. Fixed forgot password page routing - added missing /forgot-password route
 - July 05, 2025. Fixed login form issue - "Lupa password?" button now has proper type="button" attribute
 - July 05, 2025. Database cleared for clean testing environment
+- July 05, 2025. Fixed Inventori Gaya Belajar assessment completion error
+- July 05, 2025. Added support for different data formats in completion endpoint (results vs responses/participantInfo)
+- July 05, 2025. Assessment completion now handles both sensory profile and learning style assessment data structures
 ```
 
 ## User Preferences

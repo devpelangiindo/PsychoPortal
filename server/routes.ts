@@ -95,6 +95,19 @@ function calculateLearningStyleResults(responses: any, participantInfo: any) {
     kinestetik: 0
   };
 
+  // Validate responses parameter
+  if (!responses || typeof responses !== 'object') {
+    console.error('Invalid responses parameter:', responses);
+    return {
+      responses: responses || {},
+      participantInfo: participantInfo || {},
+      primaryStyle: 'visual',
+      styleScores,
+      totalResponses: 0,
+      completedAt: new Date().toISOString()
+    };
+  }
+
   // Count responses for each learning style
   for (const [questionId, response] of Object.entries(responses)) {
     if (response) {
@@ -1182,7 +1195,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const userAssessmentId = parseInt(req.params.id);
-      const { responses, participantInfo } = req.body;
+      
+      // Handle different data formats from frontend
+      let responses, participantInfo;
+      if (req.body.results) {
+        // Learning style assessment format: { results: { scores, dominantStyle, responses } }
+        responses = req.body.results.responses;
+        participantInfo = req.body.results.participantInfo || {};
+      } else {
+        // Sensory profile assessment format: { responses, participantInfo }
+        responses = req.body.responses;
+        participantInfo = req.body.participantInfo;
+      }
+      
+
       
       // Verify ownership
       const userAssessments = await storage.getUserAssessments(userId);
