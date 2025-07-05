@@ -16,6 +16,7 @@ import LearningStyle from "@/pages/learning-style";
 import AssessmentResults from "@/pages/assessment-results";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import ForgotPassword from "@/pages/forgot-password";
 
 import NotFound from "@/pages/not-found";
 
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/assessments" component={Assessments} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
 
       
       {/* Protected routes - always defined but will redirect if not authenticated */}
