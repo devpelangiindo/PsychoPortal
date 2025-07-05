@@ -411,7 +411,18 @@ export default function AssessmentResults() {
                     <h4 className="font-medium">{sectionId}. {sectionNames[sectionId] || `Bagian ${sectionId}`}</h4>
                   </div>
                   <div className="text-right">
-                    <span className="text-lg font-semibold">{score}</span>
+                    {typeof score === 'object' && score !== null ? (
+                      <div className="text-sm space-y-1">
+                        <div className="text-lg font-semibold">{score.total || score.count || 0}</div>
+                        {score.average && (
+                          <div className="text-xs text-neutral-600 dark:text-neutral-400">
+                            Rata-rata: {score.average.toFixed(1)}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-lg font-semibold">{score}</span>
+                    )}
                   </div>
                 </div>
               ))}
