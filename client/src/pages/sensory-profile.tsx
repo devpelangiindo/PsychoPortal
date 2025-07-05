@@ -298,14 +298,7 @@ export default function SensoryProfile() {
   const saveProgressMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!userAssessment?.id) return null;
-      const response = await fetch(`/api/user-assessments/${userAssessment.id}/save-progress`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) {
-        throw new Error(`Save failed: ${response.status}`);
-      }
+      const response = await apiRequest('POST', `/api/user-assessments/${userAssessment.id}/save-progress`, data);
       return await response.json();
     },
     onSuccess: () => {
@@ -336,16 +329,20 @@ export default function SensoryProfile() {
         e.returnValue = 'Anda memiliki perubahan yang belum disimpan. Yakin ingin meninggalkan halaman?';
         
         // Try to save using beacon as backup
-        navigator.sendBeacon(`/api/user-assessments/${userAssessment.id}/save-progress`, 
-          JSON.stringify({
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          const blob = new Blob([JSON.stringify({
             responses,
             notApplicable,
             comments,
             participantInfo,
             currentPage,
             currentStep
-          })
-        );
+          })], { type: 'application/json' });
+          
+          // Note: sendBeacon doesn't support custom headers, so this is a fallback
+          navigator.sendBeacon(`/api/user-assessments/${userAssessment.id}/save-progress`, blob);
+        }
       }
     };
 
@@ -356,11 +353,7 @@ export default function SensoryProfile() {
   const completeMutation = useMutation({
     mutationFn: async (data: any) => {
       if (!userAssessment?.id) return null;
-      const response = await fetch(`/api/user-assessments/${userAssessment.id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+      const response = await apiRequest('POST', `/api/user-assessments/${userAssessment.id}/complete`, data);
       return await response.json();
     },
     onSuccess: () => {
@@ -379,7 +372,7 @@ export default function SensoryProfile() {
     const loadAssessment = async () => {
       try {
         const userAssessmentId = parseInt(params.assessmentId);
-        const response = await fetch(`/api/user-assessments/by-id/${userAssessmentId}`);
+        const response = await apiRequest('GET', `/api/user-assessments/by-id/${userAssessmentId}`);
         const data = await response.json();
         
         setUserAssessment(data);

@@ -103,6 +103,9 @@ Changelog:
 - July 05, 2025. Implemented custom JWT-based authentication
 - July 05, 2025. Registration now automatically verifies users and logs them in
 - July 05, 2025. Database cleared for fresh testing
+- July 05, 2025. Fixed assessment progress saving - JWT authentication now properly handles save-progress functionality
+- July 05, 2025. All authentication URLs corrected from /api/login to /login
+- July 05, 2025. Assessment progress persistence fully functional
 ```
 
 ## User Preferences
