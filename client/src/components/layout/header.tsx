@@ -28,8 +28,8 @@ export default function Header() {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     
-    // Also handle Replit auth logout
-    window.location.href = "/api/logout";
+    // Redirect to home page after logout
+    window.location.href = "/";
   };
 
   return (

@@ -784,22 +784,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Logout
-  app.post('/api/auth/logout', async (req, res) => {
+  // Logout (both GET and POST for compatibility)
+  const logoutHandler = async (req: any, res: any) => {
     try {
-      // Destroy session
-      (req as any).session.destroy((err: any) => {
-        if (err) {
-          console.error("Session destroy error:", err);
-          return res.status(500).json({ message: "Gagal logout" });
-        }
-        res.json({ message: "Logout berhasil" });
-      });
+      // For JWT auth, we just return success since tokens are handled client-side
+      res.json({ message: "Logout berhasil" });
     } catch (error) {
       console.error("Logout error:", error);
       res.status(500).json({ message: "Gagal logout" });
     }
-  });
+  };
+
+  app.post('/api/auth/logout', logoutHandler);
+  app.get('/api/logout', logoutHandler);
 
   // Assessment routes
   app.get('/api/assessments', async (req, res) => {
