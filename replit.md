@@ -121,6 +121,12 @@ Changelog:
 - July 05, 2025. Fixed Sensory Profile assessment results display error - resolved "Objects are not valid as a React child" error
 - July 05, 2025. Improved section score display to show total and average values for sensory profile results
 - July 05, 2025. Fixed "score.average.toFixed is not a function" error by adding proper type checking and conversion
+- July 06, 2025. Created comprehensive admin system with login, dashboard, user management, and assessment management
+- July 06, 2025. Added admin role and user activation fields to database schema
+- July 06, 2025. Implemented admin authentication with JWT tokens and role-based access control
+- July 06, 2025. Created admin dashboard with real-time statistics and navigation
+- July 06, 2025. Added admin user management with user activation, role management, and password reset
+- July 06, 2025. Implemented admin assessment management with filtering and PDF export capabilities
 ```
 
 ## User Preferences

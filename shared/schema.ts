@@ -36,6 +36,9 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),
   authProvider: varchar("auth_provider").default("custom"), // 'replit' or 'custom'
+  role: varchar("role").default("user"), // 'user', 'admin'
+  isActive: boolean("is_active").default(true),
+  lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -170,6 +173,28 @@ export const otpVerificationSchema = z.object({
   otp: z.string().length(6, "OTP harus 6 digit"),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Email tidak valid"),
+});
+
+export const adminLoginSchema = z.object({
+  email: z.string().email("Email tidak valid"),
+  password: z.string().min(6, "Password minimal 6 karakter"),
+});
+
+export const userUpdateSchema = z.object({
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  whatsappNumber: z.string().optional(),
+  isActive: z.boolean().optional(),
+  role: z.enum(["user", "admin"]).optional(),
+});
+
+export const passwordResetSchema = z.object({
+  userId: z.string(),
+  newPassword: z.string().min(6, "Password minimal 6 karakter"),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -188,6 +213,10 @@ export type InsertUserAssessment = z.infer<typeof insertUserAssessmentSchema>;
 export type RegisterRequest = z.infer<typeof registerSchema>;
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type OtpVerificationRequest = z.infer<typeof otpVerificationSchema>;
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordSchema>;
+export type AdminLoginRequest = z.infer<typeof adminLoginSchema>;
+export type UserUpdateRequest = z.infer<typeof userUpdateSchema>;
+export type PasswordResetRequest = z.infer<typeof passwordResetSchema>;
 
 // Order with items type
 export type OrderWithItems = Order & {

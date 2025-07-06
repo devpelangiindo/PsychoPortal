@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getSession } from "./replitAuth";
 import type { UserAssessmentWithDetails } from "@shared/schema";
-import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema, registerSchema, loginSchema, otpVerificationSchema } from "@shared/schema";
+import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema, registerSchema, loginSchema, otpVerificationSchema, adminLoginSchema, userUpdateSchema, passwordResetSchema } from "@shared/schema";
 import { z } from "zod";
 import PDFDocument from "pdfkit";
 import { randomBytes } from "crypto";
@@ -1298,6 +1298,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating share link:", error);
       res.status(500).json({ message: "Failed to create share link" });
+    }
+  });
+
+  // Admin middleware
+  function isAdmin(req: any, res: any, next: any) {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin role required.' });
+    }
+    next();
+  }
+
+  // Admin login route
+  app.post('/api/admin/login', async (req, res) => {
+    try {
+      const validatedData = adminLoginSchema.parse(req.body);
+      
+      // Get user by email
+      const user = await storage.getUserByEmail(validatedData.email);
+      if (!user || user.role !== 'admin') {
+        return res.status(401).json({ message: "Kredensial admin tidak valid" });
+      }
+
+      // Verify password
+      const isValidPassword = await AuthUtils.comparePassword(validatedData.password, user.password || '');
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Kredensial admin tidak valid" });
+      }
+
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Akun tidak aktif" });
+      }
+
+      // Update last login
+      await storage.updateUserLastLogin(user.id);
+
+      // Generate tokens
+      const accessToken = AuthUtils.generateAccessToken(user.id, user.email);
+
+      res.json({
+        message: "Login admin berhasil",
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role
+        },
+        accessToken
+      });
+
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Data tidak valid", 
+          errors: error.errors 
+        });
+      }
+      console.error("Admin login error:", error);
+      res.status(500).json({ message: "Gagal login admin" });
+    }
+  });
+
+  // Admin dashboard stats
+  app.get('/api/admin/stats', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getAssessmentStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Admin user management
+  app.get('/api/admin/users', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Remove password hashes from response
+      const safeUsers = users.map(user => ({
+        ...user,
+        password: undefined
+      }));
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Update user
+  app.patch('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const updates = userUpdateSchema.parse(req.body);
+      
+      const updatedUser = await storage.updateUser(userId, updates);
+      
+      res.json({
+        ...updatedUser,
+        password: undefined
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Data tidak valid", 
+          errors: error.errors 
+        });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Reset user password
+  app.post('/api/admin/users/:userId/reset-password', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const { newPassword } = passwordResetSchema.parse({ userId, newPassword: req.body.newPassword });
+      
+      await storage.resetUserPassword(userId, newPassword);
+      
+      res.json({ message: "Password berhasil direset" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Data tidak valid", 
+          errors: error.errors 
+        });
+      }
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  // Admin assessment management
+  app.get('/api/admin/assessments', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const allUserAssessments = await storage.getAllUserAssessments();
+      res.json(allUserAssessments);
+    } catch (error) {
+      console.error("Error fetching all assessments:", error);
+      res.status(500).json({ message: "Failed to fetch assessments" });
     }
   });
 

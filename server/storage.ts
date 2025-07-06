@@ -21,7 +21,7 @@ import {
   type InsertOtpVerification,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -58,6 +58,20 @@ export interface IStorage {
   getUserAssessments(userId: string): Promise<UserAssessmentWithDetails[]>;
   getUserAssessment(userId: string, assessmentId: number): Promise<UserAssessmentWithDetails | undefined>;
   updateUserAssessmentStatus(id: number, status: string, results?: any): Promise<void>;
+
+  // Admin operations
+  getAllUsers(): Promise<User[]>;
+  updateUser(userId: string, updates: Partial<User>): Promise<User>;
+  resetUserPassword(userId: string, newPassword: string): Promise<void>;
+  getAllUserAssessments(): Promise<UserAssessmentWithDetails[]>;
+  getAssessmentStats(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    completedAssessments: number;
+    inProgressAssessments: number;
+    totalRevenue: number;
+  }>;
+  updateUserLastLogin(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -314,6 +328,74 @@ export class DatabaseStorage implements IStorage {
       .update(userAssessments)
       .set(updateData)
       .where(eq(userAssessments.id, id));
+  }
+
+  // Admin operations
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(users.createdAt);
+  }
+
+  async updateUser(userId: string, updates: Partial<User>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async resetUserPassword(userId: string, newPassword: string): Promise<void> {
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db
+      .update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async getAllUserAssessments(): Promise<UserAssessmentWithDetails[]> {
+    const results = await db
+      .select({
+        userAssessment: userAssessments,
+        assessment: assessments,
+      })
+      .from(userAssessments)
+      .leftJoin(assessments, eq(userAssessments.assessmentId, assessments.id))
+      .orderBy(userAssessments.createdAt);
+
+    return results.map(row => ({
+      ...row.userAssessment,
+      assessment: row.assessment!,
+    }));
+  }
+
+  async getAssessmentStats(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    completedAssessments: number;
+    inProgressAssessments: number;
+    totalRevenue: number;
+  }> {
+    const totalUsersResult = await db.select().from(users);
+    const activeUsersResult = await db.select().from(users).where(eq(users.isActive, true));
+    const completedAssessmentsResult = await db.select().from(userAssessments).where(eq(userAssessments.status, 'completed'));
+    const inProgressAssessmentsResult = await db.select().from(userAssessments).where(eq(userAssessments.status, 'in_progress'));
+    const totalRevenueResults = await db.select().from(orders);
+
+    return {
+      totalUsers: totalUsersResult.length,
+      activeUsers: activeUsersResult.length,
+      completedAssessments: completedAssessmentsResult.length,
+      inProgressAssessments: inProgressAssessmentsResult.length,
+      totalRevenue: totalRevenueResults.reduce((sum, order) => sum + parseFloat(order.totalAmount || '0'), 0),
+    };
+  }
+
+  async updateUserLastLogin(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(users.id, userId));
   }
 }
 

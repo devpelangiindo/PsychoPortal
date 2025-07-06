@@ -17,6 +17,10 @@ import AssessmentResults from "@/pages/assessment-results";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import ForgotPassword from "@/pages/forgot-password";
+import AdminLogin from "@/pages/admin-login";
+import AdminDashboard from "@/pages/admin-dashboard";
+import AdminUsers from "@/pages/admin-users";
+import AdminAssessments from "@/pages/admin-assessments";
 
 import NotFound from "@/pages/not-found";
 
@@ -43,6 +47,12 @@ function Router() {
       <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
       <Route path="/learning-style/:assessmentId" component={LearningStyle} />
       <Route path="/results/:assessmentId" component={AssessmentResults} />
+      
+      {/* Admin routes */}
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/dashboard" component={AdminDashboard} />
+      <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/assessments" component={AdminAssessments} />
       
       {/* 404 fallback */}
       <Route component={NotFound} />
