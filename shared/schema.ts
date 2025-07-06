@@ -233,5 +233,6 @@ export type UserAssessmentWithDetails = UserAssessment & {
     email: string;
     firstName: string | null;
     lastName: string | null;
+    whatsappNumber: string | null;
   };
 };

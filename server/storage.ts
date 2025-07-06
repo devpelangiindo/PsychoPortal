@@ -373,6 +373,7 @@ export class DatabaseStorage implements IStorage {
         email: row.user.email,
         firstName: row.user.firstName,
         lastName: row.user.lastName,
+        whatsappNumber: row.user.whatsappNumber,
       } : undefined,
     }));
   }

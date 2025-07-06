@@ -116,6 +116,7 @@ export default function AdminAssessments() {
         'ID Assessment',
         'Nama Pengguna',
         'Email',
+        'WhatsApp',
         'Jenis Assessment',
         'Status',
         'Tanggal Dibuat',
@@ -127,6 +128,7 @@ export default function AdminAssessments() {
         assessment.id,
         `${assessment.user?.firstName || ''} ${assessment.user?.lastName || ''}`.trim() || 'Tidak ada nama',
         assessment.user?.email || '',
+        assessment.user?.whatsappNumber || '-',
         assessment.assessment.name,
         assessment.status === 'completed' ? 'Selesai' : 'Berlangsung',
         formatDate(assessment.createdAt),
@@ -324,6 +326,7 @@ export default function AdminAssessments() {
                   <TableRow>
                     <TableHead>ID</TableHead>
                     <TableHead>Pengguna</TableHead>
+                    <TableHead>WhatsApp</TableHead>
                     <TableHead>Jenis Asesmen</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Dibuat</TableHead>
@@ -347,6 +350,9 @@ export default function AdminAssessments() {
                             {assessment.user?.email}
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">
+                        {assessment.user?.whatsappNumber || '-'}
                       </TableCell>
                       <TableCell>
                         <div>

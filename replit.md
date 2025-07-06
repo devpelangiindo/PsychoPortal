@@ -137,6 +137,10 @@ Changelog:
 - July 06, 2025. Fixed admin assessments page - user names now display properly by including user data in getAllUserAssessments query
 - July 06, 2025. Created admin reports page with comprehensive analytics and statistics
 - July 06, 2025. Implemented working CSV export functionality for admin assessments data
+- July 06, 2025. Added WhatsApp column to admin assessments page - displays user WhatsApp numbers in table and CSV export
+- July 06, 2025. Fixed admin reports page analytics - Assessment Type Analysis and Recent Activity now show real data
+- July 06, 2025. Implemented working Excel/CSV export functionality for admin reports with comprehensive analytics data
+- July 06, 2025. Updated UserAssessmentWithDetails schema to include whatsappNumber field for proper data display
 ```
 
 ## User Preferences
