@@ -17,9 +17,21 @@ interface AdminStats {
 export default function AdminDashboard() {
   const { toast } = useToast();
 
-  const { data: stats, isLoading } = useQuery<AdminStats>({
+  const token = localStorage.getItem('accessToken');
+  
+  const { data: stats, isLoading, error } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     retry: false,
+    enabled: !!token, // Only run query if token exists
+  });
+
+  // Debug: Check if token exists
+  console.log('Admin Dashboard Debug:', { 
+    token: token ? 'EXISTS' : 'MISSING', 
+    tokenLength: token?.length,
+    error: error?.message,
+    stats,
+    isLoading 
   });
 
   const handleLogout = () => {

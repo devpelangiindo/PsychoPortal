@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { adminLoginSchema, type AdminLoginRequest } from "@shared/schema";
 
 export default function AdminLogin() {
@@ -28,13 +28,26 @@ export default function AdminLogin() {
       return await apiRequest("POST", "/api/admin/login", data);
     },
     onSuccess: (data: any) => {
+      console.log('Admin login success:', data);
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // Debug: Verify token was stored
+      const storedToken = localStorage.getItem('accessToken');
+      console.log('Token stored:', storedToken ? 'SUCCESS' : 'FAILED');
+      
+      // Clear React Query cache to ensure fresh data
+      queryClient.clear();
+      
       toast({
         title: "Berhasil!",
         description: "Login admin berhasil.",
       });
-      setLocation("/admin/dashboard");
+      
+      // Add a small delay to ensure token is stored before navigation
+      setTimeout(() => {
+        setLocation("/admin/dashboard");
+      }, 100);
     },
     onError: (error: any) => {
       toast({
