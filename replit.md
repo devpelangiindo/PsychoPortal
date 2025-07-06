@@ -127,6 +127,9 @@ Changelog:
 - July 06, 2025. Created admin dashboard with real-time statistics and navigation
 - July 06, 2025. Added admin user management with user activation, role management, and password reset
 - July 06, 2025. Implemented admin assessment management with filtering and PDF export capabilities
+- July 06, 2025. Fixed critical admin authentication bug - apiRequest was returning Response object instead of parsed JSON
+- July 06, 2025. Added React Query cache invalidation and proper token validation for admin dashboard
+- July 06, 2025. Cleared all test data for clean testing environment - only admin user remains
 ```
 
 ## User Preferences
