@@ -228,4 +228,10 @@ export type OrderWithItems = Order & {
 // User assessment with assessment details
 export type UserAssessmentWithDetails = UserAssessment & {
   assessment: Assessment;
+  user?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
 };

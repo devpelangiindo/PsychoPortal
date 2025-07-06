@@ -102,11 +102,66 @@ export default function AdminAssessments() {
   };
 
   const handleExportAll = () => {
-    // This would typically generate a comprehensive Excel export
-    toast({
-      title: "Info",
-      description: "Fitur ekspor semua data akan segera tersedia.",
-    });
+    if (!assessments || assessments.length === 0) {
+      toast({
+        title: "Info",
+        description: "Tidak ada data untuk diekspor.",
+      });
+      return;
+    }
+
+    try {
+      // Prepare CSV data
+      const headers = [
+        'ID Assessment',
+        'Nama Pengguna',
+        'Email',
+        'Jenis Assessment',
+        'Status',
+        'Tanggal Dibuat',
+        'Tanggal Selesai',
+        'Harga'
+      ];
+
+      const csvData = assessments.map(assessment => [
+        assessment.id,
+        `${assessment.user?.firstName || ''} ${assessment.user?.lastName || ''}`.trim() || 'Tidak ada nama',
+        assessment.user?.email || '',
+        assessment.assessment.name,
+        assessment.status === 'completed' ? 'Selesai' : 'Berlangsung',
+        formatDate(assessment.createdAt),
+        assessment.completedAt ? formatDate(assessment.completedAt) : '-',
+        formatPrice(assessment.assessment.price)
+      ]);
+
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Data_Assessment_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Berhasil",
+        description: "Data berhasil diekspor sebagai file CSV.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal mengekspor data. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    }
   };
 
   const formatDate = (dateString: string) => {

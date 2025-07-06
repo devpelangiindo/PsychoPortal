@@ -133,6 +133,10 @@ Changelog:
 - July 06, 2025. Fixed PDF generation for Sensory Profile assessments - resolved "undefined" interpretation and "[object Object]" section scores
 - July 06, 2025. Updated PDF generator to handle new sectionScores data structure with {total, count, average} objects
 - July 06, 2025. Added proper interpretation generation fallback when interpretation is missing from results
+- July 06, 2025. Fixed admin dashboard user management - lastLoginAt now updates correctly for both admin and regular users
+- July 06, 2025. Fixed admin assessments page - user names now display properly by including user data in getAllUserAssessments query
+- July 06, 2025. Created admin reports page with comprehensive analytics and statistics
+- July 06, 2025. Implemented working CSV export functionality for admin assessments data
 ```
 
 ## User Preferences

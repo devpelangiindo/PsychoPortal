@@ -850,6 +850,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Update last login
+      await storage.updateUserLastLogin(user.id);
+
       // Generate tokens
       const accessToken = AuthUtils.generateAccessToken(user.id, user.email, user.role || 'user');
       const refreshToken = AuthUtils.generateRefreshToken(user.id);

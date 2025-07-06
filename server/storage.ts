@@ -358,14 +358,22 @@ export class DatabaseStorage implements IStorage {
       .select({
         userAssessment: userAssessments,
         assessment: assessments,
+        user: users,
       })
       .from(userAssessments)
       .leftJoin(assessments, eq(userAssessments.assessmentId, assessments.id))
+      .leftJoin(users, eq(userAssessments.userId, users.id))
       .orderBy(userAssessments.createdAt);
 
     return results.map(row => ({
       ...row.userAssessment,
       assessment: row.assessment!,
+      user: row.user ? {
+        id: row.user.id,
+        email: row.user.email,
+        firstName: row.user.firstName,
+        lastName: row.user.lastName,
+      } : undefined,
     }));
   }
 
