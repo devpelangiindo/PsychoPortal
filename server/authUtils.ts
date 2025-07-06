@@ -16,9 +16,9 @@ export class AuthUtils {
   }
 
   // JWT token management
-  static generateAccessToken(userId: string, email: string): string {
+  static generateAccessToken(userId: string, email: string, role: string = 'user'): string {
     return jwt.sign(
-      { userId, email, type: 'access' },
+      { userId, email, role, type: 'access' },
       this.JWT_SECRET,
       { expiresIn: this.JWT_EXPIRES_IN }
     );
@@ -32,12 +32,13 @@ export class AuthUtils {
     );
   }
 
-  static verifyToken(token: string): { userId: string; email?: string; type: string } | null {
+  static verifyToken(token: string): { userId: string; email?: string; role?: string; type: string } | null {
     try {
       const payload = jwt.verify(token, this.JWT_SECRET) as any;
       return {
         userId: payload.userId,
         email: payload.email,
+        role: payload.role,
         type: payload.type
       };
     } catch (error) {

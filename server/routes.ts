@@ -25,7 +25,11 @@ function isAuthenticated(req: any, res: any, next: any) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    req.user = { claims: { sub: decoded.userId }, email: decoded.email };
+    req.user = { 
+      claims: { sub: decoded.userId }, 
+      email: decoded.email,
+      role: decoded.role || 'user'
+    };
     next();
   } catch (error) {
     return res.status(401).json({ message: "Unauthorized" });
@@ -662,7 +666,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      res.json(user);
+      // Remove password from response for security
+      const { password, ...safeUser } = user;
+      res.json(safeUser);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(401).json({ message: "Unauthorized" });
@@ -709,7 +715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Generate tokens for immediate login
-      const accessToken = AuthUtils.generateAccessToken(newUser.id, newUser.email);
+      const accessToken = AuthUtils.generateAccessToken(newUser.id, newUser.email, newUser.role || 'user');
       const refreshToken = AuthUtils.generateRefreshToken(newUser.id);
 
       // Set session data
@@ -765,7 +771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.markOtpAsUsed(otpRecord.id);
 
       // Generate tokens
-      const accessToken = AuthUtils.generateAccessToken(user.id, user.email);
+      const accessToken = AuthUtils.generateAccessToken(user.id, user.email, user.role || 'user');
       const refreshToken = AuthUtils.generateRefreshToken(user.id);
 
       // Set session data
@@ -824,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate tokens
-      const accessToken = AuthUtils.generateAccessToken(user.id, user.email);
+      const accessToken = AuthUtils.generateAccessToken(user.id, user.email, user.role || 'user');
       const refreshToken = AuthUtils.generateRefreshToken(user.id);
 
       // Set session data
@@ -1334,7 +1340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateUserLastLogin(user.id);
 
       // Generate tokens
-      const accessToken = AuthUtils.generateAccessToken(user.id, user.email);
+      const accessToken = AuthUtils.generateAccessToken(user.id, user.email, user.role || 'admin');
 
       res.json({
         message: "Login admin berhasil",
