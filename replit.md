@@ -145,6 +145,9 @@ Changelog:
 - July 06, 2025. Added admin assessment result page with proper authentication and data display
 - July 06, 2025. Created admin-specific API endpoints for viewing assessment results and downloading PDFs
 - July 06, 2025. Fixed admin reports page PDF export functionality with working CSV download
+- July 06, 2025. Fixed revenue calculation in admin reports - now uses actual assessment prices (Sensory Profile: Rp 400,000, Learning Style: Rp 200,000)
+- July 06, 2025. Updated backend getAssessmentStats to provide real assessment type statistics instead of hardcoded percentages
+- July 06, 2025. Admin reports Analytics now shows accurate revenue data per assessment type based on actual completed assessments
 ```
 
 ## User Preferences

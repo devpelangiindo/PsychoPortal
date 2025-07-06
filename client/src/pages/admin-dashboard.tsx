@@ -12,6 +12,12 @@ interface AdminStats {
   completedAssessments: number;
   inProgressAssessments: number;
   totalRevenue: number;
+  assessmentTypeStats: {
+    type: string;
+    name: string;
+    count: number;
+    revenue: number;
+  }[];
 }
 
 export default function AdminDashboard() {

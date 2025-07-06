@@ -384,6 +384,12 @@ export class DatabaseStorage implements IStorage {
     completedAssessments: number;
     inProgressAssessments: number;
     totalRevenue: number;
+    assessmentTypeStats: {
+      type: string;
+      name: string;
+      count: number;
+      revenue: number;
+    }[];
   }> {
     const totalUsersResult = await db.select().from(users);
     const activeUsersResult = await db.select().from(users).where(eq(users.isActive, true));
@@ -391,12 +397,44 @@ export class DatabaseStorage implements IStorage {
     const inProgressAssessmentsResult = await db.select().from(userAssessments).where(eq(userAssessments.status, 'in_progress'));
     const totalRevenueResults = await db.select().from(orders);
 
+    // Get assessment type statistics
+    const completedAssessmentsWithDetails = await db
+      .select({
+        userAssessment: userAssessments,
+        assessment: assessments,
+        order: orders
+      })
+      .from(userAssessments)
+      .innerJoin(assessments, eq(userAssessments.assessmentId, assessments.id))
+      .innerJoin(orders, eq(userAssessments.orderId, orders.id))
+      .where(eq(userAssessments.status, 'completed'));
+
+    // Calculate stats by assessment type
+    const typeStats = new Map<string, { type: string; name: string; count: number; revenue: number }>();
+    
+    completedAssessmentsWithDetails.forEach(item => {
+      const type = item.assessment.type;
+      const name = item.assessment.name;
+      const price = parseFloat(item.assessment.price);
+      
+      if (!typeStats.has(type)) {
+        typeStats.set(type, { type, name, count: 0, revenue: 0 });
+      }
+      
+      const current = typeStats.get(type)!;
+      current.count += 1;
+      current.revenue += price;
+    });
+
+    const assessmentTypeStats = Array.from(typeStats.values());
+
     return {
       totalUsers: totalUsersResult.length,
       activeUsers: activeUsersResult.length,
       completedAssessments: completedAssessmentsResult.length,
       inProgressAssessments: inProgressAssessmentsResult.length,
       totalRevenue: totalRevenueResults.reduce((sum, order) => sum + parseFloat(order.totalAmount || '0'), 0),
+      assessmentTypeStats,
     };
   }
 

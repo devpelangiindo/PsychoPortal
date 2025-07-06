@@ -62,11 +62,23 @@ export default function AdminReports() {
         ['Tingkat Konversi', `${Math.round((stats.completedAssessments / stats.totalUsers) * 100)}%`],
         ['', ''],
         ['Analisis Jenis Asesmen', ''],
-        ['Profil Sensoris - Selesai', Math.floor(stats.completedAssessments * 0.6).toString()],
-        ['Profil Sensoris - Pendapatan', formatCurrency(stats.totalRevenue * 0.67)],
-        ['Gaya Belajar - Selesai', Math.ceil(stats.completedAssessments * 0.4).toString()],
-        ['Gaya Belajar - Pendapatan', formatCurrency(stats.totalRevenue * 0.33)],
       ];
+
+      // Add assessment type statistics
+      if (stats.assessmentTypeStats && stats.assessmentTypeStats.length > 0) {
+        stats.assessmentTypeStats.forEach(assessmentType => {
+          exportData.push([
+            `${assessmentType.name} - Selesai`,
+            assessmentType.count.toString()
+          ]);
+          exportData.push([
+            `${assessmentType.name} - Pendapatan`,
+            formatCurrency(assessmentType.revenue)
+          ]);
+        });
+      } else {
+        exportData.push(['Belum ada data asesmen', '']);
+      }
 
       if (type === 'excel') {
         // Create CSV content
@@ -255,39 +267,39 @@ export default function AdminReports() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-3">Asesmen Profil Sensoris</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Jumlah Selesai:</span>
-                    <span className="font-medium">{stats?.completedAssessments ? Math.floor(stats.completedAssessments * 0.6) : 0}</span>
+              {stats?.assessmentTypeStats?.map((assessmentType, index) => {
+                const colors = ['bg-green-600', 'bg-blue-600', 'bg-purple-600'];
+                const widthPercent = stats.completedAssessments > 0 ? (assessmentType.count / stats.completedAssessments) * 100 : 0;
+                
+                return (
+                  <div key={assessmentType.type}>
+                    <h4 className="font-semibold mb-3">{assessmentType.name}</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Jumlah Selesai:</span>
+                        <span className="font-medium">{assessmentType.count}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Pendapatan:</span>
+                        <span className="font-medium">{formatCurrency(assessmentType.revenue)}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full ${colors[index % colors.length]}`} 
+                          style={{ width: `${widthPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Pendapatan:</span>
-                    <span className="font-medium">{formatCurrency((stats?.totalRevenue || 0) * 0.67)}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-green-600 h-2 rounded-full" style={{ width: '60%' }}></div>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
               
-              <div>
-                <h4 className="font-semibold mb-3">Inventori Gaya Belajar</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Jumlah Selesai:</span>
-                    <span className="font-medium">{stats?.completedAssessments ? Math.ceil(stats.completedAssessments * 0.4) : 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Pendapatan:</span>
-                    <span className="font-medium">{formatCurrency((stats?.totalRevenue || 0) * 0.33)}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: '40%' }}></div>
-                  </div>
+              {/* Show placeholder if no data */}
+              {(!stats?.assessmentTypeStats || stats.assessmentTypeStats.length === 0) && (
+                <div className="col-span-full text-center py-8 text-gray-500">
+                  Belum ada data asesmen yang selesai
                 </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
