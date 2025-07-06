@@ -22,6 +22,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import AdminUsers from "@/pages/admin-users";
 import AdminAssessments from "@/pages/admin-assessments";
 import AdminReports from "@/pages/admin-reports";
+import AdminAssessmentResult from "@/pages/admin-assessment-result";
 
 import NotFound from "@/pages/not-found";
 
@@ -55,6 +56,7 @@ function Router() {
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/assessments" component={AdminAssessments} />
       <Route path="/admin/reports" component={AdminReports} />
+      <Route path="/admin/assessment-result/:userAssessmentId" component={AdminAssessmentResult} />
       
       {/* 404 fallback */}
       <Route component={NotFound} />

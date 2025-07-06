@@ -1473,6 +1473,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin view specific assessment result
+  app.get('/api/admin/assessments/:id/result', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const userAssessmentId = parseInt(req.params.id);
+      const allUserAssessments = await storage.getAllUserAssessments();
+      const userAssessment = allUserAssessments.find(ua => ua.id === userAssessmentId);
+      
+      if (!userAssessment) {
+        return res.status(404).json({ message: "Assessment not found" });
+      }
+
+      res.json(userAssessment);
+    } catch (error) {
+      console.error("Error fetching assessment result:", error);
+      res.status(500).json({ message: "Failed to fetch assessment result" });
+    }
+  });
+
+  // Admin download PDF for specific assessment
+  app.get('/api/admin/assessments/:id/pdf', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const userAssessmentId = parseInt(req.params.id);
+      const allUserAssessments = await storage.getAllUserAssessments();
+      const userAssessment = allUserAssessments.find(ua => ua.id === userAssessmentId);
+      
+      if (!userAssessment || userAssessment.status !== 'completed') {
+        return res.status(404).json({ message: "Assessment not found or not completed" });
+      }
+
+      // Generate PDF content
+      const pdfBuffer = await generatePdfContent(userAssessment);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Admin_Hasil_${userAssessment.assessment.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating admin PDF:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -54,6 +54,29 @@ export default function AdminAssessments() {
     return searchMatch && statusMatch && typeMatch;
   }) || [];
 
+  const handleViewResult = async (assessmentId: number) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "Token admin tidak ditemukan. Silakan login ulang.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Redirect to admin result view route
+      window.open(`/admin/assessment-result/${assessmentId}`, '_blank');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal membuka hasil asesmen.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleExportPDF = async (assessmentId: number) => {
     try {
       const token = localStorage.getItem('accessToken');
@@ -66,7 +89,7 @@ export default function AdminAssessments() {
         return;
       }
 
-      const response = await fetch(`/api/user-assessments/${assessmentId}/pdf`, {
+      const response = await fetch(`/api/admin/assessments/${assessmentId}/pdf`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -378,11 +401,13 @@ export default function AdminAssessments() {
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Link href={`/results/${assessment.id}`}>
-                            <Button variant="outline" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </Link>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewResult(assessment.id)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
                           {assessment.status === 'completed' && (
                             <Button
                               variant="outline"
