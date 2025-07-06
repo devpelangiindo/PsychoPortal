@@ -291,8 +291,24 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
         doc.fontSize(12).font('Helvetica-Bold')
            .text(`Skor Total: ${totalScore}/625`);
         
+        // Generate interpretation if not present
+        let finalInterpretation = interpretation;
+        if (!finalInterpretation) {
+          if (totalScore < 155) {
+            finalInterpretation = 'Sensitivitas Rendah - Kemungkinan memerlukan stimulasi sensoris yang lebih kuat';
+          } else if (totalScore < 190) {
+            finalInterpretation = 'Sensitivitas Sedang Rendah - Beberapa area memerlukan perhatian';
+          } else if (totalScore < 240) {
+            finalInterpretation = 'Sensitivitas Normal - Respons sensoris dalam batas normal';
+          } else if (totalScore < 285) {
+            finalInterpretation = 'Sensitivitas Sedang Tinggi - Beberapa area menunjukkan kepekaan berlebih';
+          } else {
+            finalInterpretation = 'Sensitivitas Tinggi - Kemungkinan mengalami hipersensitivitas sensoris';
+          }
+        }
+        
         doc.fontSize(11).font('Helvetica')
-           .text(`Interpretasi: ${interpretation}`);
+           .text(`Interpretasi: ${finalInterpretation}`);
         
         doc.moveDown(1);
         
@@ -404,9 +420,12 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
             }
           };
           
-          Object.entries(sectionScores).forEach(([section, score]: [string, any]) => {
+          Object.entries(sectionScores).forEach(([section, scoreData]: [string, any]) => {
             const detail = sectionDetails[section as keyof typeof sectionDetails];
             if (detail) {
+              // Extract the actual score value - handle both old and new data structures
+              const score = typeof scoreData === 'object' ? scoreData.total || scoreData : scoreData;
+              
               doc.fontSize(11).font('Helvetica-Bold')
                  .text(`${detail.name}: ${score}`, { continued: false });
               
@@ -502,9 +521,11 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
             }
           };
           
-          Object.entries(sectionScores).forEach(([section, score]: [string, any]) => {
+          Object.entries(sectionScores).forEach(([section, scoreData]: [string, any]) => {
             const detail = sectionDetailsForRecommendations[section as keyof typeof sectionDetailsForRecommendations];
             if (detail) {
+              // Extract the actual score value - handle both old and new data structures
+              const score = typeof scoreData === 'object' ? scoreData.total || scoreData : scoreData;
               let isAbnormal = score <= detail.normal[0] - 1 || score >= detail.normal[1] + 1;
               
               if (isAbnormal) {

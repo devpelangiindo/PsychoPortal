@@ -130,6 +130,9 @@ Changelog:
 - July 06, 2025. Fixed critical admin authentication bug - apiRequest was returning Response object instead of parsed JSON
 - July 06, 2025. Added React Query cache invalidation and proper token validation for admin dashboard
 - July 06, 2025. Cleared all test data for clean testing environment - only admin user remains
+- July 06, 2025. Fixed PDF generation for Sensory Profile assessments - resolved "undefined" interpretation and "[object Object]" section scores
+- July 06, 2025. Updated PDF generator to handle new sectionScores data structure with {total, count, average} objects
+- July 06, 2025. Added proper interpretation generation fallback when interpretation is missing from results
 ```
 
 ## User Preferences
