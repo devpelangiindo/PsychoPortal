@@ -89,9 +89,7 @@ export default function Footer() {
         </div>
         
         <div className="border-t border-white/20 mt-12 pt-8 text-center">
-          <p className="text-green-50">
-            &copy; 2024 Rumah Psikologi Indonesia. Seluruh hak cipta dilindungi.
-          </p>
+          <p className="text-green-50">© 2025 Rumah Psikologi Pelangi Indonesia. Seluruh hak cipta dilindungi.</p>
         </div>
       </div>
     </footer>
