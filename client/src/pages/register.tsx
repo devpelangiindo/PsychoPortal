@@ -76,9 +76,7 @@ export default function Register() {
               <CardTitle className="text-2xl text-green-700 dark:text-green-400">
                 🧠 Daftar Akun
               </CardTitle>
-              <p className="text-gray-600 dark:text-gray-400">
-                Bergabung dengan Rumah Psikologi Indonesia
-              </p>
+              <p className="text-gray-600 dark:text-gray-400">Bergabung dengan Rumah Psikologi Pelangi Indonesia</p>
             </CardHeader>
             <CardContent>
               <Form {...form}>
