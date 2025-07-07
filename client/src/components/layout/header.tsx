@@ -40,9 +40,7 @@ export default function Header() {
             {/* Logo */}
             <div className="flex items-center">
               <Link href="/">
-                <h1 className="text-2xl font-bold text-primary cursor-pointer">
-                  Rumah Psikologi Indonesia
-                </h1>
+                <h1 className="font-bold text-primary cursor-pointer text-[22px]">Rumah Psikologi Pelangi Indonesia</h1>
               </Link>
               
               {/* Desktop Navigation */}
@@ -199,7 +197,6 @@ export default function Header() {
           )}
         </div>
       </header>
-
       {/* Shopping Cart Sidebar */}
       <ShoppingCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
