@@ -78,9 +78,7 @@ export default function Login() {
               <CardTitle className="text-2xl text-green-700 dark:text-green-400">
                 🧠 Login
               </CardTitle>
-              <p className="text-gray-600 dark:text-gray-400">
-                Masuk ke akun Rumah Psikologi Indonesia
-              </p>
+              <p className="text-gray-600 dark:text-gray-400">Masuk ke akun Rumah Psikologi Pelangi Indonesia</p>
             </CardHeader>
             <CardContent>
               {needsVerification && (
