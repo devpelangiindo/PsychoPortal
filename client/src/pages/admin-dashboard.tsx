@@ -79,9 +79,7 @@ export default function AdminDashboard() {
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Admin Dashboard
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Panel Administrasi Rumah Psikologi Indonesia
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Panel Administrasi Rumah Psikologi Pelangi Indonesia</p>
             </div>
             <Button 
               variant="outline" 
@@ -94,7 +92,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       </header>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
