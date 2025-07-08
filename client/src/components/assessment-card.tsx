@@ -32,7 +32,7 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
 
   const getIconLabel = (type: string) => {
     if (type === 'sensory') {
-      return 'Pemrosesan Sensoris Gratis Konsultasi Online 1x';
+      return 'Pemrosesan Sensoris';
     }
     return 'Preferensi Belajar';
   };
