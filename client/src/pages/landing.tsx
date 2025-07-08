@@ -33,7 +33,6 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
       <Header />
-      
       {/* Demo Mode Banner */}
       <div className="bg-blue-600 text-white py-3">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -45,12 +44,11 @@ export default function Landing() {
           </div>
         </div>
       </div>
-      
       {/* Hero Section */}
       <section className="gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-neutral-900 dark:text-foreground mb-6">
+            <h1 className="text-4xl md:text-6xl font-bold dark:text-foreground mb-6 text-[#248f59]">
               Platform <span className="text-primary">Asesmen</span> Psikologi Profesional
             </h1>
             <p className="text-xl text-neutral-500 dark:text-muted-foreground mb-8 max-w-3xl mx-auto">
@@ -86,7 +84,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Featured Assessments */}
       <section id="assessments" className="py-20 bg-white dark:bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -125,7 +122,6 @@ export default function Landing() {
           )}
         </div>
       </section>
-
       {/* How It Works */}
       <section className="py-20 bg-neutral-50 dark:bg-muted/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -189,7 +185,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Trust Indicators */}
       <section className="py-20 bg-white dark:bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -233,7 +228,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       <Footer />
     </div>
   );
