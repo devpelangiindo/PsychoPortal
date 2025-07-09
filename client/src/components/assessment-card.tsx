@@ -95,6 +95,20 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
           </div>
         </div>
         
+        {/* Special benefit for Sensory Profile */}
+        {assessment.type === 'sensory' && (
+          <div className="mb-4">
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Gratis Konsultasi Online 1 Kali
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center justify-between">
           <div className="flex items-baseline text-primary">
             {parseFloat(assessment.price) === 0 ? (

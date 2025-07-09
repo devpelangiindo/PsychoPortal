@@ -157,6 +157,7 @@ Changelog:
 - July 09, 2025. Improved PDF layout spacing - set logo at Y=60 and title text at Y=150 for proper visual separation
 - July 09, 2025. Final logo positioning fix - moved logo to top-left corner (50, 50) to completely eliminate text overlap
 - July 09, 2025. Made Learning Style Inventory assessment free with "Free Access" label - updated database price to 0.00 and UI components to show free access instead of pricing
+- July 09, 2025. Added "Gratis Konsultasi Online 1 Kali" benefit label to Sensory Profile assessment across all components (assessment cards, cart page, and shopping cart sidebar)
 ```
 
 ## User Preferences

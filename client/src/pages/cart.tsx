@@ -150,10 +150,20 @@ export default function Cart() {
                         <p className="text-neutral-500 dark:text-muted-foreground text-sm mb-4">
                           {item.description}
                         </p>
-                        <div className="flex items-center space-x-4 text-sm text-neutral-500 dark:text-muted-foreground">
+                        <div className="flex items-center space-x-4 text-sm text-neutral-500 dark:text-muted-foreground mb-3">
                           <span>⏱️ {item.duration}</span>
                           <span>👥 {item.ageRange}</span>
                         </div>
+                        {item.type === 'sensory' && (
+                          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2">
+                            <div className="flex items-center">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                              <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                                Gratis Konsultasi Online 1 Kali
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="text-right ml-6">
                         <div className="flex items-baseline text-primary mb-2">

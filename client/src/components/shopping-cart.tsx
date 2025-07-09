@@ -67,6 +67,16 @@ export default function ShoppingCartSidebar({ isOpen, onClose }: ShoppingCartSid
                         <span>⏱️ {item.duration}</span>
                         <span>👥 {item.ageRange}</span>
                       </div>
+                      {item.type === 'sensory' && (
+                        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 mt-2">
+                          <div className="flex items-center">
+                            <div className="w-1 h-1 bg-blue-500 rounded-full mr-2"></div>
+                            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                              Gratis Konsultasi Online 1 Kali
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-neutral-900 dark:text-foreground text-sm">
