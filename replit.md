@@ -162,6 +162,9 @@ Changelog:
 - July 09, 2025. Enhanced Sensory Profile validation error handling - now shows specific question numbers that haven't been answered, displays toast notifications, and visually highlights unanswered questions with red borders and animation
 - July 09, 2025. Added WhatsApp consultation scheduling message to Sensory Profile completion - displays "Terima kasih telah menggunakan layanan ini, kami akan menghubungi Anda lewat nomor WhatsApp untuk membuatkan jadwal konsultasi online" upon assessment completion
 - July 09, 2025. Removed gender field from Sensory Profile assessment results - eliminated "Jenis Kelamin" field from both web results display and PDF generation since the data is not collected during assessment
+- July 09, 2025. Fixed critical admin dashboard authentication issue - corrected all admin pages to use adminToken instead of accessToken for authentication
+- July 09, 2025. Updated admin authentication system - all admin pages now properly use custom queryFn with adminToken instead of default query client
+- July 09, 2025. Fixed admin assessment result viewing - admins can now successfully view assessment results and download PDFs with proper token authentication
 ```
 
 ## User Preferences

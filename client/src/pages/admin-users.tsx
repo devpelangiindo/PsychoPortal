@@ -41,11 +41,52 @@ export default function AdminUsers() {
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
     retry: false,
+    queryFn: async ({ queryKey }) => {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+      }
+      
+      const res = await fetch(queryKey[0] as string, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+        }
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+      
+      return await res.json();
+    },
   });
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, data }: { userId: string; data: UserUpdateRequest }) => {
-      return await apiRequest("PATCH", `/api/admin/users/${userId}`, data);
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+      }
+      
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+      
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
@@ -66,7 +107,26 @@ export default function AdminUsers() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
-      return await apiRequest("POST", `/api/admin/users/${userId}/reset-password`, { newPassword });
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+      }
+      
+      const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+      
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+      
+      return await res.json();
     },
     onSuccess: () => {
       setIsPasswordDialogOpen(false);

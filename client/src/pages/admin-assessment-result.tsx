@@ -17,6 +17,28 @@ export default function AdminAssessmentResult() {
   const { data: userAssessment, isLoading } = useQuery<UserAssessmentWithDetails>({
     queryKey: [`/api/admin/assessments/${userAssessmentId}/result`],
     enabled: !!userAssessmentId,
+    queryFn: async ({ queryKey }) => {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+      }
+      
+      const res = await fetch(queryKey[0] as string, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+        }
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+      
+      return await res.json();
+    },
   });
 
   const downloadPDF = async () => {

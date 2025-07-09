@@ -39,6 +39,28 @@ export default function AdminReports() {
   const { data: stats, isLoading } = useQuery<ReportData>({
     queryKey: ["/api/admin/stats"],
     retry: false,
+    queryFn: async ({ queryKey }) => {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+      }
+      
+      const res = await fetch(queryKey[0] as string, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+        }
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+      
+      return await res.json();
+    },
   });
 
   const handleExportReport = (type: 'pdf' | 'excel') => {

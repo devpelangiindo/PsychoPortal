@@ -31,11 +31,11 @@ export default function AdminLogin() {
     },
     onSuccess: (data: any) => {
       console.log('Admin login success:', data);
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('adminToken', data.accessToken);
+      localStorage.setItem('adminUser', JSON.stringify(data.user));
       
       // Debug: Verify token was stored
-      const storedToken = localStorage.getItem('accessToken');
+      const storedToken = localStorage.getItem('adminToken');
       console.log('Token stored:', storedToken ? 'SUCCESS' : 'FAILED');
       
       // Clear React Query cache to ensure fresh data

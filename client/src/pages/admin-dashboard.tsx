@@ -24,12 +24,34 @@ interface AdminStats {
 export default function AdminDashboard() {
   const { toast } = useToast();
 
-  const token = localStorage.getItem('accessToken');
+  const token = localStorage.getItem('adminToken');
   
   const { data: stats, isLoading, error } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     retry: false,
     enabled: !!token, // Only run query if token exists
+    queryFn: async ({ queryKey }) => {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+      }
+      
+      const res = await fetch(queryKey[0] as string, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+        },
+      });
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+        }
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+      
+      return await res.json();
+    },
   });
 
   // Debug: Check if token exists
@@ -42,8 +64,8 @@ export default function AdminDashboard() {
   });
 
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
     toast({
       title: "Berhasil",
       description: "Logout berhasil.",
