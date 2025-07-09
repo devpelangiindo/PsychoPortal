@@ -273,7 +273,6 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
           doc.fontSize(11).font('Helvetica')
              .text(`Nama Anak: ${participantInfo.childName || '-'}`)
              .text(`Tanggal Lahir: ${participantInfo.childBirthDate || '-'}`)
-             .text(`Jenis Kelamin: ${participantInfo.childGender || '-'}`)
              .text(`Nama Orang Tua: ${participantInfo.parentName || '-'}`)
              .text(`Hubungan: ${participantInfo.relationship || '-'}`)
              .text(`Usia Orang Tua: ${participantInfo.parentAge || '-'}`)

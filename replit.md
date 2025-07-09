@@ -161,6 +161,7 @@ Changelog:
 - July 09, 2025. Updated Sensory Profile assessment option text from "Tidak berlaku / Belum pernah mengamati perilaku ini" to "Tidak Teramati (Belum/Tidak Diketahui)"
 - July 09, 2025. Enhanced Sensory Profile validation error handling - now shows specific question numbers that haven't been answered, displays toast notifications, and visually highlights unanswered questions with red borders and animation
 - July 09, 2025. Added WhatsApp consultation scheduling message to Sensory Profile completion - displays "Terima kasih telah menggunakan layanan ini, kami akan menghubungi Anda lewat nomor WhatsApp untuk membuatkan jadwal konsultasi online" upon assessment completion
+- July 09, 2025. Removed gender field from Sensory Profile assessment results - eliminated "Jenis Kelamin" field from both web results display and PDF generation since the data is not collected during assessment
 ```
 
 ## User Preferences

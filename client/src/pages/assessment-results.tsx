@@ -360,10 +360,6 @@ export default function AssessmentResults() {
                 <p>{participantInfo?.childName || 'Tidak tersedia'}</p>
               </div>
               <div>
-                <h4 className="font-semibold">Jenis Kelamin:</h4>
-                <p>{participantInfo?.childGender === 'L' ? 'Laki-laki' : participantInfo?.childGender === 'P' ? 'Perempuan' : 'Tidak tersedia'}</p>
-              </div>
-              <div>
                 <h4 className="font-semibold">Tanggal Lahir:</h4>
                 <p>{participantInfo?.childBirthDate || 'Tidak tersedia'}</p>
               </div>
