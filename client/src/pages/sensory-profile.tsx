@@ -359,7 +359,8 @@ export default function SensoryProfile() {
     onSuccess: () => {
       toast({
         title: "Asesmen Selesai!",
-        description: "Terima kasih telah menyelesaikan asesmen profil sensoris."
+        description: "Terima kasih telah menggunakan layanan ini, kami akan menghubungi Anda lewat nomor WhatsApp untuk membuatkan jadwal konsultasi online.",
+        duration: 8000,
       });
       navigate(`/results/${userAssessment?.id}`);
     }

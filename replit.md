@@ -160,6 +160,7 @@ Changelog:
 - July 09, 2025. Added "Gratis Konsultasi Online 1 Kali" benefit label to Sensory Profile assessment across all components (assessment cards, cart page, and shopping cart sidebar)
 - July 09, 2025. Updated Sensory Profile assessment option text from "Tidak berlaku / Belum pernah mengamati perilaku ini" to "Tidak Teramati (Belum/Tidak Diketahui)"
 - July 09, 2025. Enhanced Sensory Profile validation error handling - now shows specific question numbers that haven't been answered, displays toast notifications, and visually highlights unanswered questions with red borders and animation
+- July 09, 2025. Added WhatsApp consultation scheduling message to Sensory Profile completion - displays "Terima kasih telah menggunakan layanan ini, kami akan menghubungi Anda lewat nomor WhatsApp untuk membuatkan jadwal konsultasi online" upon assessment completion
 ```
 
 ## User Preferences
