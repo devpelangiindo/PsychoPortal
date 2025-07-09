@@ -159,6 +159,7 @@ Changelog:
 - July 09, 2025. Made Learning Style Inventory assessment free with "Free Access" label - updated database price to 0.00 and UI components to show free access instead of pricing
 - July 09, 2025. Added "Gratis Konsultasi Online 1 Kali" benefit label to Sensory Profile assessment across all components (assessment cards, cart page, and shopping cart sidebar)
 - July 09, 2025. Updated Sensory Profile assessment option text from "Tidak berlaku / Belum pernah mengamati perilaku ini" to "Tidak Teramati (Belum/Tidak Diketahui)"
+- July 09, 2025. Enhanced Sensory Profile validation error handling - now shows specific question numbers that haven't been answered, displays toast notifications, and visually highlights unanswered questions with red borders and animation
 ```
 
 ## User Preferences

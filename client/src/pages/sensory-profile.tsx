@@ -463,7 +463,12 @@ export default function SensoryProfile() {
     
     if (unansweredQuestions.length > 0) {
       setShowValidationAlert(true);
-      setTimeout(() => setShowValidationAlert(false), 5000);
+      toast({
+        title: "Pertanyaan Belum Dijawab",
+        description: `Mohon jawab pertanyaan nomor: ${unansweredQuestions.join(', ')}`,
+        variant: "destructive",
+      });
+      setTimeout(() => setShowValidationAlert(false), 8000);
       return false;
     }
     
@@ -827,7 +832,25 @@ export default function SensoryProfile() {
                   <Alert className="border-red-500 bg-red-50 dark:bg-red-900/20">
                     <AlertCircle className="h-4 w-4 text-red-500" />
                     <AlertDescription className="text-red-700 dark:text-red-300">
-                      Mohon jawab semua pertanyaan di halaman ini sebelum melanjutkan ke halaman berikutnya.
+                      <div className="space-y-2">
+                        <p className="font-semibold">Mohon jawab semua pertanyaan di halaman ini sebelum melanjutkan ke halaman berikutnya.</p>
+                        <div>
+                          <p className="text-sm">Pertanyaan yang belum dijawab:</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {currentPageQuestions.map((question, index) => {
+                              const hasAnswer = responses[question.id] || notApplicable[question.id];
+                              if (!hasAnswer) {
+                                return (
+                                  <span key={question.id} className="px-2 py-1 bg-red-100 dark:bg-red-800 rounded text-xs font-medium">
+                                    Item {question.id}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        </div>
+                      </div>
                     </AlertDescription>
                   </Alert>
                 )}
@@ -839,7 +862,9 @@ export default function SensoryProfile() {
                     <div key={question.id} className={`border-2 rounded-lg p-6 transition-all duration-200 ${
                       isAnswered 
                         ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' 
-                        : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 hover:border-green-300 dark:hover:border-green-700'
+                        : showValidationAlert 
+                          ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20 animate-pulse' 
+                          : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 hover:border-green-300 dark:hover:border-green-700'
                     }`}>
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
