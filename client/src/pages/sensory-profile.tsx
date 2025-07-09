@@ -913,7 +913,7 @@ export default function SensoryProfile() {
                               className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                             />
                             <Label htmlFor={`q${question.id}_notApplicable`} className="text-gray-700 dark:text-gray-300 cursor-pointer font-medium">
-                              ❌ Tidak berlaku / Belum pernah mengamati perilaku ini
+                              ❌ Tidak Teramati (Belum/Tidak Diketahui)
                             </Label>
                           </div>
                         </div>
