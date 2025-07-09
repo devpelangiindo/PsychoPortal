@@ -153,6 +153,7 @@ Changelog:
 - July 09, 2025. Integrated company logo throughout entire platform (website header, footer, landing page, admin pages, and PDF reports)
 - July 09, 2025. Fixed critical PDF generation bug - resolved __dirname issue by using process.cwd() for ES modules compatibility
 - July 09, 2025. PDF downloads now working correctly for both Sensory Profile and Learning Style assessments with logo integration
+- July 09, 2025. Fixed logo positioning in PDF reports - adjusted Y coordinates to prevent text overlap and ensure proper spacing
 ```
 
 ## User Preferences

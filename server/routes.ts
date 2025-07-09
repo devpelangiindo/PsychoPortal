@@ -183,13 +183,15 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       const results = userAssessment.results as any;
       const assessmentType = userAssessment.assessment.type;
 
-      // Header with Logo
+      // Header with Logo - Positioned at top center
       const logoPath = path.join(process.cwd(), 'server', 'assets', 'logo.png');
       
       try {
         if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, doc.page.width / 2 - 30, 60, { width: 60 });
-          doc.moveDown(4);
+          // Position logo at top center with proper spacing
+          doc.image(logoPath, doc.page.width / 2 - 30, 50, { width: 60 });
+          // Move cursor down to avoid text overlap
+          doc.y = 130; // Set absolute Y position for title
         }
       } catch (logoError) {
         console.error('Logo error:', logoError);
