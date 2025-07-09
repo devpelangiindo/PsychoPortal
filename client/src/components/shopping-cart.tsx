@@ -70,7 +70,13 @@ export default function ShoppingCartSidebar({ isOpen, onClose }: ShoppingCartSid
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-neutral-900 dark:text-foreground text-sm">
-                        Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
+                        {parseFloat(item.price) === 0 ? (
+                          <span className="text-green-600 bg-green-100 px-2 py-1 rounded text-xs">
+                            Free Access
+                          </span>
+                        ) : (
+                          `Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}`
+                        )}
                       </div>
                       <button 
                         onClick={() => removeItem(item.id)}
@@ -94,8 +100,16 @@ export default function ShoppingCartSidebar({ isOpen, onClose }: ShoppingCartSid
                   Total
                 </span>
                 <span className="flex items-baseline text-primary">
-                  <span className="text-lg font-semibold mr-1">Rp</span>
-                  <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
+                  {getTotalAmount() === 0 ? (
+                    <span className="text-xl font-bold text-green-600">
+                      Free Access
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-lg font-semibold mr-1">Rp</span>
+                      <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
+                    </>
+                  )}
                 </span>
               </div>
               

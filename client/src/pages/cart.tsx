@@ -157,8 +157,16 @@ export default function Cart() {
                       </div>
                       <div className="text-right ml-6">
                         <div className="flex items-baseline text-primary mb-2">
-                          <span className="text-lg font-semibold mr-1">Rp</span>
-                          <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}</span>
+                          {parseFloat(item.price) === 0 ? (
+                            <span className="text-lg font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                              Free Access
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-lg font-semibold mr-1">Rp</span>
+                              <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}</span>
+                            </>
+                          )}
                         </div>
                         <Button
                           variant="ghost"
@@ -190,7 +198,13 @@ export default function Cart() {
                           {item.name}
                         </span>
                         <span className="font-medium">
-                          Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
+                          {parseFloat(item.price) === 0 ? (
+                            <span className="text-green-600 bg-green-100 px-2 py-1 rounded text-xs">
+                              Free
+                            </span>
+                          ) : (
+                            `Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}`
+                          )}
                         </span>
                       </div>
                     ))}
@@ -200,8 +214,16 @@ export default function Cart() {
                     <div className="flex justify-between text-lg font-semibold">
                       <span>Total</span>
                       <span className="flex items-baseline text-primary">
-                        <span className="text-base font-semibold mr-1">Rp</span>
-                        <span className="text-lg font-semibold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
+                        {getTotalAmount() === 0 ? (
+                          <span className="text-lg font-bold text-green-600">
+                            Free Access
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-base font-semibold mr-1">Rp</span>
+                            <span className="text-lg font-semibold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
+                          </>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -212,7 +234,10 @@ export default function Cart() {
                     onClick={handleCheckout}
                     disabled={createOrderMutation.isPending}
                   >
-                    {createOrderMutation.isPending ? "Memproses Pembayaran Demo..." : "Bayar Sekarang (Demo)"}
+                    {createOrderMutation.isPending ? 
+                      (getTotalAmount() === 0 ? "Memproses Akses..." : "Memproses Pembayaran Demo...") : 
+                      (getTotalAmount() === 0 ? "Dapatkan Akses Gratis" : "Bayar Sekarang (Demo)")
+                    }
                   </Button>
 
                   {!isAuthenticated && (

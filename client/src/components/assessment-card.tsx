@@ -97,8 +97,16 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
         
         <div className="flex items-center justify-between">
           <div className="flex items-baseline text-primary">
-            <span className="text-lg font-semibold mr-1">Rp</span>
-            <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(parseFloat(assessment.price))}</span>
+            {parseFloat(assessment.price) === 0 ? (
+              <span className="text-xl font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                Free Access
+              </span>
+            ) : (
+              <>
+                <span className="text-lg font-semibold mr-1">Rp</span>
+                <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(parseFloat(assessment.price))}</span>
+              </>
+            )}
           </div>
           {showAddToCart && (
             <Button
