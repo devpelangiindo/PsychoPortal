@@ -183,23 +183,29 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       const results = userAssessment.results as any;
       const assessmentType = userAssessment.assessment.type;
 
-      // Header with Logo - Positioned at top center
+      // Header with Logo - Positioned at top center with proper spacing
       const logoPath = path.join(process.cwd(), 'server', 'assets', 'logo.png');
       
       try {
         if (fs.existsSync(logoPath)) {
-          // Position logo at top center with proper spacing
-          doc.image(logoPath, doc.page.width / 2 - 30, 50, { width: 60 });
-          // Move cursor down to avoid text overlap
-          doc.y = 130; // Set absolute Y position for title
+          // Position logo at top center
+          doc.image(logoPath, doc.page.width / 2 - 30, 60, { width: 60 });
+          // Set Y position well below logo (logo height + padding)
+          doc.y = 150; // Ensure adequate space below logo
+        } else {
+          // If no logo, start from normal position
+          doc.y = 80;
         }
       } catch (logoError) {
         console.error('Logo error:', logoError);
-        // Continue without logo
+        // Continue without logo at normal position
+        doc.y = 80;
       }
 
       doc.fontSize(20).font('Helvetica-Bold')
          .text('LAPORAN HASIL ASESMEN', { align: 'center' });
+      
+      doc.moveDown(1);
       
       doc.fontSize(16).font('Helvetica-Bold')
          .text('Rumah Psikologi Pelangi Indonesia', { align: 'center' });

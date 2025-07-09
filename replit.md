@@ -154,6 +154,7 @@ Changelog:
 - July 09, 2025. Fixed critical PDF generation bug - resolved __dirname issue by using process.cwd() for ES modules compatibility
 - July 09, 2025. PDF downloads now working correctly for both Sensory Profile and Learning Style assessments with logo integration
 - July 09, 2025. Fixed logo positioning in PDF reports - adjusted Y coordinates to prevent text overlap and ensure proper spacing
+- July 09, 2025. Improved PDF layout spacing - set logo at Y=60 and title text at Y=150 for proper visual separation
 ```
 
 ## User Preferences
