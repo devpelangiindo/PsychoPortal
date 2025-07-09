@@ -51,8 +51,8 @@ class EmailService {
 
   async sendOtpEmail({ to, otp, purpose, firstName }: SendOtpEmailParams): Promise<boolean> {
     const subject = purpose === 'email_verification' 
-      ? 'Verifikasi Email - Rumah Psikologi Indonesia'
-      : 'Reset Password - Rumah Psikologi Indonesia';
+      ? 'Verifikasi Email - Rumah Psikologi Pelangi Indonesia'
+      : 'Reset Password - Rumah Psikologi Pelangi Indonesia';
 
     const htmlContent = this.generateOtpEmailTemplate(otp, purpose, firstName);
 
@@ -86,11 +86,11 @@ class EmailService {
     
     const content = purpose === 'email_verification' 
       ? `
-        <p>Terima kasih telah mendaftar di Rumah Psikologi Indonesia.</p>
+        <p>Terima kasih telah mendaftar di Rumah Psikologi Pelangi Indonesia.</p>
         <p>Untuk melengkapi verifikasi email Anda, silakan masukkan kode OTP berikut:</p>
       `
       : `
-        <p>Anda telah meminta untuk mereset password akun Anda di Rumah Psikologi Indonesia.</p>
+        <p>Anda telah meminta untuk mereset password akun Anda di Rumah Psikologi Pelangi Indonesia.</p>
         <p>Silakan masukkan kode OTP berikut untuk melanjutkan proses reset password:</p>
       `;
 
@@ -114,7 +114,7 @@ class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🧠 Rumah Psikologi Indonesia</h1>
+            <h1>🧠 Rumah Psikologi Pelangi Indonesia</h1>
             <p>Platform Asesmen Psikologi Terpercaya</p>
           </div>
           <div class="content">
@@ -139,11 +139,11 @@ class EmailService {
             <p>Jika Anda mengalami kesulitan, silakan hubungi tim support kami.</p>
             
             <p>Salam hangat,<br>
-            <strong>Tim Rumah Psikologi Indonesia</strong></p>
+            <strong>Tim Rumah Psikologi Pelangi Indonesia</strong></p>
             
             <div class="footer">
               <p>Email ini dikirim secara otomatis. Mohon tidak membalas email ini.</p>
-              <p>&copy; ${new Date().getFullYear()} Rumah Psikologi Indonesia. All rights reserved.</p>
+              <p>&copy; ${new Date().getFullYear()} Rumah Psikologi Pelangi Indonesia. All rights reserved.</p>
             </div>
           </div>
         </div>

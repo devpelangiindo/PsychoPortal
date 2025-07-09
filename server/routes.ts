@@ -185,7 +185,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
          .text('LAPORAN HASIL ASESMEN', { align: 'center' });
       
       doc.fontSize(16).font('Helvetica-Bold')
-         .text('Rumah Psikologi Indonesia', { align: 'center' });
+         .text('Rumah Psikologi Pelangi Indonesia', { align: 'center' });
 
       doc.moveDown(2);
 
