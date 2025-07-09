@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 interface AdminStats {
   totalUsers: number;
@@ -75,11 +76,18 @@ export default function AdminDashboard() {
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Admin Dashboard
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Panel Administrasi Rumah Psikologi Pelangi Indonesia</p>
+            <div className="flex items-center space-x-4">
+              <img 
+                src={logoPath} 
+                alt="Rumah Psikologi Pelangi Indonesia" 
+                className="h-10 w-10 object-contain"
+              />
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Admin Dashboard
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Panel Administrasi Rumah Psikologi Pelangi Indonesia</p>
+              </div>
             </div>
             <Button 
               variant="outline" 

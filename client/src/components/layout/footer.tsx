@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { Facebook, Twitter, Linkedin } from "lucide-react";
+import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function Footer() {
   return (
@@ -7,7 +8,17 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-4 gap-8">
           <div>
-            <h3 className="font-bold mb-4 text-[22px]">Rumah Psikologi Pelangi Indonesia</h3>
+            <div className="flex items-center space-x-3 mb-4">
+              <img 
+                src={logoPath} 
+                alt="Rumah Psikologi Pelangi Indonesia" 
+                className="h-12 w-12 object-contain"
+              />
+              <h3 className="font-bold text-[20px] leading-tight">
+                Rumah Psikologi<br />
+                Pelangi Indonesia
+              </h3>
+            </div>
             <p className="text-green-50 mb-4">
               Platform asesmen psikologi profesional untuk praktisi dan peneliti modern.
             </p>

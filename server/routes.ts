@@ -9,6 +9,8 @@ import PDFDocument from "pdfkit";
 import { randomBytes } from "crypto";
 import { AuthUtils } from "./authUtils";
 import { emailService } from "./emailService";
+import path from "path";
+import fs from "fs";
 
 // Custom authentication middleware for JWT tokens
 function isAuthenticated(req: any, res: any, next: any) {
@@ -180,7 +182,13 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       const results = userAssessment.results as any;
       const assessmentType = userAssessment.assessment.type;
 
-      // Header
+      // Header with Logo
+      const logoPath = path.join(__dirname, 'assets', 'logo.png');
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, doc.page.width / 2 - 30, 60, { width: 60 });
+        doc.moveDown(4);
+      }
+
       doc.fontSize(20).font('Helvetica-Bold')
          .text('LAPORAN HASIL ASESMEN', { align: 'center' });
       

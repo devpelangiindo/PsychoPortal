@@ -6,6 +6,7 @@ import { ShoppingCart, Menu, X, User, LogIn, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/lib/cart";
 import ShoppingCartSidebar from "@/components/shopping-cart";
+import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function Header() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -39,8 +40,18 @@ export default function Header() {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <Link href="/">
-                <h1 className="font-bold text-primary cursor-pointer text-[22px]">Rumah Psikologi Pelangi Indonesia</h1>
+              <Link href="/" className="flex items-center space-x-3">
+                <img 
+                  src={logoPath} 
+                  alt="Rumah Psikologi Pelangi Indonesia" 
+                  className="h-10 w-10 object-contain"
+                />
+                <div className="hidden sm:block">
+                  <h1 className="font-bold text-primary cursor-pointer text-lg leading-tight">
+                    Rumah Psikologi<br />
+                    <span className="text-base">Pelangi Indonesia</span>
+                  </h1>
+                </div>
               </Link>
               
               {/* Desktop Navigation */}

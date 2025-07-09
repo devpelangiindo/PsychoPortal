@@ -10,6 +10,7 @@ import { Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { adminLoginSchema, type AdminLoginRequest } from "@shared/schema";
+import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
@@ -69,9 +70,11 @@ export default function AdminLogin() {
         <Card className="border-green-200 dark:border-green-800">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="p-3 bg-green-100 dark:bg-green-800 rounded-full">
-                <Shield className="w-8 h-8 text-green-600 dark:text-green-400" />
-              </div>
+              <img 
+                src={logoPath} 
+                alt="Rumah Psikologi Pelangi Indonesia" 
+                className="h-16 w-16 object-contain"
+              />
             </div>
             <CardTitle className="text-2xl font-bold text-green-800 dark:text-green-200">
               Admin Login

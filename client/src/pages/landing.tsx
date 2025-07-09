@@ -8,6 +8,7 @@ import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
 import type { Assessment } from "@shared/schema";
+import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function Landing() {
   const { data: assessments, isLoading } = useQuery<Assessment[]>({
@@ -48,6 +49,13 @@ export default function Landing() {
       <section className="gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
+            <div className="flex justify-center mb-8">
+              <img 
+                src={logoPath} 
+                alt="Rumah Psikologi Pelangi Indonesia" 
+                className="h-24 w-24 object-contain"
+              />
+            </div>
             <h1 className="text-4xl md:text-6xl font-bold dark:text-foreground mb-6 text-[#248f59]">
               Platform <span className="text-primary">Asesmen</span> Psikologi Profesional
             </h1>
