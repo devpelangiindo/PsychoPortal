@@ -149,6 +149,7 @@ Changelog:
 - July 06, 2025. Updated backend getAssessmentStats to provide real assessment type statistics instead of hardcoded percentages
 - July 06, 2025. Admin reports Analytics now shows accurate revenue data per assessment type based on actual completed assessments
 - July 09, 2025. Completed comprehensive branding update to "Rumah Psikologi Pelangi Indonesia" across all components (PDF reports, email templates, and system references)
+- July 09, 2025. Fixed PDF footer to use correct company name "Rumah Psikologi Pelangi Indonesia" instead of "Rumah Psikologi Indonesia"
 ```
 
 ## User Preferences
