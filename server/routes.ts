@@ -178,15 +178,22 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       const chunks: Buffer[] = [];
       doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', (err) => reject(err));
 
       const results = userAssessment.results as any;
       const assessmentType = userAssessment.assessment.type;
 
       // Header with Logo
-      const logoPath = path.join(__dirname, 'assets', 'logo.png');
-      if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, doc.page.width / 2 - 30, 60, { width: 60 });
-        doc.moveDown(4);
+      const logoPath = path.join(process.cwd(), 'server', 'assets', 'logo.png');
+      
+      try {
+        if (fs.existsSync(logoPath)) {
+          doc.image(logoPath, doc.page.width / 2 - 30, 60, { width: 60 });
+          doc.moveDown(4);
+        }
+      } catch (logoError) {
+        console.error('Logo error:', logoError);
+        // Continue without logo
       }
 
       doc.fontSize(20).font('Helvetica-Bold')

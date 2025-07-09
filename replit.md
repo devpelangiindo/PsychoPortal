@@ -150,6 +150,9 @@ Changelog:
 - July 06, 2025. Admin reports Analytics now shows accurate revenue data per assessment type based on actual completed assessments
 - July 09, 2025. Completed comprehensive branding update to "Rumah Psikologi Pelangi Indonesia" across all components (PDF reports, email templates, and system references)
 - July 09, 2025. Fixed PDF footer to use correct company name "Rumah Psikologi Pelangi Indonesia" instead of "Rumah Psikologi Indonesia"
+- July 09, 2025. Integrated company logo throughout entire platform (website header, footer, landing page, admin pages, and PDF reports)
+- July 09, 2025. Fixed critical PDF generation bug - resolved __dirname issue by using process.cwd() for ES modules compatibility
+- July 09, 2025. PDF downloads now working correctly for both Sensory Profile and Learning Style assessments with logo integration
 ```
 
 ## User Preferences
