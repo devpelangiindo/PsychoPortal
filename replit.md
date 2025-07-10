@@ -165,6 +165,8 @@ Changelog:
 - July 09, 2025. Fixed critical admin dashboard authentication issue - corrected all admin pages to use adminToken instead of accessToken for authentication
 - July 09, 2025. Updated admin authentication system - all admin pages now properly use custom queryFn with adminToken instead of default query client
 - July 09, 2025. Fixed admin assessment result viewing - admins can now successfully view assessment results and download PDFs with proper token authentication
+- July 10, 2025. Removed "Bagikan Hasil" (Share Results) button from both Sensory Profile and Learning Style assessment results pages - now only shows "Unduh Laporan PDF" button
+- July 10, 2025. Fixed admin dashboard revenue calculation - assessment type statistics now include both completed and in-progress assessments instead of only completed ones for accurate revenue tracking
 ```
 
 ## User Preferences
