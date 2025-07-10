@@ -397,21 +397,21 @@ export class DatabaseStorage implements IStorage {
     const inProgressAssessmentsResult = await db.select().from(userAssessments).where(eq(userAssessments.status, 'in_progress'));
     const totalRevenueResults = await db.select().from(orders);
 
-    // Get assessment type statistics (including both completed and in-progress assessments)
-    const allPurchasedAssessmentsWithDetails = await db
+    // Get assessment type statistics based on order items (actual purchases)
+    const orderItemsWithDetails = await db
       .select({
-        userAssessment: userAssessments,
+        orderItem: orderItems,
         assessment: assessments,
         order: orders
       })
-      .from(userAssessments)
-      .innerJoin(assessments, eq(userAssessments.assessmentId, assessments.id))
-      .innerJoin(orders, eq(userAssessments.orderId, orders.id));
+      .from(orderItems)
+      .innerJoin(assessments, eq(orderItems.assessmentId, assessments.id))
+      .innerJoin(orders, eq(orderItems.orderId, orders.id));
 
-    // Calculate stats by assessment type (all purchased assessments)
+    // Calculate stats by assessment type (based on actual purchases/order items)
     const typeStats = new Map<string, { type: string; name: string; count: number; revenue: number }>();
     
-    allPurchasedAssessmentsWithDetails.forEach(item => {
+    orderItemsWithDetails.forEach(item => {
       const type = item.assessment.type;
       const name = item.assessment.name;
       const price = parseFloat(item.assessment.price);
