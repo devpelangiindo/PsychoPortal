@@ -27,6 +27,7 @@ interface UserAssessment {
     email: string;
     firstName: string | null;
     lastName: string | null;
+    whatsappNumber: string | null;
   };
 }
 
@@ -319,8 +320,7 @@ export default function AdminAssessments() {
             <CardContent>
               <div className="text-xl font-bold text-blue-600">
                 {formatPrice(
-                  assessments?.filter(a => a.status === 'completed')
-                    .reduce((sum, a) => sum + parseFloat(a.assessment.price), 0).toString() || '0'
+                  assessments?.reduce((sum, a) => sum + parseFloat(a.assessment.price), 0).toString() || '0'
                 )}
               </div>
             </CardContent>
