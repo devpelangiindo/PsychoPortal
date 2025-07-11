@@ -270,10 +270,11 @@ export default function AdminReports() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats?.totalUsers ? Math.round((stats.completedAssessments / stats.totalUsers) * 100) : 0}%
+                {stats?.completedAssessments && stats?.inProgressAssessments !== undefined ? 
+                  Math.round((stats.completedAssessments / (stats.completedAssessments + stats.inProgressAssessments)) * 100) : 0}%
               </div>
               <p className="text-xs text-muted-foreground">
-                Pengguna yang menyelesaikan
+                Asesmen yang diselesaikan
               </p>
             </CardContent>
           </Card>

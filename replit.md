@@ -167,6 +167,8 @@ Changelog:
 - July 09, 2025. Fixed admin assessment result viewing - admins can now successfully view assessment results and download PDFs with proper token authentication
 - July 10, 2025. Removed "Bagikan Hasil" (Share Results) button from both Sensory Profile and Learning Style assessment results pages - now only shows "Unduh Laporan PDF" button
 - July 10, 2025. Fixed admin dashboard revenue calculation - changed assessment type statistics to use order_items instead of user_assessments for accurate revenue tracking that includes all purchased assessments regardless of completion status
+- July 11, 2025. Fixed "Tes Berlangsung" calculation across all admin pages - backend now counts both 'available' and 'in_progress' status assessments instead of only 'in_progress'
+- July 11, 2025. Fixed conversion rate calculation in admin reports - changed from completed assessments / total users to completed assessments / total assessments for accurate percentage
 ```
 
 ## User Preferences
