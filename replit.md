@@ -169,7 +169,7 @@ Changelog:
 - July 10, 2025. Fixed admin dashboard revenue calculation - changed assessment type statistics to use order_items instead of user_assessments for accurate revenue tracking that includes all purchased assessments regardless of completion status
 - July 11, 2025. Fixed "Tes Berlangsung" calculation across all admin pages - backend now counts both 'available' and 'in_progress' status assessments instead of only 'in_progress'
 - July 11, 2025. Fixed conversion rate calculation in admin reports - changed from completed assessments / total users to completed assessments / total assessments for accurate percentage
-- July 11, 2025. Added auto refresh functionality to user dashboard - data refreshes every 30 seconds automatically with visual indicators
+- July 11, 2025. Added auto refresh functionality to user dashboard - data refreshes every 5 seconds automatically with visual indicators
 - July 11, 2025. Added manual refresh button and countdown timer to dashboard for better user experience
 - July 11, 2025. Enhanced admin reports with detailed assessment completion statistics showing both completed and in-progress counts per assessment type
 ```
