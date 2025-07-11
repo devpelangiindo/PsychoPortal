@@ -77,13 +77,23 @@ export default function AdminAssessments() {
     return searchMatch && statusMatch && typeMatch;
   }) || [];
 
-  const handleViewResult = async (assessmentId: number) => {
+  const handleViewResult = async (assessmentId: number, status: string) => {
     try {
       const token = localStorage.getItem('adminToken');
       if (!token) {
         toast({
           title: "Error",
           description: "Token admin tidak ditemukan. Silakan login ulang.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if assessment is still in progress
+      if (status !== 'completed') {
+        toast({
+          title: "Error",
+          description: "Asesmen masih berlangsung, hasil belum bisa dilihat.",
           variant: "destructive",
         });
         return;
@@ -100,13 +110,23 @@ export default function AdminAssessments() {
     }
   };
 
-  const handleExportPDF = async (assessmentId: number) => {
+  const handleExportPDF = async (assessmentId: number, status: string) => {
     try {
       const token = localStorage.getItem('adminToken');
       if (!token) {
         toast({
           title: "Error",
           description: "Token admin tidak ditemukan. Silakan login ulang.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if assessment is still in progress
+      if (status !== 'completed') {
+        toast({
+          title: "Error",
+          description: "Asesmen masih berlangsung, hasil belum bisa dilihat.",
           variant: "destructive",
         });
         return;
@@ -426,19 +446,17 @@ export default function AdminAssessments() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleViewResult(assessment.id)}
+                            onClick={() => handleViewResult(assessment.id, assessment.status)}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          {assessment.status === 'completed' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleExportPDF(assessment.id)}
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleExportPDF(assessment.id, assessment.status)}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
