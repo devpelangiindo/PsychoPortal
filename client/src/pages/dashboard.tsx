@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,15 +13,42 @@ import type { UserAssessmentWithDetails, OrderWithItems } from "@shared/schema";
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(30);
+
+  // Countdown timer for auto refresh
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRefreshCountdown(prev => {
+        if (prev <= 1) {
+          return 30; // Reset to 30 seconds
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const { data: userAssessments, isLoading: assessmentsLoading } = useQuery<UserAssessmentWithDetails[]>({
     queryKey: ["/api/user-assessments"],
     enabled: isAuthenticated,
+    refetchInterval: 30000, // Auto refresh every 30 seconds
+    refetchIntervalInBackground: true, // Continue refreshing when tab is in background
+    onSuccess: (data) => {
+      // Only show toast on subsequent refreshes, not initial load
+      if (data && !assessmentsLoading) {
+        console.log("Assessment data refreshed automatically");
+      }
+    },
   });
 
   const { data: orders, isLoading: ordersLoading } = useQuery<OrderWithItems[]>({
     queryKey: ["/api/orders"],
     enabled: isAuthenticated,
+    refetchInterval: 30000, // Auto refresh every 30 seconds
+    refetchIntervalInBackground: true, // Continue refreshing when tab is in background
   });
 
   useEffect(() => {
@@ -36,6 +63,31 @@ export default function Dashboard() {
       }, 500);
     }
   }, [authLoading, isAuthenticated, toast]);
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/orders"] })
+      ]);
+      toast({
+        title: "Berhasil",
+        description: "Data telah diperbarui",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal memperbarui data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const availableAssessments = userAssessments?.filter(ua => ua.status === 'available') || [];
   const completedAssessments = userAssessments?.filter(ua => ua.status === 'completed') || [];
@@ -98,31 +150,62 @@ export default function Dashboard() {
         {/* User Profile Header */}
         <div className="mb-12">
           <div className="bg-gradient-to-r from-primary to-accent p-8 rounded-2xl text-white">
-            <div className="flex items-center">
-              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mr-6">
-                {user?.profileImageUrl ? (
-                  <img 
-                    src={user.profileImageUrl} 
-                    alt="Profile" 
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-3xl font-bold">
-                    {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                  </span>
-                )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mr-6">
+                  {user?.profileImageUrl ? (
+                    <img 
+                      src={user.profileImageUrl} 
+                      alt="Profile" 
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl font-bold">
+                      {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold">
+                    {user?.firstName && user?.lastName 
+                      ? `${user.firstName} ${user.lastName}`
+                      : user?.firstName || user?.email || 'User'
+                    }
+                  </h1>
+                  <p className="opacity-90 mt-1">{user?.email}</p>
+                  <p className="opacity-75 text-sm mt-2">
+                    Anggota sejak {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Baru-baru ini'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold">
-                  {user?.firstName && user?.lastName 
-                    ? `${user.firstName} ${user.lastName}`
-                    : user?.firstName || user?.email || 'User'
-                  }
-                </h1>
-                <p className="opacity-90 mt-1">{user?.email}</p>
-                <p className="opacity-75 text-sm mt-2">
-                  Anggota sejak {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Baru-baru ini'}
-                </p>
+              
+              {/* Auto Refresh Controls */}
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <div className="text-sm opacity-75">
+                    Auto refresh setiap 30 detik
+                  </div>
+                  <div className="flex items-center justify-end mt-1">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                    <span className="text-xs opacity-75">Refresh dalam {refreshCountdown}s</span>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                >
+                  {isRefreshing ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  )}
+                  <span className="ml-2">Refresh</span>
+                </Button>
               </div>
             </div>
           </div>
