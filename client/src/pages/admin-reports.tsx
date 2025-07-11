@@ -292,25 +292,56 @@ export default function AdminReports() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {stats?.assessmentTypeStats?.map((assessmentType, index) => {
                 const colors = ['bg-green-600', 'bg-blue-600', 'bg-purple-600'];
-                const widthPercent = stats.completedAssessments > 0 ? (assessmentType.count / stats.completedAssessments) * 100 : 0;
+                const completedColor = ['bg-green-500', 'bg-blue-500', 'bg-purple-500'];
+                const inProgressColor = ['bg-green-300', 'bg-blue-300', 'bg-purple-300'];
+                
+                const totalAssessments = (assessmentType.completedCount || 0) + (assessmentType.inProgressCount || 0);
+                const completedPercent = totalAssessments > 0 ? (assessmentType.completedCount / totalAssessments) * 100 : 0;
+                const inProgressPercent = totalAssessments > 0 ? (assessmentType.inProgressCount / totalAssessments) * 100 : 0;
                 
                 return (
                   <div key={assessmentType.type}>
                     <h4 className="font-semibold mb-3">{assessmentType.name}</h4>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Jumlah Selesai:</span>
+                        <span className="text-sm text-gray-600">Total Dibeli:</span>
                         <span className="font-medium">{assessmentType.count}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Selesai:</span>
+                        <span className="font-medium text-green-600">{assessmentType.completedCount || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Belum Selesai:</span>
+                        <span className="font-medium text-orange-600">{assessmentType.inProgressCount || 0}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">Pendapatan:</span>
                         <span className="font-medium">{formatCurrency(assessmentType.revenue)}</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full ${colors[index % colors.length]}`} 
-                          style={{ width: `${widthPercent}%` }}
-                        ></div>
+                      
+                      {/* Progress bar showing completion status */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Status Penyelesaian</span>
+                          <span>{totalAssessments} total</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div className="flex h-full">
+                            <div 
+                              className={`${completedColor[index % completedColor.length]} h-full`}
+                              style={{ width: `${completedPercent}%` }}
+                            ></div>
+                            <div 
+                              className={`${inProgressColor[index % inProgressColor.length]} h-full`}
+                              style={{ width: `${inProgressPercent}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-green-600">Selesai: {Math.round(completedPercent)}%</span>
+                          <span className="text-orange-600">Berlangsung: {Math.round(inProgressPercent)}%</span>
+                        </div>
                       </div>
                     </div>
                   </div>

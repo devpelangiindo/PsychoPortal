@@ -389,6 +389,8 @@ export class DatabaseStorage implements IStorage {
       name: string;
       count: number;
       revenue: number;
+      completedCount: number;
+      inProgressCount: number;
     }[];
   }> {
     const totalUsersResult = await db.select().from(users);
@@ -413,8 +415,17 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(assessments, eq(orderItems.assessmentId, assessments.id))
       .innerJoin(orders, eq(orderItems.orderId, orders.id));
 
+    // Get user assessments with assessment details to calculate completion stats
+    const userAssessmentsWithDetails = await db
+      .select({
+        userAssessment: userAssessments,
+        assessment: assessments
+      })
+      .from(userAssessments)
+      .innerJoin(assessments, eq(userAssessments.assessmentId, assessments.id));
+
     // Calculate stats by assessment type (based on actual purchases/order items)
-    const typeStats = new Map<string, { type: string; name: string; count: number; revenue: number }>();
+    const typeStats = new Map<string, { type: string; name: string; count: number; revenue: number; completedCount: number; inProgressCount: number }>();
     
     orderItemsWithDetails.forEach(item => {
       const type = item.assessment.type;
@@ -422,12 +433,26 @@ export class DatabaseStorage implements IStorage {
       const price = parseFloat(item.assessment.price);
       
       if (!typeStats.has(type)) {
-        typeStats.set(type, { type, name, count: 0, revenue: 0 });
+        typeStats.set(type, { type, name, count: 0, revenue: 0, completedCount: 0, inProgressCount: 0 });
       }
       
       const current = typeStats.get(type)!;
       current.count += 1;
       current.revenue += price;
+    });
+
+    // Add completion stats for each assessment type
+    userAssessmentsWithDetails.forEach(item => {
+      const type = item.assessment.type;
+      
+      if (typeStats.has(type)) {
+        const current = typeStats.get(type)!;
+        if (item.userAssessment.status === 'completed') {
+          current.completedCount += 1;
+        } else if (item.userAssessment.status === 'in_progress' || item.userAssessment.status === 'available') {
+          current.inProgressCount += 1;
+        }
+      }
     });
 
     const assessmentTypeStats = Array.from(typeStats.values());
