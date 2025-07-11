@@ -15,14 +15,14 @@ export default function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshCountdown, setRefreshCountdown] = useState(5);
+  const [refreshCountdown, setRefreshCountdown] = useState(3);
 
   // Countdown timer for auto refresh
   useEffect(() => {
     const timer = setInterval(() => {
       setRefreshCountdown(prev => {
         if (prev <= 1) {
-          return 5; // Reset to 5 seconds
+          return 3; // Reset to 3 seconds
         }
         return prev - 1;
       });
@@ -34,7 +34,7 @@ export default function Dashboard() {
   const { data: userAssessments, isLoading: assessmentsLoading } = useQuery<UserAssessmentWithDetails[]>({
     queryKey: ["/api/user-assessments"],
     enabled: isAuthenticated,
-    refetchInterval: 5000, // Auto refresh every 5 seconds
+    refetchInterval: 3000, // Auto refresh every 3 seconds
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
     onSuccess: (data) => {
       // Only show toast on subsequent refreshes, not initial load
@@ -47,7 +47,7 @@ export default function Dashboard() {
   const { data: orders, isLoading: ordersLoading } = useQuery<OrderWithItems[]>({
     queryKey: ["/api/orders"],
     enabled: isAuthenticated,
-    refetchInterval: 5000, // Auto refresh every 5 seconds
+    refetchInterval: 3000, // Auto refresh every 3 seconds
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
   });
 
@@ -183,7 +183,7 @@ export default function Dashboard() {
               <div className="flex items-center space-x-4">
                 <div className="text-right">
                   <div className="text-sm opacity-75">
-                    Auto refresh setiap 5 detik
+                    Auto refresh setiap 3 detik
                   </div>
                   <div className="flex items-center justify-end mt-1">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
