@@ -21,7 +21,7 @@ import {
   type InsertOtpVerification,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -394,7 +394,12 @@ export class DatabaseStorage implements IStorage {
     const totalUsersResult = await db.select().from(users);
     const activeUsersResult = await db.select().from(users).where(eq(users.isActive, true));
     const completedAssessmentsResult = await db.select().from(userAssessments).where(eq(userAssessments.status, 'completed'));
-    const inProgressAssessmentsResult = await db.select().from(userAssessments).where(eq(userAssessments.status, 'in_progress'));
+    const inProgressAssessmentsResult = await db.select().from(userAssessments).where(
+      or(
+        eq(userAssessments.status, 'in_progress'),
+        eq(userAssessments.status, 'available')
+      )
+    );
     const totalRevenueResults = await db.select().from(orders);
 
     // Get assessment type statistics based on order items (actual purchases)

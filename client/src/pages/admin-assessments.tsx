@@ -306,7 +306,7 @@ export default function AdminAssessments() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
-                {assessments?.filter(a => a.status === 'in_progress').length || 0}
+                {assessments?.filter(a => a.status === 'in_progress' || a.status === 'available').length || 0}
               </div>
             </CardContent>
           </Card>
