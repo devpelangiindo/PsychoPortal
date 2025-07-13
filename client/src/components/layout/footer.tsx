@@ -80,11 +80,7 @@ export default function Footer() {
           <div>
             <h4 className="text-lg font-semibold mb-4">Legal</h4>
             <ul className="space-y-2">
-              <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors">
-                  Kebijakan Privasi
-                </a>
-              </li>
+              
               
               
             </ul>
