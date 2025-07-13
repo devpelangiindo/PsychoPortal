@@ -6,7 +6,7 @@ export default function Footer() {
   return (
     <footer className="bg-gradient-to-r from-green-600 to-green-700 text-white py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-4 gap-8">
+        <div className="grid md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center space-x-3 mb-4">
               <img 
@@ -77,14 +77,7 @@ export default function Footer() {
             </ul>
           </div>
           
-          <div>
-            <h4 className="text-lg font-semibold mb-4">Legal</h4>
-            <ul className="space-y-2">
-              
-              
-              
-            </ul>
-          </div>
+          
         </div>
         
         <div className="border-t border-white/20 mt-12 pt-8 text-center">
