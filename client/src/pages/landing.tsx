@@ -59,9 +59,7 @@ export default function Landing() {
             <h1 className="text-4xl md:text-6xl font-bold dark:text-foreground mb-6 text-[#248f59]">
               Platform <span className="text-primary">Asesmen</span> Psikologi Profesional
             </h1>
-            <p className="text-xl text-neutral-500 dark:text-muted-foreground mb-8 max-w-3xl mx-auto">
-              Akses asesmen psikologi yang tervalidasi secara ilmiah termasuk Profil Sensoris dan Inventori Gaya Belajar. Model bayar per tes dengan proses pembayaran yang aman.
-            </p>
+            <p className="text-xl text-neutral-500 dark:text-muted-foreground mb-8 max-w-3xl mx-auto">Akses asesmen psikologi yang telah divalidasi, termasuk Profil Sensoris dan Inventori Gaya Belajar. Dengan model sistem pembayaran per-tes secara online yang aman.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
                 size="lg" 
