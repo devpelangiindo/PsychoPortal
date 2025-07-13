@@ -90,11 +90,7 @@ export default function Footer() {
                   Syarat Layanan
                 </a>
               </li>
-              <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors">
-                  Kepatuhan HIPAA
-                </a>
-              </li>
+              
             </ul>
           </div>
         </div>
