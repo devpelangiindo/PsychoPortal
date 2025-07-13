@@ -99,9 +99,7 @@ export default function Landing() {
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
               Asesmen yang Tersedia
             </h2>
-            <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-2xl mx-auto">
-              Pilih dari alat asesmen psikologi yang telah divalidasi secara profesional
-            </p>
+            <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-2xl mx-auto">Pilih dari alat asesmen psikologi yang telah divalidasi berikut ini</p>
           </div>
           
           {isLoading ? (
