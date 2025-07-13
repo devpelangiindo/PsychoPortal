@@ -13,16 +13,12 @@ export default function Assessments() {
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
       <Header />
-      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
             Asesmen Psikologi
           </h1>
-          <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-3xl mx-auto">
-            Pilih dari alat asesmen psikologi yang telah divalidasi secara profesional. 
-            Setiap asesmen didukung secara ilmiah dan dirancang untuk memberikan wawasan yang akurat.
-          </p>
+          <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-3xl mx-auto">Pilih dari alat asesmen psikologi yang telah divalidasi berikut ini. Setiap asesmen dirancang untuk memberikan wawasan yang akurat.</p>
         </div>
 
         {error && (
@@ -75,7 +71,6 @@ export default function Assessments() {
           </div>
         )}
       </main>
-
       <Footer />
     </div>
   );
