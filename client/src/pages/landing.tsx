@@ -219,10 +219,7 @@ export default function Landing() {
           </div>
           
           <div className="flex flex-wrap items-center justify-center gap-8">
-            <div className="trust-indicator">
-              <Shield className="w-5 h-5" />
-              <span>Sesuai HIPAA</span>
-            </div>
+            
             <div className="trust-indicator">
               <Lock className="w-5 h-5" />
               <span>Terenkripsi SSL</span>
