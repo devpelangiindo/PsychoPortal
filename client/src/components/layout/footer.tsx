@@ -85,11 +85,7 @@ export default function Footer() {
                   Kebijakan Privasi
                 </a>
               </li>
-              <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors">
-                  Syarat Layanan
-                </a>
-              </li>
+              
               
             </ul>
           </div>
