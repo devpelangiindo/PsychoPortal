@@ -450,10 +450,10 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
               let category = 'Normal';
               let categoryColor = 'black';
               if (score <= detail.normal[0] - 1) {
-                category = 'Hipersensitif (Ambang Rendah)';
+                category = 'Hipersensitif';
                 categoryColor = 'red';
               } else if (score >= detail.normal[1] + 1) {
-                category = 'Hiposensitif (Ambang Tinggi)';
+                category = 'Hiposensitif';
                 categoryColor = 'blue';
               }
               
@@ -463,7 +463,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
                  .text(`  Rentang Normal: ${detail.normal[0]}-${detail.normal[1]}`);
               
               if (category !== 'Normal') {
-                doc.text(`  ${category === 'Hipersensitif (Ambang Rendah)' ? detail.lowThreshold : detail.highThreshold}`);
+                doc.text(`  ${category === 'Hipersensitif' ? detail.lowThreshold : detail.highThreshold}`);
               }
               
               doc.moveDown(0.3);
