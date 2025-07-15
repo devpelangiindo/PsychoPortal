@@ -177,6 +177,7 @@ Changelog:
 - July 15, 2025. Updated terminology: "Ambang Tinggi" → "Hipersensitif", "Ambang Rendah" → "Hiposensitif"
 - July 15, 2025. Added comprehensive recommendations for all 12 sections with specific interventions for hypersensitive and hyposensitive conditions
 - July 15, 2025. Aligned threshold ranges and interpretations with official Sensory Profile standards
+- July 15, 2025. Updated terminology across all pages and PDF reports: "Profil Sensoris" → "Profil Sensori"
 ```
 
 ## User Preferences

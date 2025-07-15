@@ -40,7 +40,7 @@ export default function Footer() {
             <ul className="space-y-2">
               <li>
                 <Link href="/assessments" className="text-green-50 hover:text-white transition-colors">
-                  Profil Sensoris
+                  Profil Sensori
                 </Link>
               </li>
               <li>

@@ -263,7 +263,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
         const { totalScore, interpretation, sectionScores, participantInfo, responses } = results;
         
         doc.fontSize(14).font('Helvetica-Bold')
-           .text('HASIL ASESMEN PROFIL SENSORIS', { underline: true });
+           .text('HASIL ASESMEN PROFIL SENSORI', { underline: true });
         
         doc.moveDown(0.5);
 
@@ -1630,7 +1630,7 @@ async function initializeAssessments() {
       console.log("Creating default assessments...");
       // Create default assessments
       await storage.createAssessment({
-        name: "Asesmen Profil Sensoris",
+        name: "Asesmen Profil Sensori",
         description: "Evaluasi komprehensif pola dan preferensi pemrosesan sensoris. Mengidentifikasi ambang batas sensoris individu dan respons perilaku di berbagai sistem sensoris.",
         price: "400000",
         duration: "30-45 menit",

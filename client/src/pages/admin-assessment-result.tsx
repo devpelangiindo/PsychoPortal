@@ -166,7 +166,7 @@ export default function AdminAssessmentResult() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
-              Profil Sensoris - Skor per Bagian
+              Profil Sensori - Skor per Bagian
             </CardTitle>
           </CardHeader>
           <CardContent>

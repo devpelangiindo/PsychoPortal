@@ -613,7 +613,7 @@ export default function SensoryProfile() {
           <Card>
             <CardHeader>
               <CardTitle className="text-center text-xl font-bold">
-                Asesmen Profil Sensoris
+                Asesmen Profil Sensori
               </CardTitle>
               <p className="text-center text-lg font-semibold mt-4">Kuesioner bagi Orangtua/Pengasuh</p>
             </CardHeader>

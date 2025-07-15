@@ -254,12 +254,12 @@ export default function AssessmentResults() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="w-5 h-5" />
-              Hasil Asesmen Profil Sensoris
+              Hasil Asesmen Profil Sensori
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-neutral-600 dark:text-muted-foreground mb-4">
-              Hasil asesmen profil sensoris Anda telah disimpan dan sedang diproses.
+              Hasil asesmen profil sensori Anda telah disimpan dan sedang diproses.
             </p>
             <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">

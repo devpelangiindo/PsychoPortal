@@ -423,7 +423,7 @@ export default function AdminAssessments() {
                         <div>
                           <div className="font-medium">{assessment.assessment.name}</div>
                           <Badge variant="outline" className="mt-1">
-                            {assessment.assessment.type === 'sensory' ? 'Profil Sensoris' : 'Gaya Belajar'}
+                            {assessment.assessment.type === 'sensory' ? 'Profil Sensori' : 'Gaya Belajar'}
                           </Badge>
                         </div>
                       </TableCell>
