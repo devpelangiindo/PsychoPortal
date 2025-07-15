@@ -743,13 +743,11 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
 
       doc.moveDown(2);
 
-      // Disclaimer
-      doc.fontSize(12).font('Helvetica-Bold')
-         .text('DISCLAIMER', { align: 'center', underline: true });
+      // Disclaimer as footer
+      doc.fontSize(9).font('Helvetica-Bold')
+         .text('DISCLAIMER: ', { continued: true });
 
-      doc.moveDown(0.5);
-
-      doc.fontSize(11).font('Helvetica')
+      doc.fontSize(9).font('Helvetica')
          .text('Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut. Laporan ini dibuat secara otomatis oleh sistem Rumah Psikologi Pelangi Indonesia.', { align: 'justify' });
 
       doc.end();
