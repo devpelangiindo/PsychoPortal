@@ -741,9 +741,14 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
            .text('Catatan: Hasil ini merupakan gambaran pola pemrosesan sensoris dan bukan diagnosis medis. Konsultasikan dengan profesional kesehatan atau terapis okupasi untuk interpretasi yang lebih komprehensif dan rencana intervensi yang sesuai.', { align: 'justify' });
       }
 
-      doc.moveDown(2);
+      // Move to bottom of page for disclaimer
+      const pageHeight = doc.page.height;
+      const bottomMargin = 50;
+      const disclaimerHeight = 60; // Estimated height for disclaimer text
+      
+      doc.y = pageHeight - bottomMargin - disclaimerHeight;
 
-      // Disclaimer as footer
+      // Disclaimer at bottom of page
       doc.fontSize(9).font('Helvetica-Bold')
          .text('DISCLAIMER: ', { continued: true });
 
