@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Facebook, Twitter, Linkedin } from "lucide-react";
+import { Facebook } from "lucide-react";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function Footer() {
@@ -23,12 +23,6 @@ export default function Footer() {
               Platform asesmen psikologi profesional untuk praktisi dan peneliti modern.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-green-100 hover:text-white transition-colors">
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a href="#" className="text-green-100 hover:text-white transition-colors">
-                <Linkedin className="w-5 h-5" />
-              </a>
               <a href="#" className="text-green-100 hover:text-white transition-colors">
                 <Facebook className="w-5 h-5" />
               </a>
