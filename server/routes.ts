@@ -744,7 +744,18 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       // Move to bottom of page for disclaimer
       const pageHeight = doc.page.height;
       const bottomMargin = 50;
-      const disclaimerHeight = 80; // Estimated height for disclaimer text with contact info
+      
+      // Different disclaimer based on assessment type
+      let disclaimerText = '';
+      let disclaimerHeight = 60;
+      
+      if (assessmentType === 'learning') {
+        disclaimerText = 'Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut.';
+        disclaimerHeight = 40;
+      } else {
+        disclaimerText = 'Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut. Untuk penjadwalan konsultasi online, silakan kirim pesan ke WhatsApp Rumah Psikologi Pelangi Indonesia di nomor +62 819-9146-6546, dengan melampirkan hasil asesmen ini.';
+        disclaimerHeight = 80;
+      }
       
       doc.y = pageHeight - bottomMargin - disclaimerHeight;
 
@@ -753,7 +764,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
          .text('DISCLAIMER: ', { continued: true });
 
       doc.fontSize(9).font('Helvetica')
-         .text('Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut. Untuk penjadwalan konsultasi online, silakan kirim pesan ke WhatsApp Rumah Psikologi Pelangi Indonesia di nomor +62 819-9146-6546, dengan melampirkan hasil asesmen ini.', { align: 'justify' });
+         .text(disclaimerText, { align: 'justify' });
 
       doc.end();
     } catch (error) {
