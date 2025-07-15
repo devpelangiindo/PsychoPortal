@@ -56,11 +56,7 @@ export default function Footer() {
           <div>
             <h4 className="text-lg font-semibold mb-4">Bantuan</h4>
             <ul className="space-y-2">
-              <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors">
-                  Pusat Bantuan
-                </a>
-              </li>
+              
               <li>
                 <a href="#" className="text-green-50 hover:text-white transition-colors">
                   Hubungi Kami
