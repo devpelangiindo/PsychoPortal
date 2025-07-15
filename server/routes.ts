@@ -744,7 +744,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       // Move to bottom of page for disclaimer
       const pageHeight = doc.page.height;
       const bottomMargin = 50;
-      const disclaimerHeight = 60; // Estimated height for disclaimer text
+      const disclaimerHeight = 80; // Estimated height for disclaimer text with contact info
       
       doc.y = pageHeight - bottomMargin - disclaimerHeight;
 
@@ -753,7 +753,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
          .text('DISCLAIMER: ', { continued: true });
 
       doc.fontSize(9).font('Helvetica')
-         .text('Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut. Laporan ini dibuat secara otomatis oleh sistem Rumah Psikologi Pelangi Indonesia.', { align: 'justify' });
+         .text('Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut. Untuk penjadwalan konsultasi online, silakan hubungi nomor WA kami di +62 819-9146-6546. Laporan ini dibuat secara otomatis oleh sistem Rumah Psikologi Pelangi Indonesia.', { align: 'justify' });
 
       doc.end();
     } catch (error) {
