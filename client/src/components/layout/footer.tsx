@@ -59,7 +59,7 @@ export default function Footer() {
             <ul className="space-y-2">
               
               <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors flex items-center">
+                <a href="https://wa.me/6281991466546" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors flex items-center">
                   <FaWhatsapp className="w-4 h-4 mr-2" />
                   Penjadwalan Konsultasi Online
                 </a>
