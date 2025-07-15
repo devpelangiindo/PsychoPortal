@@ -8,7 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import type { UserAssessmentWithDetails, OrderWithItems } from "@shared/schema";
+import AssessmentCard from "@/components/assessment-card";
+import type { UserAssessmentWithDetails, OrderWithItems, Assessment } from "@shared/schema";
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -49,6 +50,11 @@ export default function Dashboard() {
     enabled: isAuthenticated,
     refetchInterval: 3000, // Auto refresh every 3 seconds
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
+  });
+
+  const { data: assessments, isLoading: assessmentsForSaleLoading } = useQuery<Assessment[]>({
+    queryKey: ["/api/assessments"],
+    enabled: isAuthenticated,
   });
 
   useEffect(() => {
@@ -254,6 +260,43 @@ export default function Dashboard() {
               <div className="text-neutral-500 dark:text-muted-foreground">
                 Pesanan
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Available Assessments Section */}
+        <div className="mb-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>Asesmen yang Tersedia</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Klik tombol keranjang untuk menambahkan asesmen ke keranjang dan lakukan pembelian
+              </p>
+            </CardHeader>
+            <CardContent>
+              {assessmentsForSaleLoading ? (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-64 bg-muted rounded animate-pulse" />
+                  ))}
+                </div>
+              ) : assessments && assessments.length > 0 ? (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {assessments.map((assessment) => (
+                    <AssessmentCard
+                      key={assessment.id}
+                      assessment={assessment}
+                      showAddToCart={true}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-neutral-500 dark:text-muted-foreground">
+                    Tidak ada asesmen yang tersedia saat ini
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
