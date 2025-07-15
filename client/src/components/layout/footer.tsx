@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { Facebook, Instagram } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function Footer() {
@@ -58,10 +59,14 @@ export default function Footer() {
             <ul className="space-y-2">
               
               <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors">Penjadwalan Konsultasi Online</a>
+                <a href="#" className="text-green-50 hover:text-white transition-colors flex items-center">
+                  <FaWhatsapp className="w-4 h-4 mr-2" />
+                  Penjadwalan Konsultasi Online
+                </a>
               </li>
               <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors">
+                <a href="#" className="text-green-50 hover:text-white transition-colors flex items-center">
+                  <FaWhatsapp className="w-4 h-4 mr-2" />
                   Dukungan Teknis
                 </a>
               </li>
