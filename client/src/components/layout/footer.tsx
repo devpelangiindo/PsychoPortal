@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Facebook } from "lucide-react";
+import { Facebook, Instagram } from "lucide-react";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function Footer() {
@@ -25,6 +25,9 @@ export default function Footer() {
             <div className="flex space-x-4">
               <a href="#" className="text-green-100 hover:text-white transition-colors">
                 <Facebook className="w-5 h-5" />
+              </a>
+              <a href="https://www.instagram.com/rumahpsikologi_pi/" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white transition-colors">
+                <Instagram className="w-5 h-5" />
               </a>
             </div>
           </div>
