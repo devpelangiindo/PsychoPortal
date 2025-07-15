@@ -120,7 +120,7 @@ export default function Landing() {
           ) : (
             <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
               {assessments?.map((assessment) => (
-                <AssessmentCard key={assessment.id} assessment={assessment} showAddToCart={false} />
+                <AssessmentCard key={assessment.id} assessment={assessment} showAddToCart={true} />
               ))}
             </div>
           )}
