@@ -756,8 +756,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
 
       // Footer
       doc.fontSize(10).font('Helvetica')
-         .text('Laporan ini dibuat secara otomatis oleh sistem Rumah Psikologi Pelangi Indonesia.', { align: 'center' })
-         .text('Untuk konsultasi lebih lanjut, silakan hubungi profesional terkait.', { align: 'center' });
+         .text('Laporan ini dibuat secara otomatis oleh sistem Rumah Psikologi Pelangi Indonesia.', { align: 'center' });
 
       doc.end();
     } catch (error) {
