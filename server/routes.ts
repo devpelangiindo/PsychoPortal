@@ -40,16 +40,20 @@ function isAuthenticated(req: any, res: any, next: any) {
 
 // Result calculation functions
 function calculateSensoryProfileResults(responses: any, participantInfo: any) {
+  // Mapping berdasarkan PDF Sensory Profile asli
   const sectionQuestions = {
-    A: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    B: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-    C: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
-    D: [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60],
-    E: [61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75],
-    F: [76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90],
-    G: [91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105],
-    H: [106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120],
-    I: [121, 122, 123, 124, 125]
+    A: [1, 2, 3, 4, 5, 6, 7, 8], // Pemrosesan Pendengaran (8 items)
+    B: [9, 10, 11, 12, 13, 14, 15, 16, 17], // Pemrosesan Visual (9 items)
+    C: [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28], // Pemrosesan Vestibular (11 items)
+    D: [29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46], // Pemrosesan Sentuhan (18 items)
+    E: [47, 48, 49, 50, 51, 52, 53], // Pemrosesan Multisensori (7 items)
+    F: [54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65], // Pengolahan Sensorik Oral (12 items)
+    G: [66, 67, 68, 69, 70, 71, 72, 73, 74], // Pemrosesan Sensorik Terkait Daya Tahan/Keselarasan (9 items)
+    H: [75, 76, 77, 78, 79, 80, 81, 82, 83, 84], // Modulasi Berkaitan dengan Posisi dan Gerakan Tubuh (10 items)
+    I: [85, 86, 87, 88, 89, 90, 91], // Modulasi Gerakan yang Mempengaruhi Tingkat Aktivitas (7 items)
+    J: [92, 93, 94, 95], // Modulasi Input Sensorik yang Mempengaruhi Respon Emosional (4 items)
+    K: [96, 97, 98, 99], // Modulasi Input Visual yang Mempengaruhi Respon Emosional dan Tingkat Aktivitas (4 items)
+    L: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125] // Respon Emosional/Sosial (26 items)
   };
 
   const sectionScores: any = {};
@@ -380,60 +384,46 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
               highThreshold: '≥18 (Hiposensitif - mencari stimulasi oral)'
             },
             'G': {
-              name: 'Pemrosesan Perencanaan Gerakan',
-              description: 'Kemampuan merencanakan dan melaksanakan gerakan motorik',
+              name: 'Pemrosesan Sensorik Terkait Daya Tahan',
+              description: 'Kemampuan mempertahankan daya tahan dan tonus otot',
               normal: [6, 12],
-              lowThreshold: '≤5 (Kesulitan perencanaan motorik)',
+              lowThreshold: '≤5 (Kesulitan daya tahan motorik)',
               highThreshold: '≥13 (Mencari tantangan motorik kompleks)'
             },
             'H': {
-              name: 'Pemrosesan Energi Tubuh',
-              description: 'Regulasi energi dan tonus otot untuk aktivitas sehari-hari',
+              name: 'Modulasi Posisi dan Gerakan Tubuh',
+              description: 'Regulasi posisi tubuh dan respons terhadap gerakan',
               normal: [7, 13],
-              lowThreshold: '≤6 (Tonus rendah - mudah lelah)',
-              highThreshold: '≥14 (Mencari input proprioseptif kuat)'
+              lowThreshold: '≤6 (Takut gerakan - overresponsive)',
+              highThreshold: '≥14 (Mencari gerakan berisiko - underresponsive)'
             },
             'I': {
-              name: 'Modulasi Tonus Tubuh dan Endurance',
-              description: 'Modulasi tingkat kewaspadaan dan daya tahan tubuh',
+              name: 'Modulasi Gerakan dan Tingkat Aktivitas',
+              description: 'Modulasi tingkat aktivitas dan gerakan dalam keseharian',
               normal: [6, 12],
               lowThreshold: '≤5 (Tingkat aktivitas rendah)',
               highThreshold: '≥13 (Hiperaktif - sulit mengatur diri)'
             },
             'J': {
-              name: 'Modulasi Gerakan dan Tingkat Aktivitas',
-              description: 'Regulasi gerakan dan respons terhadap input vestibular',
-              normal: [3, 7],
-              lowThreshold: '≤2 (Under-responsive terhadap gerakan)',
-              highThreshold: '≥8 (Mencari gerakan intens berlebihan)'
-            },
-            'K': {
               name: 'Modulasi Input Sensoris - Respons Emosional',
               description: 'Regulasi respons emosional terhadap stimulasi sensoris',
-              normal: [5, 11],
-              lowThreshold: '≤4 (Under-responsive secara emosional)',
-              highThreshold: '≥12 (Over-responsive secara emosional)'
+              normal: [3, 7],
+              lowThreshold: '≤2 (Under-responsive secara emosional)',
+              highThreshold: '≥8 (Over-responsive secara emosional)'
             },
-            'L': {
+            'K': {
               name: 'Modulasi Input Visual - Respons Emosional',
               description: 'Regulasi respons emosional terhadap stimulasi visual',
               normal: [2, 6],
               lowThreshold: '≤1 (Under-responsive terhadap visual)',
               highThreshold: '≥7 (Over-responsive terhadap visual)'
             },
-            'M': {
-              name: 'Modulasi Input Taktil - Respons Emosional',
-              description: 'Regulasi respons emosional terhadap sentuhan',
-              normal: [4, 8],
-              lowThreshold: '≤3 (Under-responsive terhadap sentuhan)',
-              highThreshold: '≥9 (Over-responsive terhadap sentuhan)'
-            },
-            'N': {
-              name: 'Regulasi Threshold untuk Respons Umum',
-              description: 'Threshold umum untuk merespons stimulasi sensoris',
-              normal: [12, 18],
-              lowThreshold: '≤11 (Threshold tinggi - butuh stimulasi kuat)',
-              highThreshold: '≥19 (Threshold rendah - mudah terstimulasi)'
+            'L': {
+              name: 'Respon Emosional/Sosial',
+              description: 'Respons emosional dan sosial terhadap berbagai situasi',
+              normal: [60, 90],
+              lowThreshold: '≤59 (Respons emosional rendah)',
+              highThreshold: '≥91 (Respons emosional tinggi)'
             }
           };
           
@@ -535,6 +525,30 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
             'F': {
               name: 'Pemrosesan Oral Sensoris',
               normal: [11, 17]
+            },
+            'G': {
+              name: 'Pemrosesan Sensorik Terkait Daya Tahan',
+              normal: [6, 12]
+            },
+            'H': {
+              name: 'Modulasi Posisi dan Gerakan Tubuh',
+              normal: [7, 13]
+            },
+            'I': {
+              name: 'Modulasi Gerakan dan Tingkat Aktivitas',
+              normal: [6, 12]
+            },
+            'J': {
+              name: 'Modulasi Input Sensoris - Respons Emosional',
+              normal: [3, 7]
+            },
+            'K': {
+              name: 'Modulasi Input Visual - Respons Emosional',
+              normal: [2, 6]
+            },
+            'L': {
+              name: 'Respon Emosional/Sosial',
+              normal: [60, 90]
             }
           };
           
@@ -590,6 +604,42 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
                          .text('  • Hindari memaksa makan makanan tertentu')
                          .text('  • Konsultasi dengan terapis wicara/okupasi');
                       break;
+                    case 'G': // Pemrosesan Sensorik Terkait Daya Tahan
+                      doc.text('  • Istirahat yang cukup di antara aktivitas')
+                         .text('  • Berikan dukungan postural saat duduk')
+                         .text('  • Hindari aktivitas yang terlalu melelahkan')
+                         .text('  • Konsultasi dengan terapis okupasi');
+                      break;
+                    case 'H': // Modulasi Posisi dan Gerakan Tubuh
+                      doc.text('  • Berikan rasa aman saat bergerak')
+                         .text('  • Hindari aktivitas dengan risiko tinggi')
+                         .text('  • Latihan keseimbangan yang aman')
+                         .text('  • Gunakan alat bantu stabilitas');
+                      break;
+                    case 'I': // Modulasi Gerakan dan Tingkat Aktivitas
+                      doc.text('  • Ciptakan lingkungan yang tenang')
+                         .text('  • Berikan aktivitas yang tidak terlalu stimulatif')
+                         .text('  • Atur jadwal dengan istirahat yang cukup')
+                         .text('  • Hindari overstimulasi sensoris');
+                      break;
+                    case 'J': // Modulasi Input Sensoris - Respons Emosional
+                      doc.text('  • Berikan dukungan emosional yang konsisten')
+                         .text('  • Ciptakan rutinitas yang dapat diprediksi')
+                         .text('  • Hindari perubahan mendadak')
+                         .text('  • Konsultasi dengan psikolog');
+                      break;
+                    case 'K': // Modulasi Input Visual - Respons Emosional
+                      doc.text('  • Kurangi stimulasi visual yang berlebihan')
+                         .text('  • Ciptakan lingkungan visual yang tenang')
+                         .text('  • Gunakan pencahayaan yang lembut')
+                         .text('  • Hindari pola visual yang kompleks');
+                      break;
+                    case 'L': // Respon Emosional/Sosial
+                      doc.text('  • Berikan dukungan emosional yang konsisten')
+                         .text('  • Ciptakan lingkungan yang aman dan mendukung')
+                         .text('  • Hindari kritik berlebihan')
+                         .text('  • Konsultasi dengan psikolog/terapis');
+                      break;
                   }
                 } else {
                   // Hyposensitive recommendations
@@ -629,6 +679,42 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
                          .text('  • Sediakan mainan oral yang aman untuk dikunyah')
                          .text('  • Libatkan dalam aktivitas oral motorik')
                          .text('  • Berikan makanan dengan rasa yang kuat');
+                      break;
+                    case 'G': // Pemrosesan Sensorik Terkait Daya Tahan
+                      doc.text('  • Berikan latihan penguatan otot')
+                         .text('  • Dorong aktivitas fisik yang teratur')
+                         .text('  • Gunakan weighted vest atau alat pemberat')
+                         .text('  • Libatkan dalam aktivitas proprioseptif');
+                      break;
+                    case 'H': // Modulasi Posisi dan Gerakan Tubuh
+                      doc.text('  • Dorong aktivitas dengan risiko yang terkontrol')
+                         .text('  • Berikan kesempatan untuk memanjat/melompat')
+                         .text('  • Libatkan dalam olahraga ekstrem yang aman')
+                         .text('  • Gunakan trampolin atau balance board');
+                      break;
+                    case 'I': // Modulasi Gerakan dan Tingkat Aktivitas
+                      doc.text('  • Berikan aktivitas yang meningkatkan energi')
+                         .text('  • Dorong olahraga dan aktivitas fisik')
+                         .text('  • Sediakan waktu untuk gerakan aktif')
+                         .text('  • Libatkan dalam permainan yang dinamis');
+                      break;
+                    case 'J': // Modulasi Input Sensoris - Respons Emosional
+                      doc.text('  • Berikan stimulasi yang lebih intens')
+                         .text('  • Dorong eksplorasi lingkungan yang bervariasi')
+                         .text('  • Libatkan dalam aktivitas yang menantang')
+                         .text('  • Berikan feedback yang lebih eksplisit');
+                      break;
+                    case 'K': // Modulasi Input Visual - Respons Emosional
+                      doc.text('  • Berikan stimulasi visual yang kaya')
+                         .text('  • Gunakan warna-warna cerah dan menarik')
+                         .text('  • Libatkan dalam aktivitas visual yang kompleks')
+                         .text('  • Berikan variasi dalam lingkungan visual');
+                      break;
+                    case 'L': // Respon Emosional/Sosial
+                      doc.text('  • Berikan stimulasi sosial yang lebih intens')
+                         .text('  • Dorong partisipasi dalam kegiatan kelompok')
+                         .text('  • Libatkan dalam aktivitas yang menantang')
+                         .text('  • Berikan feedback yang lebih ekspresif');
                       break;
                   }
                 }

@@ -172,6 +172,11 @@ Changelog:
 - July 11, 2025. Added auto refresh functionality to user dashboard - data refreshes every 3 seconds automatically with visual indicators
 - July 11, 2025. Added manual refresh button and countdown timer to dashboard for better user experience
 - July 11, 2025. Enhanced admin reports with detailed assessment completion statistics showing both completed and in-progress counts per assessment type
+- July 15, 2025. Fixed Sensory Profile assessment scoring and interpretation to match official PDF documentation
+- July 15, 2025. Corrected section mapping from 9 sections to 12 sections (A-L) with proper question distribution
+- July 15, 2025. Updated terminology: "Ambang Tinggi" → "Hipersensitif", "Ambang Rendah" → "Hiposensitif"
+- July 15, 2025. Added comprehensive recommendations for all 12 sections with specific interventions for hypersensitive and hyposensitive conditions
+- July 15, 2025. Aligned threshold ranges and interpretations with official Sensory Profile standards
 ```
 
 ## User Preferences
