@@ -58,7 +58,7 @@ export default function Footer() {
             <ul className="space-y-2">
               
               <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors">Penjadwalan Konseling</a>
+                <a href="#" className="text-green-50 hover:text-white transition-colors">Penjadwalan Konsultasi Online</a>
               </li>
               <li>
                 <a href="#" className="text-green-50 hover:text-white transition-colors">
