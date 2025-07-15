@@ -279,9 +279,6 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
              .text(`Tanggal Lahir: ${participantInfo.childBirthDate || '-'}`)
              .text(`Nama Orang Tua: ${participantInfo.parentName || '-'}`)
              .text(`Hubungan: ${participantInfo.relationship || '-'}`)
-             .text(`Usia Orang Tua: ${participantInfo.parentAge || '-'}`)
-             .text(`Pendidikan: ${participantInfo.parentEducation || '-'}`)
-             .text(`Pekerjaan: ${participantInfo.parentOccupation || '-'}`)
              .text(`Tanggal Tes: ${participantInfo.testDate || '-'}`);
           
           if (participantInfo.concerns) {
