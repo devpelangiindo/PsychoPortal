@@ -108,12 +108,18 @@ export default function XenditPayment({
       // Add debugging for request flow
       console.log('About to make API request to /api/xendit/create-invoice');
       console.log('Token in localStorage:', !!localStorage.getItem('accessToken'));
+      console.log('Token value (first 50 chars):', localStorage.getItem('accessToken')?.substring(0, 50) + '...');
+      console.log('Request payload before sending:', JSON.stringify(invoicePayload, null, 2));
       
+      console.log('🚀 MAKING ACTUAL API CALL NOW...');
       const response = await apiRequest('POST', '/api/xendit/create-invoice', invoicePayload);
       
-      console.log('API response received:', response.status, response.statusText);
+      console.log('✅ API response received:', response.status, response.statusText);
+      console.log('Response headers:', response.headers);
       
+      console.log('📦 Parsing response JSON...');
       const invoiceData = await response.json();
+      console.log('📦 Invoice data received:', invoiceData);
 
       if (invoiceData.success) {
         // Store invoice data for tracking
