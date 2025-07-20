@@ -23,6 +23,8 @@ import AdminUsers from "@/pages/admin-users";
 import AdminAssessments from "@/pages/admin-assessments";
 import AdminReports from "@/pages/admin-reports";
 import AdminAssessmentResult from "@/pages/admin-assessment-result";
+import PaymentSuccess from "@/pages/payment-success";
+import PaymentFailed from "@/pages/payment-failed";
 
 import NotFound from "@/pages/not-found";
 
@@ -49,6 +51,8 @@ function Router() {
       <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
       <Route path="/learning-style/:assessmentId" component={LearningStyle} />
       <Route path="/results/:assessmentId" component={AssessmentResults} />
+      <Route path="/payment-success" component={PaymentSuccess} />
+      <Route path="/payment-failed" component={PaymentFailed} />
       
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLogin} />

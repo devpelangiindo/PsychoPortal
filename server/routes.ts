@@ -11,6 +11,12 @@ import { AuthUtils } from "./authUtils";
 import { emailService } from "./emailService";
 import path from "path";
 import fs from "fs";
+import { 
+  createXenditInvoice, 
+  checkInvoiceStatus, 
+  handleXenditWebhook, 
+  getAvailablePaymentMethods 
+} from "./xendit";
 
 // Custom authentication middleware for JWT tokens
 function isAuthenticated(req: any, res: any, next: any) {
@@ -1632,6 +1638,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Xendit Payment Routes
+  app.post('/api/xendit/create-invoice', isAuthenticated, createXenditInvoice);
+  app.get('/api/xendit/invoice/:invoiceId/status', isAuthenticated, checkInvoiceStatus);
+  app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
+  app.get('/api/xendit/payment-methods', getAvailablePaymentMethods);
+
+  // Payment success/failure pages endpoints
+  app.get('/api/payment-status/:orderId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const orderId = parseInt(req.params.orderId);
+      
+      const order = await storage.getOrder(orderId);
+      if (!order || order.userId !== userId) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      res.json({
+        orderId: order.id,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        totalAmount: order.totalAmount,
+        paidAt: order.paidAt,
+        items: order.orderItems?.map(item => ({
+          assessmentName: item.assessment.name,
+          price: item.price
+        }))
+      });
+    } catch (error) {
+      console.error("Error getting payment status:", error);
+      res.status(500).json({ message: "Failed to get payment status" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
@@ -1657,7 +1698,7 @@ async function initializeAssessments() {
       await storage.createAssessment({
         name: "Inventori Gaya Belajar",
         description: "Mengidentifikasi preferensi belajar individu dan pendekatan pendidikan yang optimal. Menilai modalitas belajar visual, auditori, kinestetik, dan membaca/menulis.",
-        price: "200000",
+        price: "0.00",
         duration: "20-30 menit",
         ageRange: "Usia 12+",
         type: "learning",

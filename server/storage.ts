@@ -264,6 +264,25 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, id));
   }
 
+  async updateOrderPayment(id: number, paymentData: {
+    paymentStatus?: string;
+    paymentMethod?: string;
+    xenditInvoiceId?: string;
+    xenditInvoiceUrl?: string;
+    paidAt?: Date;
+    paidAmount?: number;
+  }): Promise<void> {
+    const updateData: any = { 
+      updatedAt: new Date(),
+      ...paymentData
+    };
+
+    await db
+      .update(orders)
+      .set(updateData)
+      .where(eq(orders.id, id));
+  }
+
   // Order item operations
   async createOrderItem(orderItem: InsertOrderItem): Promise<OrderItem> {
     const [newOrderItem] = await db
