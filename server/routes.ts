@@ -1638,18 +1638,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Xendit Payment Routes - simplified to isolate the issue
-  app.post('/api/xendit/create-invoice', isAuthenticated, async (req: any, res: any) => {
-    console.log('=== XENDIT CREATE INVOICE ENDPOINT HIT ===');
-    console.log('User ID:', req.user?.claims?.sub);
-    console.log('Request body:', req.body);
+  // Xendit Payment Routes - DEBUGGING VERSION
+  app.post('/api/xendit/create-invoice', (req: any, res: any) => {
+    console.log('🚀 XENDIT ENDPOINT - RAW REQUEST RECEIVED 🚀');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('URL:', req.url);
+    console.log('Method:', req.method);
     
-    try {
-      return await createXenditInvoice(req, res);
-    } catch (error) {
-      console.error('Error in create invoice endpoint:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    // Apply authentication middleware manually
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ NO AUTH HEADER OR INVALID FORMAT');
+      return res.status(401).json({ message: "Unauthorized - No valid Bearer token" });
     }
+
+    const token = authHeader.substring(7);
+    console.log('🔑 Token extracted:', token.substring(0, 20) + '...');
+    
+    const decoded = AuthUtils.verifyToken(token);
+    console.log('🔓 Token decoded:', decoded);
+    
+    if (!decoded || decoded.type !== 'access') {
+      console.log('❌ TOKEN INVALID OR NOT ACCESS TYPE');
+      return res.status(401).json({ message: "Unauthorized - Invalid or expired token" });
+    }
+
+    req.user = { 
+      claims: { sub: decoded.userId }, 
+      email: decoded.email,
+      role: decoded.role || 'user'
+    };
+    
+    console.log('✅ AUTHENTICATION SUCCESS - User:', req.user.claims.sub);
+    
+    // Now call Xendit function
+    createXenditInvoice(req, res).catch(error => {
+      console.error('💥 ERROR IN XENDIT FUNCTION:', error);
+      res.status(500).json({ error: 'Xendit processing failed' });
+    });
   });
   app.get('/api/xendit/invoice/:invoiceId/status', isAuthenticated, checkInvoiceStatus);
   app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
