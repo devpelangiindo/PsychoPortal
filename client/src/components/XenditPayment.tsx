@@ -48,6 +48,7 @@ export default function XenditPayment({
   const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<string>('');
+  const [selectedChannel, setSelectedChannel] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -79,10 +80,10 @@ export default function XenditPayment({
   };
 
   const handleCreateInvoice = async () => {
-    if (!selectedMethod) {
+    if (!selectedMethod || !selectedChannel) {
       toast({
         title: 'Pilih Metode Pembayaran',
-        description: 'Silakan pilih metode pembayaran terlebih dahulu',
+        description: 'Silakan pilih metode pembayaran dan channel terlebih dahulu',
         variant: 'destructive'
       });
       return;
@@ -97,7 +98,8 @@ export default function XenditPayment({
         customerEmail,
         customerName,
         items,
-        paymentMethod: selectedMethod
+        paymentMethod: selectedMethod,
+        paymentChannel: selectedChannel
       };
       
       console.log('Creating invoice with payload:', invoicePayload);
@@ -231,9 +233,12 @@ export default function XenditPayment({
             </div>
           ) : paymentMethods && paymentMethods.length > 0 ? (
             paymentMethods.map((method) => (
-              <div key={method.type}>
+              <div key={method.type} className="space-y-2">
                 <button
-                  onClick={() => setSelectedMethod(method.type)}
+                  onClick={() => {
+                    setSelectedMethod(method.type);
+                    setSelectedChannel(''); // Reset channel selection
+                  }}
                   className={`w-full p-3 border rounded-lg text-left transition-colors ${
                     selectedMethod === method.type
                       ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
@@ -244,21 +249,31 @@ export default function XenditPayment({
                     {paymentIcons[method.type]}
                     <div className="flex-1">
                       <div className="font-medium">{method.name}</div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {method.channels.slice(0, 4).map((channel) => (
-                          <Badge key={channel} variant="secondary" className="text-xs">
-                            {channel}
-                          </Badge>
-                        ))}
-                        {method.channels.length > 4 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{method.channels.length - 4} lainnya
-                          </Badge>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </button>
+                
+                {/* Channel Selection */}
+                {selectedMethod === method.type && (
+                  <div className="pl-4 space-y-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Pilih {method.name}:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {method.channels.map((channel) => (
+                        <button
+                          key={channel}
+                          onClick={() => setSelectedChannel(channel)}
+                          className={`p-2 text-sm border rounded text-center transition-colors ${
+                            selectedChannel === channel
+                              ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                              : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                          }`}
+                        >
+                          {channel}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           ) : (
@@ -287,8 +302,8 @@ export default function XenditPayment({
         {/* Pay Button */}
         <Button
           onClick={handleCreateInvoice}
-          disabled={isLoading || isLoadingMethods || !selectedMethod}
-          className="w-full"
+          disabled={isLoading || isLoadingMethods || !selectedMethod || !selectedChannel}
+          className="w-full bg-green-600 hover:bg-green-700 text-white"
           size="lg"
         >
           {isLoading ? (
@@ -296,8 +311,10 @@ export default function XenditPayment({
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Membuat Invoice...
             </>
+          ) : selectedMethod && selectedChannel ? (
+            `Bayar ${formatCurrency(amount)} dengan ${selectedChannel}`
           ) : (
-            `Bayar ${formatCurrency(amount)}`
+            'Pilih Metode dan Channel Pembayaran'
           )}
         </Button>
 
