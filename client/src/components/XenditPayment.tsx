@@ -101,6 +101,7 @@ export default function XenditPayment({
       };
       
       console.log('Creating invoice with payload:', invoicePayload);
+      console.log('OrderId value:', orderId, 'Type:', typeof orderId);
       
       const response = await apiRequest('POST', '/api/xendit/create-invoice', invoicePayload);
       
