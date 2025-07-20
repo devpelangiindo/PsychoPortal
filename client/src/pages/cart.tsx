@@ -3,8 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, ArrowLeft, CreditCard, Zap } from "lucide-react";
+import { Trash2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -20,22 +19,28 @@ export default function Cart() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  const [paymentMethod, setPaymentMethod] = useState<'xendit' | 'demo'>('xendit');
   const [showPayment, setShowPayment] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
 
-  // Create order mutation for both demo and real payments
+  // Create order mutation
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      const assessmentIds = items.map(item => item.id);
-      const orderResponse = await apiRequest("POST", "/api/orders", { assessmentIds });
-      return orderResponse;
+      const response = await apiRequest("POST", "/api/orders", {
+        assessmentIds: items.map(item => item.id)
+      });
+      return await response.json();
     },
-    onSuccess: (order) => {
-      if (paymentMethod === 'demo' || getTotalAmount() === 0) {
-        // Process demo payment immediately for free items or demo mode
-        processDemoPayment(order.id);
+    onSuccess: (orderData) => {
+      setCurrentOrderId(orderData.id);
+      
+      if (getTotalAmount() === 0) {
+        // Free assessment - process immediately
+        processDemoPaymentMutation.mutate({
+          orderId: orderData.id,
+          paymentMethod: 'free_access'
+        });
       } else {
-        // Show Xendit payment component
+        // Paid assessment - show Xendit payment
         setShowPayment(true);
       }
     },
@@ -61,12 +66,12 @@ export default function Cart() {
 
   // Demo payment processing
   const processDemoPaymentMutation = useMutation({
-    mutationFn: async (orderId: number) => {
-      const paymentResponse = await apiRequest("POST", "/api/payments/create", {
+    mutationFn: async ({ orderId, paymentMethod }: { orderId: number; paymentMethod: string }) => {
+      const response = await apiRequest("POST", "/api/payments/create", {
         orderId,
-        paymentMethod: 'demo',
+        paymentMethod,
       });
-      return paymentResponse;
+      return await response.json();
     },
     onSuccess: () => {
       clearCart();
@@ -89,10 +94,6 @@ export default function Cart() {
     },
   });
 
-  const processDemoPayment = (orderId: number) => {
-    processDemoPaymentMutation.mutate(orderId);
-  };
-
   const handleCheckout = () => {
     if (!isAuthenticated) {
       toast({
@@ -112,7 +113,7 @@ export default function Cart() {
   const handlePaymentSuccess = (invoiceData: any) => {
     // Clear cart and redirect to success page
     clearCart();
-    setLocation(`/payment-success?orderId=${createOrderMutation.data?.id}`);
+    setLocation(`/payment-success?orderId=${currentOrderId}`);
   };
 
   const handlePaymentError = (error: string) => {
@@ -151,26 +152,23 @@ export default function Cart() {
           <Link href="/assessments">
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Lanjutkan Berbelanja
+              Kembali ke Asesmen
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">
-            Keranjang Belanja
-          </h1>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">Keranjang Belanja</h1>
         </div>
 
         {items.length === 0 ? (
           <Card>
-            <CardContent className="p-12 text-center">
-              <div className="text-6xl mb-4">🛒</div>
-              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-foreground mb-4">
+            <CardContent className="text-center py-12">
+              <h3 className="text-lg font-semibold text-neutral-600 dark:text-muted-foreground mb-2">
                 Keranjang Anda kosong
-              </h2>
-              <p className="text-neutral-500 dark:text-muted-foreground mb-8">
-                Tambahkan beberapa asesmen untuk memulai perjalanan evaluasi psikologi Anda.
+              </h3>
+              <p className="text-neutral-500 dark:text-muted-foreground mb-6">
+                Tambahkan asesmen ke keranjang untuk melanjutkan
               </p>
               <Link href="/assessments">
-                <Button size="lg">Jelajahi Asesmen</Button>
+                <Button>Lihat Asesmen</Button>
               </Link>
             </CardContent>
           </Card>
@@ -288,49 +286,26 @@ export default function Cart() {
                       {createOrderMutation.isPending ? "Memproses Akses..." : "Dapatkan Akses Gratis"}
                     </Button>
                   ) : (
-                    // Payment options for paid assessments
+                    // Payment with Xendit
                     <div className="space-y-4">
-                      <Tabs value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'xendit' | 'demo')}>
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="xendit">
-                            <CreditCard className="w-4 h-4 mr-2" />
-                            Xendit Payment
-                          </TabsTrigger>
-                          <TabsTrigger value="demo">
-                            <Zap className="w-4 h-4 mr-2" />
-                            Demo Mode
-                          </TabsTrigger>
-                        </TabsList>
-                        
-                        <TabsContent value="xendit" className="mt-4">
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                            Bayar dengan berbagai metode melalui Xendit:
-                            <ul className="list-disc list-inside mt-1 space-y-1">
-                              <li>Virtual Account (BCA, BRI, BNI, dll)</li>
-                              <li>E-wallet (DANA, OVO, GoPay, dll)</li>
-                              <li>QRIS</li>
-                              <li>Kartu Kredit</li>
-                            </ul>
-                          </div>
-                        </TabsContent>
-                        
-                        <TabsContent value="demo" className="mt-4">
-                          <div className="text-sm text-yellow-600 dark:text-yellow-400 mb-3">
-                            Mode demo untuk testing - pembayaran tidak akan diproses secara nyata.
-                          </div>
-                        </TabsContent>
-                      </Tabs>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        Bayar dengan berbagai metode pembayaran:
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>Virtual Account (BCA, BRI, BNI, Mandiri, dll)</li>
+                          <li>E-wallet (DANA, OVO, LinkAja, ShopeePay)</li>
+                          <li>QRIS</li>
+                          <li>Kartu Kredit</li>
+                          <li>Retail (Alfamart, Indomaret)</li>
+                        </ul>
+                      </div>
                       
                       <Button 
                         className="w-full" 
                         size="lg"
                         onClick={handleCheckout}
-                        disabled={createOrderMutation.isPending || processDemoPaymentMutation.isPending}
+                        disabled={createOrderMutation.isPending}
                       >
-                        {createOrderMutation.isPending ? "Membuat Pesanan..." : 
-                         processDemoPaymentMutation.isPending ? "Memproses Pembayaran..." :
-                         paymentMethod === 'demo' ? "Bayar Sekarang (Demo)" : "Lanjutkan ke Pembayaran"
-                        }
+                        {createOrderMutation.isPending ? "Membuat Pesanan..." : "Lanjutkan ke Pembayaran"}
                       </Button>
                     </div>
                   )}
@@ -350,7 +325,7 @@ export default function Cart() {
       <Footer />
 
       {/* Xendit Payment Modal */}
-      {showPayment && createOrderMutation.data && user && (
+      {showPayment && currentOrderId && user && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="mb-4">
@@ -366,10 +341,10 @@ export default function Cart() {
             </div>
             
             <XenditPayment
-              orderId={createOrderMutation.data.id}
+              orderId={currentOrderId}
               amount={getTotalAmount()}
-              customerEmail={user.email || ''}
-              customerName={user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email || 'Customer'}
+              customerEmail={user?.email || ''}
+              customerName={user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.email || 'Customer'}
               items={items.map(item => ({
                 name: item.name,
                 price: parseFloat(item.price),
