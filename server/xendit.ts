@@ -35,9 +35,18 @@ export async function createXenditInvoice(req: Request, res: Response) {
     const { storage } = await import('./storage');
     const userId = (req as any).user.claims.sub;
     
+    console.log('Looking for order:', { orderId, userId, orderIdType: typeof orderId });
+    
     const order = await storage.getOrder(parseInt(orderId));
+    console.log('Order lookup result:', { order: !!order, orderData: order });
+    
     if (!order) {
-      console.log('Order not found:', orderId);
+      console.log('Order not found in database:', orderId);
+      
+      // Let's check all orders for debugging
+      const allOrders = await storage.getOrdersByUserId(userId);
+      console.log('All user orders:', allOrders.map(o => ({ id: o.id, status: o.status })));
+      
       return res.status(404).json({ 
         error: 'Order ID tidak ditemukan' 
       });
@@ -49,6 +58,8 @@ export async function createXenditInvoice(req: Request, res: Response) {
         error: 'Access denied to order' 
       });
     }
+    
+    console.log('Order validation successful:', { orderId, userId, orderStatus: order.status });
 
     const xenditClient = await getXenditClient();
     
