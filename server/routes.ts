@@ -1639,7 +1639,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Xendit Payment Routes
-  app.post('/api/xendit/create-invoice', isAuthenticated, createXenditInvoice);
+  app.post('/api/xendit/create-invoice', isAuthenticated, (req: any, res: any) => {
+    console.log('=== XENDIT ENDPOINT HIT ===');
+    console.log('Request body:', req.body);
+    console.log('User:', req.user);
+    return createXenditInvoice(req, res);
+  });
   app.get('/api/xendit/invoice/:invoiceId/status', isAuthenticated, checkInvoiceStatus);
   app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
   app.get('/api/xendit/payment-methods', getAvailablePaymentMethods);
