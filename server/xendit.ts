@@ -31,6 +31,25 @@ export async function createXenditInvoice(req: Request, res: Response) {
       });
     }
 
+    // Verify that the order exists and belongs to the user
+    const { storage } = await import('./storage');
+    const userId = (req as any).user.claims.sub;
+    
+    const order = await storage.getOrder(parseInt(orderId));
+    if (!order) {
+      console.log('Order not found:', orderId);
+      return res.status(404).json({ 
+        error: 'Order ID tidak ditemukan' 
+      });
+    }
+
+    if (order.userId !== userId) {
+      console.log('Order access denied:', { orderId, userId, orderUserId: order.userId });
+      return res.status(403).json({ 
+        error: 'Access denied to order' 
+      });
+    }
+
     const xenditClient = await getXenditClient();
     
     // Use modern Xendit SDK format for createInvoice
