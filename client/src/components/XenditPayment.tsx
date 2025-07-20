@@ -91,14 +91,18 @@ export default function XenditPayment({
     setIsLoading(true);
     
     try {
-      const response = await apiRequest('POST', '/api/xendit/create-invoice', {
+      const invoicePayload = {
         orderId,
         amount,
         customerEmail,
         customerName,
         items,
         paymentMethod: selectedMethod
-      });
+      };
+      
+      console.log('Creating invoice with payload:', invoicePayload);
+      
+      const response = await apiRequest('POST', '/api/xendit/create-invoice', invoicePayload);
       
       const invoiceData = await response.json();
 

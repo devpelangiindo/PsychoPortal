@@ -19,9 +19,13 @@ async function getXenditClient() {
 // Create invoice for payment
 export async function createXenditInvoice(req: Request, res: Response) {
   try {
+    console.log('Received invoice request body:', req.body);
     const { orderId, amount, customerEmail, customerName, items } = req.body;
 
+    console.log('Extracted fields:', { orderId, amount, customerEmail, customerName, items });
+
     if (!orderId || !amount || !customerEmail) {
+      console.log('Missing fields detected:', { orderId: !!orderId, amount: !!amount, customerEmail: !!customerEmail });
       return res.status(400).json({ 
         error: 'Missing required fields: orderId, amount, customerEmail' 
       });
