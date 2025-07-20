@@ -45,6 +45,7 @@ export default function XenditPayment({
   onPaymentError 
 }: XenditPaymentProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMethods, setIsLoadingMethods] = useState(true);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<string>('');
   const { toast } = useToast();
@@ -54,9 +55,17 @@ export default function XenditPayment({
   }, []);
 
   const loadPaymentMethods = async () => {
+    setIsLoadingMethods(true);
     try {
       const response = await apiRequest('GET', '/api/xendit/payment-methods');
-      setPaymentMethods(response.paymentMethods);
+      const data = await response.json();
+      console.log('Payment methods data:', data);
+      
+      if (data.success && data.paymentMethods) {
+        setPaymentMethods(data.paymentMethods);
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (error) {
       console.error('Error loading payment methods:', error);
       toast({
@@ -64,6 +73,8 @@ export default function XenditPayment({
         description: 'Gagal memuat metode pembayaran',
         variant: 'destructive'
       });
+    } finally {
+      setIsLoadingMethods(false);
     }
   };
 
@@ -80,7 +91,7 @@ export default function XenditPayment({
     setIsLoading(true);
     
     try {
-      const invoiceData = await apiRequest('POST', '/api/xendit/create-invoice', {
+      const response = await apiRequest('POST', '/api/xendit/create-invoice', {
         orderId,
         amount,
         customerEmail,
@@ -88,6 +99,8 @@ export default function XenditPayment({
         items,
         paymentMethod: selectedMethod
       });
+      
+      const invoiceData = await response.json();
 
       if (invoiceData.success) {
         // Store invoice data for tracking
@@ -167,7 +180,12 @@ export default function XenditPayment({
         {/* Payment Methods */}
         <div className="space-y-3">
           <h3 className="font-semibold">Metode Pembayaran</h3>
-          {paymentMethods && paymentMethods.length > 0 ? (
+          {isLoadingMethods ? (
+            <div className="text-center py-6">
+              <div className="animate-spin w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full mx-auto mb-2" />
+              <p className="text-sm text-gray-600 dark:text-gray-400">Memuat metode pembayaran...</p>
+            </div>
+          ) : paymentMethods && paymentMethods.length > 0 ? (
             paymentMethods.map((method) => (
               <div key={method.type}>
                 <button
@@ -200,9 +218,18 @@ export default function XenditPayment({
               </div>
             ))
           ) : (
-            <div className="text-center py-4">
-              <div className="animate-spin w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full mx-auto mb-2" />
-              <p className="text-sm text-gray-600 dark:text-gray-400">Memuat metode pembayaran...</p>
+            <div className="text-center py-6 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Tidak dapat memuat metode pembayaran
+              </p>
+              <Button 
+                onClick={loadPaymentMethods}
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+              >
+                Coba Lagi
+              </Button>
             </div>
           )}
         </div>
@@ -216,7 +243,7 @@ export default function XenditPayment({
         {/* Pay Button */}
         <Button
           onClick={handleCreateInvoice}
-          disabled={isLoading || !selectedMethod}
+          disabled={isLoading || isLoadingMethods || !selectedMethod}
           className="w-full"
           size="lg"
         >
