@@ -133,6 +133,45 @@ export default function XenditPayment({
       }
     } catch (error: any) {
       console.error('Error creating invoice:', error);
+      
+      // Handle authentication errors specifically
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        const authErrorMsg = 'Sesi login telah berakhir. Silakan login ulang untuk melanjutkan pembayaran.';
+        
+        toast({
+          title: 'Sesi Berakhir',
+          description: authErrorMsg,
+          variant: 'destructive'
+        });
+        
+        // Redirect to login after short delay
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        
+        if (onPaymentError) {
+          onPaymentError(authErrorMsg);
+        }
+        return;
+      }
+      
+      // Handle order not found specifically
+      if (error.message?.includes('Order ID tidak ditemukan')) {
+        const orderErrorMsg = 'Order tidak ditemukan. Silakan buat pesanan baru.';
+        
+        toast({
+          title: 'Order Tidak Valid',
+          description: orderErrorMsg,
+          variant: 'destructive'
+        });
+        
+        if (onPaymentError) {
+          onPaymentError(orderErrorMsg);
+        }
+        return;
+      }
+      
+      // General error handling
       const errorMessage = error.message || 'Gagal membuat invoice pembayaran';
       
       toast({
