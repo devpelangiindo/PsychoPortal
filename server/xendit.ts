@@ -33,39 +33,20 @@ export async function createXenditInvoice(req: Request, res: Response) {
 
     const xenditClient = await getXenditClient();
     
-    // Create invoice with proper data structure
+    // Use modern Xendit SDK format for createInvoice
     const invoiceData = {
-      externalId: `order_${orderId}_${Date.now()}`,
-      payerEmail: customerEmail,
-      description: `Pembayaran untuk ${items?.map((item: any) => item.name).join(', ') || 'Asesmen Psikologi'}`,
       amount: parseInt(amount),
+      externalId: `order_${orderId}_${Date.now()}`,
+      description: `Pembayaran untuk ${items?.map((item: any) => item.name).join(', ') || 'Asesmen Psikologi'}`,
       currency: 'IDR',
       invoiceDuration: 86400, // 24 hours
-      successRedirectUrl: `${req.protocol}://${req.get('host')}/payment-success?orderId=${orderId}`,
-      failureRedirectUrl: `${req.protocol}://${req.get('host')}/payment-failed?orderId=${orderId}`,
-      customer: {
-        givenNames: customerName || customerEmail.split('@')[0],
-        email: customerEmail,
-      },
-      customerNotificationPreference: {
-        invoiceCreated: ['email'],
-        invoicePaid: ['email'],
-      },
-      items: items?.map((item: any) => ({
-        name: item.name,
-        quantity: item.quantity || 1,
-        price: parseInt(item.price),
-      })) || [{
-        name: 'Asesmen Psikologi',
-        quantity: 1,
-        price: parseInt(amount),
-      }],
+      reminderTime: 1
     };
 
-    console.log('Creating invoice with data:', invoiceData);
+    console.log('Creating invoice with modern format:', invoiceData);
     
     const invoice = await xenditClient.Invoice.createInvoice({
-      createInvoiceRequest: invoiceData
+      data: invoiceData
     });
 
     res.json({
