@@ -1639,11 +1639,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Xendit Payment Routes
-  app.post('/api/xendit/create-invoice', isAuthenticated, (req: any, res: any) => {
-    console.log('=== XENDIT ENDPOINT HIT ===');
-    console.log('Request body:', req.body);
-    console.log('User:', req.user);
-    return createXenditInvoice(req, res);
+  app.post('/api/xendit/create-invoice', (req: any, res: any) => {
+    console.log('=== XENDIT ENDPOINT HIT - RAW REQUEST ===');
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+    console.log('Auth header present:', !!req.headers.authorization);
+    
+    // Now apply authentication
+    return isAuthenticated(req, res, () => {
+      console.log('=== AUTHENTICATION PASSED ===');
+      console.log('User after auth:', req.user);
+      return createXenditInvoice(req, res);
+    });
   });
   app.get('/api/xendit/invoice/:invoiceId/status', isAuthenticated, checkInvoiceStatus);
   app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
