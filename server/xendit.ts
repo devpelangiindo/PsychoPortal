@@ -10,7 +10,7 @@ async function getXenditClient() {
   if (!xendit) {
     const { Xendit } = await import('xendit-node');
     xendit = new Xendit({
-      secretKey: process.env.XENDIT_SECRET_KEY,
+      secretKey: process.env.XENDIT_SECRET_KEY!,
     });
   }
   return xendit;
@@ -33,8 +33,8 @@ export async function createXenditInvoice(req: Request, res: Response) {
 
     const xenditClient = await getXenditClient();
     
-    // Create invoice
-    const invoice = await xenditClient.Invoice.createInvoice({
+    // Create invoice with proper data structure
+    const invoiceData = {
       externalId: `order_${orderId}_${Date.now()}`,
       payerEmail: customerEmail,
       description: `Pembayaran untuk ${items?.map((item: any) => item.name).join(', ') || 'Asesmen Psikologi'}`,
@@ -60,6 +60,12 @@ export async function createXenditInvoice(req: Request, res: Response) {
         quantity: 1,
         price: parseInt(amount),
       }],
+    };
+
+    console.log('Creating invoice with data:', invoiceData);
+    
+    const invoice = await xenditClient.Invoice.createInvoice({
+      createInvoiceRequest: invoiceData
     });
 
     res.json({
