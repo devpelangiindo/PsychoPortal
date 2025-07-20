@@ -1638,19 +1638,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Xendit Payment Routes
-  app.post('/api/xendit/create-invoice', (req: any, res: any) => {
-    console.log('=== XENDIT ENDPOINT HIT - RAW REQUEST ===');
-    console.log('Headers:', req.headers);
-    console.log('Body:', req.body);
-    console.log('Auth header present:', !!req.headers.authorization);
+  // Xendit Payment Routes - simplified to isolate the issue
+  app.post('/api/xendit/create-invoice', isAuthenticated, async (req: any, res: any) => {
+    console.log('=== XENDIT CREATE INVOICE ENDPOINT HIT ===');
+    console.log('User ID:', req.user?.claims?.sub);
+    console.log('Request body:', req.body);
     
-    // Now apply authentication
-    return isAuthenticated(req, res, () => {
-      console.log('=== AUTHENTICATION PASSED ===');
-      console.log('User after auth:', req.user);
-      return createXenditInvoice(req, res);
-    });
+    try {
+      return await createXenditInvoice(req, res);
+    } catch (error) {
+      console.error('Error in create invoice endpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   });
   app.get('/api/xendit/invoice/:invoiceId/status', isAuthenticated, checkInvoiceStatus);
   app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
