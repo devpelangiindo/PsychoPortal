@@ -178,6 +178,13 @@ Changelog:
 - July 15, 2025. Added comprehensive recommendations for all 12 sections with specific interventions for hypersensitive and hyposensitive conditions
 - July 15, 2025. Aligned threshold ranges and interpretations with official Sensory Profile standards
 - July 15, 2025. Updated terminology across all pages and PDF reports: "Profil Sensoris" → "Profil Sensori"
+- July 20, 2025. Integrated Xendit payment gateway for real payment processing with multiple Indonesian payment methods
+- July 20, 2025. Created XenditPayment component with support for VA, e-wallet, QRIS, and credit card payments
+- July 20, 2025. Added payment-success and payment-failed pages with detailed order status tracking
+- July 20, 2025. Enhanced cart page with payment method selection (Xendit vs Demo mode) using tabs interface
+- July 20, 2025. Implemented dynamic ES module import for Xendit SDK to resolve compatibility issues
+- July 20, 2025. Added webhook handler for real-time payment status updates and order completion
+- July 20, 2025. Payment flow supports both free assessments (Learning Style) and paid assessments (Sensory Profile)
 ```
 
 ## User Preferences

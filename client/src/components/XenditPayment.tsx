@@ -167,37 +167,44 @@ export default function XenditPayment({
         {/* Payment Methods */}
         <div className="space-y-3">
           <h3 className="font-semibold">Metode Pembayaran</h3>
-          {paymentMethods.map((method) => (
-            <div key={method.type}>
-              <button
-                onClick={() => setSelectedMethod(method.type)}
-                className={`w-full p-3 border rounded-lg text-left transition-colors ${
-                  selectedMethod === method.type
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                    : 'border-gray-200 hover:border-gray-300 dark:border-gray-700'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  {paymentIcons[method.type]}
-                  <div className="flex-1">
-                    <div className="font-medium">{method.name}</div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {method.channels.slice(0, 4).map((channel) => (
-                        <Badge key={channel} variant="secondary" className="text-xs">
-                          {channel}
-                        </Badge>
-                      ))}
-                      {method.channels.length > 4 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{method.channels.length - 4} lainnya
-                        </Badge>
-                      )}
+          {paymentMethods && paymentMethods.length > 0 ? (
+            paymentMethods.map((method) => (
+              <div key={method.type}>
+                <button
+                  onClick={() => setSelectedMethod(method.type)}
+                  className={`w-full p-3 border rounded-lg text-left transition-colors ${
+                    selectedMethod === method.type
+                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                      : 'border-gray-200 hover:border-gray-300 dark:border-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    {paymentIcons[method.type]}
+                    <div className="flex-1">
+                      <div className="font-medium">{method.name}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {method.channels.slice(0, 4).map((channel) => (
+                          <Badge key={channel} variant="secondary" className="text-xs">
+                            {channel}
+                          </Badge>
+                        ))}
+                        {method.channels.length > 4 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{method.channels.length - 4} lainnya
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-4">
+              <div className="animate-spin w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full mx-auto mb-2" />
+              <p className="text-sm text-gray-600 dark:text-gray-400">Memuat metode pembayaran...</p>
             </div>
-          ))}
+          )}
         </div>
 
         {/* Customer Info */}
