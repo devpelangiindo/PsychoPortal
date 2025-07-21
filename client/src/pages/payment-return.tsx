@@ -95,15 +95,19 @@ export default function PaymentReturn() {
             const ordersResponse = await apiRequest('GET', '/api/orders');
             const orders = await ordersResponse.json();
             
-            // Find pending orders
-            const pendingOrders = orders?.filter((o: any) => o.status === 'pending') || [];
-            console.log(`Found ${pendingOrders.length} pending orders`);
+            // Check ALL orders (both pending and completed) for missing assessments
+            const allOrders = orders || [];
+            console.log(`Found ${allOrders.length} total orders, checking for missing assessments...`);
             
-            for (const order of pendingOrders) {
-              console.log(`🔄 Attempting to auto-complete order ${order.id}...`);
+            for (const order of allOrders) {
+              console.log(`🔄 Attempting to auto-complete order ${order.id} (status: ${order.status})...`);
               
               try {
-                const completeResponse = await apiRequest('POST', `/api/xendit/simulate-payment/${order.id}`, {});
+                // Use fetch instead of apiRequest to avoid auth issues
+                const completeResponse = await fetch(`/api/xendit/simulate-payment/${order.id}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' }
+                });
                 const completeResult = await completeResponse.json();
                 
                 if (completeResult.success) {

@@ -1695,17 +1695,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Order not found' });
       }
       
-      // If already completed, return success
+      // Check if assessments exist for completed orders
+      let assessmentsCreated = 0;
       if (order.status === 'completed' && order.paymentStatus === 'paid') {
+        console.log(`Order ${orderId} already completed, checking for missing assessments...`);
+        
+        // Create user assessments if they don't exist for completed orders
+        if (order.orderItems) {
+          for (const item of order.orderItems) {
+            // Check if assessment already exists
+            const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
+            
+            if (!existingAssessment) {
+              await storage.createUserAssessment({
+                userId: order.userId,
+                assessmentId: item.assessmentId,
+                orderId: orderId,
+                status: 'available'
+              });
+              assessmentsCreated++;
+              console.log(`✅ Created missing user assessment for assessment ID ${item.assessmentId}`);
+            } else {
+              console.log(`✅ User assessment already exists for assessment ID ${item.assessmentId}`);
+            }
+          }
+        }
+        
         return res.json({ 
           success: true, 
-          message: 'Payment already completed',
+          message: assessmentsCreated > 0 ? 'Missing assessments created' : 'Payment already completed',
           orderId: orderId,
-          status: 'completed'
+          status: 'completed',
+          assessmentsCreated: assessmentsCreated
         });
       }
       
-      // Update order status
+      // Update order status for pending orders
       await storage.updateOrder(orderId, {
         status: 'completed',
         paymentStatus: 'paid',
@@ -1727,6 +1752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               orderId: orderId,
               status: 'available'
             });
+            assessmentsCreated++;
             console.log(`✅ Created user assessment for assessment ID ${item.assessmentId}`);
           } else {
             console.log(`⚠️ User assessment already exists for assessment ID ${item.assessmentId}`);
@@ -1740,7 +1766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Payment completed successfully',
         orderId: orderId,
         status: 'completed',
-        assessmentsCreated: order.orderItems?.length || 0
+        assessmentsCreated: assessmentsCreated
       });
       
     } catch (error: any) {
