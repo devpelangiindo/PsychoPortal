@@ -20,6 +20,58 @@ export default function PaymentReturn() {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       try {
+        // PRIORITY BYPASS: Check if user already has available assessments
+        if (user) {
+          console.log('🔍 Checking user assessments for bypass...');
+          try {
+            const assessmentsResponse = await apiRequest('GET', '/api/user-assessments');
+            const userAssessments = await assessmentsResponse.json();
+            
+            console.log('Found user assessments:', userAssessments.length);
+            
+            if (userAssessments && userAssessments.length > 0) {
+              const availableAssessments = userAssessments.filter((ua: any) => ua.status === 'available');
+              console.log('Available assessments:', availableAssessments.length);
+              
+              if (availableAssessments.length > 0) {
+                console.log('✅ BYPASS ACTIVATED - User has available assessments');
+                
+                // Clean up localStorage
+                Object.keys(localStorage).forEach(key => {
+                  if (key.startsWith('xendit_invoice_')) {
+                    localStorage.removeItem(key);
+                  }
+                });
+                
+                toast({
+                  title: "Pembayaran Berhasil!",
+                  description: "Asesmen Anda sekarang tersedia di dashboard.",
+                });
+                
+                // Immediate redirect to dashboard
+                console.log('🚀 Redirecting to dashboard...');
+                setTimeout(() => {
+                  setLocation('/dashboard');
+                }, 1000);
+                
+                setPaymentStatus('success');
+                setOrderData({ 
+                  status: 'completed', 
+                  paymentStatus: 'paid',
+                  items: availableAssessments.map((a: any) => ({
+                    assessmentName: a.assessment.name,
+                    price: a.assessment.price
+                  }))
+                });
+                return;
+              }
+            }
+          } catch (assessmentError) {
+            console.log('Assessment bypass check failed:', assessmentError);
+          }
+        }
+
+        // Continue with normal payment checking flow if no bypass...
         // Get URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const invoiceId = urlParams.get('invoice_id');
