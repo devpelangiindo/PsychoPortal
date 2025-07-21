@@ -188,10 +188,7 @@ export default function Dashboard() {
               {/* Auto Refresh Controls */}
               <div className="flex items-center space-x-4">
                 <div className="text-right">
-                  <div className="text-sm opacity-75">
-                    Auto refresh setiap 3 detik
-                  </div>
-                  <div className="flex items-center justify-end mt-1">
+                  <div className="flex items-center justify-end">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
                     <span className="text-xs opacity-75">Refresh dalam {refreshCountdown}s</span>
                   </div>
