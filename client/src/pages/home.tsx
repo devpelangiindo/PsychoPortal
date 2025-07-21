@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,17 +11,56 @@ import type { UserAssessmentWithDetails, Assessment } from "@shared/schema";
 
 export default function Home() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [refreshCountdown, setRefreshCountdown] = useState(3);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Countdown timer for auto refresh
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRefreshCountdown(prev => {
+        if (prev <= 1) {
+          return 3; // Reset to 3 seconds
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   const { data: userAssessments, isLoading } = useQuery<UserAssessmentWithDetails[]>({
     queryKey: ["/api/user-assessments"],
+    refetchInterval: 3000, // Auto refresh every 3 seconds
+    refetchIntervalInBackground: true, // Continue refreshing when tab is in background
   });
 
   const { data: allAssessments, isLoading: isLoadingAssessments } = useQuery<Assessment[]>({
     queryKey: ["/api/assessments"],
+    refetchInterval: 3000, // Auto refresh every 3 seconds
+    refetchIntervalInBackground: true,
   });
 
-  const availableAssessments = userAssessments?.filter(ua => ua.status === 'available') || [];
-  const completedAssessments = userAssessments?.filter(ua => ua.status === 'completed') || [];
-  const inProgressAssessments = userAssessments?.filter(ua => ua.status === 'in_progress') || [];
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/assessments"] })
+      ]);
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const availableAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'available') || [];
+  const completedAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'completed') || [];
+  const inProgressAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'in_progress') || [];
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
@@ -30,19 +70,47 @@ export default function Home() {
         {/* Welcome Section */}
         <div className="mb-12">
           <div className="bg-gradient-to-r from-primary to-accent p-8 rounded-2xl text-white">
-            <div className="flex items-center">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mr-4">
-                <span className="text-2xl font-bold">
-                  {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mr-4">
+                  <span className="text-2xl font-bold">
+                    {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                  </span>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold">
+                    Selamat datang kembali, {user?.firstName || user?.email || 'Pengguna'}!
+                  </h1>
+                  <p className="opacity-90 mt-1">
+                    Siap melanjutkan perjalanan asesmen psikologi Anda?
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold">
-                  Selamat datang kembali, {user?.firstName || user?.email || 'Pengguna'}!
-                </h1>
-                <p className="opacity-90 mt-1">
-                  Siap melanjutkan perjalanan asesmen psikologi Anda?
-                </p>
+              
+              {/* Auto Refresh Indicator */}
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <div className="flex items-center justify-end">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+                    <span className="text-xs opacity-75">Refresh dalam {refreshCountdown}s</span>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                >
+                  {isRefreshing ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  )}
+                  <span className="ml-2">Refresh</span>
+                </Button>
               </div>
             </div>
           </div>

@@ -211,6 +211,13 @@ Changelog:
 - July 21, 2025. Successfully tested complete transaction flow: Registration → Order → Payment → Assessment Access
 - July 21, 2025. Verified Xendit integration with invoice creation, payment simulation, and order completion
 - July 21, 2025. Platform achieved 100% production readiness with robust error handling and fallback mechanisms
+- July 21, 2025. Fixed payment return page total amount display bug - changed from "RpNaN" to proper "Rp 400.000" formatting
+- July 21, 2025. Added parseFloat validation and fallback to prevent NaN display issues in payment status pages
+- July 21, 2025. Enhanced payment-return.tsx with proper totalAmount calculation from order data
+- July 21, 2025. Fixed TypeScript errors and improved type safety across payment flow components
+- July 21, 2025. Added auto-refresh functionality to Home page (Beranda) with 3-second intervals and visual countdown timer
+- July 21, 2025. Implemented manual refresh button and loading indicators on both Dashboard and Home pages
+- July 21, 2025. Home page now automatically refreshes user assessments and statistics every 3 seconds with background refresh capability
 ```
 
 ## User Preferences
