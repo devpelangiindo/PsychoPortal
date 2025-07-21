@@ -116,6 +116,15 @@ export async function createXenditInvoice(req: Request, res: Response) {
       throw new Error('Xendit tidak mengembalikan URL pembayaran');
     }
 
+    // 🔥 CRITICAL FIX: Save Xendit invoice data to database
+    console.log('💾 Saving Xendit invoice data to database...');
+    await storage.updateOrder(orderId, {
+      xenditInvoiceId: invoice.id,
+      xenditInvoiceUrl: invoiceUrlField,
+      paymentMethod: paymentMethod || 'unknown'
+    });
+    console.log('✅ Xendit invoice data saved to database');
+
     res.json({
       success: true,
       invoiceId: invoice.id,
