@@ -16,14 +16,14 @@ export default function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshCountdown, setRefreshCountdown] = useState(3);
+  const [refreshCountdown, setRefreshCountdown] = useState(6);
 
   // Countdown timer for auto refresh
   useEffect(() => {
     const timer = setInterval(() => {
       setRefreshCountdown(prev => {
         if (prev <= 1) {
-          return 3; // Reset to 3 seconds
+          return 6; // Reset to 6 seconds
         }
         return prev - 1;
       });
@@ -35,7 +35,7 @@ export default function Dashboard() {
   const { data: userAssessments, isLoading: assessmentsLoading } = useQuery<UserAssessmentWithDetails[]>({
     queryKey: ["/api/user-assessments"],
     enabled: isAuthenticated,
-    refetchInterval: 3000, // Auto refresh every 3 seconds
+    refetchInterval: 6000, // Auto refresh every 6 seconds
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
     onSuccess: (data) => {
       // Only show toast on subsequent refreshes, not initial load
@@ -48,7 +48,7 @@ export default function Dashboard() {
   const { data: orders, isLoading: ordersLoading } = useQuery<OrderWithItems[]>({
     queryKey: ["/api/orders"],
     enabled: isAuthenticated,
-    refetchInterval: 3000, // Auto refresh every 3 seconds
+    refetchInterval: 6000, // Auto refresh every 6 seconds
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
   });
 
