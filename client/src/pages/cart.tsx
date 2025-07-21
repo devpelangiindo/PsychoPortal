@@ -288,234 +288,179 @@ export default function Cart() {
 
             {/* Order Summary */}
             <div>
-              <Card className="sticky top-4 shadow-lg border-0 bg-white/95 dark:bg-card/95 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 border-b border-neutral-100 dark:border-neutral-800">
-                  <CardTitle className="text-center flex items-center justify-center space-x-2">
-                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                      <span className="text-lg">🛒</span>
-                    </div>
-                    <span className="text-xl font-bold text-neutral-800 dark:text-foreground">Ringkasan Pesanan</span>
-                  </CardTitle>
+              <Card className="sticky top-4">
+                <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-t-lg">
+                  <CardTitle className="text-xl text-center">📋 Ringkasan Pesanan</CardTitle>
                 </CardHeader>
-                
-                <CardContent className="p-0">
-                  {/* Items Section */}
-                  <div className="p-6 border-b border-neutral-100 dark:border-neutral-800">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-sm text-neutral-700 dark:text-muted-foreground uppercase tracking-wider flex items-center">
-                        <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                        Item Dipilih
-                      </h4>
-                      <span className="text-xs bg-neutral-100 dark:bg-muted/50 px-2 py-1 rounded-full font-medium">
-                        {items.length} item
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      {items.map((item, index) => (
-                        <div key={item.id} className="group">
-                          <div className="bg-gradient-to-r from-neutral-50 to-neutral-50/50 dark:from-muted/30 dark:to-muted/10 rounded-xl p-4 border border-neutral-200/50 dark:border-neutral-700/50 hover:shadow-md transition-all duration-200">
-                            <div className="flex justify-between items-start mb-3">
-                              <div className="flex-1 pr-3">
-                                <div className="flex items-start space-x-2">
-                                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium shrink-0">
-                                    #{index + 1}
-                                  </span>
-                                  <h5 className="font-semibold text-sm text-neutral-800 dark:text-foreground leading-tight">
-                                    {item.name}
-                                  </h5>
-                                </div>
-                              </div>
-                              <div className="text-right shrink-0">
-                                {parseFloat(item.price) === 0 ? (
-                                  <div className="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg px-3 py-1.5">
-                                    <span className="text-green-700 dark:text-green-300 font-bold text-sm">GRATIS</span>
-                                  </div>
-                                ) : (
-                                  <div className="text-right">
-                                    <div className="text-primary font-bold text-lg">
-                                      Rp {new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-3 text-xs text-neutral-600 dark:text-muted-foreground mb-3">
-                              <div className="flex items-center space-x-1">
-                                <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
-                                <span>⏱️ {item.duration}</span>
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <span className="w-1 h-1 bg-purple-400 rounded-full"></span>
-                                <span>👥 {item.ageRange}</span>
-                              </div>
-                            </div>
-                            
-                            {item.type === 'sensory' && (
-                              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-2.5">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                                    🎁 Bonus: Konsultasi Online Gratis
-                                  </span>
-                                </div>
+                <CardContent className="p-6 space-y-6">
+                  {/* Items List */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm text-neutral-600 dark:text-muted-foreground uppercase tracking-wider">
+                      Item Pesanan
+                    </h4>
+                    {items.map((item) => (
+                      <div key={item.id} className="bg-neutral-50 dark:bg-muted/50 rounded-lg p-4 space-y-2">
+                        <div className="flex justify-between items-start">
+                          <h5 className="font-medium text-sm leading-tight pr-2">
+                            {item.name}
+                          </h5>
+                          <div className="text-right shrink-0">
+                            {parseFloat(item.price) === 0 ? (
+                              <span className="text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full text-xs font-semibold">
+                                Gratis
+                              </span>
+                            ) : (
+                              <div className="text-primary font-semibold">
+                                <span className="text-xs">Rp</span>
+                                <span className="text-sm">{new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}</span>
                               </div>
                             )}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Summary Section */}
-                  <div className="p-6 bg-gradient-to-br from-neutral-50/50 to-white dark:from-muted/20 dark:to-card">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center py-2 border-b border-dashed border-neutral-300 dark:border-neutral-600">
-                        <span className="text-sm font-medium text-neutral-600 dark:text-muted-foreground">
-                          Jumlah Item
-                        </span>
-                        <span className="font-semibold text-neutral-800 dark:text-foreground">
-                          {items.length} asesmen
-                        </span>
-                      </div>
-                      
-                      <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-4 border border-primary/20">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <span className="text-lg font-bold text-neutral-800 dark:text-foreground">Total Pembayaran</span>
-                            <div className="text-xs text-neutral-500 dark:text-muted-foreground">
-                              Semua biaya sudah termasuk
+                        <div className="flex items-center text-xs text-neutral-500 dark:text-muted-foreground space-x-3">
+                          <span className="flex items-center">
+                            <span className="w-1 h-1 bg-neutral-400 rounded-full mr-1"></span>
+                            {item.duration}
+                          </span>
+                          <span className="flex items-center">
+                            <span className="w-1 h-1 bg-neutral-400 rounded-full mr-1"></span>
+                            {item.ageRange}
+                          </span>
+                        </div>
+                        {item.type === 'sensory' && (
+                          <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded p-2">
+                            <div className="flex items-center text-xs">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">
+                                💬 Gratis Konsultasi Online 1x
+                              </span>
                             </div>
                           </div>
-                          <div className="text-right">
-                            {getTotalAmount() === 0 ? (
-                              <div className="text-green-600 dark:text-green-400">
-                                <div className="text-2xl font-bold">GRATIS</div>
-                                <div className="text-xs bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full">
-                                  Free Access
-                                </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Summary */}
+                  <div className="space-y-3">
+                    <div className="border-t border-dashed border-neutral-300 dark:border-muted-foreground/30 pt-4">
+                      <div className="flex justify-between items-center text-sm text-neutral-600 dark:text-muted-foreground mb-2">
+                        <span>Jumlah Item:</span>
+                        <span className="font-medium">{items.length} asesmen</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-neutral-900 dark:text-foreground">Total Pembayaran:</span>
+                        <div className="text-right">
+                          {getTotalAmount() === 0 ? (
+                            <div className="text-green-600 dark:text-green-400">
+                              <div className="text-lg font-bold">Gratis</div>
+                              <div className="text-xs">Free Access</div>
+                            </div>
+                          ) : (
+                            <div className="text-primary">
+                              <div className="flex items-baseline">
+                                <span className="text-lg font-semibold mr-1">Rp</span>
+                                <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
                               </div>
-                            ) : (
-                              <div className="text-primary">
-                                <div className="text-2xl font-bold">
-                                  Rp {new Intl.NumberFormat('id-ID').format(getTotalAmount())}
-                                </div>
-                                <div className="text-xs text-neutral-500 dark:text-muted-foreground">
-                                  ~ {new Intl.NumberFormat('id-ID', { 
-                                    style: 'currency', 
-                                    currency: 'IDR',
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0
-                                  }).format(getTotalAmount())}
-                                </div>
+                              <div className="text-xs text-neutral-500 dark:text-muted-foreground">
+                                ({new Intl.NumberFormat('id-ID', { 
+                                  style: 'currency', 
+                                  currency: 'IDR',
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0
+                                }).format(getTotalAmount())})
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Action Section */}
-                  <div className="bg-gradient-to-br from-neutral-50/30 to-neutral-100/30 dark:from-muted/10 dark:to-muted/20 p-6 border-t border-neutral-200 dark:border-neutral-700">
+                  <div className="space-y-4 border-t border-neutral-200 dark:border-muted-foreground/20 pt-6">
                     {getTotalAmount() === 0 ? (
                       // Free access for Learning Style Assessment
-                      <div className="space-y-4">
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4">
-                          <div className="text-center space-y-2">
-                            <div className="flex items-center justify-center space-x-2">
-                              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                              <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                                🎉 AKSES SEPENUHNYA GRATIS!
-                              </span>
-                              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                            </div>
-                            <p className="text-sm text-green-600 dark:text-green-400">
-                              Tidak diperlukan pembayaran - langsung akses asesmen
-                            </p>
+                      <div className="space-y-3">
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                              🎉 Akses Gratis - Tidak perlu pembayaran!
+                            </span>
                           </div>
                         </div>
                         
                         <Button 
-                          className="w-full h-14 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 font-semibold text-lg" 
+                          className="w-full bg-green-600 hover:bg-green-700 text-white" 
+                          size="lg"
                           onClick={handleCheckout}
                           disabled={createOrderMutation.isPending}
                         >
-                          {createOrderMutation.isPending ? (
-                            <div className="flex items-center justify-center">
-                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
-                              <span>Memproses Akses Gratis...</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center">
-                              <span className="mr-3 text-xl">🚀</span>
-                              <span>Dapatkan Akses Gratis Sekarang</span>
-                            </div>
-                          )}
+                          <span className="flex items-center justify-center">
+                            {createOrderMutation.isPending ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                                Memproses Akses...
+                              </>
+                            ) : (
+                              <>
+                                <span className="mr-2">🚀</span>
+                                Dapatkan Akses Gratis
+                              </>
+                            )}
+                          </span>
                         </Button>
                       </div>
                     ) : (
                       // Payment with Xendit
                       <div className="space-y-4">
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-5">
-                          <div className="text-center mb-4">
-                            <h5 className="font-bold text-blue-900 dark:text-blue-100 text-lg flex items-center justify-center">
-                              <span className="mr-2 text-xl">💳</span>
-                              Metode Pembayaran Tersedia
-                            </h5>
-                            <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-                              Pilih metode pembayaran yang paling sesuai untuk Anda
-                            </p>
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-3 text-xs text-blue-700 dark:text-blue-300">
-                            <div className="bg-white/50 dark:bg-blue-800/20 p-2 rounded-lg text-center">
-                              <div className="font-semibold">Bank Transfer</div>
-                              <div className="text-xs opacity-75">BCA, BRI, BNI</div>
-                            </div>
-                            <div className="bg-white/50 dark:bg-blue-800/20 p-2 rounded-lg text-center">
-                              <div className="font-semibold">E-Wallet</div>
-                              <div className="text-xs opacity-75">DANA, OVO, dll</div>
-                            </div>
-                            <div className="bg-white/50 dark:bg-blue-800/20 p-2 rounded-lg text-center">
-                              <div className="font-semibold">QRIS & CC</div>
-                              <div className="text-xs opacity-75">Scan & Bayar</div>
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                          <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2 flex items-center">
+                            <span className="mr-2">💳</span>
+                            Metode Pembayaran
+                          </h5>
+                          <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>• Virtual Account</div>
+                              <div>• E-wallet</div>
+                              <div>• QRIS</div>
+                              <div>• Kartu Kredit</div>
+                              <div>• Retail Store</div>
+                              <div>• Bank Transfer</div>
                             </div>
                           </div>
                         </div>
                         
                         <Button 
-                          className="w-full h-14 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white shadow-lg hover:shadow-xl transition-all duration-200 font-semibold text-lg" 
+                          className="w-full bg-primary hover:bg-primary/90 text-white" 
+                          size="lg"
                           onClick={handleCheckout}
                           disabled={createOrderMutation.isPending}
                         >
-                          {createOrderMutation.isPending ? (
-                            <div className="flex items-center justify-center">
-                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
-                              <span>Membuat Pesanan...</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center">
-                              <span className="mr-3 text-xl">🔒</span>
-                              <span>Lanjutkan ke Pembayaran Aman</span>
-                            </div>
-                          )}
+                          <span className="flex items-center justify-center">
+                            {createOrderMutation.isPending ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                                Membuat Pesanan...
+                              </>
+                            ) : (
+                              <>
+                                <span className="mr-2">🔒</span>
+                                Lanjutkan ke Pembayaran
+                              </>
+                            )}
+                          </span>
                         </Button>
                       </div>
                     )}
 
                     {!isAuthenticated && (
-                      <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
-                        <div className="text-center">
-                          <p className="text-sm font-medium text-amber-700 dark:text-amber-300 flex items-center justify-center">
-                            <span className="mr-2 text-lg">⚠️</span>
-                            Masuk diperlukan untuk melanjutkan checkout
-                          </p>
-                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                            Anda akan diarahkan ke halaman login secara otomatis
-                          </p>
-                        </div>
+                      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+                        <p className="text-sm text-center text-amber-700 dark:text-amber-300 flex items-center justify-center">
+                          <span className="mr-2">⚠️</span>
+                          Anda akan diminta masuk saat checkout
+                        </p>
                       </div>
                     )}
                   </div>
