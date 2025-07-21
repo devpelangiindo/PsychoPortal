@@ -37,12 +37,6 @@ export default function Dashboard() {
     enabled: isAuthenticated,
     refetchInterval: 3000, // Auto refresh every 3 seconds
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
-    onSuccess: (data) => {
-      // Only show toast on subsequent refreshes, not initial load
-      if (data && !assessmentsLoading) {
-        console.log("Assessment data refreshed automatically");
-      }
-    },
   });
 
   const { data: orders, isLoading: ordersLoading } = useQuery<OrderWithItems[]>({
@@ -95,9 +89,9 @@ export default function Dashboard() {
     }
   };
 
-  const availableAssessments = userAssessments?.filter(ua => ua.status === 'available') || [];
-  const completedAssessments = userAssessments?.filter(ua => ua.status === 'completed') || [];
-  const inProgressAssessments = userAssessments?.filter(ua => ua.status === 'in_progress') || [];
+  const availableAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'available') || [];
+  const completedAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'completed') || [];
+  const inProgressAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'in_progress') || [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -307,7 +301,7 @@ export default function Dashboard() {
             <CardContent>
               {userAssessments && userAssessments.length > 0 ? (
                 <div className="space-y-4">
-                  {userAssessments.map((userAssessment) => (
+                  {userAssessments.map((userAssessment: UserAssessmentWithDetails) => (
                     <div key={userAssessment.id} className="dashboard-item">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
