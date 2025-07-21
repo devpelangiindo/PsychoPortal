@@ -226,6 +226,7 @@ Changelog:
 - July 21, 2025. Database completely cleared for fresh testing cycle - all user data, transactions, and sessions removed except admin and assessment definitions
 - July 21, 2025. Payment completion flow fully debugged and functional - missing user assessments issue resolved
 - July 21, 2025. Enhanced auto-completion system now creates missing assessments for completed orders automatically
+- July 21, 2025. Removed detailed "Asesmen Tersedia" and "Asesmen Selesai" sections from Beranda page per user request - page now shows only quick stats and available assessments for purchase
 ```
 
 ## User Preferences
