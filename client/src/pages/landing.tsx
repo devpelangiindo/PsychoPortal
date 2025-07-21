@@ -133,9 +133,7 @@ export default function Landing() {
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
               Cara Kerja
             </h2>
-            <p className="text-lg text-neutral-500 dark:text-muted-foreground">
-              Proses asesmen yang sederhana, aman, dan profesional
-            </p>
+            <p className="text-lg text-neutral-500 dark:text-muted-foreground">Proses asesmen yang sederhana dan aman</p>
           </div>
           
           <div className="grid md:grid-cols-4 gap-8">
