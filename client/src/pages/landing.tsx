@@ -180,9 +180,7 @@ export default function Landing() {
               <h3 className="text-xl font-semibold text-neutral-900 dark:text-foreground mb-3">
                 4. Dapatkan Hasil
               </h3>
-              <p className="text-neutral-500 dark:text-muted-foreground">
-                Terima laporan profesional dan wawasan yang detail
-              </p>
+              <p className="text-neutral-500 dark:text-muted-foreground">Terima laporan dan wawasan yang detail</p>
             </div>
           </div>
         </div>
