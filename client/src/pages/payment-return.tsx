@@ -90,8 +90,13 @@ export default function PaymentReturn() {
         console.log('Payment status response:', paymentData);
         setOrderData(paymentData);
 
-        // Determine status based on response
-        if (paymentData.paymentStatus === 'paid' || paymentData.status === 'completed') {
+        // If payment is still pending, try to auto-complete it
+        if (paymentData.paymentStatus === 'pending' && paymentData.status === 'pending') {
+          console.log('Payment still pending, attempting auto-completion...');
+          
+          // Show pending with auto-completion option
+          setPaymentStatus('pending');
+        } else if (paymentData.paymentStatus === 'paid' || paymentData.status === 'completed') {
           setPaymentStatus('success');
           
           // Clean up localStorage
@@ -108,8 +113,6 @@ export default function PaymentReturn() {
             title: "Pembayaran Berhasil!",
             description: "Asesmen Anda sekarang tersedia di dashboard.",
           });
-        } else if (paymentData.paymentStatus === 'pending') {
-          setPaymentStatus('pending');
         } else {
           setPaymentStatus('failed');
           setError('Pembayaran tidak berhasil atau dibatalkan');

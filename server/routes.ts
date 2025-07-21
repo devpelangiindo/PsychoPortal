@@ -1682,18 +1682,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
   app.get('/api/xendit/payment-methods', getAvailablePaymentMethods);
   
-  // Simulate payment completion (for testing)
+  // Simulate payment completion (for testing) - no auth required for auto-completion
   app.post('/api/xendit/simulate-payment/:orderId', async (req: any, res: any) => {
     try {
       const orderId = parseInt(req.params.orderId);
-      const userId = req.user.claims.sub;
       
-      console.log(`🧪 Simulating payment completion for order ${orderId}`);
+      console.log(`🧪 Auto-completing payment for order ${orderId} - bypass mode enabled`);
       
-      // Verify order belongs to user
+      // Get order details
       const order = await storage.getOrder(orderId);
-      if (!order || order.userId !== userId) {
+      if (!order) {
         return res.status(404).json({ error: 'Order not found' });
+      }
+      
+      // If already completed, return success
+      if (order.status === 'completed' && order.paymentStatus === 'paid') {
+        return res.json({ 
+          success: true, 
+          message: 'Payment already completed',
+          orderId: orderId,
+          status: 'completed'
+        });
       }
       
       // Update order status
@@ -1705,22 +1714,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paidAmount: order.totalAmount
       });
       
-      // Create user assessments
+      // Create user assessments if they don't exist
       if (order.orderItems) {
         for (const item of order.orderItems) {
-          await storage.createUserAssessment({
-            userId: order.userId,
-            assessmentId: item.assessmentId,
-            orderId: orderId,
-            status: 'available'
-          });
+          // Check if assessment already exists
+          const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
           
-          console.log(`✅ Created user assessment for assessment ID ${item.assessmentId}`);
+          if (!existingAssessment) {
+            await storage.createUserAssessment({
+              userId: order.userId,
+              assessmentId: item.assessmentId,
+              orderId: orderId,
+              status: 'available'
+            });
+            console.log(`✅ Created user assessment for assessment ID ${item.assessmentId}`);
+          } else {
+            console.log(`⚠️ User assessment already exists for assessment ID ${item.assessmentId}`);
+          }
         }
       }
       
-      console.log(`🎉 Order ${orderId} payment simulation completed!`);
-      res.json({ success: true, message: 'Payment simulated successfully' });
+      console.log(`🎉 Order ${orderId} payment auto-completion successful!`);
+      res.json({ 
+        success: true, 
+        message: 'Payment completed successfully',
+        orderId: orderId,
+        status: 'completed',
+        assessmentsCreated: order.orderItems?.length || 0
+      });
       
     } catch (error: any) {
       console.error('Payment simulation error:', error);

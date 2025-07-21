@@ -26,6 +26,7 @@ import AdminAssessmentResult from "@/pages/admin-assessment-result";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailed from "@/pages/payment-failed";
 import PaymentReturn from "@/pages/payment-return";
+import AutoRedirect from "@/pages/auto-redirect";
 
 import NotFound from "@/pages/not-found";
 
@@ -55,6 +56,7 @@ function Router() {
       <Route path="/payment-success" component={PaymentSuccess} />
       <Route path="/payment-failed" component={PaymentFailed} />
       <Route path="/payment-return" component={PaymentReturn} />
+      <Route path="/payment-success-redirect" component={AutoRedirect} />
       
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLogin} />
