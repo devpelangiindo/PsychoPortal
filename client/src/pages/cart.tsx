@@ -289,181 +289,87 @@ export default function Cart() {
             {/* Order Summary */}
             <div>
               <Card className="sticky top-4">
-                <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-t-lg">
-                  <CardTitle className="text-xl text-center">📋 Ringkasan Pesanan</CardTitle>
+                <CardHeader>
+                  <CardTitle>Ringkasan Pesanan</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  {/* Items List */}
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-sm text-neutral-600 dark:text-muted-foreground uppercase tracking-wider">
-                      Item Pesanan
-                    </h4>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
                     {items.map((item) => (
-                      <div key={item.id} className="bg-neutral-50 dark:bg-muted/50 rounded-lg p-4 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <h5 className="font-medium text-sm leading-tight pr-2">
-                            {item.name}
-                          </h5>
-                          <div className="text-right shrink-0">
-                            {parseFloat(item.price) === 0 ? (
-                              <span className="text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full text-xs font-semibold">
-                                Gratis
-                              </span>
-                            ) : (
-                              <div className="text-primary font-semibold">
-                                <span className="text-xs">Rp</span>
-                                <span className="text-sm">{new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center text-xs text-neutral-500 dark:text-muted-foreground space-x-3">
-                          <span className="flex items-center">
-                            <span className="w-1 h-1 bg-neutral-400 rounded-full mr-1"></span>
-                            {item.duration}
-                          </span>
-                          <span className="flex items-center">
-                            <span className="w-1 h-1 bg-neutral-400 rounded-full mr-1"></span>
-                            {item.ageRange}
-                          </span>
-                        </div>
-                        {item.type === 'sensory' && (
-                          <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded p-2">
-                            <div className="flex items-center text-xs">
-                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
-                              <span className="text-blue-700 dark:text-blue-300 font-medium">
-                                💬 Gratis Konsultasi Online 1x
-                              </span>
-                            </div>
-                          </div>
-                        )}
+                      <div key={item.id} className="flex justify-between text-sm">
+                        <span className="text-neutral-500 dark:text-muted-foreground truncate mr-2">
+                          {item.name}
+                        </span>
+                        <span className="font-medium">
+                          {parseFloat(item.price) === 0 ? (
+                            <span className="text-green-600 bg-green-100 px-2 py-1 rounded text-xs">
+                              Free
+                            </span>
+                          ) : (
+                            `Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(item.price))}`
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
                   
-                  {/* Summary */}
-                  <div className="space-y-3">
-                    <div className="border-t border-dashed border-neutral-300 dark:border-muted-foreground/30 pt-4">
-                      <div className="flex justify-between items-center text-sm text-neutral-600 dark:text-muted-foreground mb-2">
-                        <span>Jumlah Item:</span>
-                        <span className="font-medium">{items.length} asesmen</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-neutral-900 dark:text-foreground">Total Pembayaran:</span>
-                        <div className="text-right">
-                          {getTotalAmount() === 0 ? (
-                            <div className="text-green-600 dark:text-green-400">
-                              <div className="text-lg font-bold">Gratis</div>
-                              <div className="text-xs">Free Access</div>
-                            </div>
-                          ) : (
-                            <div className="text-primary">
-                              <div className="flex items-baseline">
-                                <span className="text-lg font-semibold mr-1">Rp</span>
-                                <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
-                              </div>
-                              <div className="text-xs text-neutral-500 dark:text-muted-foreground">
-                                ({new Intl.NumberFormat('id-ID', { 
-                                  style: 'currency', 
-                                  currency: 'IDR',
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 0
-                                }).format(getTotalAmount())})
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                  <div className="border-t pt-4">
+                    <div className="flex justify-between text-lg font-semibold">
+                      <span>Total</span>
+                      <span className="flex items-baseline text-primary">
+                        {getTotalAmount() === 0 ? (
+                          <span className="text-lg font-bold text-green-600">
+                            Free Access
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-base font-semibold mr-1">Rp</span>
+                            <span className="text-lg font-semibold">{new Intl.NumberFormat('id-ID').format(getTotalAmount())}</span>
+                          </>
+                        )}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Action Section */}
-                  <div className="space-y-4 border-t border-neutral-200 dark:border-muted-foreground/20 pt-6">
-                    {getTotalAmount() === 0 ? (
-                      // Free access for Learning Style Assessment
-                      <div className="space-y-3">
-                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                              🎉 Akses Gratis - Tidak perlu pembayaran!
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <Button 
-                          className="w-full bg-green-600 hover:bg-green-700 text-white" 
-                          size="lg"
-                          onClick={handleCheckout}
-                          disabled={createOrderMutation.isPending}
-                        >
-                          <span className="flex items-center justify-center">
-                            {createOrderMutation.isPending ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                                Memproses Akses...
-                              </>
-                            ) : (
-                              <>
-                                <span className="mr-2">🚀</span>
-                                Dapatkan Akses Gratis
-                              </>
-                            )}
-                          </span>
-                        </Button>
+                  {getTotalAmount() === 0 ? (
+                    // Free access for Learning Style Assessment
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      onClick={handleCheckout}
+                      disabled={createOrderMutation.isPending}
+                    >
+                      {createOrderMutation.isPending ? "Memproses Akses..." : "Dapatkan Akses Gratis"}
+                    </Button>
+                  ) : (
+                    // Payment with Xendit
+                    <div className="space-y-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        Bayar dengan berbagai metode pembayaran:
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>Virtual Account (BCA, BRI, BNI, Mandiri, dll)</li>
+                          <li>E-wallet (DANA, OVO, LinkAja, ShopeePay)</li>
+                          <li>QRIS</li>
+                          <li>Kartu Kredit</li>
+                          <li>Retail (Alfamart, Indomaret)</li>
+                        </ul>
                       </div>
-                    ) : (
-                      // Payment with Xendit
-                      <div className="space-y-4">
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                          <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2 flex items-center">
-                            <span className="mr-2">💳</span>
-                            Metode Pembayaran
-                          </h5>
-                          <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>• Virtual Account</div>
-                              <div>• E-wallet</div>
-                              <div>• QRIS</div>
-                              <div>• Kartu Kredit</div>
-                              <div>• Retail Store</div>
-                              <div>• Bank Transfer</div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <Button 
-                          className="w-full bg-primary hover:bg-primary/90 text-white" 
-                          size="lg"
-                          onClick={handleCheckout}
-                          disabled={createOrderMutation.isPending}
-                        >
-                          <span className="flex items-center justify-center">
-                            {createOrderMutation.isPending ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                                Membuat Pesanan...
-                              </>
-                            ) : (
-                              <>
-                                <span className="mr-2">🔒</span>
-                                Lanjutkan ke Pembayaran
-                              </>
-                            )}
-                          </span>
-                        </Button>
-                      </div>
-                    )}
+                      
+                      <Button 
+                        className="w-full" 
+                        size="lg"
+                        onClick={handleCheckout}
+                        disabled={createOrderMutation.isPending}
+                      >
+                        {createOrderMutation.isPending ? "Membuat Pesanan..." : "Lanjutkan ke Pembayaran"}
+                      </Button>
+                    </div>
+                  )}
 
-                    {!isAuthenticated && (
-                      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
-                        <p className="text-sm text-center text-amber-700 dark:text-amber-300 flex items-center justify-center">
-                          <span className="mr-2">⚠️</span>
-                          Anda akan diminta masuk saat checkout
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  {!isAuthenticated && (
+                    <p className="text-sm text-center text-neutral-500 dark:text-muted-foreground">
+                      Anda akan diminta masuk saat checkout
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>
