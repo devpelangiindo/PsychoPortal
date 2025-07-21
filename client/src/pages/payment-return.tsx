@@ -19,22 +19,31 @@ export default function PaymentReturn() {
 
   useEffect(() => {
     const checkPaymentStatus = async () => {
+      console.log('🔍 Payment return page loaded, starting status check...');
+      
       try {
-        // PRIORITY BYPASS: Check if user already has available assessments
-        if (user) {
-          console.log('🔍 Checking user assessments for bypass...');
+        // Get URL parameters first
+        const urlParams = new URLSearchParams(window.location.search);
+        const externalId = urlParams.get('external_id');
+        const status = urlParams.get('status');
+        
+        console.log('URL parameters:', { externalId, status });
+        
+        // IMMEDIATE BYPASS: If user is authenticated and status indicates success
+        if (user && (status === 'PAID' || status === 'SUCCESS')) {
+          console.log('✅ Payment status indicates success, checking for user assessments...');
+          
           try {
             const assessmentsResponse = await apiRequest('GET', '/api/user-assessments');
             const userAssessments = await assessmentsResponse.json();
             
-            console.log('Found user assessments:', userAssessments.length);
+            console.log('User assessments found:', userAssessments?.length || 0);
             
             if (userAssessments && userAssessments.length > 0) {
               const availableAssessments = userAssessments.filter((ua: any) => ua.status === 'available');
-              console.log('Available assessments:', availableAssessments.length);
               
               if (availableAssessments.length > 0) {
-                console.log('✅ BYPASS ACTIVATED - User has available assessments');
+                console.log('✅ BYPASS SUCCESS - Available assessments found, redirecting...');
                 
                 // Clean up localStorage
                 Object.keys(localStorage).forEach(key => {
@@ -48,12 +57,6 @@ export default function PaymentReturn() {
                   description: "Asesmen Anda sekarang tersedia di dashboard.",
                 });
                 
-                // Immediate redirect to dashboard
-                console.log('🚀 Redirecting to dashboard...');
-                setTimeout(() => {
-                  setLocation('/dashboard');
-                }, 1000);
-                
                 setPaymentStatus('success');
                 setOrderData({ 
                   status: 'completed', 
@@ -63,20 +66,72 @@ export default function PaymentReturn() {
                     price: a.assessment.price
                   }))
                 });
+                
+                // Redirect after short delay
+                setTimeout(() => {
+                  setLocation('/dashboard');
+                }, 1500);
+                
                 return;
               }
             }
           } catch (assessmentError) {
-            console.log('Assessment bypass check failed:', assessmentError);
+            console.error('Assessment check error:', assessmentError);
+          }
+        }
+        
+        // FALLBACK: Try to complete payment if it hasn't been completed yet
+        if (user && externalId) {
+          const orderIdMatch = externalId.match(/order_(\d+)_/);
+          if (orderIdMatch) {
+            const orderId = parseInt(orderIdMatch[1]);
+            console.log(`🔄 Attempting to complete payment for order ${orderId}...`);
+            
+            try {
+              const completeResponse = await apiRequest('POST', `/api/xendit/simulate-payment/${orderId}`, {});
+              const completeResult = await completeResponse.json();
+              
+              if (completeResult.success) {
+                console.log('✅ Payment completion successful, checking assessments...');
+                
+                // Wait a moment for database to update
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Check assessments again after completion
+                const assessmentsResponse = await apiRequest('GET', '/api/user-assessments');
+                const userAssessments = await assessmentsResponse.json();
+                
+                if (userAssessments && userAssessments.length > 0) {
+                  toast({
+                    title: "Pembayaran Berhasil!",
+                    description: "Asesmen Anda sekarang tersedia di dashboard.",
+                  });
+                  
+                  setPaymentStatus('success');
+                  setOrderData({ 
+                    status: 'completed', 
+                    paymentStatus: 'paid',
+                    items: userAssessments.map((a: any) => ({
+                      assessmentName: a.assessment.name,
+                      price: a.assessment.price
+                    }))
+                  });
+                  
+                  setTimeout(() => {
+                    setLocation('/dashboard');
+                  }, 1500);
+                  return;
+                }
+              }
+            } catch (completeError) {
+              console.error('Payment completion error:', completeError);
+            }
           }
         }
 
-        // Continue with normal payment checking flow if no bypass...
-        // Get URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
+        // Continue with normal payment checking flow if bypass fails...
+        // Get additional URL parameters if not already retrieved
         const invoiceId = urlParams.get('invoice_id');
-        const externalId = urlParams.get('external_id');
-        const status = urlParams.get('status');
 
         console.log('Payment return params:', { invoiceId, externalId, status });
 
