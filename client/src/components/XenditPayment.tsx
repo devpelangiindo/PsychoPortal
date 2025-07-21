@@ -135,13 +135,13 @@ export default function XenditPayment({
         }));
 
         if (invoiceData.invoiceUrl) {
-          console.log('🌐 Opening Xendit payment page:', invoiceData.invoiceUrl);
-          // Redirect to Xendit payment page
-          window.open(invoiceData.invoiceUrl, '_blank');
+          console.log('🌐 Redirecting to Xendit payment page:', invoiceData.invoiceUrl);
+          // Redirect to Xendit payment page in the same tab
+          window.location.href = invoiceData.invoiceUrl;
 
           toast({
             title: 'Invoice Dibuat',
-            description: 'Silakan lanjutkan pembayaran di halaman yang terbuka',
+            description: 'Mengarahkan ke halaman pembayaran...',
           });
         } else {
           console.error('❌ No invoiceUrl found in response!');

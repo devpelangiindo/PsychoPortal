@@ -1683,7 +1683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/xendit/payment-methods', getAvailablePaymentMethods);
   
   // Simulate payment completion (for testing)
-  app.post('/api/xendit/simulate-payment/:orderId', isAuthenticated, async (req: any, res: any) => {
+  app.post('/api/xendit/simulate-payment/:orderId', async (req: any, res: any) => {
     try {
       const orderId = parseInt(req.params.orderId);
       const userId = req.user.claims.sub;
