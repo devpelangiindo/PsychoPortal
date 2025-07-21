@@ -190,6 +190,11 @@ Changelog:
 - July 21, 2025. Implemented manual payment simulation endpoint for testing payment completion flow
 - July 21, 2025. Fixed post-payment assessment access - users can now access purchased assessments after payment completion
 - July 21, 2025. Payment flow fully functional: invoice creation → payment processing → order completion → assessment availability
+- July 21, 2025. Major checkout flow redesign: Cart → Direct Xendit redirect (no modal) → Payment Return page → Dashboard access
+- July 21, 2025. Eliminated "Order ID tidak ditemukan" errors by streamlining checkout flow and maintaining session consistency
+- July 21, 2025. Added comprehensive payment-return.tsx page handling all Xendit payment completion scenarios
+- July 21, 2025. Updated Xendit redirect URLs to use /payment-return for both success and failure cases
+- July 21, 2025. Database cleared for fresh testing environment - only admin user and assessment data retained
 ```
 
 ## User Preferences
