@@ -98,15 +98,20 @@ export async function createXenditInvoice(req: Request, res: Response) {
 
     console.log('✅ Xendit invoice created successfully:', {
       id: invoice.id,
+      invoiceUrl: invoice.invoiceUrl,
       invoice_url: invoice.invoice_url,
+      externalId: invoice.externalId,
       external_id: invoice.external_id,
       amount: invoice.amount,
-      status: invoice.status,
-      fullResponse: invoice
+      status: invoice.status
     });
 
-    if (!invoice.invoice_url) {
-      console.error('❌ Xendit did not return invoice_url!');
+    const invoiceUrlField = invoice.invoiceUrl || invoice.invoice_url;
+    const externalIdField = invoice.externalId || invoice.external_id;
+
+    if (!invoiceUrlField) {
+      console.error('❌ Xendit did not return invoiceUrl!');
+      console.error('Available fields:', Object.keys(invoice));
       console.error('Full Xendit response:', JSON.stringify(invoice, null, 2));
       throw new Error('Xendit tidak mengembalikan URL pembayaran');
     }
@@ -114,8 +119,8 @@ export async function createXenditInvoice(req: Request, res: Response) {
     res.json({
       success: true,
       invoiceId: invoice.id,
-      invoiceUrl: invoice.invoice_url,
-      externalId: invoice.external_id,
+      invoiceUrl: invoiceUrlField,
+      externalId: externalIdField,
       amount: invoice.amount,
       status: invoice.status,
     });
