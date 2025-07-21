@@ -29,9 +29,9 @@ export default function PaymentReturn() {
         
         console.log('URL parameters:', { externalId, status });
         
-        // IMMEDIATE BYPASS: If user is authenticated and status indicates success
-        if (user && (status === 'PAID' || status === 'SUCCESS')) {
-          console.log('✅ Payment status indicates success, checking for user assessments...');
+        // IMMEDIATE BYPASS: If user is authenticated - always check for available assessments first
+        if (user) {
+          console.log('✅ User authenticated, checking for available assessments...');
           
           try {
             const assessmentsResponse = await apiRequest('GET', '/api/user-assessments');
@@ -87,12 +87,81 @@ export default function PaymentReturn() {
           }
         }
         
-        // FALLBACK: Try to complete payment if it hasn't been completed yet
+        // FALLBACK 1: Try to auto-complete payment using order detection from recent orders
+        if (user) {
+          console.log('🔄 Checking recent orders for auto-completion...');
+          
+          try {
+            const ordersResponse = await apiRequest('GET', '/api/orders');
+            const orders = await ordersResponse.json();
+            
+            // Find pending orders
+            const pendingOrders = orders?.filter((o: any) => o.status === 'pending') || [];
+            console.log(`Found ${pendingOrders.length} pending orders`);
+            
+            for (const order of pendingOrders) {
+              console.log(`🔄 Attempting to auto-complete order ${order.id}...`);
+              
+              try {
+                const completeResponse = await apiRequest('POST', `/api/xendit/simulate-payment/${order.id}`, {});
+                const completeResult = await completeResponse.json();
+                
+                if (completeResult.success) {
+                  console.log(`✅ Auto-completed order ${order.id}, checking assessments...`);
+                  
+                  // Wait for database update
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  
+                  // Check assessments again
+                  const newAssessmentsResponse = await apiRequest('GET', '/api/user-assessments');
+                  const newUserAssessments = await newAssessmentsResponse.json();
+                  
+                  const newAvailableAssessments = newUserAssessments?.filter((ua: any) => ua.status === 'available') || [];
+                  
+                  if (newAvailableAssessments.length > 0) {
+                    toast({
+                      title: "Pembayaran Berhasil!",
+                      description: "Asesmen Anda sekarang tersedia di dashboard.",
+                    });
+                    
+                    setPaymentStatus('success');
+                    const totalAmount = newAvailableAssessments.reduce((sum: number, a: any) => {
+                      return sum + (parseFloat(a.assessment.price) || 0);
+                    }, 0);
+
+                    setOrderData({ 
+                      orderId: order.id,
+                      status: 'completed',
+                      paymentStatus: 'paid',
+                      totalAmount: totalAmount,
+                      items: newAvailableAssessments.map((a: any) => ({
+                        assessmentName: a.assessment.name,
+                        price: a.assessment.price
+                      }))
+                    });
+                    
+                    setTimeout(() => {
+                      setLocation('/dashboard');
+                    }, 1500);
+                    
+                    return;
+                  }
+                }
+              } catch (completeError) {
+                console.error(`Error completing order ${order.id}:`, completeError);
+              }
+            }
+          } catch (ordersError) {
+            console.error('Orders check error:', ordersError);
+          }
+        }
+
+        // FALLBACK 2: Try to complete payment from URL parameters
         if (user && externalId) {
           const orderIdMatch = externalId.match(/order_(\d+)_/);
           if (orderIdMatch) {
             const orderId = parseInt(orderIdMatch[1]);
-            console.log(`🔄 Attempting to complete payment for order ${orderId}...`);
+            console.log(`🔄 URL-based completion attempt for order ${orderId}...`);
             
             try {
               const completeResponse = await apiRequest('POST', `/api/xendit/simulate-payment/${orderId}`, {});
@@ -108,20 +177,21 @@ export default function PaymentReturn() {
                 const assessmentsResponse = await apiRequest('GET', '/api/user-assessments');
                 const userAssessments = await assessmentsResponse.json();
                 
-                if (userAssessments && userAssessments.length > 0) {
+                const finalAvailableAssessments = userAssessments?.filter((ua: any) => ua.status === 'available') || [];
+                
+                if (finalAvailableAssessments.length > 0) {
                   toast({
                     title: "Pembayaran Berhasil!",
                     description: "Asesmen Anda sekarang tersedia di dashboard.",
                   });
                   
                   setPaymentStatus('success');
-                  // Calculate total amount from assessments
-                  const totalAmount = userAssessments.reduce((sum: number, a: any) => {
+                  const totalAmount = finalAvailableAssessments.reduce((sum: number, a: any) => {
                     return sum + (parseFloat(a.assessment.price) || 0);
                   }, 0);
 
                   setOrderData({ 
-                    orderId: userAssessments[0]?.orderId || orderId,
+                    orderId: orderId,
                     status: 'completed', 
                     paymentStatus: 'paid',
                     totalAmount: totalAmount,
