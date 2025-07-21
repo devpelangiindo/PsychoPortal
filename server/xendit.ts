@@ -69,29 +69,45 @@ export async function createXenditInvoice(req: Request, res: Response) {
 
     const xenditClient = await getXenditClient();
     
-    // Use modern Xendit SDK format for createInvoice
+    // Use correct Xendit SDK format for createInvoice
     const invoiceData = {
-      amount: parseInt(amount),
       externalId: `order_${orderId}_${Date.now()}`,
+      amount: parseInt(amount),
       description: `Pembayaran untuk ${items?.map((item: any) => item.name).join(', ') || 'Asesmen Psikologi'}`,
-      currency: 'IDR',
       invoiceDuration: 86400, // 24 hours
-      reminderTime: 1
+      currency: 'IDR',
+      reminderTime: 1,
+      customer: {
+        givenNames: customerName,
+        email: customerEmail
+      },
+      customerNotificationPreference: {
+        invoiceCreated: ['email'],
+        invoiceReminder: ['email'],
+        invoicePaid: ['email']
+      },
+      successRedirectUrl: `${req.protocol}://${req.get('host')}/payment-success`,
+      failureRedirectUrl: `${req.protocol}://${req.get('host')}/payment-failed`
     };
 
-    console.log('Creating invoice with modern format:', invoiceData);
+    console.log('Creating invoice with correct format:', invoiceData);
     
-    const invoice = await xenditClient.Invoice.createInvoice({
-      data: invoiceData
-    });
+    const invoice = await xenditClient.Invoice.createInvoice(invoiceData);
 
     console.log('✅ Xendit invoice created successfully:', {
       id: invoice.id,
       invoice_url: invoice.invoice_url,
       external_id: invoice.external_id,
       amount: invoice.amount,
-      status: invoice.status
+      status: invoice.status,
+      fullResponse: invoice
     });
+
+    if (!invoice.invoice_url) {
+      console.error('❌ Xendit did not return invoice_url!');
+      console.error('Full Xendit response:', JSON.stringify(invoice, null, 2));
+      throw new Error('Xendit tidak mengembalikan URL pembayaran');
+    }
 
     res.json({
       success: true,
