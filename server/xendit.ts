@@ -204,6 +204,37 @@ export async function handleXenditWebhook(req: Request, res: Response) {
       // Import storage here to avoid circular dependency
       const { storage } = await import('./storage');
       
+      console.log(`🎉 Payment confirmed for order ${orderId}! Processing...`);
+      
+      // Update order status
+      await storage.updateOrder(orderId, {
+        status: 'completed',
+        paymentStatus: 'paid',
+        paymentMethod: payment_method,
+        paidAt: new Date(paid_at),
+        paidAmount: paid_amount.toString()
+      });
+      
+      // Get order details to create user assessments
+      const order = await storage.getOrder(orderId);
+      if (order && order.orderItems) {
+        console.log(`📝 Creating user assessments for ${order.orderItems.length} items...`);
+        
+        for (const item of order.orderItems) {
+          // Create user assessment for each purchased assessment
+          await storage.createUserAssessment({
+            userId: order.userId,
+            assessmentId: item.assessmentId,
+            orderId: orderId,
+            status: 'available'
+          });
+          
+          console.log(`✅ Created user assessment for assessment ID ${item.assessmentId}`);
+        }
+        
+        console.log(`🎉 Order ${orderId} processed successfully! User can now access assessments.`);
+      }
+      
       await storage.updateOrderPayment(orderId, {
         paymentStatus: 'completed',
         paymentMethod: 'xendit',

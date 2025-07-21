@@ -1681,6 +1681,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/xendit/invoice/:invoiceId/status', isAuthenticated, checkInvoiceStatus);
   app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
   app.get('/api/xendit/payment-methods', getAvailablePaymentMethods);
+  
+  // Simulate payment completion (for testing)
+  app.post('/api/xendit/simulate-payment/:orderId', isAuthenticated, async (req: any, res: any) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+      const userId = req.user.claims.sub;
+      
+      console.log(`🧪 Simulating payment completion for order ${orderId}`);
+      
+      // Verify order belongs to user
+      const order = await storage.getOrder(orderId);
+      if (!order || order.userId !== userId) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      
+      // Update order status
+      await storage.updateOrder(orderId, {
+        status: 'completed',
+        paymentStatus: 'paid',
+        paymentMethod: 'xendit_simulation',
+        paidAt: new Date(),
+        paidAmount: order.totalAmount
+      });
+      
+      // Create user assessments
+      if (order.orderItems) {
+        for (const item of order.orderItems) {
+          await storage.createUserAssessment({
+            userId: order.userId,
+            assessmentId: item.assessmentId,
+            orderId: orderId,
+            status: 'available'
+          });
+          
+          console.log(`✅ Created user assessment for assessment ID ${item.assessmentId}`);
+        }
+      }
+      
+      console.log(`🎉 Order ${orderId} payment simulation completed!`);
+      res.json({ success: true, message: 'Payment simulated successfully' });
+      
+    } catch (error: any) {
+      console.error('Payment simulation error:', error);
+      res.status(500).json({ error: 'Failed to simulate payment' });
+    }
+  });
 
   // Payment success/failure pages endpoints
   app.get('/api/payment-status/:orderId', isAuthenticated, async (req: any, res) => {

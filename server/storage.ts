@@ -49,6 +49,7 @@ export interface IStorage {
   getOrder(id: number): Promise<OrderWithItems | undefined>;
   getUserOrders(userId: string): Promise<OrderWithItems[]>;
   updateOrderStatus(id: number, status: string, paymentId?: string, paymentStatus?: string): Promise<void>;
+  updateOrder(id: number, updates: Partial<Order>): Promise<void>;
 
   // Order item operations
   createOrderItem(orderItem: InsertOrderItem): Promise<OrderItem>;
@@ -280,6 +281,15 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(orders)
       .set(updateData)
+      .where(eq(orders.id, id));
+  }
+
+  async updateOrder(id: number, updates: Partial<Order>): Promise<void> {
+    await db.update(orders)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
       .where(eq(orders.id, id));
   }
 
