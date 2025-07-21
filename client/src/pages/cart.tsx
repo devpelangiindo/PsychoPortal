@@ -30,7 +30,7 @@ export default function Cart() {
       });
       return await response.json();
     },
-    onSuccess: (orderData) => {
+    onSuccess: async (orderData) => {
       setCurrentOrderId(orderData.id);
       
       if (getTotalAmount() === 0) {
@@ -40,8 +40,62 @@ export default function Cart() {
           paymentMethod: 'free_access'
         });
       } else {
-        // Paid assessment - show Xendit payment
-        setShowPayment(true);
+        // For paid assessments, directly create Xendit invoice and redirect
+        try {
+          console.log(`🚀 Starting direct Xendit payment for order ${orderData.id}`);
+          
+          // Prepare Xendit invoice data
+          const invoiceData = {
+            orderId: orderData.id,
+            amount: getTotalAmount(),
+            customerEmail: user?.email || '',
+            customerName: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.email || 'Customer',
+            items: items.map(item => ({
+              name: item.name,
+              price: parseFloat(item.price),
+              quantity: 1
+            })),
+            paymentMethod: 'BANK_TRANSFER', // Default method
+            paymentChannel: 'BCA' // Default channel
+          };
+
+          // Create invoice directly
+          const invoiceResponse = await apiRequest('POST', '/api/xendit/create-invoice', invoiceData);
+          const invoiceResult = await invoiceResponse.json();
+          
+          if (invoiceResult.success && invoiceResult.invoiceUrl) {
+            // Clear cart since order is created
+            clearCart();
+            
+            // Store invoice info for tracking
+            localStorage.setItem(`xendit_invoice_${orderData.id}`, JSON.stringify({
+              invoiceId: invoiceResult.invoiceId,
+              invoiceUrl: invoiceResult.invoiceUrl,
+              externalId: invoiceResult.externalId,
+              amount: invoiceResult.amount,
+              orderId: orderData.id
+            }));
+            
+            toast({
+              title: 'Mengarahkan ke Pembayaran',
+              description: 'Anda akan diarahkan ke halaman pembayaran Xendit...',
+            });
+            
+            // Redirect directly to Xendit
+            setTimeout(() => {
+              window.location.href = invoiceResult.invoiceUrl;
+            }, 1500);
+          } else {
+            throw new Error(invoiceResult.message || 'Gagal membuat invoice pembayaran');
+          }
+        } catch (error: any) {
+          console.error('Xendit invoice creation error:', error);
+          toast({
+            title: "Error Pembayaran",
+            description: error.message || "Gagal membuat invoice. Silakan coba lagi.",
+            variant: "destructive"
+          });
+        }
       }
     },
     onError: (error) => {
@@ -107,6 +161,7 @@ export default function Cart() {
       return;
     }
 
+    // For paid assessments, we'll handle Xendit payment directly after order creation
     createOrderMutation.mutate();
   };
 
@@ -324,38 +379,7 @@ export default function Cart() {
 
       <Footer />
 
-      {/* Xendit Payment Modal */}
-      {showPayment && currentOrderId && user && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold mb-2">Pembayaran</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowPayment(false)}
-                className="float-right"
-              >
-                ✕
-              </Button>
-            </div>
-            
-            <XenditPayment
-              orderId={currentOrderId}
-              amount={getTotalAmount()}
-              customerEmail={user?.email || ''}
-              customerName={user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.email || 'Customer'}
-              items={items.map(item => ({
-                name: item.name,
-                price: parseFloat(item.price),
-                quantity: 1
-              }))}
-              onPaymentSuccess={handlePaymentSuccess}
-              onPaymentError={handlePaymentError}
-            />
-          </div>
-        </div>
-      )}
+      {/* Payment modal removed - we now redirect directly to Xendit */}
     </div>
   );
 }

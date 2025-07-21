@@ -86,8 +86,8 @@ export async function createXenditInvoice(req: Request, res: Response) {
         invoiceReminder: ['email'],
         invoicePaid: ['email']
       },
-      successRedirectUrl: `${req.protocol}://${req.get('host')}/payment-success`,
-      failureRedirectUrl: `${req.protocol}://${req.get('host')}/payment-failed`
+      successRedirectUrl: `${req.protocol}://${req.get('host')}/payment-return`,
+      failureRedirectUrl: `${req.protocol}://${req.get('host')}/payment-return`
     };
 
     console.log('Creating invoice with correct format:', invoiceData);

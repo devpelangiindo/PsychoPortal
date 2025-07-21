@@ -25,6 +25,7 @@ import AdminReports from "@/pages/admin-reports";
 import AdminAssessmentResult from "@/pages/admin-assessment-result";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailed from "@/pages/payment-failed";
+import PaymentReturn from "@/pages/payment-return";
 
 import NotFound from "@/pages/not-found";
 
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/results/:assessmentId" component={AssessmentResults} />
       <Route path="/payment-success" component={PaymentSuccess} />
       <Route path="/payment-failed" component={PaymentFailed} />
+      <Route path="/payment-return" component={PaymentReturn} />
       
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLogin} />
