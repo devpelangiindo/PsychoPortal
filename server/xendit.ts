@@ -85,6 +85,14 @@ export async function createXenditInvoice(req: Request, res: Response) {
       data: invoiceData
     });
 
+    console.log('✅ Xendit invoice created successfully:', {
+      id: invoice.id,
+      invoice_url: invoice.invoice_url,
+      external_id: invoice.external_id,
+      amount: invoice.amount,
+      status: invoice.status
+    });
+
     res.json({
       success: true,
       invoiceId: invoice.id,

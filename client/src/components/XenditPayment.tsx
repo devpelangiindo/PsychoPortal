@@ -122,6 +122,10 @@ export default function XenditPayment({
       console.log('📦 Invoice data received:', invoiceData);
 
       if (invoiceData.success) {
+        console.log('✅ Invoice created successfully. Checking for invoiceUrl...');
+        console.log('invoiceUrl field:', invoiceData.invoiceUrl);
+        console.log('All invoice data fields:', Object.keys(invoiceData));
+        
         // Store invoice data for tracking
         localStorage.setItem(`xendit_invoice_${orderId}`, JSON.stringify({
           invoiceId: invoiceData.invoiceId,
@@ -130,18 +134,24 @@ export default function XenditPayment({
           amount: invoiceData.amount
         }));
 
-        // Redirect to Xendit payment page
-        window.open(invoiceData.invoiceUrl, '_blank');
+        if (invoiceData.invoiceUrl) {
+          console.log('🌐 Opening Xendit payment page:', invoiceData.invoiceUrl);
+          // Redirect to Xendit payment page
+          window.open(invoiceData.invoiceUrl, '_blank');
+
+          toast({
+            title: 'Invoice Dibuat',
+            description: 'Silakan lanjutkan pembayaran di halaman yang terbuka',
+          });
+        } else {
+          console.error('❌ No invoiceUrl found in response!');
+          throw new Error('Invoice URL tidak tersedia dari Xendit');
+        }
 
         // Call success callback if provided
         if (onPaymentSuccess) {
           onPaymentSuccess(invoiceData);
         }
-
-        toast({
-          title: 'Invoice Dibuat',
-          description: 'Silakan lanjutkan pembayaran di halaman yang terbuka',
-        });
       } else {
         throw new Error(invoiceData.message || 'Gagal membuat invoice');
       }
