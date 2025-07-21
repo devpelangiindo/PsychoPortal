@@ -58,9 +58,16 @@ export default function PaymentReturn() {
                 });
                 
                 setPaymentStatus('success');
+                // Calculate total amount from assessments
+                const totalAmount = availableAssessments.reduce((sum: number, a: any) => {
+                  return sum + (parseFloat(a.assessment.price) || 0);
+                }, 0);
+
                 setOrderData({ 
+                  orderId: availableAssessments[0]?.orderId || 'N/A',
                   status: 'completed', 
                   paymentStatus: 'paid',
+                  totalAmount: totalAmount,
                   items: availableAssessments.map((a: any) => ({
                     assessmentName: a.assessment.name,
                     price: a.assessment.price
@@ -108,9 +115,16 @@ export default function PaymentReturn() {
                   });
                   
                   setPaymentStatus('success');
+                  // Calculate total amount from assessments
+                  const totalAmount = userAssessments.reduce((sum: number, a: any) => {
+                    return sum + (parseFloat(a.assessment.price) || 0);
+                  }, 0);
+
                   setOrderData({ 
+                    orderId: userAssessments[0]?.orderId || orderId,
                     status: 'completed', 
                     paymentStatus: 'paid',
+                    totalAmount: totalAmount,
                     items: userAssessments.map((a: any) => ({
                       assessmentName: a.assessment.name,
                       price: a.assessment.price
@@ -282,7 +296,10 @@ export default function PaymentReturn() {
       
       if (result.success) {
         setPaymentStatus('success');
-        setOrderData({ orderId: orderIdToUse, status: 'completed', paymentStatus: 'paid' });
+        // Get the completed order details to show correct total
+        const orderResponse = await apiRequest('GET', `/api/payment-status/${orderIdToUse}`);
+        const orderDetails = await orderResponse.json();
+        setOrderData(orderDetails);
         
         // Clean up localStorage
         Object.keys(localStorage).forEach(key => {
@@ -346,7 +363,11 @@ export default function PaymentReturn() {
                     <strong>Order ID:</strong> {orderData.orderId}
                   </p>
                   <p className="text-sm">
-                    <strong>Total:</strong> {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(orderData.totalAmount)}
+                    <strong>Total:</strong> {new Intl.NumberFormat('id-ID', { 
+                      style: 'currency', 
+                      currency: 'IDR',
+                      minimumFractionDigits: 0 
+                    }).format(parseFloat(orderData.totalAmount) || 0)}
                   </p>
                 </div>
               )}
