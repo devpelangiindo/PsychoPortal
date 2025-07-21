@@ -92,7 +92,9 @@ export async function createXenditInvoice(req: Request, res: Response) {
 
     console.log('Creating invoice with correct format:', invoiceData);
     
-    const invoice = await xenditClient.Invoice.createInvoice(invoiceData);
+    const invoice = await xenditClient.Invoice.createInvoice({
+      data: invoiceData
+    });
 
     console.log('✅ Xendit invoice created successfully:', {
       id: invoice.id,
@@ -120,6 +122,12 @@ export async function createXenditInvoice(req: Request, res: Response) {
 
   } catch (error: any) {
     console.error('Xendit invoice creation error:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      field: error.field,
+      stack: error.stack
+    });
     res.status(500).json({ 
       error: 'Failed to create invoice',
       message: error.message 
