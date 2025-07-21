@@ -235,14 +235,6 @@ export async function handleXenditWebhook(req: Request, res: Response) {
         console.log(`🎉 Order ${orderId} processed successfully! User can now access assessments.`);
       }
       
-      await storage.updateOrderPayment(orderId, {
-        paymentStatus: 'completed',
-        paymentMethod: 'xendit',
-        xenditInvoiceId: id,
-        paidAt: paid_at ? new Date(paid_at) : new Date(),
-        paidAmount: paid_amount,
-      });
-
       console.log(`Order ${orderId} marked as paid via Xendit`);
     } else if (status === 'EXPIRED' || status === 'FAILED') {
       const { storage } = await import('./storage');
