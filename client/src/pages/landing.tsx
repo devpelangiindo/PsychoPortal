@@ -185,46 +185,7 @@ export default function Landing() {
           </div>
         </div>
       </section>
-      {/* Trust Indicators */}
-      <section className="py-20 bg-white dark:bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
-              Dipercaya oleh Profesional
-            </h2>
-            <p className="text-lg text-neutral-500 dark:text-muted-foreground">
-              Bergabung dengan ribuan profesional psikologi di seluruh dunia
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary mb-2">10,000+</div>
-              <div className="text-neutral-500 dark:text-muted-foreground">Asesmen Selesai</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-secondary mb-2">500+</div>
-              <div className="text-neutral-500 dark:text-muted-foreground">Pengguna Profesional</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-accent mb-2">99.9%</div>
-              <div className="text-neutral-500 dark:text-muted-foreground">Keandalan Uptime</div>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center justify-center gap-8">
-            
-            <div className="trust-indicator">
-              <Lock className="w-5 h-5" />
-              <span>Terenkripsi SSL</span>
-            </div>
-            <div className="trust-indicator">
-              <IdCard className="w-5 h-5" />
-              <span>Tervalidasi Ilmiah</span>
-            </div>
-          </div>
-        </div>
-      </section>
+
       <Footer />
     </div>
   );
