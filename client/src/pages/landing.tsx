@@ -34,17 +34,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
       <Header />
-      {/* Demo Mode Banner */}
-      <div className="bg-blue-600 text-white py-3">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center space-x-2">
-            <InfoIcon className="h-5 w-5" />
-            <span className="font-medium">
-              Mode Demo Aktif - Sistem pembayaran menggunakan simulasi tanpa transaksi uang sungguhan
-            </span>
-          </div>
-        </div>
-      </div>
+
       {/* Hero Section */}
       <section className="gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

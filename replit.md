@@ -228,6 +228,7 @@ Changelog:
 - July 21, 2025. Enhanced auto-completion system now creates missing assessments for completed orders automatically
 - July 21, 2025. Removed detailed "Asesmen Tersedia" and "Asesmen Selesai" sections from Beranda page per user request - page now shows only quick stats and available assessments for purchase
 - July 21, 2025. Removed "Dipercaya oleh Profesional" Trust Indicators section from landing page per user request - section with statistics "10,000+", "500+", "99.9%" no longer displayed
+- July 22, 2025. Removed "Mode Demo Aktif" banner from landing page per user request - demo payment notification banner no longer displayed
 ```
 
 ## User Preferences
