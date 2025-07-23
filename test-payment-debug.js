@@ -1,91 +1,80 @@
-// Test script to debug Midtrans payment issue
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const fetch = require('node-fetch');
+// Debug Midtrans payment dengan URL dan client key yang benar
+import midtransClient from 'midtrans-client';
 
-async function testPaymentFlow() {
-  console.log('🧪 Testing Midtrans payment flow...\n');
+console.log('🔧 DEBUGGING MIDTRANS PAYMENT ISSUE\n');
 
-  try {
-    // Step 1: Login user
-    console.log('1️⃣ Logging in user...');
-    const loginResponse = await fetch('http://localhost:5000/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'tommysigit@gmail.com',
-        password: 'testuser123'
-      })
-    });
+// Check environment setup
+console.log('📋 Environment Check:');
+console.log('SERVER_KEY prefix:', process.env.MIDTRANS_SERVER_KEY?.substring(0, 10));
+console.log('CLIENT_KEY prefix:', process.env.MIDTRANS_CLIENT_KEY?.substring(0, 10));
+console.log('MERCHANT_ID:', process.env.MIDTRANS_MERCHANT_ID);
+console.log('VITE_CLIENT_KEY prefix:', process.env.VITE_MIDTRANS_CLIENT_KEY?.substring(0, 10));
 
-    if (!loginResponse.ok) {
-      console.log('❌ Login failed');
-      return;
-    }
+// Verify client key matches
+const serverClientKey = process.env.MIDTRANS_CLIENT_KEY;
+const viteClientKey = process.env.VITE_MIDTRANS_CLIENT_KEY;
+console.log('Client keys match:', serverClientKey === viteClientKey ? '✅' : '❌');
 
-    const loginData = await loginResponse.json();
-    const token = loginData.token;
-    console.log('✅ Login successful');
+try {
+  console.log('\n🧪 Testing with proper sandbox configuration...');
+  
+  const snap = new midtransClient.Snap({
+    isProduction: false, // Force sandbox
+    serverKey: process.env.MIDTRANS_SERVER_KEY,
+    clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  });
 
-    // Step 2: Create order
-    console.log('\n2️⃣ Creating order...');
-    const orderResponse = await fetch('http://localhost:5000/api/orders', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        items: [{
-          assessmentId: 7,
-          price: 400000
-        }]
-      })
-    });
+  // Test with minimal but complete transaction
+  const testTransaction = {
+    transaction_details: {
+      order_id: 'debug-test-' + Date.now(),
+      gross_amount: 400000,
+    },
+    customer_details: {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test@example.com',
+      phone: '628123456789',
+    },
+    item_details: [{
+      id: 'sensory-assessment',
+      name: 'Asesmen Profil Sensori',
+      price: 400000,
+      quantity: 1,
+    }],
+    credit_card: {
+      secure: true,
+    },
+    enabled_payments: [
+      'credit_card',
+      'bca_va',
+      'bni_va',
+      'bri_va',
+      'gopay',
+      'shopeepay',
+      'qris'
+    ],
+  };
 
-    const orderData = await orderResponse.json();
-    console.log('✅ Order created:', orderData.id);
-
-    // Step 3: Test Midtrans transaction creation
-    console.log('\n3️⃣ Testing Midtrans transaction...');
-    const transactionResponse = await fetch('http://localhost:5000/api/midtrans/create-transaction', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        orderId: `order_${orderData.id}_${Date.now()}`,
-        amount: 400000,
-        customerDetails: {
-          first_name: 'Tommy',
-          last_name: 'Sigit',
-          email: 'tommysigit@gmail.com',
-          phone: '+628123456789'
-        },
-        itemDetails: [{
-          id: '7',
-          name: 'Asesmen Profil Sensori',
-          price: 400000,
-          quantity: 1
-        }]
-      })
-    });
-
-    if (transactionResponse.ok) {
-      const transactionData = await transactionResponse.json();
-      console.log('✅ Midtrans transaction successful!');
-      console.log('   Token length:', transactionData.token?.length || 0);
-      console.log('   Has redirect URL:', !!transactionData.redirect_url);
-    } else {
-      const errorData = await transactionResponse.json();
-      console.log('❌ Midtrans transaction failed:', errorData);
-    }
-
-  } catch (error) {
-    console.error('❌ Test error:', error.message);
+  console.log('Creating transaction with:', JSON.stringify(testTransaction, null, 2));
+  
+  const result = await snap.createTransaction(testTransaction);
+  
+  console.log('\n✅ SUCCESS:');
+  console.log('Token:', result.token);
+  console.log('Redirect URL:', result.redirect_url);
+  
+  // Check if URL is sandbox
+  const isSandbox = result.redirect_url.includes('sandbox');
+  console.log('Is Sandbox URL:', isSandbox ? '✅' : '❌');
+  
+  console.log('\n📋 Frontend Script URL should be:');
+  console.log('Sandbox: https://app.sandbox.midtrans.com/snap/snap.js');
+  console.log('Production: https://app.midtrans.com/snap/snap.js');
+  
+} catch (error) {
+  console.error('\n❌ ERROR:', error.message);
+  if (error.ApiResponse) {
+    console.log('API Response:', error.ApiResponse);
   }
 }
-
-// Run test
-testPaymentFlow();

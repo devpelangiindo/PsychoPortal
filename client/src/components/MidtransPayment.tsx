@@ -56,7 +56,7 @@ export default function MidtransPayment({
       const script = document.createElement('script');
       script.src = import.meta.env.PROD 
         ? 'https://app.midtrans.com/snap/snap.js' 
-        : 'https://app.stg.midtrans.com/snap/snap.js';
+        : 'https://app.sandbox.midtrans.com/snap/snap.js';
       script.setAttribute('data-client-key', import.meta.env.VITE_MIDTRANS_CLIENT_KEY || '');
       
       script.onload = () => {
@@ -174,6 +174,7 @@ export default function MidtransPayment({
         },
         onClose: () => {
           console.log('Payment popup closed by user');
+          // Don't show toast for close event to avoid confusion
           setIsLoading(false);
         },
       });
