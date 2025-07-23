@@ -261,6 +261,10 @@ Changelog:
 - July 23, 2025. Database completely cleared for fresh comprehensive testing - all user data, transactions, orders, and sessions removed except admin user and assessment definitions
 - July 23, 2025. Fixed Midtrans API key authentication issue - replaced invalid keys with working Midtrans Sandbox credentials
 - July 23, 2025. Verified Midtrans payment integration working correctly - transaction token generation and redirect URL functional
+- July 23, 2025. Fixed critical Midtrans script URL issue - corrected from app.stg.midtrans.com to app.sandbox.midtrans.com/snap/snap.js
+- July 23, 2025. Midtrans payment gateway now fully functional with proper sandbox configuration and error resolution
+- July 23, 2025. Successful payment testing confirmed - both Virtual Account (pending) and Credit Card (capture) transactions working
+- July 23, 2025. Database completely cleared for fresh comprehensive testing - all user data, transactions, orders, and sessions removed except admin user and assessment definitions
 ```
 
 ## User Preferences
