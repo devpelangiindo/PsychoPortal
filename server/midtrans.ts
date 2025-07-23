@@ -11,15 +11,21 @@ if (!process.env.MIDTRANS_CLIENT_KEY) {
   throw new Error('Missing MIDTRANS_CLIENT_KEY environment variable');
 }
 
+if (!process.env.MIDTRANS_MERCHANT_ID) {
+  throw new Error('Missing MIDTRANS_MERCHANT_ID environment variable');
+}
+
 // Initialize Midtrans clients
 const snap = new midtransClient.Snap({
   isProduction: process.env.NODE_ENV === 'production',
   serverKey: process.env.MIDTRANS_SERVER_KEY,
+  clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
 const coreApi = new midtransClient.CoreApi({
   isProduction: process.env.NODE_ENV === 'production',
   serverKey: process.env.MIDTRANS_SERVER_KEY,
+  clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
 export interface MidtransTransactionData {
@@ -48,6 +54,10 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
       },
       customer_details: transactionData.customerDetails,
       item_details: transactionData.itemDetails,
+      // Add merchant configuration
+      credit_card: {
+        secure: true,
+      },
       enabled_payments: [
         'credit_card',
         'bca_va',
