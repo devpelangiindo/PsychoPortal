@@ -1720,7 +1720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Create user assessments
           for (const item of order.orderItems) {
-            const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
+            const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, order.id);
             if (!existingAssessment) {
               await storage.createUserAssessment({
                 userId: order.userId,
@@ -1730,7 +1730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
             } else {
-              console.log(`⏭️ Assessment ${item.assessmentId} already exists for user ${order.userId}`);
+              console.log(`⏭️ Assessment ${item.assessmentId} already exists for order ${order.id}`);
             }
           }
           
@@ -1779,10 +1779,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (order.status === 'completed' && order.paymentStatus === 'paid') {
         console.log(`Order ${orderId} already completed, checking for missing assessments...`);
         
-        // Create user assessments if they don't exist for completed orders
+        // Create user assessments if they don't exist for this specific order
         if (order.orderItems) {
           for (const item of order.orderItems) {
-            const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
+            // Check if assessment exists for THIS SPECIFIC ORDER (not just user+assessment combo)
+            const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, orderId);
             if (!existingAssessment) {
               await storage.createUserAssessment({
                 userId: order.userId,
@@ -1792,6 +1793,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               assessmentsCreated++;
               console.log(`📚 Created missing assessment ${item.assessmentId} for completed order ${orderId}`);
+            } else {
+              console.log(`⚠️ Assessment ${item.assessmentId} already exists for order ${orderId}`);
             }
           }
         }
@@ -1819,7 +1822,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create user assessments for completed order
       if (order.orderItems) {
         for (const item of order.orderItems) {
-          const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
+          // Check if assessment exists for THIS SPECIFIC ORDER (allow multiple instances)
+          const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, orderId);
           if (!existingAssessment) {
             await storage.createUserAssessment({
               userId: order.userId,
@@ -1828,7 +1832,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               status: 'available' as const
             });
             assessmentsCreated++;
-            console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
+            console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId} order ${orderId}`);
+          } else {
+            console.log(`⏭️ Assessment ${item.assessmentId} already exists for order ${orderId}`);
           }
         }
       }

@@ -268,6 +268,9 @@ Changelog:
 - July 23, 2025. CRITICAL FIX: Resolved post-payment assessment access issue - implemented auto-completion system for successful Midtrans payments
 - July 23, 2025. Added fallback mechanism in payment success callback to ensure immediate order completion and assessment availability
 - July 23, 2025. Payment flow fully debugged and functional - orders now complete automatically after successful payment without waiting for webhook
+- July 23, 2025. Fixed critical assessment creation logic - users can now purchase same assessment multiple times with separate instances
+- July 23, 2025. Added getUserAssessmentByOrder method to prevent duplicate assessment blocking for new orders
+- July 23, 2025. Payment completion flow now correctly creates assessments for each order regardless of existing user assessments
 ```
 
 ## User Preferences

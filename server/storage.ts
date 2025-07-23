@@ -58,6 +58,7 @@ export interface IStorage {
   createUserAssessment(userAssessment: InsertUserAssessment): Promise<UserAssessment>;
   getUserAssessments(userId: string): Promise<UserAssessmentWithDetails[]>;
   getUserAssessment(userId: string, assessmentId: number): Promise<UserAssessmentWithDetails | undefined>;
+  getUserAssessmentByOrder(userId: string, assessmentId: number, orderId: number): Promise<UserAssessmentWithDetails | undefined>;
   updateUserAssessmentStatus(id: number, status: string, results?: any): Promise<void>;
 
   // Admin operations
@@ -337,6 +338,28 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(userAssessments.userId, userId),
         eq(userAssessments.assessmentId, assessmentId)
+      ));
+
+    if (!result) return undefined;
+
+    return {
+      ...result.userAssessment,
+      assessment: result.assessment!,
+    };
+  }
+
+  async getUserAssessmentByOrder(userId: string, assessmentId: number, orderId: number): Promise<UserAssessmentWithDetails | undefined> {
+    const [result] = await db
+      .select({
+        userAssessment: userAssessments,
+        assessment: assessments,
+      })
+      .from(userAssessments)
+      .leftJoin(assessments, eq(userAssessments.assessmentId, assessments.id))
+      .where(and(
+        eq(userAssessments.userId, userId),
+        eq(userAssessments.assessmentId, assessmentId),
+        eq(userAssessments.orderId, orderId)
       ));
 
     if (!result) return undefined;
