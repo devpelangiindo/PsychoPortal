@@ -246,6 +246,9 @@ Changelog:
 - July 23, 2025. Cleaned all Xendit endpoints from server/routes.ts and updated payment-return.tsx references
 - July 23, 2025. Removed Xendit database columns (xendit_invoice_id, xendit_invoice_url) from orders table schema
 - July 23, 2025. System now operates with streamlined single payment gateway architecture (Midtrans only)
+- July 23, 2025. Updated Midtrans sandbox keys for comprehensive testing - all secret keys configured and verified
+- July 23, 2025. Database completely cleared for fresh sandbox testing cycle - all users, orders, sessions, and user assessments removed except admin user and assessment definitions
+- July 23, 2025. Platform ready for comprehensive Midtrans sandbox transaction testing from clean state
 ```
 
 ## User Preferences
