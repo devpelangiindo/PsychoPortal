@@ -268,8 +268,7 @@ export class DatabaseStorage implements IStorage {
   async updateOrderPayment(id: number, paymentData: {
     paymentStatus?: string;
     paymentMethod?: string;
-    xenditInvoiceId?: string;
-    xenditInvoiceUrl?: string;
+
     paidAt?: Date;
     paidAmount?: number;
   }): Promise<void> {

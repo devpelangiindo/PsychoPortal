@@ -11,7 +11,7 @@ import { AuthUtils } from "./authUtils";
 import { emailService } from "./emailService";
 import path from "path";
 import fs from "fs";
-// Xendit imports removed - using Midtrans only
+// Using Midtrans payment gateway
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus } from "./midtrans";
 
 // Custom authentication middleware for JWT tokens
@@ -1634,7 +1634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Xendit routes removed - using Midtrans only
+  // Midtrans payment routes
 
   // Midtrans Payment Routes
   app.post('/api/midtrans/create-transaction', isAuthenticated, async (req: any, res) => {
@@ -1845,7 +1845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Xendit endpoints removed - using Midtrans only
+  // Admin simulation endpoints for Midtrans
 
   // Payment success/failure pages endpoints
   app.get('/api/payment-status/:orderId', isAuthenticated, async (req: any, res) => {

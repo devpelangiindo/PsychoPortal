@@ -338,7 +338,7 @@ export default function PaymentForm({ paymentMethod, amount, onSubmit, isLoading
       {/* Security Footer */}
       <div className="text-center text-xs text-neutral-500 dark:text-muted-foreground space-y-1">
         <p>🔒 Your payment is protected by 256-bit SSL encryption</p>
-        <p>Powered by Xendit • PCI DSS Compliant</p>
+        <p>Powered by Midtrans • PCI DSS Compliant</p>
       </div>
     </div>
   );

@@ -76,7 +76,7 @@ export const orders = pgTable("orders", {
   paymentId: varchar("payment_id"),
   paymentStatus: varchar("payment_status", { length: 50 }).default("pending"),
   paymentMethod: varchar("payment_method", { length: 50 }),
-  // Xendit fields removed - using Midtrans only
+  // Using Midtrans payment gateway
   paidAt: timestamp("paid_at"),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),

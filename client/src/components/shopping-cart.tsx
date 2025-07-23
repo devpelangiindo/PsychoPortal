@@ -134,7 +134,7 @@ export default function ShoppingCartSidebar({ isOpen, onClose }: ShoppingCartSid
               </Link>
               
               <p className="text-center text-xs text-neutral-500 dark:text-muted-foreground">
-                Secure checkout with Xendit payment gateway
+                Secure checkout with Midtrans payment gateway
               </p>
             </div>
           )}

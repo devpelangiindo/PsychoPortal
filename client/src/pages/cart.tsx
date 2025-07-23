@@ -12,7 +12,7 @@ import { useCart } from "@/lib/cart";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import MidtransPayment from "@/components/MidtransPayment";
-// Xendit removed - using Midtrans only
+// Using Midtrans payment gateway only
 
 export default function Cart() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
@@ -108,7 +108,7 @@ export default function Cart() {
       return;
     }
 
-    // For paid assessments, we'll handle Xendit payment directly after order creation
+    // For paid assessments, we'll handle Midtrans payment directly after order creation
     createOrderMutation.mutate();
   };
 

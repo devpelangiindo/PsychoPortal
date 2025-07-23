@@ -147,7 +147,7 @@ export default function Landing() {
                 2. Pembayaran Aman
               </h3>
               <p className="text-neutral-500 dark:text-muted-foreground">
-                Bayar dengan aman menggunakan gateway pembayaran Xendit
+                Bayar dengan aman menggunakan gateway pembayaran Midtrans
               </p>
             </div>
             

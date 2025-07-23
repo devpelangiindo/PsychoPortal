@@ -48,7 +48,7 @@ export default function PaymentSuccess() {
       setPaymentDetails(details);
       
       // Clear stored invoice data
-      localStorage.removeItem(`xendit_invoice_${orderId}`);
+      localStorage.removeItem(`midtrans_token_${orderId}`);
     } catch (error: any) {
       console.error('Error loading payment details:', error);
       toast({

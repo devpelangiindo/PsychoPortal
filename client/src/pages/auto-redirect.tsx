@@ -19,7 +19,7 @@ export default function AutoRedirect() {
 
     // Clean up any localStorage items
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('xendit_invoice_')) {
+      if (key.startsWith('midtrans_token_')) {
         localStorage.removeItem(key);
       }
     });
