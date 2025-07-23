@@ -44,7 +44,8 @@ export default function PaymentSuccess() {
 
   const loadPaymentDetails = async () => {
     try {
-      const details = await apiRequest('GET', `/api/payment-status/${orderId}`);
+      const response = await apiRequest('GET', `/api/payment-status/${orderId}`);
+      const details = await response.json();
       setPaymentDetails(details);
       
       // Clear stored invoice data
