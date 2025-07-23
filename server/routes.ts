@@ -1712,6 +1712,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/midtrans/webhook', async (req, res) => {
     try {
+      console.log('🔔 Midtrans webhook received:', req.body);
+      
       const notificationResult = await handleMidtransCallback(req, res);
       
       if (!notificationResult) {
@@ -1719,34 +1721,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { orderId, status, amount } = notificationResult;
+      console.log(`📝 Midtrans notification: orderId=${orderId}, status=${status}, amount=${amount}`);
+      
+      // Extract numeric order ID from Midtrans format (order_123_timestamp)
+      const orderIdMatch = orderId.match(/order_(\d+)_/);
+      const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1]) : parseInt(orderId);
       
       // Update order status based on Midtrans notification
       if (status === 'paid') {
-        const order = await storage.getOrder(parseInt(orderId));
+        const order = await storage.getOrder(numericOrderId);
         if (order) {
+          console.log(`💳 Processing Midtrans payment completion for order ${numericOrderId}`);
+          
           // Update order to completed
-          await storage.updateOrderStatus(parseInt(orderId), 'completed', orderId, 'paid');
+          await storage.updateOrderStatus(numericOrderId, 'completed', orderId, 'paid');
+          console.log(`✅ Order ${numericOrderId} status updated to completed`);
           
           // Create user assessments
           for (const item of order.orderItems) {
-            await storage.createUserAssessment({
-              userId: order.userId,
-              assessmentId: item.assessmentId,
-              orderId: order.id,
-              status: 'available'
-            });
+            const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
+            if (!existingAssessment) {
+              await storage.createUserAssessment({
+                userId: order.userId,
+                assessmentId: item.assessmentId,
+                orderId: order.id,
+                status: 'available'
+              });
+              console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
+            } else {
+              console.log(`⏭️ Assessment ${item.assessmentId} already exists for user ${order.userId}`);
+            }
           }
           
-          console.log(`Midtrans: Order ${orderId} completed successfully`);
+          console.log(`🎉 Midtrans: Order ${numericOrderId} completed successfully`);
+        } else {
+          console.log(`❌ Order ${numericOrderId} not found`);
         }
       } else if (status === 'failed') {
-        await storage.updateOrderStatus(parseInt(orderId), 'cancelled', orderId, 'failed');
-        console.log(`Midtrans: Order ${orderId} failed`);
+        await storage.updateOrderStatus(numericOrderId, 'cancelled', orderId, 'failed');
+        console.log(`❌ Midtrans: Order ${numericOrderId} failed`);
       }
 
       res.json({ status: 'ok' });
     } catch (error) {
-      console.error('Error handling Midtrans webhook:', error);
+      console.error('❌ Error handling Midtrans webhook:', error);
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   });
@@ -1759,6 +1777,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error checking Midtrans transaction status:', error);
       res.status(500).json({ error: 'Failed to check transaction status' });
+    }
+  });
+
+  // Simulate Midtrans payment completion (for testing) - no auth required for auto-completion
+  app.post('/api/midtrans/simulate-payment/:orderId', async (req: any, res: any) => {
+    try {
+      const orderId = parseInt(req.params.orderId);
+      
+      console.log(`🧪 Auto-completing Midtrans payment for order ${orderId} - bypass mode enabled`);
+      
+      // Get order details
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      
+      // Check if assessments exist for completed orders
+      let assessmentsCreated = 0;
+      if (order.status === 'completed' && order.paymentStatus === 'paid') {
+        console.log(`Order ${orderId} already completed, checking for missing assessments...`);
+        
+        // Create user assessments if they don't exist for completed orders
+        if (order.orderItems) {
+          for (const item of order.orderItems) {
+            const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
+            if (!existingAssessment) {
+              await storage.createUserAssessment({
+                userId: order.userId,
+                assessmentId: item.assessmentId,
+                orderId: orderId,
+                status: 'available' as const
+              });
+              assessmentsCreated++;
+              console.log(`📚 Created missing assessment ${item.assessmentId} for completed order ${orderId}`);
+            }
+          }
+        }
+        
+        if (assessmentsCreated > 0) {
+          return res.json({ 
+            message: 'Missing assessments created for completed order',
+            orderId,
+            status: 'completed',
+            assessmentsCreated
+          });
+        } else {
+          return res.json({ 
+            message: 'Order already completed and all assessments exist',
+            orderId,
+            status: 'completed'
+          });
+        }
+      }
+      
+      // Update order status to completed
+      await storage.updateOrderStatus(orderId, 'completed', `midtrans_sim_${orderId}`, 'paid');
+      console.log(`✅ Order ${orderId} status updated to completed via Midtrans simulation`);
+      
+      // Create user assessments for completed order
+      if (order.orderItems) {
+        for (const item of order.orderItems) {
+          const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
+          if (!existingAssessment) {
+            await storage.createUserAssessment({
+              userId: order.userId,
+              assessmentId: item.assessmentId,
+              orderId: orderId,
+              status: 'available' as const
+            });
+            assessmentsCreated++;
+            console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
+          }
+        }
+      }
+      
+      res.json({ 
+        message: 'Midtrans payment simulated successfully',
+        orderId,
+        status: 'completed',
+        assessmentsCreated
+      });
+    } catch (error: any) {
+      console.error('❌ Error simulating Midtrans payment:', error);
+      res.status(500).json({ error: error.message || 'Failed to simulate payment' });
     }
   });
   
