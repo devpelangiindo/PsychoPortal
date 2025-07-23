@@ -146,8 +146,38 @@ export default function MidtransPayment({
 
       // Open Midtrans payment page
       window.snap.pay(token, {
-        onSuccess: (result: any) => {
+        onSuccess: async (result: any) => {
           console.log('Payment success:', result);
+          
+          // Auto-complete the order since webhook might not trigger immediately
+          if (result.order_id) {
+            const orderIdMatch = result.order_id.match(/order_(\d+)_/);
+            const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1]) : null;
+            
+            if (numericOrderId) {
+              try {
+                console.log(`🔄 Auto-completing order ${numericOrderId} after successful payment`);
+                const simulateResponse = await fetch(`/api/midtrans/simulate-payment/${numericOrderId}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    order_id: result.order_id,
+                    transaction_status: result.transaction_status || 'capture',
+                    fraud_status: result.fraud_status || 'accept'
+                  })
+                });
+                
+                if (simulateResponse.ok) {
+                  console.log('✅ Order auto-completion successful');
+                } else {
+                  console.log('⚠️ Order auto-completion failed, webhook should handle it');
+                }
+              } catch (error) {
+                console.log('⚠️ Auto-completion error, webhook should handle payment:', error);
+              }
+            }
+          }
+          
           toast({
             title: "Pembayaran Berhasil",
             description: "Pembayaran Anda telah berhasil diproses.",
