@@ -236,6 +236,10 @@ Changelog:
 - July 23, 2025. Updated cart page with tabs interface allowing users to choose between Midtrans and Xendit payment options
 - July 23, 2025. Added payment modal for Midtrans with support for VA, e-wallet, QRIS, credit card, and convenience store payments
 - July 23, 2025. Platform now supports dual payment gateways providing users with maximum payment flexibility
+- July 23, 2025. Fixed Midtrans payment completion webhook with improved order ID extraction and auto-completion system
+- July 23, 2025. Added simulation endpoints for both Xendit and Midtrans payment completion: /api/xendit/simulate-payment/:orderId and /api/midtrans/simulate-payment/:orderId
+- July 23, 2025. Enhanced webhook logging and error handling for better payment flow debugging
+- July 23, 2025. Database cleared for fresh comprehensive testing - all user data, transactions, and sessions removed except admin user and assessment definitions
 ```
 
 ## User Preferences
