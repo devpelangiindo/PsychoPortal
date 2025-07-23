@@ -47,17 +47,35 @@ export default function MidtransPayment({
   const loadMidtransScript = () => {
     return new Promise<void>((resolve, reject) => {
       if (window.snap) {
+        console.log('Midtrans script already loaded');
         resolve();
         return;
       }
 
+      console.log('Loading Midtrans script...');
       const script = document.createElement('script');
       script.src = import.meta.env.PROD 
         ? 'https://app.midtrans.com/snap/snap.js' 
         : 'https://app.stg.midtrans.com/snap/snap.js';
       script.setAttribute('data-client-key', import.meta.env.VITE_MIDTRANS_CLIENT_KEY || '');
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Failed to load Midtrans script'));
+      
+      script.onload = () => {
+        console.log('Midtrans script loaded successfully');
+        // Wait a bit for snap to be available
+        setTimeout(() => {
+          if (window.snap) {
+            resolve();
+          } else {
+            reject(new Error('Midtrans snap object not available after script load'));
+          }
+        }, 100);
+      };
+      
+      script.onerror = (error) => {
+        console.error('Failed to load Midtrans script:', error);
+        reject(new Error('Failed to load Midtrans script'));
+      };
+      
       document.head.appendChild(script);
     });
   };
@@ -81,6 +99,18 @@ export default function MidtransPayment({
       }
 
       // Create transaction
+      console.log('Sending transaction request with data:', {
+        orderId,
+        amount,
+        customerDetails: {
+          first_name: customerDetails.firstName,
+          last_name: customerDetails.lastName || '',
+          email: customerDetails.email,
+          phone: customerDetails.whatsappNumber || '',
+        },
+        itemDetails: items,
+      });
+      
       const response = await apiRequest('POST', '/api/midtrans/create-transaction', {
         orderId,
         amount,
@@ -94,8 +124,9 @@ export default function MidtransPayment({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Transaction API error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
       }
 
       const transactionData = await response.json();
@@ -106,6 +137,12 @@ export default function MidtransPayment({
       }
 
       const { token } = transactionData;
+      console.log('About to call window.snap.pay with token:', token);
+
+      // Validate window.snap exists and has pay method
+      if (!window.snap || typeof window.snap.pay !== 'function') {
+        throw new Error('Midtrans Snap tidak tersedia. Coba refresh halaman.');
+      }
 
       // Open Midtrans payment page
       window.snap.pay(token, {
@@ -136,7 +173,7 @@ export default function MidtransPayment({
           onError?.(result);
         },
         onClose: () => {
-          console.log('Payment popup closed');
+          console.log('Payment popup closed by user');
           setIsLoading(false);
         },
       });
