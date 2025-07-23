@@ -11,9 +11,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useCart } from "@/lib/cart";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import XenditPayment from "@/components/XenditPayment";
 import MidtransPayment from "@/components/MidtransPayment";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Xendit removed - using Midtrans only
 
 export default function Cart() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
@@ -42,62 +41,8 @@ export default function Cart() {
           paymentMethod: 'free_access'
         });
       } else {
-        // For paid assessments, directly create Xendit invoice and redirect
-        try {
-          console.log(`🚀 Starting direct Xendit payment for order ${orderData.id}`);
-          
-          // Prepare Xendit invoice data
-          const invoiceData = {
-            orderId: orderData.id,
-            amount: getTotalAmount(),
-            customerEmail: user?.email || '',
-            customerName: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.email || 'Customer',
-            items: items.map(item => ({
-              name: item.name,
-              price: parseFloat(item.price),
-              quantity: 1
-            })),
-            paymentMethod: 'BANK_TRANSFER', // Default method
-            paymentChannel: 'BCA' // Default channel
-          };
-
-          // Create invoice directly
-          const invoiceResponse = await apiRequest('POST', '/api/xendit/create-invoice', invoiceData);
-          const invoiceResult = await invoiceResponse.json();
-          
-          if (invoiceResult.success && invoiceResult.invoiceUrl) {
-            // Clear cart since order is created
-            clearCart();
-            
-            // Store invoice info for tracking
-            localStorage.setItem(`xendit_invoice_${orderData.id}`, JSON.stringify({
-              invoiceId: invoiceResult.invoiceId,
-              invoiceUrl: invoiceResult.invoiceUrl,
-              externalId: invoiceResult.externalId,
-              amount: invoiceResult.amount,
-              orderId: orderData.id
-            }));
-            
-            toast({
-              title: 'Mengarahkan ke Pembayaran',
-              description: 'Anda akan diarahkan ke halaman pembayaran Xendit...',
-            });
-            
-            // Redirect directly to Xendit
-            setTimeout(() => {
-              window.location.href = invoiceResult.invoiceUrl;
-            }, 1500);
-          } else {
-            throw new Error(invoiceResult.message || 'Gagal membuat invoice pembayaran');
-          }
-        } catch (error: any) {
-          console.error('Xendit invoice creation error:', error);
-          toast({
-            title: "Error Pembayaran",
-            description: error.message || "Gagal membuat invoice. Silakan coba lagi.",
-            variant: "destructive"
-          });
-        }
+        // For paid assessments, show payment options
+        setShowPayment(true);
       }
     },
     onError: (error) => {
@@ -360,58 +305,27 @@ export default function Cart() {
                       {createOrderMutation.isPending ? "Memproses Akses..." : "Dapatkan Akses Gratis"}
                     </Button>
                   ) : (
-                    // Payment options with tabs
+                    // Midtrans payment only
                     <div className="space-y-4">
-                      <Tabs defaultValue="midtrans" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="midtrans">Midtrans</TabsTrigger>
-                          <TabsTrigger value="xendit">Xendit</TabsTrigger>
-                        </TabsList>
-                        
-                        <TabsContent value="midtrans" className="space-y-4">
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                            <p className="font-medium mb-2">Bayar dengan Midtrans:</p>
-                            <ul className="list-disc list-inside space-y-1">
-                              <li>Virtual Account (semua bank besar)</li>
-                              <li>E-wallet (Gopay, ShopeePay)</li>
-                              <li>QRIS</li>
-                              <li>Kartu Kredit/Debit</li>
-                              <li>Convenience Store (Alfamart, Indomaret)</li>
-                            </ul>
-                          </div>
-                          
-                          <Button 
-                            className="w-full" 
-                            size="lg"
-                            onClick={handleCheckoutMidtrans}
-                            disabled={createOrderMutation.isPending || !import.meta.env.VITE_MIDTRANS_CLIENT_KEY}
-                          >
-                            {createOrderMutation.isPending ? "Membuat Pesanan..." : "Bayar dengan Midtrans"}
-                          </Button>
-                        </TabsContent>
-                        
-                        <TabsContent value="xendit" className="space-y-4">
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                            <p className="font-medium mb-2">Bayar dengan Xendit:</p>
-                            <ul className="list-disc list-inside space-y-1">
-                              <li>Virtual Account (BCA, BRI, BNI, Mandiri, dll)</li>
-                              <li>E-wallet (DANA, OVO, LinkAja, ShopeePay)</li>
-                              <li>QRIS</li>
-                              <li>Kartu Kredit</li>
-                              <li>Retail (Alfamart, Indomaret)</li>
-                            </ul>
-                          </div>
-                          
-                          <Button 
-                            className="w-full" 
-                            size="lg"
-                            onClick={handleCheckout}
-                            disabled={createOrderMutation.isPending}
-                          >
-                            {createOrderMutation.isPending ? "Membuat Pesanan..." : "Bayar dengan Xendit"}
-                          </Button>
-                        </TabsContent>
-                      </Tabs>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        <p className="font-medium mb-2">Metode Pembayaran:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>Virtual Account (semua bank besar)</li>
+                          <li>E-wallet (Gopay, ShopeePay)</li>
+                          <li>QRIS</li>
+                          <li>Kartu Kredit/Debit</li>
+                          <li>Convenience Store (Alfamart, Indomaret)</li>
+                        </ul>
+                      </div>
+                      
+                      <Button 
+                        className="w-full" 
+                        size="lg"
+                        onClick={handleCheckout}
+                        disabled={createOrderMutation.isPending || !import.meta.env.VITE_MIDTRANS_CLIENT_KEY}
+                      >
+                        {createOrderMutation.isPending ? "Membuat Pesanan..." : "Lanjutkan ke Pembayaran"}
+                      </Button>
                     </div>
                   )}
 

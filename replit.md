@@ -240,6 +240,12 @@ Changelog:
 - July 23, 2025. Added simulation endpoints for both Xendit and Midtrans payment completion: /api/xendit/simulate-payment/:orderId and /api/midtrans/simulate-payment/:orderId
 - July 23, 2025. Enhanced webhook logging and error handling for better payment flow debugging
 - July 23, 2025. Database cleared for fresh comprehensive testing - all user data, transactions, and sessions removed except admin user and assessment definitions
+- July 23, 2025. XENDIT PAYMENT GATEWAY COMPLETELY REMOVED from system per user request - now using Midtrans only
+- July 23, 2025. Removed xendit-node package, deleted xendit.ts server file, and removed XenditPayment.tsx component
+- July 23, 2025. Updated cart.tsx to use single payment gateway (Midtrans) instead of dual payment tabs
+- July 23, 2025. Cleaned all Xendit endpoints from server/routes.ts and updated payment-return.tsx references
+- July 23, 2025. Removed Xendit database columns (xendit_invoice_id, xendit_invoice_url) from orders table schema
+- July 23, 2025. System now operates with streamlined single payment gateway architecture (Midtrans only)
 ```
 
 ## User Preferences

@@ -11,12 +11,7 @@ import { AuthUtils } from "./authUtils";
 import { emailService } from "./emailService";
 import path from "path";
 import fs from "fs";
-import { 
-  createXenditInvoice, 
-  checkInvoiceStatus, 
-  handleXenditWebhook, 
-  getAvailablePaymentMethods 
-} from "./xendit";
+// Xendit imports removed - using Midtrans only
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus } from "./midtrans";
 
 // Custom authentication middleware for JWT tokens
@@ -1639,49 +1634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Xendit Payment Routes - DEBUGGING VERSION
-  app.post('/api/xendit/create-invoice', (req: any, res: any) => {
-    console.log('🚀 XENDIT ENDPOINT - RAW REQUEST RECEIVED 🚀');
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Body:', JSON.stringify(req.body, null, 2));
-    console.log('URL:', req.url);
-    console.log('Method:', req.method);
-    
-    // Apply authentication middleware manually
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ NO AUTH HEADER OR INVALID FORMAT');
-      return res.status(401).json({ message: "Unauthorized - No valid Bearer token" });
-    }
-
-    const token = authHeader.substring(7);
-    console.log('🔑 Token extracted:', token.substring(0, 20) + '...');
-    
-    const decoded = AuthUtils.verifyToken(token);
-    console.log('🔓 Token decoded:', decoded);
-    
-    if (!decoded || decoded.type !== 'access') {
-      console.log('❌ TOKEN INVALID OR NOT ACCESS TYPE');
-      return res.status(401).json({ message: "Unauthorized - Invalid or expired token" });
-    }
-
-    req.user = { 
-      claims: { sub: decoded.userId }, 
-      email: decoded.email,
-      role: decoded.role || 'user'
-    };
-    
-    console.log('✅ AUTHENTICATION SUCCESS - User:', req.user.claims.sub);
-    
-    // Now call Xendit function
-    createXenditInvoice(req, res).catch(error => {
-      console.error('💥 ERROR IN XENDIT FUNCTION:', error);
-      res.status(500).json({ error: 'Xendit processing failed' });
-    });
-  });
-  app.get('/api/xendit/invoice/:invoiceId/status', isAuthenticated, checkInvoiceStatus);
-  app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
-  app.get('/api/xendit/payment-methods', getAvailablePaymentMethods);
+  // Xendit routes removed - using Midtrans only
 
   // Midtrans Payment Routes
   app.post('/api/midtrans/create-transaction', isAuthenticated, async (req: any, res) => {
@@ -1864,98 +1817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Simulate payment completion (for testing) - no auth required for auto-completion
-  app.post('/api/xendit/simulate-payment/:orderId', async (req: any, res: any) => {
-    try {
-      const orderId = parseInt(req.params.orderId);
-      
-      console.log(`🧪 Auto-completing payment for order ${orderId} - bypass mode enabled`);
-      
-      // Get order details
-      const order = await storage.getOrder(orderId);
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-      
-      // Check if assessments exist for completed orders
-      let assessmentsCreated = 0;
-      if (order.status === 'completed' && order.paymentStatus === 'paid') {
-        console.log(`Order ${orderId} already completed, checking for missing assessments...`);
-        
-        // Create user assessments if they don't exist for completed orders
-        if (order.orderItems) {
-          for (const item of order.orderItems) {
-            // Check if assessment already exists
-            const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
-            
-            if (!existingAssessment) {
-              await storage.createUserAssessment({
-                userId: order.userId,
-                assessmentId: item.assessmentId,
-                orderId: orderId,
-                status: 'available'
-              });
-              assessmentsCreated++;
-              console.log(`✅ Created missing user assessment for assessment ID ${item.assessmentId}`);
-            } else {
-              console.log(`✅ User assessment already exists for assessment ID ${item.assessmentId}`);
-            }
-          }
-        }
-        
-        return res.json({ 
-          success: true, 
-          message: assessmentsCreated > 0 ? 'Missing assessments created' : 'Payment already completed',
-          orderId: orderId,
-          status: 'completed',
-          assessmentsCreated: assessmentsCreated
-        });
-      }
-      
-      // Update order status for pending orders
-      await storage.updateOrder(orderId, {
-        status: 'completed',
-        paymentStatus: 'paid',
-        paymentMethod: 'xendit_simulation',
-        paidAt: new Date(),
-        paidAmount: order.totalAmount
-      });
-      
-      // Create user assessments if they don't exist
-      if (order.orderItems) {
-        for (const item of order.orderItems) {
-          // Check if assessment already exists
-          const existingAssessment = await storage.getUserAssessment(order.userId, item.assessmentId);
-          
-          if (!existingAssessment) {
-            await storage.createUserAssessment({
-              userId: order.userId,
-              assessmentId: item.assessmentId,
-              orderId: orderId,
-              status: 'available'
-            });
-            assessmentsCreated++;
-            console.log(`✅ Created user assessment for assessment ID ${item.assessmentId}`);
-          } else {
-            console.log(`⚠️ User assessment already exists for assessment ID ${item.assessmentId}`);
-          }
-        }
-      }
-      
-      console.log(`🎉 Order ${orderId} payment auto-completion successful!`);
-      res.json({ 
-        success: true, 
-        message: 'Payment completed successfully',
-        orderId: orderId,
-        status: 'completed',
-        assessmentsCreated: assessmentsCreated
-      });
-      
-    } catch (error: any) {
-      console.error('Payment simulation error:', error);
-      res.status(500).json({ error: 'Failed to simulate payment' });
-    }
-  });
+  // Xendit endpoints removed - using Midtrans only
 
   // Payment success/failure pages endpoints
   app.get('/api/payment-status/:orderId', isAuthenticated, async (req: any, res) => {

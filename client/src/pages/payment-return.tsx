@@ -45,9 +45,9 @@ export default function PaymentReturn() {
               if (availableAssessments.length > 0) {
                 console.log('✅ BYPASS SUCCESS - Available assessments found, redirecting...');
                 
-                // Clean up localStorage
+                // Clean up localStorage from any previous payment data
                 Object.keys(localStorage).forEach(key => {
-                  if (key.startsWith('xendit_invoice_')) {
+                  if (key.startsWith('payment_data_')) {
                     localStorage.removeItem(key);
                   }
                 });
@@ -104,7 +104,7 @@ export default function PaymentReturn() {
               
               try {
                 // Use fetch instead of apiRequest to avoid auth issues
-                const completeResponse = await fetch(`/api/xendit/simulate-payment/${order.id}`, {
+                const completeResponse = await fetch(`/api/midtrans/simulate-payment/${order.id}`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' }
                 });
@@ -168,7 +168,7 @@ export default function PaymentReturn() {
             console.log(`🔄 URL-based completion attempt for order ${orderId}...`);
             
             try {
-              const completeResponse = await apiRequest('POST', `/api/xendit/simulate-payment/${orderId}`, {});
+              const completeResponse = await apiRequest('POST', `/api/midtrans/simulate-payment/${orderId}`, {});
               const completeResult = await completeResponse.json();
               
               if (completeResult.success) {
@@ -234,7 +234,7 @@ export default function PaymentReturn() {
 
         // Try to get order ID from localStorage as fallback
         if (!orderId) {
-          const storedInvoices = Object.keys(localStorage).filter(key => key.startsWith('xendit_invoice_'));
+          const storedInvoices = Object.keys(localStorage).filter(key => key.startsWith('payment_data_'));
           console.log('Checking localStorage for order ID:', storedInvoices);
           
           for (const key of storedInvoices) {
@@ -296,7 +296,7 @@ export default function PaymentReturn() {
           
           // Clean up localStorage
           Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('xendit_invoice_')) {
+            if (key.startsWith('payment_data_')) {
               const invoiceData = JSON.parse(localStorage.getItem(key) || '{}');
               if (invoiceData.orderId === orderId) {
                 localStorage.removeItem(key);
@@ -343,7 +343,7 @@ export default function PaymentReturn() {
       
       // If no order data, try to find from localStorage or latest order
       if (!orderIdToUse) {
-        const storedInvoices = Object.keys(localStorage).filter(key => key.startsWith('xendit_invoice_'));
+        const storedInvoices = Object.keys(localStorage).filter(key => key.startsWith('payment_data_'));
         if (storedInvoices.length > 0) {
           const invoiceData = JSON.parse(localStorage.getItem(storedInvoices[0]) || '{}');
           orderIdToUse = invoiceData.orderId;
@@ -365,7 +365,7 @@ export default function PaymentReturn() {
       }
       
       // Simulate payment completion for testing
-      const response = await apiRequest('POST', `/api/xendit/simulate-payment/${orderIdToUse}`, {});
+      const response = await apiRequest('POST', `/api/midtrans/simulate-payment/${orderIdToUse}`, {});
       const result = await response.json();
       
       if (result.success) {
@@ -377,7 +377,7 @@ export default function PaymentReturn() {
         
         // Clean up localStorage
         Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('xendit_invoice_')) {
+          if (key.startsWith('payment_data_')) {
             localStorage.removeItem(key);
           }
         });
@@ -545,7 +545,7 @@ export default function PaymentReturn() {
             Status Pembayaran
           </h1>
           <p className="text-neutral-600 dark:text-muted-foreground">
-            Hasil pembayaran Anda dengan Xendit
+            Hasil Pembayaran
           </p>
         </div>
 
