@@ -17,6 +17,7 @@ import {
   handleXenditWebhook, 
   getAvailablePaymentMethods 
 } from "./xendit";
+import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus } from "./midtrans";
 
 // Custom authentication middleware for JWT tokens
 function isAuthenticated(req: any, res: any, next: any) {
@@ -1681,6 +1682,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/xendit/invoice/:invoiceId/status', isAuthenticated, checkInvoiceStatus);
   app.post('/api/xendit/webhook', handleXenditWebhook); // No auth required for webhooks
   app.get('/api/xendit/payment-methods', getAvailablePaymentMethods);
+
+  // Midtrans Payment Routes
+  app.post('/api/midtrans/create-transaction', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId, amount, customerDetails, itemDetails } = req.body;
+      
+      // Validate required fields
+      if (!orderId || !amount || !customerDetails || !itemDetails) {
+        return res.status(400).json({ 
+          error: 'Missing required fields: orderId, amount, customerDetails, itemDetails' 
+        });
+      }
+
+      // Create Midtrans transaction
+      const transaction = await createMidtransTransaction({
+        orderId,
+        amount,
+        customerDetails,
+        itemDetails
+      });
+
+      res.json(transaction);
+    } catch (error) {
+      console.error('Error creating Midtrans transaction:', error);
+      res.status(500).json({ error: 'Failed to create transaction' });
+    }
+  });
+
+  app.post('/api/midtrans/webhook', async (req, res) => {
+    try {
+      const notificationResult = await handleMidtransCallback(req, res);
+      
+      if (!notificationResult) {
+        return res.status(400).json({ error: 'Invalid notification' });
+      }
+
+      const { orderId, status, amount } = notificationResult;
+      
+      // Update order status based on Midtrans notification
+      if (status === 'paid') {
+        const order = await storage.getOrder(parseInt(orderId));
+        if (order) {
+          // Update order to completed
+          await storage.updateOrderStatus(parseInt(orderId), 'completed', orderId, 'paid');
+          
+          // Create user assessments
+          for (const item of order.orderItems) {
+            await storage.createUserAssessment({
+              userId: order.userId,
+              assessmentId: item.assessmentId,
+              orderId: order.id,
+              status: 'available'
+            });
+          }
+          
+          console.log(`Midtrans: Order ${orderId} completed successfully`);
+        }
+      } else if (status === 'failed') {
+        await storage.updateOrderStatus(parseInt(orderId), 'cancelled', orderId, 'failed');
+        console.log(`Midtrans: Order ${orderId} failed`);
+      }
+
+      res.json({ status: 'ok' });
+    } catch (error) {
+      console.error('Error handling Midtrans webhook:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
+  app.get('/api/midtrans/status/:orderId', isAuthenticated, async (req, res) => {
+    try {
+      const orderId = req.params.orderId;
+      const status = await checkTransactionStatus(orderId);
+      res.json(status);
+    } catch (error) {
+      console.error('Error checking Midtrans transaction status:', error);
+      res.status(500).json({ error: 'Failed to check transaction status' });
+    }
+  });
   
   // Simulate payment completion (for testing) - no auth required for auto-completion
   app.post('/api/xendit/simulate-payment/:orderId', async (req: any, res: any) => {

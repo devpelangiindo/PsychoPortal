@@ -12,6 +12,8 @@ import { useCart } from "@/lib/cart";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import XenditPayment from "@/components/XenditPayment";
+import MidtransPayment from "@/components/MidtransPayment";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Cart() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
@@ -163,6 +165,23 @@ export default function Cart() {
 
     // For paid assessments, we'll handle Xendit payment directly after order creation
     createOrderMutation.mutate();
+  };
+
+  const handleCheckoutMidtrans = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Silakan masuk",
+        description: "Anda perlu masuk untuk melanjutkan checkout",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 500);
+      return;
+    }
+    // Create order and show Midtrans payment directly
+    createOrderMutation.mutate();
+    setShowPayment(true);
   };
 
   const handlePaymentSuccess = (invoiceData: any) => {
@@ -341,27 +360,58 @@ export default function Cart() {
                       {createOrderMutation.isPending ? "Memproses Akses..." : "Dapatkan Akses Gratis"}
                     </Button>
                   ) : (
-                    // Payment with Xendit
+                    // Payment options with tabs
                     <div className="space-y-4">
-                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                        Bayar dengan berbagai metode pembayaran:
-                        <ul className="list-disc list-inside mt-1 space-y-1">
-                          <li>Virtual Account (BCA, BRI, BNI, Mandiri, dll)</li>
-                          <li>E-wallet (DANA, OVO, LinkAja, ShopeePay)</li>
-                          <li>QRIS</li>
-                          <li>Kartu Kredit</li>
-                          <li>Retail (Alfamart, Indomaret)</li>
-                        </ul>
-                      </div>
-                      
-                      <Button 
-                        className="w-full" 
-                        size="lg"
-                        onClick={handleCheckout}
-                        disabled={createOrderMutation.isPending}
-                      >
-                        {createOrderMutation.isPending ? "Membuat Pesanan..." : "Lanjutkan ke Pembayaran"}
-                      </Button>
+                      <Tabs defaultValue="midtrans" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="midtrans">Midtrans</TabsTrigger>
+                          <TabsTrigger value="xendit">Xendit</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="midtrans" className="space-y-4">
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            <p className="font-medium mb-2">Bayar dengan Midtrans:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                              <li>Virtual Account (semua bank besar)</li>
+                              <li>E-wallet (Gopay, ShopeePay)</li>
+                              <li>QRIS</li>
+                              <li>Kartu Kredit/Debit</li>
+                              <li>Convenience Store (Alfamart, Indomaret)</li>
+                            </ul>
+                          </div>
+                          
+                          <Button 
+                            className="w-full" 
+                            size="lg"
+                            onClick={handleCheckoutMidtrans}
+                            disabled={createOrderMutation.isPending || !import.meta.env.VITE_MIDTRANS_CLIENT_KEY}
+                          >
+                            {createOrderMutation.isPending ? "Membuat Pesanan..." : "Bayar dengan Midtrans"}
+                          </Button>
+                        </TabsContent>
+                        
+                        <TabsContent value="xendit" className="space-y-4">
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            <p className="font-medium mb-2">Bayar dengan Xendit:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                              <li>Virtual Account (BCA, BRI, BNI, Mandiri, dll)</li>
+                              <li>E-wallet (DANA, OVO, LinkAja, ShopeePay)</li>
+                              <li>QRIS</li>
+                              <li>Kartu Kredit</li>
+                              <li>Retail (Alfamart, Indomaret)</li>
+                            </ul>
+                          </div>
+                          
+                          <Button 
+                            className="w-full" 
+                            size="lg"
+                            onClick={handleCheckout}
+                            disabled={createOrderMutation.isPending}
+                          >
+                            {createOrderMutation.isPending ? "Membuat Pesanan..." : "Bayar dengan Xendit"}
+                          </Button>
+                        </TabsContent>
+                      </Tabs>
                     </div>
                   )}
 
@@ -379,7 +429,68 @@ export default function Cart() {
 
       <Footer />
 
-      {/* Payment modal removed - we now redirect directly to Xendit */}
+      {/* Midtrans Payment Modal */}
+      {showPayment && currentOrderId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Pembayaran Midtrans</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPayment(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+              
+              <MidtransPayment
+                orderId={`order_${currentOrderId}_${Date.now()}`}
+                amount={getTotalAmount()}
+                customerDetails={{
+                  firstName: user?.firstName || 'Customer',
+                  lastName: user?.lastName || '',
+                  email: user?.email || '',
+                  whatsappNumber: user?.whatsappNumber || '',
+                }}
+                items={items.map(item => ({
+                  id: item.id.toString(),
+                  name: item.name,
+                  price: parseFloat(item.price),
+                  quantity: 1,
+                }))}
+                onSuccess={() => {
+                  clearCart();
+                  setShowPayment(false);
+                  toast({
+                    title: "Pembayaran Berhasil",
+                    description: "Asesmen Anda sekarang tersedia di dashboard.",
+                  });
+                  setLocation("/dashboard");
+                }}
+                onPending={() => {
+                  setShowPayment(false);
+                  toast({
+                    title: "Pembayaran Sedang Diproses",
+                    description: "Kami akan memberitahu Anda setelah pembayaran dikonfirmasi.",
+                  });
+                  setLocation("/dashboard");
+                }}
+                onError={(error) => {
+                  console.error("Midtrans payment error:", error);
+                  setShowPayment(false);
+                  toast({
+                    title: "Pembayaran Gagal",
+                    description: "Terjadi kesalahan dalam pembayaran. Silakan coba lagi.",
+                    variant: "destructive",
+                  });
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
