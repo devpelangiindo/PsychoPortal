@@ -83,11 +83,13 @@ export default function MidtransPayment({
         itemDetails: items,
       });
 
-      const { token } = response;
+      const transactionData = await response.json();
 
-      if (!token) {
+      if (!transactionData.token) {
         throw new Error('Failed to get payment token');
       }
+
+      const { token } = transactionData;
 
       // Open Midtrans payment page
       window.snap.pay(token, {
