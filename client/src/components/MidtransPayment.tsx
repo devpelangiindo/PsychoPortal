@@ -67,8 +67,18 @@ export default function MidtransPayment({
 
     setIsLoading(true);
     try {
+      // Validate client key first
+      if (!import.meta.env.VITE_MIDTRANS_CLIENT_KEY) {
+        throw new Error('VITE_MIDTRANS_CLIENT_KEY tidak dikonfigurasi');
+      }
+
       // Load Midtrans script
       await loadMidtransScript();
+      
+      // Validate snap object
+      if (!window.snap) {
+        throw new Error('Midtrans script tidak berhasil dimuat');
+      }
 
       // Create transaction
       const response = await apiRequest('POST', '/api/midtrans/create-transaction', {
@@ -83,10 +93,16 @@ export default function MidtransPayment({
         itemDetails: items,
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const transactionData = await response.json();
+      console.log('Transaction response:', transactionData);
 
       if (!transactionData.token) {
-        throw new Error('Failed to get payment token');
+        throw new Error('Token pembayaran tidak ditemukan dalam response');
       }
 
       const { token } = transactionData;
@@ -126,9 +142,18 @@ export default function MidtransPayment({
       });
     } catch (error) {
       console.error('Payment initialization error:', error);
+      
+      // More detailed error handling
+      let errorMessage = "Gagal memulai proses pembayaran.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({
-        title: "Error",
-        description: "Gagal memulai proses pembayaran. Silakan coba lagi.",
+        title: "Pembayaran Gagal",
+        description: errorMessage + " Silakan coba lagi.",
         variant: "destructive",
       });
       onError?.(error);

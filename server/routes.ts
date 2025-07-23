@@ -1641,10 +1641,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orderId, amount, customerDetails, itemDetails } = req.body;
       
+      console.log('💳 Creating Midtrans transaction with data:', {
+        orderId,
+        amount,
+        customerDetails,
+        itemCount: itemDetails?.length || 0
+      });
+
       // Validate required fields
       if (!orderId || !amount || !customerDetails || !itemDetails) {
         return res.status(400).json({ 
           error: 'Missing required fields: orderId, amount, customerDetails, itemDetails' 
+        });
+      }
+
+      if (!customerDetails.first_name || !customerDetails.email) {
+        return res.status(400).json({ 
+          error: 'Customer details must include first_name and email' 
         });
       }
 
@@ -1656,10 +1669,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemDetails
       });
 
+      console.log('✅ Midtrans transaction created successfully:', {
+        orderId,
+        hasToken: !!transaction.token,
+        hasRedirectUrl: !!transaction.redirect_url
+      });
+
       res.json(transaction);
-    } catch (error) {
-      console.error('Error creating Midtrans transaction:', error);
-      res.status(500).json({ error: 'Failed to create transaction' });
+    } catch (error: any) {
+      console.error('❌ Error creating Midtrans transaction:', error);
+      
+      // Return more specific error message
+      let errorMessage = 'Failed to create transaction';
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      res.status(500).json({ error: errorMessage });
     }
   });
 
