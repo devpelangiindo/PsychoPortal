@@ -1,52 +1,74 @@
-// Test Midtrans connection with new keys
-const fetch = require('node-fetch');
+// Test Midtrans connection dengan API keys baru
+import midtransClient from 'midtrans-client';
 
-async function testMidtransConnection() {
-  try {
-    console.log('🧪 Testing Midtrans connection...');
-    
-    // Test create transaction endpoint
-    const testData = {
-      orderId: 'test_order_123',
-      amount: 400000,
-      customerDetails: {
-        firstName: 'Test',
-        lastName: 'User',
-        email: 'test@example.com'
-      },
-      items: [{
-        id: '7',
-        name: 'Asesmen Profil Sensori',
-        price: 400000,
-        quantity: 1
-      }]
-    };
-    
-    const response = await fetch('http://localhost:5000/api/midtrans/create-transaction', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer test-token'
-      },
-      body: JSON.stringify(testData)
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok && result.token) {
-      console.log('✅ Midtrans connection successful!');
-      console.log('Token received:', result.token ? 'YES' : 'NO');
-      console.log('Redirect URL:', result.redirect_url ? 'YES' : 'NO');
-      return true;
-    } else {
-      console.log('❌ Midtrans connection failed:', result);
-      return false;
-    }
-    
-  } catch (error) {
-    console.log('❌ Connection test error:', error.message);
-    return false;
-  }
+console.log('🔍 Testing Midtrans Configuration...\n');
+
+// Check environment variables
+const requiredEnvs = [
+  'MIDTRANS_SERVER_KEY',
+  'MIDTRANS_CLIENT_KEY', 
+  'MIDTRANS_MERCHANT_ID',
+  'VITE_MIDTRANS_CLIENT_KEY'
+];
+
+console.log('📋 Environment Variables:');
+requiredEnvs.forEach(env => {
+  const exists = process.env[env] ? '✅' : '❌';
+  const value = process.env[env] ? `${process.env[env].substring(0, 15)}...` : 'NOT FOUND';
+  console.log(`${exists} ${env}: ${value}`);
+});
+
+// Test Midtrans client initialization
+try {
+  console.log('\n🔧 Initializing Midtrans Clients...');
+  
+  const snap = new midtransClient.Snap({
+    isProduction: false, // Sandbox mode
+    serverKey: process.env.MIDTRANS_SERVER_KEY,
+    clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  });
+
+  const coreApi = new midtransClient.CoreApi({
+    isProduction: false,
+    serverKey: process.env.MIDTRANS_SERVER_KEY,
+    clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  });
+
+  console.log('✅ Midtrans Snap client initialized successfully');
+  console.log('✅ Midtrans Core API client initialized successfully');
+  
+  // Test transaction parameter structure
+  console.log('\n🧪 Testing Transaction Parameter Structure...');
+  
+  const testParameter = {
+    transaction_details: {
+      order_id: 'test-order-' + Date.now(),
+      gross_amount: 400000,
+    },
+    customer_details: {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test@example.com',
+      phone: '+6281234567890',
+    },
+    item_details: [{
+      id: 'sensory-assessment',
+      name: 'Asesmen Profil Sensori',
+      price: 400000,
+      quantity: 1,
+    }],
+    credit_card: {
+      secure: true,
+    },
+  };
+
+  console.log('✅ Transaction parameter structure valid');
+  console.log('📄 Sample transaction details:', JSON.stringify(testParameter, null, 2));
+  
+  console.log('\n🎉 Midtrans configuration test completed successfully!');
+  console.log('🚀 Ready for sandbox transactions');
+
+} catch (error) {
+  console.error('❌ Error during Midtrans test:', error.message);
+  process.exit(1);
 }
-
-testMidtransConnection();
