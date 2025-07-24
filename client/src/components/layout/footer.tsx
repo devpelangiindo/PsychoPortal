@@ -32,20 +32,18 @@ export default function Footer() {
               </a>
             </div>
             
-            <div>
-              <div className="space-y-4"></div>
-                <div className="text-green-50">
-                  <p className="font-medium mb-1">Cabang Sleman</p>
-                  <p className="text-sm leading-relaxed">
-                    Jl. Colombo No. 8, Samirono Baru, Caturtunggal, Depok, Sleman, Yogyakarta, 55281
-                  </p>
-                </div>
-                <div className="text-green-50">
-                  <p className="font-medium mb-1">Cabang Bantul</p>
-                  <p className="text-sm leading-relaxed">
-                    Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul, Bantul, Bantul, Yogyakarta, 55711
-                  </p>
-                </div>
+            <div className="space-y-4">
+              <div className="text-green-50">
+                <p className="font-medium mb-1">Cabang Sleman</p>
+                <p className="text-sm leading-relaxed">
+                  Jl. Colombo No. 8, Samirono Baru, Caturtunggal, Depok, Sleman, Yogyakarta, 55281
+                </p>
+              </div>
+              <div className="text-green-50">
+                <p className="font-medium mb-1">Cabang Bantul</p>
+                <p className="text-sm leading-relaxed">
+                  Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul, Bantul, Bantul, Yogyakarta, 55711
+                </p>
               </div>
             </div>
           </div>
