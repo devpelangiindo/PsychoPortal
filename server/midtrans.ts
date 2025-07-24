@@ -15,12 +15,18 @@ if (!process.env.MIDTRANS_MERCHANT_ID) {
   throw new Error('Missing MIDTRANS_MERCHANT_ID environment variable');
 }
 
-// Determine if we're in production based on environment
-const isProduction = process.env.NODE_ENV === 'production';
+// Force sandbox mode for all environments - production should be explicitly configured
+const isProduction = false; // Always use sandbox for now
 
-console.log(`Midtrans Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'}`);
+console.log(`Midtrans Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'} (FORCED)`);
 console.log(`Midtrans Server Key: ${process.env.MIDTRANS_SERVER_KEY?.substring(0, 10)}...`);
+console.log(`Midtrans Client Key: ${process.env.MIDTRANS_CLIENT_KEY?.substring(0, 10)}...`);
 console.log(`Midtrans Merchant ID: ${process.env.MIDTRANS_MERCHANT_ID?.substring(0, 10)}...`);
+console.log('Environment Variables Status:');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- MIDTRANS_SERVER_KEY:', process.env.MIDTRANS_SERVER_KEY ? 'EXISTS' : 'MISSING');
+console.log('- MIDTRANS_CLIENT_KEY:', process.env.MIDTRANS_CLIENT_KEY ? 'EXISTS' : 'MISSING');
+console.log('- MIDTRANS_MERCHANT_ID:', process.env.MIDTRANS_MERCHANT_ID ? 'EXISTS' : 'MISSING');
 
 // Initialize Midtrans clients
 const snap = new midtransClient.Snap({

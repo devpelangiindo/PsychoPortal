@@ -52,7 +52,8 @@ export default function MidtransPayment({
         return;
       }
 
-      const isProduction = import.meta.env.PROD;
+      // Always use sandbox for now - production should be explicitly configured
+      const isProduction = false; // Force sandbox mode for all environments
       const scriptUrl = isProduction 
         ? 'https://app.midtrans.com/snap/snap.js' 
         : 'https://app.sandbox.midtrans.com/snap/snap.js';
@@ -62,6 +63,10 @@ export default function MidtransPayment({
       console.log('Client Key:', clientKey?.substring(0, 10) + '...');
       console.log('Domain:', window.location.hostname);
       console.log('Protocol:', window.location.protocol);
+      console.log('Environment Variables Check:');
+      console.log('- VITE_MIDTRANS_CLIENT_KEY:', clientKey ? 'EXISTS' : 'MISSING');
+      console.log('- import.meta.env.PROD:', import.meta.env.PROD);
+      console.log('- import.meta.env.DEV:', import.meta.env.DEV);
       
       if (!clientKey) {
         console.error('VITE_MIDTRANS_CLIENT_KEY is missing!');
@@ -73,22 +78,36 @@ export default function MidtransPayment({
       script.src = scriptUrl;
       script.setAttribute('data-client-key', clientKey);
       
+      // Add timeout for script loading
+      const timeoutId = setTimeout(() => {
+        console.error('Midtrans script loading timeout');
+        if (document.head.contains(script)) {
+          document.head.removeChild(script);
+        }
+        reject(new Error('Midtrans script loading timeout after 15 seconds'));
+      }, 15000);
+      
       script.onload = () => {
+        clearTimeout(timeoutId);
         console.log('Midtrans script loaded successfully');
         // Wait a bit for snap to be available
         setTimeout(() => {
           if (window.snap) {
+            console.log('window.snap available:', !!window.snap);
             resolve();
           } else {
             console.error('Midtrans snap object not available after script load');
             reject(new Error('Midtrans snap object not available after script load'));
           }
-        }, 500); // Increased timeout for production
+        }, 1000); // Increased timeout for production
       };
       
       script.onerror = (error) => {
+        clearTimeout(timeoutId);
         console.error('Failed to load Midtrans script:', error);
-        reject(new Error('Failed to load Midtrans script'));
+        console.error('Script URL:', scriptUrl);
+        console.error('Client Key:', clientKey?.substring(0, 10) + '...');
+        reject(new Error('Failed to load Midtrans script from ' + scriptUrl));
       };
       
       document.head.appendChild(script);
@@ -143,7 +162,9 @@ export default function MidtransPayment({
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Transaction API error:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+        console.error('Response status:', response.status);
+        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+        throw new Error(`Gagal membuat transaksi: HTTP ${response.status} - ${errorText || response.statusText}`);
       }
 
       const transactionData = await response.json();
@@ -158,6 +179,11 @@ export default function MidtransPayment({
 
       // Validate window.snap exists and has pay method
       if (!window.snap || typeof window.snap.pay !== 'function') {
+        console.error('window.snap status:', {
+          exists: !!window.snap,
+          hasPayMethod: window.snap && typeof window.snap.pay === 'function',
+          snapObject: window.snap
+        });
         throw new Error('Midtrans Snap tidak tersedia. Coba refresh halaman.');
       }
 
