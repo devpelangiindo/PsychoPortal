@@ -1648,17 +1648,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderId,
         amount,
         customerDetails,
-        itemCount: itemDetails?.length || 0
+        itemCount: itemDetails?.length || 0,
+        environment: process.env.NODE_ENV,
+        domain: req.get('host'),
+        userAgent: req.get('User-Agent')
       });
 
       // Validate required fields
       if (!orderId || !amount || !customerDetails || !itemDetails) {
+        console.error('❌ Missing required fields:', { orderId, amount, customerDetails, itemDetails });
         return res.status(400).json({ 
           error: 'Missing required fields: orderId, amount, customerDetails, itemDetails' 
         });
       }
 
       if (!customerDetails.first_name || !customerDetails.email) {
+        console.error('❌ Invalid customer details:', customerDetails);
         return res.status(400).json({ 
           error: 'Customer details must include first_name and email' 
         });
@@ -1675,12 +1680,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('✅ Midtrans transaction created successfully:', {
         orderId,
         hasToken: !!transaction.token,
-        hasRedirectUrl: !!transaction.redirect_url
+        hasRedirectUrl: !!transaction.redirect_url,
+        tokenPrefix: transaction.token?.substring(0, 20) + '...'
       });
 
       res.json(transaction);
     } catch (error: any) {
-      console.error('❌ Error creating Midtrans transaction:', error);
+      console.error('❌ Error creating Midtrans transaction:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        cause: error.cause
+      });
       
       // Return more specific error message
       let errorMessage = 'Failed to create transaction';

@@ -15,15 +15,21 @@ if (!process.env.MIDTRANS_MERCHANT_ID) {
   throw new Error('Missing MIDTRANS_MERCHANT_ID environment variable');
 }
 
+// Determine if we're in production based on environment
+const isProduction = process.env.NODE_ENV === 'production';
+
+console.log(`Midtrans Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'}`);
+console.log(`Midtrans Server Key: ${process.env.MIDTRANS_SERVER_KEY?.substring(0, 10)}...`);
+
 // Initialize Midtrans clients
 const snap = new midtransClient.Snap({
-  isProduction: process.env.NODE_ENV === 'production',
+  isProduction,
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
 const coreApi = new midtransClient.CoreApi({
-  isProduction: process.env.NODE_ENV === 'production',
+  isProduction,
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });

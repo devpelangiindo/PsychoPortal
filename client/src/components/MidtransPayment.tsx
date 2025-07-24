@@ -52,12 +52,24 @@ export default function MidtransPayment({
         return;
       }
 
-      console.log('Loading Midtrans script...');
-      const script = document.createElement('script');
-      script.src = import.meta.env.PROD 
+      const isProduction = import.meta.env.PROD;
+      const scriptUrl = isProduction 
         ? 'https://app.midtrans.com/snap/snap.js' 
         : 'https://app.sandbox.midtrans.com/snap/snap.js';
-      script.setAttribute('data-client-key', import.meta.env.VITE_MIDTRANS_CLIENT_KEY || '');
+      const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+      
+      console.log(`Loading Midtrans script (${isProduction ? 'PRODUCTION' : 'SANDBOX'}):`, scriptUrl);
+      console.log('Client Key:', clientKey?.substring(0, 10) + '...');
+      
+      if (!clientKey) {
+        console.error('VITE_MIDTRANS_CLIENT_KEY is missing!');
+        reject(new Error('Midtrans client key is not configured'));
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = scriptUrl;
+      script.setAttribute('data-client-key', clientKey);
       
       script.onload = () => {
         console.log('Midtrans script loaded successfully');
@@ -66,9 +78,10 @@ export default function MidtransPayment({
           if (window.snap) {
             resolve();
           } else {
+            console.error('Midtrans snap object not available after script load');
             reject(new Error('Midtrans snap object not available after script load'));
           }
-        }, 100);
+        }, 500); // Increased timeout for production
       };
       
       script.onerror = (error) => {
