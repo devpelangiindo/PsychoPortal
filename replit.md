@@ -303,6 +303,7 @@ Changelog:
 - July 24, 2025. Added company addresses to footer: Sleman branch (Jl. Colombo No. 8) and Bantul branch (Jl. Mgr. Sugiyo Pranoto No. 14) for complete business information display
 - July 24, 2025. Added WhatsApp number for technical support (08812715451) to footer contact section with proper formatting and clickable link
 - July 24, 2025. Reorganized footer layout - moved company addresses to first column under social media icons, kept contact information in separate column for better organization
+- July 24, 2025. Enhanced footer contact section typography - increased font size and weight for contact titles and WhatsApp numbers, improved spacing and WhatsApp icon size for better readability
 ```
 
 ## User Preferences
