@@ -301,6 +301,7 @@ Changelog:
 - July 24, 2025. Verified production environment connectivity and transaction token generation working correctly
 - July 24, 2025. System now ready for live production transactions with Midtrans Production API
 - July 24, 2025. Added company addresses to footer: Sleman branch (Jl. Colombo No. 8) and Bantul branch (Jl. Mgr. Sugiyo Pranoto No. 14) for complete business information display
+- July 24, 2025. Added WhatsApp number for technical support (08812715451) to footer contact section with proper formatting and clickable link
 ```
 
 ## User Preferences

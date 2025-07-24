@@ -86,9 +86,14 @@ export default function Footer() {
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-green-50 hover:text-white transition-colors flex items-center">
-                    <FaWhatsapp className="w-4 h-4 mr-2" />
-                    <span className="text-sm">Dukungan Teknis</span>
+                  <a href="https://wa.me/628812715451" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors">
+                    <div className="flex items-center">
+                      <FaWhatsapp className="w-4 h-4 mr-2" />
+                      <div>
+                        <div className="text-sm">Dukungan Teknis</div>
+                        <div className="text-xs text-green-100">08812715451</div>
+                      </div>
+                    </div>
                   </a>
                 </li>
               </ul>
