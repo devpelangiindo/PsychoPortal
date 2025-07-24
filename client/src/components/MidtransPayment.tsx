@@ -52,19 +52,22 @@ export default function MidtransPayment({
         return;
       }
 
-      // Always use sandbox for now - production should be explicitly configured
-      const isProduction = false; // Force sandbox mode for all environments
+      // Use production environment for Midtrans
+      const isProduction = true; // Enable production mode
       const scriptUrl = isProduction 
         ? 'https://app.midtrans.com/snap/snap.js' 
         : 'https://app.sandbox.midtrans.com/snap/snap.js';
-      const clientKey = import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+      // Use production client key when available, fallback to sandbox
+      const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY || import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
       
       console.log(`Loading Midtrans script (${isProduction ? 'PRODUCTION' : 'SANDBOX'}):`, scriptUrl);
       console.log('Client Key:', clientKey?.substring(0, 10) + '...');
       console.log('Domain:', window.location.hostname);
       console.log('Protocol:', window.location.protocol);
       console.log('Environment Variables Check:');
-      console.log('- VITE_MIDTRANS_CLIENT_KEY:', clientKey ? 'EXISTS' : 'MISSING');
+      console.log('- VITE_MIDTRANS_PRODUCTION_CLIENT_KEY:', import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
+      console.log('- VITE_MIDTRANS_CLIENT_KEY:', import.meta.env.VITE_MIDTRANS_CLIENT_KEY ? 'EXISTS' : 'MISSING');
+      console.log('- Final clientKey used:', clientKey ? 'EXISTS' : 'MISSING');
       console.log('- import.meta.env.PROD:', import.meta.env.PROD);
       console.log('- import.meta.env.DEV:', import.meta.env.DEV);
       
@@ -120,8 +123,9 @@ export default function MidtransPayment({
     setIsLoading(true);
     try {
       // Validate client key first
-      if (!import.meta.env.VITE_MIDTRANS_CLIENT_KEY) {
-        throw new Error('VITE_MIDTRANS_CLIENT_KEY tidak dikonfigurasi');
+      const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY || import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+      if (!clientKey) {
+        throw new Error('VITE_MIDTRANS_CLIENT_KEY atau VITE_MIDTRANS_PRODUCTION_CLIENT_KEY tidak dikonfigurasi');
       }
 
       // Load Midtrans script

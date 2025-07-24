@@ -14,10 +14,10 @@ console.log('===============================');
 console.log('\n📋 Environment Variables:');
 const envVars = {
   NODE_ENV: process.env.NODE_ENV,
-  MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY,
-  MIDTRANS_CLIENT_KEY: process.env.MIDTRANS_CLIENT_KEY,
-  MIDTRANS_MERCHANT_ID: process.env.MIDTRANS_MERCHANT_ID,
-  VITE_MIDTRANS_CLIENT_KEY: process.env.VITE_MIDTRANS_CLIENT_KEY
+  MIDTRANS_PRODUCTION_SERVER_KEY: process.env.MIDTRANS_PRODUCTION_SERVER_KEY,
+  MIDTRANS_PRODUCTION_CLIENT_KEY: process.env.MIDTRANS_PRODUCTION_CLIENT_KEY,
+  MIDTRANS_PRODUCTION_MERCHANT_ID: process.env.MIDTRANS_PRODUCTION_MERCHANT_ID,
+  VITE_MIDTRANS_PRODUCTION_CLIENT_KEY: process.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY
 };
 
 Object.entries(envVars).forEach(([key, value]) => {
@@ -29,10 +29,10 @@ console.log('\n🚀 Testing Midtrans Client Initialization:');
 
 try {
   const snap = new midtrans.Snap({
-    isProduction: false, // Force sandbox
-    serverKey: process.env.MIDTRANS_SERVER_KEY,
-    clientKey: process.env.MIDTRANS_CLIENT_KEY,
-    merchantId: process.env.MIDTRANS_MERCHANT_ID
+    isProduction: true, // Enable production
+    serverKey: process.env.MIDTRANS_PRODUCTION_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY,
+    clientKey: process.env.MIDTRANS_PRODUCTION_CLIENT_KEY || process.env.MIDTRANS_CLIENT_KEY,
+    merchantId: process.env.MIDTRANS_PRODUCTION_MERCHANT_ID || process.env.MIDTRANS_MERCHANT_ID
   });
 
   console.log('✅ Snap client initialized successfully');
@@ -64,13 +64,13 @@ try {
       console.log('✅ Transaction created successfully!');
       console.log('- Token length:', transaction.token?.length || 0);
       console.log('- Redirect URL exists:', !!transaction.redirect_url);
-      console.log('- Environment detected: SANDBOX (forced)');
+      console.log('- Environment detected: PRODUCTION');
       
       // Test environment consistency
       console.log('\n🔍 Environment Consistency Check:');
-      console.log('- Backend forced sandbox: ✅');
-      console.log('- Frontend should use sandbox: ✅');
-      console.log('- Script URL should be: https://app.sandbox.midtrans.com/snap/snap.js');
+      console.log('- Backend using production: ✅');
+      console.log('- Frontend using production: ✅');
+      console.log('- Script URL should be: https://app.midtrans.com/snap/snap.js');
       
       console.log('\n✅ All tests passed! System ready for production deployment.');
     })

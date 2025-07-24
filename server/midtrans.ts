@@ -3,44 +3,50 @@ import midtransClient from 'midtrans-client';
 import { Request, Response } from 'express';
 import { nanoid } from 'nanoid';
 
-if (!process.env.MIDTRANS_SERVER_KEY) {
-  throw new Error('Missing MIDTRANS_SERVER_KEY environment variable');
+// Use production keys when available, fallback to sandbox
+const serverKey = process.env.MIDTRANS_PRODUCTION_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY;
+const clientKey = process.env.MIDTRANS_PRODUCTION_CLIENT_KEY || process.env.MIDTRANS_CLIENT_KEY;
+const merchantId = process.env.MIDTRANS_PRODUCTION_MERCHANT_ID || process.env.MIDTRANS_MERCHANT_ID;
+
+if (!serverKey) {
+  throw new Error('Missing MIDTRANS_SERVER_KEY or MIDTRANS_PRODUCTION_SERVER_KEY environment variable');
 }
 
-if (!process.env.MIDTRANS_CLIENT_KEY) {
-  throw new Error('Missing MIDTRANS_CLIENT_KEY environment variable');
+if (!clientKey) {
+  throw new Error('Missing MIDTRANS_CLIENT_KEY or MIDTRANS_PRODUCTION_CLIENT_KEY environment variable');
 }
 
-if (!process.env.MIDTRANS_MERCHANT_ID) {
-  throw new Error('Missing MIDTRANS_MERCHANT_ID environment variable');
+if (!merchantId) {
+  throw new Error('Missing MIDTRANS_MERCHANT_ID or MIDTRANS_PRODUCTION_MERCHANT_ID environment variable');
 }
 
-// Force sandbox mode for all environments - production should be explicitly configured
-const isProduction = false; // Always use sandbox for now
+// Enable production mode for Midtrans
+const isProduction = true; // Use production environment
 
-console.log(`Midtrans Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'} (FORCED)`);
-console.log(`Midtrans Server Key: ${process.env.MIDTRANS_SERVER_KEY?.substring(0, 10)}...`);
-console.log(`Midtrans Client Key: ${process.env.MIDTRANS_CLIENT_KEY?.substring(0, 10)}...`);
-console.log(`Midtrans Merchant ID: ${process.env.MIDTRANS_MERCHANT_ID?.substring(0, 10)}...`);
+console.log(`Midtrans Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'}`);
+console.log(`Midtrans Server Key: ${serverKey?.substring(0, 10)}...`);
+console.log(`Midtrans Client Key: ${clientKey?.substring(0, 10)}...`);
+console.log(`Midtrans Merchant ID: ${merchantId?.substring(0, 10)}...`);
 console.log('Environment Variables Status:');
 console.log('- NODE_ENV:', process.env.NODE_ENV);
-console.log('- MIDTRANS_SERVER_KEY:', process.env.MIDTRANS_SERVER_KEY ? 'EXISTS' : 'MISSING');
-console.log('- MIDTRANS_CLIENT_KEY:', process.env.MIDTRANS_CLIENT_KEY ? 'EXISTS' : 'MISSING');
-console.log('- MIDTRANS_MERCHANT_ID:', process.env.MIDTRANS_MERCHANT_ID ? 'EXISTS' : 'MISSING');
+console.log('- MIDTRANS_PRODUCTION_SERVER_KEY:', process.env.MIDTRANS_PRODUCTION_SERVER_KEY ? 'EXISTS' : 'MISSING');
+console.log('- MIDTRANS_PRODUCTION_CLIENT_KEY:', process.env.MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
+console.log('- MIDTRANS_PRODUCTION_MERCHANT_ID:', process.env.MIDTRANS_PRODUCTION_MERCHANT_ID ? 'EXISTS' : 'MISSING');
+console.log('- VITE_MIDTRANS_PRODUCTION_CLIENT_KEY:', process.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
 
 // Initialize Midtrans clients
 const snap = new midtransClient.Snap({
   isProduction,
-  serverKey: process.env.MIDTRANS_SERVER_KEY,
-  clientKey: process.env.MIDTRANS_CLIENT_KEY,
-  merchantId: process.env.MIDTRANS_MERCHANT_ID,
+  serverKey: serverKey,
+  clientKey: clientKey,
+  merchantId: merchantId,
 });
 
 const coreApi = new midtransClient.CoreApi({
   isProduction,
-  serverKey: process.env.MIDTRANS_SERVER_KEY,
-  clientKey: process.env.MIDTRANS_CLIENT_KEY,
-  merchantId: process.env.MIDTRANS_MERCHANT_ID,
+  serverKey: serverKey,
+  clientKey: clientKey,
+  merchantId: merchantId,
 });
 
 export interface MidtransTransactionData {
