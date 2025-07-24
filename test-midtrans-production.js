@@ -9,18 +9,21 @@ console.log('- NODE_ENV:', process.env.NODE_ENV);
 console.log('- MIDTRANS_SERVER_KEY:', process.env.MIDTRANS_SERVER_KEY ? 'EXISTS (length: ' + process.env.MIDTRANS_SERVER_KEY.length + ')' : 'MISSING');
 console.log('- MIDTRANS_CLIENT_KEY:', process.env.MIDTRANS_CLIENT_KEY ? 'EXISTS (length: ' + process.env.MIDTRANS_CLIENT_KEY.length + ')' : 'MISSING');
 console.log('- VITE_MIDTRANS_CLIENT_KEY:', process.env.VITE_MIDTRANS_CLIENT_KEY ? 'EXISTS (length: ' + process.env.VITE_MIDTRANS_CLIENT_KEY.length + ')' : 'MISSING');
+console.log('- MIDTRANS_MERCHANT_ID:', process.env.MIDTRANS_MERCHANT_ID ? 'EXISTS (length: ' + process.env.MIDTRANS_MERCHANT_ID.length + ')' : 'MISSING');
 
 // Initialize Midtrans clients
 const snap = new midtrans.Snap({
   isProduction: false, // Always sandbox for testing
   serverKey: process.env.MIDTRANS_SERVER_KEY,
-  clientKey: process.env.MIDTRANS_CLIENT_KEY
+  clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  merchantId: process.env.MIDTRANS_MERCHANT_ID
 });
 
 const coreApi = new midtrans.CoreApi({
   isProduction: false,
   serverKey: process.env.MIDTRANS_SERVER_KEY,
-  clientKey: process.env.MIDTRANS_CLIENT_KEY
+  clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  merchantId: process.env.MIDTRANS_MERCHANT_ID
 });
 
 console.log('\nMidtrans Clients Initialized:');

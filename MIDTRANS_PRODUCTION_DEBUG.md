@@ -13,6 +13,7 @@ Pastikan environment variables ini ter-set di production deployment:
 echo $NODE_ENV                    # harus "production"
 echo $MIDTRANS_SERVER_KEY         # harus dimulai dengan "Mid-server"
 echo $MIDTRANS_CLIENT_KEY         # harus dimulai dengan "Mid-client"  
+echo $MIDTRANS_MERCHANT_ID        # merchant identifier (10 chars)
 echo $VITE_MIDTRANS_CLIENT_KEY    # harus sama dengan MIDTRANS_CLIENT_KEY
 ```
 

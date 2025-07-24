@@ -20,18 +20,21 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 console.log(`Midtrans Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'}`);
 console.log(`Midtrans Server Key: ${process.env.MIDTRANS_SERVER_KEY?.substring(0, 10)}...`);
+console.log(`Midtrans Merchant ID: ${process.env.MIDTRANS_MERCHANT_ID?.substring(0, 10)}...`);
 
 // Initialize Midtrans clients
 const snap = new midtransClient.Snap({
   isProduction,
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  merchantId: process.env.MIDTRANS_MERCHANT_ID,
 });
 
 const coreApi = new midtransClient.CoreApi({
   isProduction,
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  merchantId: process.env.MIDTRANS_MERCHANT_ID,
 });
 
 export interface MidtransTransactionData {
