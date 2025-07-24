@@ -23,13 +23,31 @@ export default function Footer() {
             <p className="text-green-50 mb-4">
               Platform asesmen psikologi profesional untuk praktisi dan peneliti modern.
             </p>
-            <div className="flex space-x-4">
+            <div className="flex space-x-4 mb-6">
               <a href="#" className="text-green-100 hover:text-white transition-colors">
                 <Facebook className="w-5 h-5" />
               </a>
               <a href="https://www.instagram.com/rumahpsikologi_pi/" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white transition-colors">
                 <Instagram className="w-5 h-5" />
               </a>
+            </div>
+            
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Alamat</h4>
+              <div className="space-y-4">
+                <div className="text-green-50">
+                  <p className="font-medium mb-1">Cabang Sleman</p>
+                  <p className="text-sm leading-relaxed">
+                    Jl. Colombo No. 8, Samirono Baru, Caturtunggal, Depok, Sleman, Yogyakarta, 55281
+                  </p>
+                </div>
+                <div className="text-green-50">
+                  <p className="font-medium mb-1">Cabang Bantul</p>
+                  <p className="text-sm leading-relaxed">
+                    Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul, Bantul, Bantul, Yogyakarta, 55711
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -55,49 +73,31 @@ export default function Footer() {
           </div>
           
           <div>
-            <h4 className="text-lg font-semibold mb-4">Alamat</h4>
-            <div className="space-y-4">
-              <div className="text-green-50">
-                <p className="font-medium mb-1">Cabang Sleman</p>
-                <p className="text-sm leading-relaxed">
-                  Jl. Colombo No. 8, Samirono Baru, Caturtunggal, Depok, Sleman, Yogyakarta, 55281
-                </p>
-              </div>
-              <div className="text-green-50">
-                <p className="font-medium mb-1">Cabang Bantul</p>
-                <p className="text-sm leading-relaxed">
-                  Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul, Bantul, Bantul, Yogyakarta, 55711
-                </p>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <h5 className="text-md font-medium mb-3">Bantuan</h5>
-              <ul className="space-y-2">
-                <li>
-                  <a href="https://wa.me/6281991466546" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors">
-                    <div className="flex items-center">
-                      <FaWhatsapp className="w-4 h-4 mr-2" />
-                      <div>
-                        <div className="text-sm">Penjadwalan Konsultasi Online</div>
-                        <div className="text-xs text-green-100">081991466546</div>
-                      </div>
+            <h4 className="text-lg font-semibold mb-4">Bantuan</h4>
+            <ul className="space-y-2">
+              <li>
+                <a href="https://wa.me/6281991466546" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors">
+                  <div className="flex items-center">
+                    <FaWhatsapp className="w-4 h-4 mr-2" />
+                    <div>
+                      <div className="text-sm">Penjadwalan Konsultasi Online</div>
+                      <div className="text-xs text-green-100">081991466546</div>
                     </div>
-                  </a>
-                </li>
-                <li>
-                  <a href="https://wa.me/628812715451" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors">
-                    <div className="flex items-center">
-                      <FaWhatsapp className="w-4 h-4 mr-2" />
-                      <div>
-                        <div className="text-sm">Dukungan Teknis</div>
-                        <div className="text-xs text-green-100">08812715451</div>
-                      </div>
+                  </div>
+                </a>
+              </li>
+              <li>
+                <a href="https://wa.me/628812715451" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors">
+                  <div className="flex items-center">
+                    <FaWhatsapp className="w-4 h-4 mr-2" />
+                    <div>
+                      <div className="text-sm">Dukungan Teknis</div>
+                      <div className="text-xs text-green-100">08812715451</div>
                     </div>
-                  </a>
-                </li>
-              </ul>
-            </div>
+                  </div>
+                </a>
+              </li>
+            </ul>
           </div>
           
           
