@@ -823,33 +823,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = registerSchema.parse(req.body);
       
+      // Remove confirmPassword from data before saving to database
+      const { confirmPassword, ...userData } = validatedData;
+      
       // Check if user already exists
-      const existingUser = await storage.getUserByEmail(validatedData.email);
+      const existingUser = await storage.getUserByEmail(userData.email);
       if (existingUser) {
         return res.status(400).json({ message: "Email sudah terdaftar" });
       }
 
       // Validate WhatsApp number
-      if (!AuthUtils.isValidWhatsAppNumber(validatedData.whatsappNumber)) {
+      if (!AuthUtils.isValidWhatsAppNumber(userData.whatsappNumber)) {
         return res.status(400).json({ message: "Nomor WhatsApp tidak valid" });
       }
 
       // Hash password
-      const hashedPassword = await AuthUtils.hashPassword(validatedData.password);
+      const hashedPassword = await AuthUtils.hashPassword(userData.password);
       
       // Generate user ID
       const userId = AuthUtils.generateUserId();
       
       // Normalize WhatsApp number
-      const normalizedWhatsApp = AuthUtils.normalizeWhatsAppNumber(validatedData.whatsappNumber);
+      const normalizedWhatsApp = AuthUtils.normalizeWhatsAppNumber(userData.whatsappNumber);
 
       // Create user (automatically verified)
       const newUser = await storage.createUser({
         id: userId,
-        email: validatedData.email,
+        email: userData.email,
         password: hashedPassword,
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
         whatsappNumber: normalizedWhatsApp,
         authProvider: 'custom',
         isEmailVerified: true

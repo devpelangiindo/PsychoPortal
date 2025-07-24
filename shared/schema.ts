@@ -162,9 +162,13 @@ export const insertOtpVerificationSchema = createInsertSchema(otpVerifications);
 export const registerSchema = z.object({
   email: z.string().email("Email tidak valid"),
   password: z.string().min(8, "Password minimal 8 karakter"),
+  confirmPassword: z.string().min(8, "Konfirmasi password minimal 8 karakter"),
   firstName: z.string().min(1, "Nama depan wajib diisi"),
   lastName: z.string().min(1, "Nama belakang wajib diisi"),
   whatsappNumber: z.string().min(10, "Nomor WhatsApp tidak valid"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Konfirmasi password tidak sesuai",
+  path: ["confirmPassword"],
 });
 
 export const loginSchema = z.object({
