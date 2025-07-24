@@ -300,6 +300,7 @@ Changelog:
 - July 24, 2025. Created comprehensive production key management system for secure real money transactions
 - July 24, 2025. Verified production environment connectivity and transaction token generation working correctly
 - July 24, 2025. System now ready for live production transactions with Midtrans Production API
+- July 24, 2025. Added company addresses to footer: Sleman branch (Jl. Colombo No. 8) and Bantul branch (Jl. Mgr. Sugiyo Pranoto No. 14) for complete business information display
 ```
 
 ## User Preferences
