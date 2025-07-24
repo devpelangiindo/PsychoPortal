@@ -33,8 +33,7 @@ export default function Footer() {
             </div>
             
             <div>
-              <h4 className="text-lg font-semibold mb-4">Alamat</h4>
-              <div className="space-y-4">
+              <div className="space-y-4"></div>
                 <div className="text-green-50">
                   <p className="font-medium mb-1">Cabang Sleman</p>
                   <p className="text-sm leading-relaxed">
