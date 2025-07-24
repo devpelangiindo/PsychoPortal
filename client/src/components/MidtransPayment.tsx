@@ -60,6 +60,8 @@ export default function MidtransPayment({
       
       console.log(`Loading Midtrans script (${isProduction ? 'PRODUCTION' : 'SANDBOX'}):`, scriptUrl);
       console.log('Client Key:', clientKey?.substring(0, 10) + '...');
+      console.log('Domain:', window.location.hostname);
+      console.log('Protocol:', window.location.protocol);
       
       if (!clientKey) {
         console.error('VITE_MIDTRANS_CLIENT_KEY is missing!');
@@ -123,6 +125,8 @@ export default function MidtransPayment({
         },
         itemDetails: items,
       });
+      console.log('API URL:', '/api/midtrans/create-transaction');
+      console.log('Full URL:', window.location.origin + '/api/midtrans/create-transaction');
       
       const response = await apiRequest('POST', '/api/midtrans/create-transaction', {
         orderId,

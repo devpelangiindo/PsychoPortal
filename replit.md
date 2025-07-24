@@ -277,6 +277,11 @@ Changelog:
 - July 24, 2025. Enhanced registration form with separate show/hide controls for password and confirm password fields
 - July 24, 2025. Backend updated to handle confirmPassword field by removing it before database operations
 - July 24, 2025. Database completely cleared for fresh comprehensive testing - all user data, transactions, orders, and sessions removed except admin user and assessment definitions
+- July 24, 2025. Enhanced Midtrans production debugging with comprehensive logging and error handling for pi-psychology.com domain
+- July 24, 2025. Added detailed environment and network logging to identify production payment gateway issues
+- July 24, 2025. Created production debugging guide (MIDTRANS_PRODUCTION_DEBUG.md) for troubleshooting sandbox environment on production domain
+- July 24, 2025. Improved error messages and timeout handling for Midtrans script loading in production environment
+- July 24, 2025. Added domain registration requirements and CORS configuration steps for Midtrans dashboard
 ```
 
 ## User Preferences
