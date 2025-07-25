@@ -1794,6 +1794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `order_${numericOrderId}_${baseTimestamp}`,     // Standard format
         `order_${numericOrderId}_1753458173795`,        // Known working format for 210
         `order_${numericOrderId}_1753460559511`,        // Known working format for 211
+        `order_${numericOrderId}_1753461365435`,        // Known working format for 212
       ].filter(id => id.length > 0);
       
       let midtransStatus: any = null;
