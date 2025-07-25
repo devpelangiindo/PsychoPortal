@@ -12,7 +12,7 @@ import { emailService } from "./emailService";
 import path from "path";
 import fs from "fs";
 // Using Midtrans payment gateway
-import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus } from "./midtrans";
+import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "./midtrans";
 
 // Custom authentication middleware for JWT tokens
 function isAuthenticated(req: any, res: any, next: any) {
@@ -1772,6 +1772,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error checking Midtrans transaction status:', error);
       res.status(500).json({ error: 'Failed to check transaction status' });
+    }
+  });
+
+  // Sync order status with Midtrans - manually check and update
+  app.post('/api/midtrans/sync-status/:orderId', isAuthenticated, async (req, res) => {
+    try {
+      const numericOrderId = parseInt(req.params.orderId);
+      const order = await storage.getOrder(numericOrderId);
+      
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      // Construct Midtrans order ID format
+      const midtransOrderId = `order_${numericOrderId}_${Math.round(new Date(order.createdAt!).getTime() / 1000)}`;
+      
+      console.log(`🔄 Syncing order ${numericOrderId} with Midtrans...`);
+      console.log(`   Midtrans Order ID: ${midtransOrderId}`);
+      
+      // Check current status from Midtrans
+      const midtransStatus = await checkTransactionStatus(midtransOrderId);
+      console.log(`   Current Midtrans status:`, midtransStatus);
+      
+      // Convert Midtrans status to our system status
+      const paymentStatus = getMidtransPaymentStatus(
+        midtransStatus.transaction_status,
+        midtransStatus.fraud_status
+      );
+      
+      console.log(`   Converted payment status: ${paymentStatus}`);
+      
+      // Update order status if different
+      let updatedStatus = order.status;
+      if (paymentStatus === 'paid' && order.status !== 'completed') {
+        updatedStatus = 'completed';
+        await storage.updateOrderStatus(numericOrderId, 'completed', midtransOrderId, 'paid');
+        
+        // Create user assessments if payment is successful
+        for (const item of order.orderItems) {
+          const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, order.id);
+          if (!existingAssessment) {
+            await storage.createUserAssessment({
+              userId: order.userId,
+              assessmentId: item.assessmentId,
+              orderId: order.id,
+              status: 'available'
+            });
+            console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
+          }
+        }
+        
+        console.log(`✅ Order ${numericOrderId} updated to completed`);
+      } else if (paymentStatus === 'failed' && order.status === 'pending') {
+        updatedStatus = 'cancelled';
+        await storage.updateOrderStatus(numericOrderId, 'cancelled', midtransOrderId, 'failed');
+        console.log(`❌ Order ${numericOrderId} updated to cancelled`);
+      }
+      
+      res.json({
+        orderId: numericOrderId,
+        previousStatus: order.status,
+        currentStatus: updatedStatus,
+        paymentStatus: paymentStatus,
+        midtransStatus: midtransStatus.transaction_status,
+        synced: updatedStatus !== order.status
+      });
+      
+    } catch (error) {
+      console.error('❌ Error syncing order status:', error);
+      res.status(500).json({ error: 'Failed to sync order status' });
     }
   });
 

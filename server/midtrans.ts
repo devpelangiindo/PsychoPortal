@@ -137,7 +137,7 @@ export function getMidtransPaymentStatus(transaction_status: string, fraud_statu
     }
   } else if (transaction_status === 'settlement') {
     return 'paid';
-  } else if (transaction_status === 'cancel' || transaction_status === 'deny' || transaction_status === 'expire') {
+  } else if (transaction_status === 'cancel' || transaction_status === 'deny' || transaction_status === 'expire' || transaction_status === 'failure') {
     return 'failed';
   } else if (transaction_status === 'pending') {
     return 'pending';

@@ -89,6 +89,41 @@ export default function Dashboard() {
     }
   };
 
+  // Sync order status with Midtrans
+  const handleSyncOrder = async (orderId: number) => {
+    try {
+      const response = await fetch(`/api/midtrans/sync-status/${orderId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        toast({
+          title: "Sinkronisasi Berhasil",
+          description: result.synced 
+            ? `Status pesanan #${orderId} telah diperbarui menjadi ${result.currentStatus}`
+            : `Status pesanan #${orderId} sudah sinkron`,
+        });
+        
+        // Refresh orders data
+        queryClient.refetchQueries({ queryKey: ["/api/orders"] });
+        queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] });
+      } else {
+        throw new Error('Failed to sync order');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal sinkronisasi status pesanan",
+        variant: "destructive",
+      });
+    }
+  };
+
   const availableAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'available') || [];
   const completedAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'completed') || [];
   const inProgressAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'in_progress') || [];
@@ -397,6 +432,17 @@ export default function Dashboard() {
                           {new Date(order.createdAt!).toLocaleDateString('id-ID')}
                         </p>
                       </div>
+                      {order.status === 'pending' && (
+                        <div className="ml-4">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleSyncOrder(order.id)}
+                          >
+                            Cek Status
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
