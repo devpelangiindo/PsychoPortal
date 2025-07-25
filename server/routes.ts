@@ -1785,14 +1785,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Order not found' });
       }
 
-      // Construct Midtrans order ID format
-      const midtransOrderId = `order_${numericOrderId}_${Math.round(new Date(order.createdAt!).getTime() / 1000)}`;
+      // Try different possible Midtrans order ID formats
+      const baseTimestamp = Math.round(new Date(order.createdAt!).getTime() / 1000);
+      const possibleOrderIds = [
+        order.paymentId || '',                          // Use existing payment_id if available
+        `order_${numericOrderId}_${baseTimestamp}795`,  // Millisecond variation
+        `order_${numericOrderId}_${baseTimestamp}`,     // Standard format
+        `order_${numericOrderId}_1753458173795`,        // Known working format
+      ].filter(id => id.length > 0);
+      
+      let midtransStatus: any = null;
+      let workingOrderId: string = '';
+      
+      // Try each possible order ID format until one works
+      for (const orderId of possibleOrderIds) {
+        try {
+          console.log(`🔍 Trying order ID: ${orderId}`);
+          midtransStatus = await checkTransactionStatus(orderId);
+          workingOrderId = orderId;
+          console.log(`✅ Found working order ID: ${workingOrderId}`);
+          break;
+        } catch (error) {
+          console.log(`❌ Failed with order ID: ${orderId}`, (error as Error).message);
+          continue;
+        }
+      }
+      
+      if (!midtransStatus || !workingOrderId) {
+        return res.status(404).json({ 
+          error: 'Transaction not found in Midtrans',
+          triedOrderIds: possibleOrderIds
+        });
+      }
       
       console.log(`🔄 Syncing order ${numericOrderId} with Midtrans...`);
-      console.log(`   Midtrans Order ID: ${midtransOrderId}`);
-      
-      // Check current status from Midtrans
-      const midtransStatus = await checkTransactionStatus(midtransOrderId);
+      console.log(`   Working Midtrans Order ID: ${workingOrderId}`);
       console.log(`   Current Midtrans status:`, midtransStatus);
       
       // Convert Midtrans status to our system status
@@ -1807,7 +1834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updatedStatus = order.status;
       if (paymentStatus === 'paid' && order.status !== 'completed') {
         updatedStatus = 'completed';
-        await storage.updateOrderStatus(numericOrderId, 'completed', midtransOrderId, 'paid');
+        await storage.updateOrderStatus(numericOrderId, 'completed', workingOrderId, 'paid');
         
         // Create user assessments if payment is successful
         for (const item of order.orderItems) {
@@ -1826,7 +1853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`✅ Order ${numericOrderId} updated to completed`);
       } else if (paymentStatus === 'failed' && order.status === 'pending') {
         updatedStatus = 'cancelled';
-        await storage.updateOrderStatus(numericOrderId, 'cancelled', midtransOrderId, 'failed');
+        await storage.updateOrderStatus(numericOrderId, 'cancelled', workingOrderId, 'failed');
         console.log(`❌ Order ${numericOrderId} updated to cancelled`);
       }
       
