@@ -1722,7 +1722,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderIdMatch = orderId.match(/order_(\d+)_/);
       const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1]) : parseInt(orderId);
       
-      // Update order status based on Midtrans notification
+      console.log(`🔄 Processing real-time sync for order ${numericOrderId} with status: ${status}`);
+      
+      // Update order status based on Midtrans notification (ALWAYS sync regardless of current status)
       if (status === 'paid') {
         const order = await storage.getOrder(numericOrderId);
         if (order) {
@@ -1752,9 +1754,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           console.log(`❌ Order ${numericOrderId} not found`);
         }
-      } else if (status === 'failed') {
-        await storage.updateOrderStatus(numericOrderId, 'cancelled', orderId, 'failed');
-        console.log(`❌ Midtrans: Order ${numericOrderId} failed`);
+      } else if (status === 'failed' || status === 'cancelled') {
+        await storage.updateOrderStatus(numericOrderId, 'cancelled', orderId, status);
+        console.log(`❌ Midtrans: Order ${numericOrderId} ${status}`);
+      } else if (status === 'pending') {
+        await storage.updateOrderStatus(numericOrderId, 'pending', orderId, 'pending');
+        console.log(`⏳ Midtrans: Order ${numericOrderId} pending`);
+      } else {
+        console.log(`⚠️ Midtrans: Unknown status ${status} for order ${numericOrderId}`);
       }
 
       res.json({ status: 'ok' });

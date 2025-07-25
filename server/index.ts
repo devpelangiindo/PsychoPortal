@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { startAutoSync } from "./auto-sync";
 
 const app = express();
 app.use(express.json());
@@ -67,6 +68,9 @@ app.use((req, res, next) => {
       reusePort: true,
     }, () => {
       log(`serving on port ${port}`);
+      
+      // Start auto-sync service for real-time Midtrans synchronization
+      startAutoSync();
     });
   } catch (error) {
     console.error('Failed to start server:', error);
