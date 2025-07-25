@@ -52,28 +52,22 @@ export default function MidtransPayment({
         return;
       }
 
-      // Use production environment for Midtrans
-      const isProduction = true; // Enable production mode
-      const scriptUrl = isProduction 
-        ? 'https://app.midtrans.com/snap/snap.js' 
-        : 'https://app.sandbox.midtrans.com/snap/snap.js';
-      // Use production client key when available, fallback to sandbox
-      const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY || import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+      // Only use production environment for Midtrans - no sandbox
+      const scriptUrl = 'https://app.midtrans.com/snap/snap.js';
+      // Only use production client key - no fallback to sandbox
+      const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY;
       
-      console.log(`Loading Midtrans script (${isProduction ? 'PRODUCTION' : 'SANDBOX'}):`, scriptUrl);
+      console.log('Loading Midtrans script (PRODUCTION ONLY):', scriptUrl);
       console.log('Client Key:', clientKey?.substring(0, 10) + '...');
       console.log('Domain:', window.location.hostname);
       console.log('Protocol:', window.location.protocol);
       console.log('Environment Variables Check:');
       console.log('- VITE_MIDTRANS_PRODUCTION_CLIENT_KEY:', import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
-      console.log('- VITE_MIDTRANS_CLIENT_KEY:', import.meta.env.VITE_MIDTRANS_CLIENT_KEY ? 'EXISTS' : 'MISSING');
       console.log('- Final clientKey used:', clientKey ? 'EXISTS' : 'MISSING');
-      console.log('- import.meta.env.PROD:', import.meta.env.PROD);
-      console.log('- import.meta.env.DEV:', import.meta.env.DEV);
       
       if (!clientKey) {
-        console.error('VITE_MIDTRANS_CLIENT_KEY is missing!');
-        reject(new Error('Midtrans client key is not configured'));
+        console.error('VITE_MIDTRANS_PRODUCTION_CLIENT_KEY is missing! Production mode only.');
+        reject(new Error('VITE_MIDTRANS_PRODUCTION_CLIENT_KEY is missing - Production mode only'));
         return;
       }
 
@@ -123,9 +117,9 @@ export default function MidtransPayment({
     setIsLoading(true);
     try {
       // Validate client key first
-      const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY || import.meta.env.VITE_MIDTRANS_CLIENT_KEY;
+      const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY;
       if (!clientKey) {
-        throw new Error('VITE_MIDTRANS_CLIENT_KEY atau VITE_MIDTRANS_PRODUCTION_CLIENT_KEY tidak dikonfigurasi');
+        throw new Error('VITE_MIDTRANS_PRODUCTION_CLIENT_KEY tidak dikonfigurasi - Production mode only');
       }
 
       // Load Midtrans script

@@ -313,6 +313,10 @@ Changelog:
 - July 25, 2025. Enhanced getMidtransPaymentStatus function to return "cancelled" for Midtrans "cancel" status instead of "failed"
 - July 25, 2025. Updated dashboard order status display to show "Dibatalkan" badge for cancelled orders with proper styling
 - July 25, 2025. Fixed sync endpoint to handle both cancelled and failed payment statuses with appropriate database updates
+- July 25, 2025. PRODUCTION-ONLY CONFIGURATION: Removed all sandbox/fallback references - application now exclusively uses Midtrans Production environment
+- July 25, 2025. Updated all environment variable references to use PRODUCTION keys only (MIDTRANS_PRODUCTION_SERVER_KEY, MIDTRANS_PRODUCTION_CLIENT_KEY, MIDTRANS_PRODUCTION_MERCHANT_ID)
+- July 25, 2025. Eliminated fallback mechanisms to sandbox environment - ensuring all transactions use production Midtrans API
+- July 25, 2025. Updated error messages and configuration validation to enforce production-only mode
 ```
 
 ## User Preferences

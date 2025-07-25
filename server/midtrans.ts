@@ -3,21 +3,21 @@ import midtransClient from 'midtrans-client';
 import { Request, Response } from 'express';
 import { nanoid } from 'nanoid';
 
-// Use production keys when available, fallback to sandbox
-const serverKey = process.env.MIDTRANS_PRODUCTION_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY;
-const clientKey = process.env.MIDTRANS_PRODUCTION_CLIENT_KEY || process.env.MIDTRANS_CLIENT_KEY;
-const merchantId = process.env.MIDTRANS_PRODUCTION_MERCHANT_ID || process.env.MIDTRANS_MERCHANT_ID;
+// Only use production keys - no fallback to sandbox
+const serverKey = process.env.MIDTRANS_PRODUCTION_SERVER_KEY;
+const clientKey = process.env.MIDTRANS_PRODUCTION_CLIENT_KEY;
+const merchantId = process.env.MIDTRANS_PRODUCTION_MERCHANT_ID;
 
 if (!serverKey) {
-  throw new Error('Missing MIDTRANS_SERVER_KEY or MIDTRANS_PRODUCTION_SERVER_KEY environment variable');
+  throw new Error('Missing MIDTRANS_PRODUCTION_SERVER_KEY environment variable - Production mode only');
 }
 
 if (!clientKey) {
-  throw new Error('Missing MIDTRANS_CLIENT_KEY or MIDTRANS_PRODUCTION_CLIENT_KEY environment variable');
+  throw new Error('Missing MIDTRANS_PRODUCTION_CLIENT_KEY environment variable - Production mode only');
 }
 
 if (!merchantId) {
-  throw new Error('Missing MIDTRANS_MERCHANT_ID or MIDTRANS_PRODUCTION_MERCHANT_ID environment variable');
+  throw new Error('Missing MIDTRANS_PRODUCTION_MERCHANT_ID environment variable - Production mode only');
 }
 
 // Enable production mode for Midtrans

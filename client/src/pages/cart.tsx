@@ -322,7 +322,7 @@ export default function Cart() {
                         className="w-full" 
                         size="lg"
                         onClick={handleCheckout}
-                        disabled={createOrderMutation.isPending || !import.meta.env.VITE_MIDTRANS_CLIENT_KEY}
+                        disabled={createOrderMutation.isPending || !import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY}
                       >
                         {createOrderMutation.isPending ? "Membuat Pesanan..." : "Lanjutkan ke Pembayaran"}
                       </Button>
