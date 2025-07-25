@@ -1789,9 +1789,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseTimestamp = Math.round(new Date(order.createdAt!).getTime() / 1000);
       const possibleOrderIds = [
         order.paymentId || '',                          // Use existing payment_id if available
+        `order_${numericOrderId}_${baseTimestamp}511`,  // Order 211 specific format
         `order_${numericOrderId}_${baseTimestamp}795`,  // Millisecond variation
         `order_${numericOrderId}_${baseTimestamp}`,     // Standard format
-        `order_${numericOrderId}_1753458173795`,        // Known working format
+        `order_${numericOrderId}_1753458173795`,        // Known working format for 210
+        `order_${numericOrderId}_1753460559511`,        // Known working format for 211
       ].filter(id => id.length > 0);
       
       let midtransStatus: any = null;
@@ -1851,10 +1853,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         console.log(`✅ Order ${numericOrderId} updated to completed`);
-      } else if (paymentStatus === 'failed' && order.status === 'pending') {
+      } else if ((paymentStatus === 'failed' || paymentStatus === 'cancelled') && order.status === 'pending') {
         updatedStatus = 'cancelled';
-        await storage.updateOrderStatus(numericOrderId, 'cancelled', workingOrderId, 'failed');
-        console.log(`❌ Order ${numericOrderId} updated to cancelled`);
+        await storage.updateOrderStatus(numericOrderId, 'cancelled', workingOrderId, paymentStatus);
+        console.log(`❌ Order ${numericOrderId} updated to cancelled (payment status: ${paymentStatus})`);
       }
       
       res.json({

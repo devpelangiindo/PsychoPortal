@@ -309,6 +309,10 @@ Changelog:
 - July 25, 2025. Successfully verified Midtrans production API integration - confirmed order payment completion and automatic assessment activation
 - July 25, 2025. Fixed database query errors by removing references to non-existent "midtrans_order_id" column in sync functionality
 - July 25, 2025. Implemented manual order completion system for edge cases where webhook fails - orders can now be manually synchronized with Midtrans status
+- July 25, 2025. RESOLVED: Fixed order 211 cancellation sync issue - updated Midtrans status handling to properly distinguish "cancel" vs "failed" states
+- July 25, 2025. Enhanced getMidtransPaymentStatus function to return "cancelled" for Midtrans "cancel" status instead of "failed"
+- July 25, 2025. Updated dashboard order status display to show "Dibatalkan" badge for cancelled orders with proper styling
+- July 25, 2025. Fixed sync endpoint to handle both cancelled and failed payment statuses with appropriate database updates
 ```
 
 ## User Preferences
