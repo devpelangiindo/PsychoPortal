@@ -152,9 +152,9 @@ export default function Dashboard() {
   const getOrderStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="default">Selesai</Badge>;
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600">Selesai</Badge>;
       case 'pending':
-        return <Badge variant="secondary">Menunggu</Badge>;
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">Menunggu</Badge>;
       case 'cancelled':
         return <Badge variant="destructive">Dibatalkan</Badge>;
       default:
