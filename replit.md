@@ -329,6 +329,10 @@ Changelog:
 - July 26, 2025. Enhanced auto-sync timeout from 24 hours to 1 hour for more aggressive cleanup of stale pending orders
 - July 26, 2025. Manual sync fix for Order 213 - status updated from pending to cancelled to match Midtrans reality
 - July 26, 2025. All pending orders now properly synchronized with Midtrans status - dashboard displays accurate "Dibatalkan" badges
+- July 26, 2025. CRITICAL FIX: Resolved "Cek Status" button malfunction in dashboard - fixed endpoint sync trigger returning HTML instead of JSON
+- July 26, 2025. Moved /api/sync/trigger endpoint inside registerRoutes function with proper authentication and JSON response handling
+- July 26, 2025. Updated dashboard handleSyncOrder function to use global sync trigger with Bearer token authentication
+- July 26, 2025. Manual cleanup of Order 216 - cancelled order with non-existent Midtrans transaction (404 error) to maintain database integrity
 ```
 
 ## User Preferences
