@@ -34,7 +34,6 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
       <Header />
-
       {/* Hero Section */}
       <section className="gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -80,7 +79,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* About Us Section with Video */}
       <section className="py-20 bg-white dark:bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -108,9 +106,7 @@ export default function Landing() {
             </div>
             
             <div className="mt-8 text-center">
-              <p className="text-neutral-600 dark:text-muted-foreground mb-4">
-                Tonton video profil kami untuk mengetahui lebih lanjut tentang tim profesional, fasilitas, dan komitmen kami dalam memberikan layanan asesmen psikologi berkualitas tinggi.
-              </p>
+              <p className="text-neutral-600 dark:text-muted-foreground mb-4">Tonton video profil kami untuk mengetahui lebih lanjut tentang tim profesional, fasilitas, dan komitmen kami dalam memberikan layanan asesmen psikologi.</p>
               <Button 
                 variant="outline" 
                 className="border-green-600 text-green-600 hover:bg-green-50"
@@ -127,7 +123,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Featured Assessments */}
       <section id="assessments" className="py-20 bg-neutral-50 dark:bg-muted/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -223,7 +218,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       <Footer />
     </div>
   );
