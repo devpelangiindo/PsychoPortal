@@ -3,20 +3,22 @@ import { checkTransactionStatus } from './midtrans';
 
 const storage = new DatabaseStorage();
 
-// Get all pending orders with payment_id from specific test user (for now)
+// Get ALL pending orders, including those without payment_id (potential missing syncs)
 async function getAllPendingOrders() {
   try {
     // Get orders from test user - in production, this should be all users
     const testUserId = 'IqO9IlNVqHch';
     const userOrders = await storage.getUserOrders(testUserId);
     
+    // Get ALL pending orders, not just those with payment_id
     const pendingOrders = userOrders.filter(order => 
-      order.status === 'pending' && 
-      order.paymentId &&
+      order.status === 'pending' &&
       new Date(order.createdAt!) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
     );
     
-    console.log(`🔍 Found ${pendingOrders.length} pending orders with payment ID for user ${testUserId}`);
+    console.log(`🔍 Found ${pendingOrders.length} total pending orders for user ${testUserId}`);
+    console.log(`📝 Orders with payment_id: ${pendingOrders.filter(o => o.paymentId).length}`);
+    console.log(`📝 Orders without payment_id: ${pendingOrders.filter(o => !o.paymentId).length}`);
     
     return pendingOrders;
   } catch (error) {
@@ -42,55 +44,76 @@ export async function autoSyncOrders() {
     for (const order of pendingOrders) {
       try {
         const orderId = order.id;
-        const paymentId = order.paymentId;
+        let paymentId = order.paymentId;
         
-        // Skip orders without payment ID
+        // For orders without payment_id, try to construct it from order ID and timestamp
         if (!paymentId) {
-          console.log(`⚠️ Order ${orderId} has no payment ID, skipping`);
-          continue;
+          const createdAt = new Date(order.createdAt!);
+          const timestamp = createdAt.getTime();
+          paymentId = `order_${orderId}_${timestamp}`;
+          console.log(`🔄 Order ${orderId} missing payment_id, trying constructed ID: ${paymentId}`);
         }
         
         console.log(`🔍 Checking order ${orderId} with payment ID: ${paymentId}`);
         
-        // Check status from Midtrans
-        const midtransStatus = await checkTransactionStatus(paymentId);
-        
-        // Determine the payment status
-        let paymentStatus = 'pending';
-        if (midtransStatus.transaction_status === 'settlement' || midtransStatus.transaction_status === 'capture') {
-          paymentStatus = 'paid';
-        } else if (midtransStatus.transaction_status === 'cancel') {
-          paymentStatus = 'cancelled';
-        } else if (midtransStatus.transaction_status === 'deny' || midtransStatus.transaction_status === 'expire' || midtransStatus.transaction_status === 'failure') {
-          paymentStatus = 'failed';
-        }
-        
-        console.log(`💳 Order ${orderId}: Database status = pending, Midtrans status = ${midtransStatus.transaction_status} (${paymentStatus})`);
-        
-        // Update order if status changed
-        if (paymentStatus === 'paid' && order.status === 'pending') {
-          await storage.updateOrderStatus(orderId, 'completed', paymentId, 'paid');
+        try {
+          // Check status from Midtrans
+          const midtransStatus = await checkTransactionStatus(paymentId);
           
-          // Create user assessments
-          if (order.orderItems) {
-            for (const item of order.orderItems) {
-              const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, orderId);
-              if (!existingAssessment) {
-                await storage.createUserAssessment({
-                  userId: order.userId,
-                  assessmentId: item.assessmentId,
-                  orderId: orderId,
-                  status: 'available'
-                });
-                console.log(`📚 Auto-sync: Created assessment ${item.assessmentId} for order ${orderId}`);
-              }
-            }
+          // Determine the payment status
+          let paymentStatus = 'pending';
+          if (midtransStatus.transaction_status === 'settlement' || midtransStatus.transaction_status === 'capture') {
+            paymentStatus = 'paid';
+          } else if (midtransStatus.transaction_status === 'cancel') {
+            paymentStatus = 'cancelled';
+          } else if (midtransStatus.transaction_status === 'deny' || midtransStatus.transaction_status === 'expire' || midtransStatus.transaction_status === 'failure') {
+            paymentStatus = 'failed';
           }
           
-          console.log(`✅ Auto-sync: Order ${orderId} completed`);
-        } else if ((paymentStatus === 'cancelled' || paymentStatus === 'failed') && order.status === 'pending') {
-          await storage.updateOrderStatus(orderId, 'cancelled', paymentId, paymentStatus);
-          console.log(`❌ Auto-sync: Order ${orderId} cancelled (${paymentStatus})`);
+          console.log(`💳 Order ${orderId}: Database=pending, Midtrans=${midtransStatus.transaction_status} (${paymentStatus})`);
+          
+          // Update database payment_id if it was missing
+          if (!order.paymentId && paymentId) {
+            console.log(`📝 Updating payment_id for order ${orderId}: ${paymentId}`);
+          }
+          
+          // Update order if status changed
+          if (paymentStatus === 'paid' && order.status === 'pending') {
+            await storage.updateOrderStatus(orderId, 'completed', paymentId, 'paid');
+            
+            // Create user assessments
+            if (order.orderItems) {
+              for (const item of order.orderItems) {
+                const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, orderId);
+                if (!existingAssessment) {
+                  await storage.createUserAssessment({
+                    userId: order.userId,
+                    assessmentId: item.assessmentId,
+                    orderId: orderId,
+                    status: 'available'
+                  });
+                  console.log(`📚 Auto-sync: Created assessment ${item.assessmentId} for order ${orderId}`);
+                }
+              }
+            }
+            
+            console.log(`✅ Auto-sync: Order ${orderId} completed`);
+          } else if ((paymentStatus === 'cancelled' || paymentStatus === 'failed') && order.status === 'pending') {
+            await storage.updateOrderStatus(orderId, 'cancelled', paymentId, paymentStatus);
+            console.log(`❌ Auto-sync: Order ${orderId} cancelled (${paymentStatus})`);
+          }
+        } catch (midtransError: any) {
+          if (midtransError.httpStatusCode === 404) {
+            console.log(`❓ Order ${orderId} not found in Midtrans (404) - might be expired or never created`);
+            // For very old orders not found in Midtrans, mark as cancelled after 24 hours
+            const orderAge = Date.now() - new Date(order.createdAt!).getTime();
+            if (orderAge > 24 * 60 * 60 * 1000) { // 24 hours
+              console.log(`⏰ Order ${orderId} is older than 24h and not in Midtrans, marking as cancelled`);
+              await storage.updateOrderStatus(orderId, 'cancelled', paymentId || 'not_found', 'expired');
+            }
+          } else {
+            console.error(`❌ Midtrans API error for order ${orderId}:`, midtransError.message);
+          }
         }
         
       } catch (error) {
