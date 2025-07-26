@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { Facebook, Instagram } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
+import { Instagram } from "lucide-react";
+import { FaWhatsapp, FaYoutube } from "react-icons/fa";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function Footer() {
@@ -24,8 +24,8 @@ export default function Footer() {
               Platform asesmen psikologi profesional untuk praktisi dan peneliti modern.
             </p>
             <div className="flex space-x-4 mb-6">
-              <a href="#" className="text-green-100 hover:text-white transition-colors">
-                <Facebook className="w-5 h-5" />
+              <a href="http://www.youtube.com/@rumahpsikologipi9364" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white transition-colors">
+                <FaYoutube className="w-5 h-5" />
               </a>
               <a href="https://www.instagram.com/rumahpsikologi_pi/" target="_blank" rel="noopener noreferrer" className="text-green-100 hover:text-white transition-colors">
                 <Instagram className="w-5 h-5" />
