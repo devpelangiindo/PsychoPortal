@@ -333,6 +333,11 @@ Changelog:
 - July 26, 2025. Moved /api/sync/trigger endpoint inside registerRoutes function with proper authentication and JSON response handling
 - July 26, 2025. Updated dashboard handleSyncOrder function to use global sync trigger with Bearer token authentication
 - July 26, 2025. Manual cleanup of Order 216 - cancelled order with non-existent Midtrans transaction (404 error) to maintain database integrity
+- July 26, 2025. ENHANCED REAL-TIME SYNCHRONIZATION SYSTEM: Upgraded auto-sync interval from 15 seconds to 5 seconds for maximum responsiveness
+- July 26, 2025. Improved dashboard refresh rates - reduced order history refresh from 3 seconds to 2 seconds for real-time order status tracking
+- July 26, 2025. Added visual "Real-time Sync" indicator with animated pulse dot on Riwayat Pesanan header to show active synchronization
+- July 26, 2025. Fixed badge color issue - "Menunggu" status now displays proper yellow color (bg-yellow-500) instead of gray
+- July 26, 2025. Enhanced manual refresh function with proper Midtrans sync trigger and improved toast notifications for better user feedback
 ```
 
 ## User Preferences

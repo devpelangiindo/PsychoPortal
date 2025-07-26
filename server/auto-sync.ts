@@ -30,7 +30,7 @@ async function getAllPendingOrders() {
 // Auto-sync function to periodically check Midtrans status and update orders
 export async function autoSyncOrders() {
   try {
-    console.log('🔄 Starting auto-sync with Midtrans...');
+    console.log('🔄 Starting real-time auto-sync with Midtrans...');
     
     // Get all pending orders from all users
     const pendingOrders = await getAllPendingOrders();
@@ -38,7 +38,7 @@ export async function autoSyncOrders() {
     
     if (pendingOrders.length === 0) {
       console.log('✅ No pending orders to sync');
-      return;
+      return { synced: 0, total: 0 };
     }
     
     for (const order of pendingOrders) {
@@ -119,7 +119,7 @@ export async function autoSyncOrders() {
         }
         
       } catch (error) {
-        console.error(`❌ Auto-sync error for order ${orderId}:`, error);
+        console.error(`❌ Auto-sync error for order ${order.id}:`, error);
       }
     }
     
@@ -136,6 +136,6 @@ export function startAutoSync() {
   // Run immediately on startup
   setTimeout(autoSyncOrders, 2000);
   
-  // Then run every 15 seconds
-  setInterval(autoSyncOrders, 15000); // 15 seconds for real-time sync
+  // Then run every 5 seconds for enhanced real-time sync
+  setInterval(autoSyncOrders, 5000); // 5 seconds for maximum real-time responsiveness
 }

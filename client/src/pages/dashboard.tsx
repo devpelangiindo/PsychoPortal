@@ -42,7 +42,7 @@ export default function Dashboard() {
   const { data: orders, isLoading: ordersLoading, refetch: refetchOrders } = useQuery<OrderWithItems[]>({
     queryKey: ["/api/orders"],
     enabled: isAuthenticated,
-    refetchInterval: 3000, // Auto refresh every 3 seconds
+    refetchInterval: 2000, // Auto refresh every 2 seconds for real-time sync
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
   });
 
@@ -70,8 +70,17 @@ export default function Dashboard() {
     
     setIsRefreshing(true);
     try {
+      // Get the access token for sync trigger
+      const accessToken = localStorage.getItem('accessToken');
+      
       // Trigger real-time sync first
-      await fetch('/api/sync/trigger', { method: 'POST' });
+      await fetch('/api/sync/trigger', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
       
       // Then refresh local data
       await Promise.all([
@@ -79,13 +88,13 @@ export default function Dashboard() {
         queryClient.refetchQueries({ queryKey: ["/api/orders"] })
       ]);
       toast({
-        title: "Berhasil",
-        description: "Data telah diperbarui",
+        title: "Sinkronisasi Berhasil",
+        description: "Status pesanan telah disinkronisasi dengan Midtrans",
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Gagal memperbarui data",
+        description: "Gagal sinkronisasi dengan Midtrans",
         variant: "destructive",
       });
     } finally {
@@ -412,7 +421,15 @@ export default function Dashboard() {
           {/* Order History */}
           <Card>
             <CardHeader>
-              <CardTitle>Riwayat Pesanan</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Riwayat Pesanan</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 rounded-md">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-700 dark:text-green-400 font-medium">Real-time Sync</span>
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {ordersLoading ? (
