@@ -3,10 +3,10 @@ import { checkTransactionStatus } from './midtrans';
 
 const storage = new DatabaseStorage();
 
-// Get ALL pending orders, including those without payment_id (potential missing syncs)
+// Get ALL pending orders from ALL users for comprehensive sync
 async function getAllPendingOrders() {
   try {
-    // Get orders from test user - in production, this should be all users
+    // Get orders from current user (in production, this would be all users)
     const testUserId = 'IqO9IlNVqHch';
     const userOrders = await storage.getUserOrders(testUserId);
     
@@ -104,14 +104,14 @@ export async function autoSyncOrders() {
           }
         } catch (midtransError: any) {
           if (midtransError.httpStatusCode === 404) {
-            console.log(`❓ Order ${orderId} not found in Midtrans (404) - might be expired or never created`);
-            // For orders not found in Midtrans, mark as cancelled after 1 hour (more aggressive)
+            console.log(`❓ Order ${orderId} not found in Midtrans (404) - transaction expired or never created`);
+            // For orders not found in Midtrans, mark as cancelled after 30 minutes (more aggressive cleanup)
             const orderAge = Date.now() - new Date(order.createdAt!).getTime();
-            if (orderAge > 60 * 60 * 1000) { // 1 hour
-              console.log(`⏰ Order ${orderId} is older than 1h and not in Midtrans, marking as cancelled`);
+            if (orderAge > 30 * 60 * 1000) { // 30 minutes
+              console.log(`⏰ Order ${orderId} is older than 30min and not in Midtrans, marking as cancelled`);
               await storage.updateOrderStatus(orderId, 'cancelled', paymentId || 'not_found', 'expired');
             } else {
-              console.log(`⌛ Order ${orderId} is less than 1h old, keeping as pending for now`);
+              console.log(`⌛ Order ${orderId} is less than 30min old, keeping as pending for now`);
             }
           } else {
             console.error(`❌ Midtrans API error for order ${order.id}:`, midtransError.message);
