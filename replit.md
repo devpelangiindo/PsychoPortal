@@ -325,6 +325,10 @@ Changelog:
 - July 26, 2025. Dashboard enhanced with real-time sync integration - manual refresh now triggers Midtrans sync before data refresh
 - July 26, 2025. Auto-sync logs now provide detailed status tracking: pending orders detection, Midtrans API calls, and database updates
 - July 26, 2025. System achieves true real-time sync: 3-second dashboard refresh + 15-second background sync + immediate webhook processing
+- July 26, 2025. FINAL SYNC ISSUE RESOLUTION: Fixed Order 213 sync problem - transaction not found in Midtrans (404) now properly marked as cancelled
+- July 26, 2025. Enhanced auto-sync timeout from 24 hours to 1 hour for more aggressive cleanup of stale pending orders
+- July 26, 2025. Manual sync fix for Order 213 - status updated from pending to cancelled to match Midtrans reality
+- July 26, 2025. All pending orders now properly synchronized with Midtrans status - dashboard displays accurate "Dibatalkan" badges
 ```
 
 ## User Preferences

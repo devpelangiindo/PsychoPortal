@@ -105,14 +105,16 @@ export async function autoSyncOrders() {
         } catch (midtransError: any) {
           if (midtransError.httpStatusCode === 404) {
             console.log(`❓ Order ${orderId} not found in Midtrans (404) - might be expired or never created`);
-            // For very old orders not found in Midtrans, mark as cancelled after 24 hours
+            // For orders not found in Midtrans, mark as cancelled after 1 hour (more aggressive)
             const orderAge = Date.now() - new Date(order.createdAt!).getTime();
-            if (orderAge > 24 * 60 * 60 * 1000) { // 24 hours
-              console.log(`⏰ Order ${orderId} is older than 24h and not in Midtrans, marking as cancelled`);
+            if (orderAge > 60 * 60 * 1000) { // 1 hour
+              console.log(`⏰ Order ${orderId} is older than 1h and not in Midtrans, marking as cancelled`);
               await storage.updateOrderStatus(orderId, 'cancelled', paymentId || 'not_found', 'expired');
+            } else {
+              console.log(`⌛ Order ${orderId} is less than 1h old, keeping as pending for now`);
             }
           } else {
-            console.error(`❌ Midtrans API error for order ${orderId}:`, midtransError.message);
+            console.error(`❌ Midtrans API error for order ${order.id}:`, midtransError.message);
           }
         }
         
