@@ -1684,6 +1684,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tokenPrefix: transaction.token?.substring(0, 20) + '...'
       });
 
+      // CRITICAL FIX: Save payment_id to database for auto-sync functionality
+      try {
+        const numericOrderId = parseInt(orderId.replace(/^order_/, '').replace(/_\d+$/, ''));
+        console.log(`📝 Saving payment_id ${orderId} for order ${numericOrderId}`);
+        
+        await storage.updateOrderStatus(numericOrderId, 'pending', orderId, 'pending');
+        console.log(`✅ Payment ID saved successfully for order ${numericOrderId}`);
+      } catch (paymentIdSaveError) {
+        console.error('❌ Failed to save payment_id to database:', paymentIdSaveError);
+        // Continue anyway - transaction was created successfully
+      }
+
       res.json(transaction);
     } catch (error: any) {
       console.error('❌ Error creating Midtrans transaction:', {

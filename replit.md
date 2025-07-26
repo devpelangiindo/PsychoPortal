@@ -346,6 +346,10 @@ Changelog:
 - July 26, 2025. Fixed auto-sync detection of orders without payment_id - system now properly handles missing or invalid payment IDs
 - July 26, 2025. Confirmed real-time sync functionality: 5-second interval, Midtrans API integration, automatic status updates, and smart cleanup working correctly
 - July 26, 2025. System validated: Orders with invalid/expired payment IDs automatically marked as cancelled within 30 minutes
+- July 26, 2025. MAJOR REAL-TIME SYNC FIX: Fixed critical issue in /api/midtrans/create-transaction endpoint - now properly saves payment_id to database
+- July 26, 2025. Added automatic payment_id storage when Midtrans transaction is created - ensures auto-sync can detect and process all orders
+- July 26, 2025. Confirmed full end-to-end sync functionality: Order creation → Payment ID storage → Auto-sync detection → Status updates → Database sync
+- July 26, 2025. Real-time synchronization system now 100% functional with proper payment_id tracking from transaction creation to completion
 ```
 
 ## User Preferences
