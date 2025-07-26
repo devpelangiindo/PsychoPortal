@@ -773,6 +773,30 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       reject(error);
     }
   });
+
+  // Real-time sync trigger endpoint (for testing)
+  app.post('/api/sync/trigger', async (req, res) => {
+    try {
+      console.log('🔄 Manual sync trigger requested');
+      
+      // Import auto-sync function
+      const { autoSyncOrders } = await import('./auto-sync');
+      await autoSyncOrders();
+      
+      res.json({ 
+        success: true, 
+        message: 'Sync completed',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Manual sync failed:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Sync failed',
+        message: error.message 
+      });
+    }
+  });
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {

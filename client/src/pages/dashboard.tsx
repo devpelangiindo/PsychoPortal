@@ -39,7 +39,7 @@ export default function Dashboard() {
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
   });
 
-  const { data: orders, isLoading: ordersLoading } = useQuery<OrderWithItems[]>({
+  const { data: orders, isLoading: ordersLoading, refetch: refetchOrders } = useQuery<OrderWithItems[]>({
     queryKey: ["/api/orders"],
     enabled: isAuthenticated,
     refetchInterval: 3000, // Auto refresh every 3 seconds
@@ -70,6 +70,10 @@ export default function Dashboard() {
     
     setIsRefreshing(true);
     try {
+      // Trigger real-time sync first
+      await fetch('/api/sync/trigger', { method: 'POST' });
+      
+      // Then refresh local data
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] }),
         queryClient.refetchQueries({ queryKey: ["/api/orders"] })
