@@ -80,8 +80,56 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* About Us Section with Video */}
+      <section className="py-20 bg-white dark:bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
+              Tentang Rumah Psikologi Pelangi Indonesia
+            </h2>
+            <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-3xl mx-auto">
+              Mengenal lebih dekat profil, visi, dan misi kami dalam menyediakan layanan asesmen psikologi yang profesional dan terpercaya
+            </p>
+          </div>
+          
+          <div className="max-w-4xl mx-auto">
+            <div className="relative aspect-video rounded-lg overflow-hidden shadow-lg">
+              <iframe
+                width="100%"
+                height="100%"
+                src="https://www.youtube.com/embed/AHpKifVl9rA"
+                title="Profil Rumah Psikologi Pelangi Indonesia"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="absolute inset-0 w-full h-full"
+              ></iframe>
+            </div>
+            
+            <div className="mt-8 text-center">
+              <p className="text-neutral-600 dark:text-muted-foreground mb-4">
+                Tonton video profil kami untuk mengetahui lebih lanjut tentang tim profesional, fasilitas, dan komitmen kami dalam memberikan layanan asesmen psikologi berkualitas tinggi.
+              </p>
+              <Button 
+                variant="outline" 
+                className="border-green-600 text-green-600 hover:bg-green-50"
+                onClick={() => window.open('http://www.youtube.com/@rumahpsikologipi9364', '_blank')}
+              >
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                  Kunjungi Channel YouTube Kami
+                </div>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Featured Assessments */}
-      <section id="assessments" className="py-20 bg-white dark:bg-background">
+      <section id="assessments" className="py-20 bg-neutral-50 dark:bg-muted/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
@@ -117,7 +165,7 @@ export default function Landing() {
         </div>
       </section>
       {/* How It Works */}
-      <section className="py-20 bg-neutral-50 dark:bg-muted/20">
+      <section className="py-20 bg-white dark:bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
