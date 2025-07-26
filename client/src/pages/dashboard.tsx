@@ -102,44 +102,7 @@ export default function Dashboard() {
     }
   };
 
-  // Sync order status with Midtrans using global sync trigger
-  const handleSyncOrder = async (orderId: number) => {
-    try {
-      // Get the access token from localStorage
-      const accessToken = localStorage.getItem('accessToken');
-      
-      // Call global sync trigger endpoint with authentication
-      const response = await fetch('/api/sync/trigger', { 
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-      
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
-        toast({
-          title: "Sinkronisasi Berhasil",
-          description: "Status semua pesanan telah disinkronisasi dengan Midtrans",
-        });
-        
-        // Refresh orders data
-        queryClient.refetchQueries({ queryKey: ["/api/orders"] });
-        queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] });
-      } else {
-        throw new Error(result.message || 'Failed to sync order');
-      }
-    } catch (error) {
-      console.error('Sync error:', error);
-      toast({
-        title: "Error",
-        description: "Gagal sinkronisasi status pesanan",
-        variant: "destructive",
-      });
-    }
-  };
+
 
   const availableAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'available') || [];
   const completedAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'completed') || [];
@@ -457,17 +420,6 @@ export default function Dashboard() {
                           {new Date(order.createdAt!).toLocaleDateString('id-ID')}
                         </p>
                       </div>
-                      {order.status === 'pending' && (
-                        <div className="ml-4">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleSyncOrder(order.id)}
-                          >
-                            Cek Status
-                          </Button>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

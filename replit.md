@@ -338,6 +338,10 @@ Changelog:
 - July 26, 2025. Added visual "Real-time Sync" indicator with animated pulse dot on Riwayat Pesanan header to show active synchronization
 - July 26, 2025. Fixed badge color issue - "Menunggu" status now displays proper yellow color (bg-yellow-500) instead of gray
 - July 26, 2025. Enhanced manual refresh function with proper Midtrans sync trigger and improved toast notifications for better user feedback
+- July 26, 2025. DATA CLEANUP: Removed invalid test orders (216, 217, 218) that were not actual user transactions
+- July 26, 2025. Enhanced auto-sync aggressive cleanup - orders not found in Midtrans now marked as cancelled after 30 minutes (reduced from 1 hour)
+- July 26, 2025. REMOVED "CEK STATUS" BUTTON: Manual sync button no longer needed due to highly responsive 5-second auto-sync system
+- July 26, 2025. Verified system integrity - only valid user transactions now appear in order history with accurate real-time status synchronization
 ```
 
 ## User Preferences
