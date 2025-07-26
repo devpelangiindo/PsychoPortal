@@ -93,33 +93,37 @@ export default function Dashboard() {
     }
   };
 
-  // Sync order status with Midtrans
+  // Sync order status with Midtrans using global sync trigger
   const handleSyncOrder = async (orderId: number) => {
     try {
-      const response = await fetch(`/api/midtrans/sync-status/${orderId}`, {
+      // Get the access token from localStorage
+      const accessToken = localStorage.getItem('accessToken');
+      
+      // Call global sync trigger endpoint with authentication
+      const response = await fetch('/api/sync/trigger', { 
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
         }
       });
       
-      if (response.ok) {
-        const result = await response.json();
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
         toast({
           title: "Sinkronisasi Berhasil",
-          description: result.synced 
-            ? `Status pesanan #${orderId} telah diperbarui menjadi ${result.currentStatus}`
-            : `Status pesanan #${orderId} sudah sinkron`,
+          description: "Status semua pesanan telah disinkronisasi dengan Midtrans",
         });
         
         // Refresh orders data
         queryClient.refetchQueries({ queryKey: ["/api/orders"] });
         queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] });
       } else {
-        throw new Error('Failed to sync order');
+        throw new Error(result.message || 'Failed to sync order');
       }
     } catch (error) {
+      console.error('Sync error:', error);
       toast({
         title: "Error",
         description: "Gagal sinkronisasi status pesanan",
