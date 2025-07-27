@@ -102,6 +102,17 @@ export default function Footer() {
         
         <div className="border-t border-white/20 mt-12 pt-8 text-center">
           <p className="text-green-50">© 2025 Rumah Psikologi Pelangi Indonesia. Seluruh hak cipta dilindungi.</p>
+          <p className="text-green-100 text-sm mt-2">
+            Support Sistem oleh{" "}
+            <a 
+              href="https://tressolis.com/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-white hover:text-green-200 transition-colors underline font-medium"
+            >
+              Tres Solis Nusantara
+            </a>
+          </p>
         </div>
       </div>
     </footer>

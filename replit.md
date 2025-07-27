@@ -350,6 +350,9 @@ Changelog:
 - July 26, 2025. Added automatic payment_id storage when Midtrans transaction is created - ensures auto-sync can detect and process all orders
 - July 26, 2025. Confirmed full end-to-end sync functionality: Order creation → Payment ID storage → Auto-sync detection → Status updates → Database sync
 - July 26, 2025. Real-time synchronization system now 100% functional with proper payment_id tracking from transaction creation to completion
+- July 27, 2025. Successfully integrated YouTube profile video (https://www.youtube.com/embed/AHpKifVl9rA) into landing page with strategic placement
+- July 27, 2025. Created "Tentang Rumah Psikologi Pelangi Indonesia" section with responsive video embed and channel visit button functionality
+- July 27, 2025. Added footer system support credit: "Support Sistem oleh Tres Solis Nusantara" with link to https://tressolis.com/
 ```
 
 ## User Preferences
