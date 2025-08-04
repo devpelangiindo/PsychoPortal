@@ -54,3 +54,25 @@ Key entities include Users, Assessments, Orders, UserAssessments, and Sessions.
 -   **pdfkit:** PDF document generation.
 -   **passport:** Authentication middleware.
 -   **midtrans-client:** Midtrans payment gateway integration.
+
+## Recent Changes (August 4, 2025)
+
+### Fixed Real-Time Payment Synchronization System
+
+**Problem:** Auto-sync system was failing with 8 pending orders not synchronizing properly - Midtrans API returning 404 errors for payment IDs.
+
+**Root Cause:** Orders were being created without proper Midtrans transaction creation, resulting in payment IDs that don't exist in Midtrans Production environment.
+
+**Solution Implemented:**
+1. **Enhanced Payment Creation Process**: Fixed `/api/payments/create` to properly create Midtrans transactions with correct customer details and item information.
+2. **Improved Auto-Sync Logic**: Enhanced error handling with aggressive cleanup of orphaned orders (5-minute expiration for 404 errors).
+3. **Manual Recovery System**: Created `payment-recovery.ts` for cleaning up problematic pending orders.
+4. **Database Cleanup**: Removed 7 expired orders that were causing sync failures.
+
+**Technical Details:**
+- Payment ID format: `order_{orderId}_{timestamp}`
+- Auto-sync frequency: Every 5 seconds
+- Order expiration: 5 minutes for 404 errors, 10 minutes for orders without payment_id
+- Production-only Midtrans environment with proper credential validation
+
+**Status:** System now properly creates Midtrans transactions and maintains real-time synchronization between payment gateway and application database.

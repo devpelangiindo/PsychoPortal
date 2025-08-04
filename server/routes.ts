@@ -1178,7 +1178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Payment routes
+  // Payment routes - Enhanced with proper Midtrans integration
   app.post('/api/payments/create', isAuthenticated, async (req: any, res) => {
     try {
       const { orderId, paymentMethod } = req.body;
@@ -1196,32 +1196,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Demo payment simulation - no real money is charged
-      const paymentId = `demo_payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Update order with demo payment info
-      await storage.updateOrderStatus(orderId, 'completed', paymentId, 'demo_paid');
+      console.log(`🔄 Creating Midtrans payment for order ${orderId}`);
 
-      // Create user assessments for completed order
-      console.log(`Creating user assessments for order ${orderId}, user ${order.userId}`);
-      for (const item of order.orderItems) {
-        console.log(`Creating user assessment for assessment ${item.assessmentId}`);
-        const userAssessment = await storage.createUserAssessment({
-          userId: order.userId,
-          assessmentId: item.assessmentId,
-          orderId: order.id,
-          status: 'available',
-        });
-        console.log(`Created user assessment:`, userAssessment);
+      // Get user details for customer info
+      const user = await storage.getUserById(order.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
       }
 
+      // Create Midtrans transaction ID with timestamp
+      const timestamp = Date.now();
+      const midtransOrderId = `order_${orderId}_${timestamp}`;
+      
+      // Prepare Midtrans transaction data
+      const itemDetails = order.orderItems.map(item => ({
+        id: `assessment_${item.assessmentId}`,
+        name: `Assessment ${item.assessmentId}`,
+        price: parseInt(item.price),
+        quantity: 1
+      }));
+
+      const transactionData = {
+        orderId: midtransOrderId,
+        amount: parseInt(order.totalAmount),
+        customerDetails: {
+          first_name: user.firstName,
+          last_name: user.lastName || '',
+          email: user.email,
+          phone: user.whatsappNumber || ''
+        },
+        itemDetails
+      };
+
+      console.log(`💳 Creating Midtrans transaction:`, transactionData);
+
+      // Create Midtrans transaction
+      const midtransResult = await createMidtransTransaction(transactionData);
+      
+      // Update order with Midtrans payment ID immediately
+      await storage.updateOrderStatus(orderId, 'pending', midtransOrderId, 'pending');
+      
+      console.log(`✅ Midtrans transaction created successfully:`, {
+        token: midtransResult.token?.substring(0, 20) + '...',
+        redirect_url: midtransResult.redirect_url,
+        orderId: midtransOrderId
+      });
+
       res.json({
-        paymentId,
-        status: 'completed',
-        redirectUrl: '/dashboard'
+        token: midtransResult.token,
+        redirect_url: midtransResult.redirect_url,
+        paymentId: midtransOrderId,
+        status: 'pending',
+        amount: order.totalAmount,
+        orderId: orderId
       });
     } catch (error) {
-      console.error("Error creating payment:", error);
+      console.error("❌ Error creating Midtrans payment:", error);
       res.status(500).json({ message: "Failed to create payment" });
     }
   });

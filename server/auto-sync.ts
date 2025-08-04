@@ -40,6 +40,8 @@ export async function autoSyncOrders() {
       console.log('✅ No pending orders to sync');
       return { synced: 0, total: 0 };
     }
+
+    let syncedCount = 0;
     
     for (const order of pendingOrders) {
       try {
@@ -98,20 +100,23 @@ export async function autoSyncOrders() {
             }
             
             console.log(`✅ Auto-sync: Order ${orderId} completed`);
+            syncedCount++;
           } else if ((paymentStatus === 'cancelled' || paymentStatus === 'failed') && order.status === 'pending') {
             await storage.updateOrderStatus(orderId, 'cancelled', paymentId, paymentStatus);
             console.log(`❌ Auto-sync: Order ${orderId} cancelled (${paymentStatus})`);
+            syncedCount++;
           }
         } catch (midtransError: any) {
-          if (midtransError.httpStatusCode === 404) {
+          if (midtransError.httpStatusCode === 404 || (midtransError.response && midtransError.response.data && midtransError.response.data.status_code === '404')) {
             console.log(`❓ Order ${orderId} not found in Midtrans (404) - transaction expired or never created`);
-            // For orders not found in Midtrans, mark as cancelled after 30 minutes (more aggressive cleanup)
+            // For orders not found in Midtrans, mark as cancelled after 5 minutes (aggressive cleanup for production)
             const orderAge = Date.now() - new Date(order.createdAt!).getTime();
-            if (orderAge > 30 * 60 * 1000) { // 30 minutes
-              console.log(`⏰ Order ${orderId} is older than 30min and not in Midtrans, marking as cancelled`);
+            if (orderAge > 5 * 60 * 1000) { // 5 minutes
+              console.log(`⏰ Order ${orderId} is older than 5min and not in Midtrans, marking as cancelled`);
               await storage.updateOrderStatus(orderId, 'cancelled', paymentId || 'not_found', 'expired');
+              syncedCount++;
             } else {
-              console.log(`⌛ Order ${orderId} is less than 30min old, keeping as pending for now`);
+              console.log(`⌛ Order ${orderId} is less than 5min old, keeping as pending for now`);
             }
           } else {
             console.error(`❌ Midtrans API error for order ${order.id}:`, midtransError.message);
@@ -122,6 +127,9 @@ export async function autoSyncOrders() {
         console.error(`❌ Auto-sync error for order ${order.id}:`, error);
       }
     }
+    
+    console.log(`✅ Auto-sync completed: ${syncedCount}/${pendingOrders.length} orders processed`);
+    return { synced: syncedCount, total: pendingOrders.length };
     
     console.log('✅ Auto-sync completed');
   } catch (error) {
