@@ -1,8 +1,12 @@
-import { Brain, GraduationCap, Clock, Users } from "lucide-react";
+import { Brain, GraduationCap, Clock, Users, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart";
+import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { Assessment } from "@shared/schema";
 
 interface AssessmentCardProps {
@@ -13,8 +17,11 @@ interface AssessmentCardProps {
 export default function AssessmentCard({ assessment, showAddToCart }: AssessmentCardProps) {
   const { toast } = useToast();
   const { addItem, items } = useCart();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
 
   const isInCart = items.some(item => item.id === assessment.id);
+  const isFree = parseFloat(assessment.price) === 0;
 
   const getIcon = (type: string) => {
     if (type === 'sensory') {
@@ -36,6 +43,42 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
     }
     return 'Preferensi Belajar';
   };
+
+  // Mutation untuk direct access free assessment
+  const directAccessMutation = useMutation({
+    mutationFn: async (assessmentId: number) => {
+      const response = await fetch(`/api/assessments/${assessmentId}/direct-access`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Gagal mengakses asesmen');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data: { userAssessmentId: number }) => {
+      toast({
+        title: "Akses Gratis Berhasil!",
+        description: `${assessment.name} siap untuk dikerjakan.`,
+        variant: "default",
+      });
+      // Redirect to assessment taking page
+      setLocation(`/assessment/${assessment.type}/${data.userAssessmentId}`);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Gagal Mengakses Asesmen",
+        description: error.message || "Terjadi kesalahan saat mengakses asesmen gratis.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleAddToCart = () => {
     if (isInCart) {
@@ -62,6 +105,20 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
       description: `${assessment.name} telah ditambahkan ke keranjang Anda.`,
       variant: "default",
     });
+  };
+
+  const handleDirectAccess = () => {
+    if (!user) {
+      toast({
+        title: "Login Diperlukan",
+        description: "Silakan login terlebih dahulu untuk mengakses asesmen gratis.",
+        variant: "default",
+      });
+      setLocation("/login");
+      return;
+    }
+
+    directAccessMutation.mutate(assessment.id);
   };
 
   return (
@@ -123,18 +180,32 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
             )}
           </div>
           {showAddToCart && (
-            <Button
-              onClick={handleAddToCart}
-              disabled={isInCart}
-              size="sm"
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm ${
-                isInCart 
-                  ? 'bg-gray-400 text-white cursor-not-allowed' 
-                  : 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
-              }`}
-            >
-              {isInCart ? "✓ Di Keranjang" : "+ Keranjang"}
-            </Button>
+            <>
+              {isFree ? (
+                <Button
+                  onClick={handleDirectAccess}
+                  disabled={directAccessMutation.isPending}
+                  size="sm"
+                  className="px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 disabled:opacity-50"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  {directAccessMutation.isPending ? "Memproses..." : "Mulai Sekarang"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={isInCart}
+                  size="sm"
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm ${
+                    isInCart 
+                      ? 'bg-gray-400 text-white cursor-not-allowed' 
+                      : 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
+                  }`}
+                >
+                  {isInCart ? "✓ Di Keranjang" : "+ Keranjang"}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </CardContent>

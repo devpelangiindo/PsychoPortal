@@ -1256,6 +1256,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Direct access for free assessments (bypass payment)
+  app.post('/api/assessments/:assessmentId/direct-access', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const assessmentId = parseInt(req.params.assessmentId);
+      
+      // Verify assessment exists and is free
+      const assessment = await storage.getAssessment(assessmentId);
+      if (!assessment) {
+        return res.status(404).json({ message: "Asesmen tidak ditemukan" });
+      }
+      
+      if (parseFloat(assessment.price) !== 0) {
+        return res.status(400).json({ message: "Asesmen ini tidak gratis dan memerlukan pembayaran" });
+      }
+      
+      // Check if user already has this assessment
+      const existingUserAssessment = await storage.getUserAssessment(userId, assessmentId);
+      if (existingUserAssessment) {
+        return res.status(200).json({ 
+          message: "Asesmen sudah tersedia",
+          userAssessmentId: existingUserAssessment.id
+        });
+      }
+      
+      // For free assessments, we need to create a "virtual" order to satisfy the schema
+      // Create a free order first
+      const freeOrder = await storage.createOrder({
+        userId,
+        totalAmount: '0.00',
+        status: 'completed'
+      });
+      
+      // Create order item for the free assessment
+      await storage.createOrderItem({
+        orderId: freeOrder.id,
+        assessmentId,
+        price: '0.00'
+      });
+      
+      // Create user assessment with the free order
+      const userAssessmentData = {
+        userId,
+        assessmentId,
+        orderId: freeOrder.id,
+        status: 'purchased' as const
+      };
+      
+      console.log(`🎁 Creating free direct access for user ${userId}, assessment ${assessmentId}`);
+      const userAssessmentId = await storage.createUserAssessment(userAssessmentData);
+      
+      res.json({ 
+        message: "Akses gratis berhasil dibuat",
+        userAssessmentId
+      });
+      
+    } catch (error) {
+      console.error("Error creating direct access for free assessment:", error);
+      res.status(500).json({ message: "Gagal membuat akses gratis" });
+    }
+  });
+
   // User assessment routes
   app.get('/api/user-assessments', isAuthenticated, async (req: any, res) => {
     try {
