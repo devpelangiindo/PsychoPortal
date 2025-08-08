@@ -84,6 +84,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
         'bca_va',
         'bni_va',
         'bri_va',
+        'cimb_va',
         'mandiri_va',
         'permata_va',
         'other_va',
