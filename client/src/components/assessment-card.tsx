@@ -68,8 +68,15 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
         description: `${assessment.name} siap untuk dikerjakan.`,
         variant: "default",
       });
-      // Redirect to assessment taking page
-      setLocation(`/assessment/${assessment.type}/${data.userAssessmentId}`);
+      // Redirect to assessment taking page based on assessment type
+      if (assessment.type === 'sensory') {
+        setLocation(`/sensory-profile/${data.userAssessmentId}`);
+      } else if (assessment.type === 'learning') {
+        setLocation(`/learning-style/${data.userAssessmentId}`);
+      } else {
+        // Fallback to assessment detail page
+        setLocation(`/assessment/${assessment.id}`);
+      }
     },
     onError: (error: any) => {
       toast({
