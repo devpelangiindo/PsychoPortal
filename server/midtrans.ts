@@ -96,13 +96,32 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
       ],
     };
 
+    // Enhanced logging untuk debugging payment methods
+    console.log('🔧 Midtrans Transaction Parameters:');
+    console.log('- Order ID:', parameter.transaction_details.order_id);
+    console.log('- Amount:', parameter.transaction_details.gross_amount);
+    console.log('- Enabled Payments:', parameter.enabled_payments);
+    console.log('- Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
+    console.log('- Merchant Configuration:');
+    console.log('  - Server Key:', serverKey?.substring(0, 10) + '...');
+    console.log('  - Client Key:', clientKey?.substring(0, 10) + '...');
+    console.log('  - Merchant ID:', merchantId?.substring(0, 10) + '...');
+
     const transaction = await snap.createTransaction(parameter);
+    
+    console.log('✅ Midtrans Response:');
+    console.log('- Token:', transaction.token?.substring(0, 20) + '...');
+    console.log('- Redirect URL:', transaction.redirect_url);
+    
     return {
       token: transaction.token,
       redirect_url: transaction.redirect_url,
     };
   } catch (error) {
-    console.error('Error creating Midtrans transaction:', error);
+    console.error('❌ Error creating Midtrans transaction:', error);
+    console.error('- Error details:', error);
+    console.error('- Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
+    console.error('- Enabled payments configured:', ['credit_card', 'bca_va', 'bni_va', 'bri_va', 'cimb_va', 'mandiri_va', 'permata_va', 'other_va', 'gopay', 'shopeepay', 'qris', 'indomaret', 'alfamart']);
     throw error;
   }
 }
