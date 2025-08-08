@@ -139,24 +139,37 @@ export async function autoSyncOrders() {
             syncedCount++;
           }
         } catch (midtransError: any) {
-          if (midtransError.httpStatusCode === 404 || (midtransError.response && midtransError.response.data && midtransError.response.data.status_code === '404')) {
-            console.log(`❓ Order ${orderId} not found in Midtrans (404) - transaction expired or never created`);
-            // For orders not found in Midtrans, mark as cancelled after 2 minutes (ultra aggressive cleanup)
-            const orderAge = Date.now() - new Date(order.createdAt!).getTime();
-            if (orderAge > 2 * 60 * 1000) { // 2 minutes
-              console.log(`⏰ Order ${orderId} is older than 2min and not in Midtrans, marking as cancelled`);
-              await storage.updateOrderStatus(orderId, 'cancelled', paymentId || 'not_found', 'expired');
-              syncedCount++;
-            } else {
-              console.log(`⌛ Order ${orderId} is less than 2min old, keeping as pending for now`);
-            }
+          // Universal cleanup approach: Any error from Midtrans API suggests transaction issues
+          const orderAge = Date.now() - new Date(order.createdAt!).getTime();
+          const ageInMinutes = Math.floor(orderAge / (60 * 1000));
+          
+          console.log(`❓ Order ${orderId} failed Midtrans API check (age: ${ageInMinutes}min) - Error: ${midtransError.message}`);
+          
+          // Aggressive cleanup: Any API error older than 1 minute gets cancelled
+          // This covers 404, timeouts, network errors, etc.
+          if (orderAge > 1 * 60 * 1000) { // 1 minute
+            console.log(`⏰ Order ${orderId} is older than 1min with API errors, marking as cancelled`);
+            await storage.updateOrderStatus(orderId, 'cancelled', paymentId || 'api_error', 'expired');
+            syncedCount++;
           } else {
-            console.error(`❌ Midtrans API error for order ${order.id}:`, midtransError.message);
+            console.log(`⌛ Order ${orderId} is ${ageInMinutes}min old, keeping as pending (will cleanup after 1min)`);
           }
         }
         
       } catch (error) {
         console.error(`❌ Auto-sync error for order ${order.id}:`, error);
+        
+        // Fallback cleanup for any processing errors
+        const orderAge = Date.now() - new Date(order.createdAt!).getTime();
+        if (orderAge > 2 * 60 * 1000) { // 2 minutes fallback
+          console.log(`🧹 Fallback cleanup: Order ${order.id} is ${Math.floor(orderAge / 60000)}min old, marking as cancelled`);
+          try {
+            await storage.updateOrderStatus(order.id, 'cancelled', 'processing_error', 'expired');
+            syncedCount++;
+          } catch (cleanupError) {
+            console.error(`❌ Failed to cleanup order ${order.id}:`, cleanupError);
+          }
+        }
       }
     }
     
