@@ -3,26 +3,58 @@ import { checkTransactionStatus } from './midtrans';
 
 const storage = new DatabaseStorage();
 
-// Get ALL pending orders from ALL users for comprehensive sync
+// Get ALL pending orders from database (system-wide, all users)
 async function getAllPendingOrders() {
   try {
-    // Get orders from current user (in production, this would be all users)
-    const testUserId = 'IqO9IlNVqHch';
-    const userOrders = await storage.getUserOrders(testUserId);
+    const db = storage.getDb();
+    const { sql } = await import('drizzle-orm');
     
-    // Get ALL pending orders, not just those with payment_id
-    const pendingOrders = userOrders.filter(order => 
-      order.status === 'pending' &&
-      new Date(order.createdAt!) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+    console.log('🔍 Fetching ALL pending orders system-wide from all users...');
+    
+    // Get ALL pending orders across ALL users
+    const result = await db.execute(
+      sql`SELECT o.id, o.user_id, o.total_amount, o.status, o.payment_id, o.payment_status, o.created_at,
+               oi.assessment_id, oi.price 
+          FROM orders o 
+          LEFT JOIN order_items oi ON o.id = oi.order_id 
+          WHERE o.status = 'pending' 
+          ORDER BY o.created_at DESC`
     );
-    
-    console.log(`🔍 Found ${pendingOrders.length} total pending orders for user ${testUserId}`);
+
+    console.log(`📊 Raw query returned ${result.rows.length} rows from all users`);
+
+    // Group by order to build complete order objects
+    const ordersMap = new Map();
+    for (const row of result.rows) {
+      const orderId = row.id as number;
+      if (!ordersMap.has(orderId)) {
+        ordersMap.set(orderId, {
+          id: orderId,
+          userId: row.user_id as string,
+          totalAmount: row.total_amount as string,
+          status: row.status as string,
+          paymentId: row.payment_id as string | null,
+          paymentStatus: row.payment_status as string | null,
+          createdAt: row.created_at as Date,
+          orderItems: []
+        });
+      }
+      if (row.assessment_id) {
+        ordersMap.get(orderId).orderItems.push({
+          assessmentId: row.assessment_id as number,
+          price: row.price as string
+        });
+      }
+    }
+
+    const pendingOrders = Array.from(ordersMap.values());
+    console.log(`📋 Processed into ${pendingOrders.length} unique pending orders across all users`);
     console.log(`📝 Orders with payment_id: ${pendingOrders.filter(o => o.paymentId).length}`);
     console.log(`📝 Orders without payment_id: ${pendingOrders.filter(o => !o.paymentId).length}`);
     
     return pendingOrders;
   } catch (error) {
-    console.error('Error fetching pending orders:', error);
+    console.error('❌ Error fetching pending orders:', error);
     return [];
   }
 }
@@ -109,14 +141,14 @@ export async function autoSyncOrders() {
         } catch (midtransError: any) {
           if (midtransError.httpStatusCode === 404 || (midtransError.response && midtransError.response.data && midtransError.response.data.status_code === '404')) {
             console.log(`❓ Order ${orderId} not found in Midtrans (404) - transaction expired or never created`);
-            // For orders not found in Midtrans, mark as cancelled after 5 minutes (aggressive cleanup for production)
+            // For orders not found in Midtrans, mark as cancelled after 2 minutes (ultra aggressive cleanup)
             const orderAge = Date.now() - new Date(order.createdAt!).getTime();
-            if (orderAge > 5 * 60 * 1000) { // 5 minutes
-              console.log(`⏰ Order ${orderId} is older than 5min and not in Midtrans, marking as cancelled`);
+            if (orderAge > 2 * 60 * 1000) { // 2 minutes
+              console.log(`⏰ Order ${orderId} is older than 2min and not in Midtrans, marking as cancelled`);
               await storage.updateOrderStatus(orderId, 'cancelled', paymentId || 'not_found', 'expired');
               syncedCount++;
             } else {
-              console.log(`⌛ Order ${orderId} is less than 5min old, keeping as pending for now`);
+              console.log(`⌛ Order ${orderId} is less than 2min old, keeping as pending for now`);
             }
           } else {
             console.error(`❌ Midtrans API error for order ${order.id}:`, midtransError.message);
