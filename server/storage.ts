@@ -74,9 +74,17 @@ export interface IStorage {
     totalRevenue: number;
   }>;
   updateUserLastLogin(userId: string): Promise<void>;
+  
+  // Database access for auto-sync
+  getDb(): any;
 }
 
 export class DatabaseStorage implements IStorage {
+  // Database access for auto-sync
+  getDb() {
+    return db;
+  }
+  
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
