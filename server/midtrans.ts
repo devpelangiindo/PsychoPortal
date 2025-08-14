@@ -112,6 +112,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
     console.log('✅ Midtrans Response:');
     console.log('- Token:', transaction.token?.substring(0, 20) + '...');
     console.log('- Redirect URL:', transaction.redirect_url);
+    console.log('- Full Transaction Response:', JSON.stringify(transaction, null, 2));
     
     return {
       token: transaction.token,
