@@ -100,15 +100,24 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
     };
 
     // Enhanced logging untuk debugging payment methods
-    console.log('🔧 Midtrans Transaction Parameters:');
-    console.log('- Order ID:', parameter.transaction_details.order_id);
-    console.log('- Amount:', parameter.transaction_details.gross_amount);
-    console.log('- Enabled Payments:', parameter.enabled_payments);
-    console.log('- Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
-    console.log('- Merchant Configuration:');
-    console.log('  - Server Key:', serverKey?.substring(0, 10) + '...');
-    console.log('  - Client Key:', clientKey?.substring(0, 10) + '...');
-    console.log('  - Merchant ID:', merchantId?.substring(0, 10) + '...');
+    console.log('🔧 MIDTRANS TRANSACTION DEBUG - START');
+    console.log('📋 Transaction Details:');
+    console.log('   - Order ID:', parameter.transaction_details.order_id);
+    console.log('   - Amount:', parameter.transaction_details.gross_amount);
+    console.log('💳 Payment Methods Configuration:');
+    console.log('   - Total enabled methods:', parameter.enabled_payments.length);
+    console.log('   - Full list:', JSON.stringify(parameter.enabled_payments, null, 2));
+    console.log('   - Bank Mandiri VA included:', parameter.enabled_payments.includes('mandiri_va') ? '✅ YES' : '❌ NO');
+    console.log('   - GoPay included:', parameter.enabled_payments.includes('gopay') ? '✅ YES' : '❌ NO');
+    console.log('   - Danamon VA included:', parameter.enabled_payments.includes('danamon_va') ? '✅ YES' : '❌ NO');
+    console.log('🌐 Environment Configuration:');
+    console.log('   - Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
+    console.log('   - Server Key exists:', !!serverKey);
+    console.log('   - Client Key exists:', !!clientKey);
+    console.log('   - Merchant ID exists:', !!merchantId);
+    console.log('📦 Full Parameter Object:');
+    console.log(JSON.stringify(parameter, null, 2));
+    console.log('🔧 MIDTRANS TRANSACTION DEBUG - END');
 
     const transaction = await snap.createTransaction(parameter);
     
