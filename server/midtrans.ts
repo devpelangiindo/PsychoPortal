@@ -91,6 +91,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
         'gopay',
         'shopeepay',
         'qris',
+        'akulaku',
         'indomaret',
         'alfamart',
       ],
@@ -122,7 +123,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
     console.error('❌ Error creating Midtrans transaction:', error);
     console.error('- Error details:', error);
     console.error('- Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
-    console.error('- Enabled payments configured:', ['credit_card', 'bca_va', 'bni_va', 'bri_va', 'cimb_va', 'mandiri_va', 'permata_va', 'other_va', 'gopay', 'shopeepay', 'qris', 'indomaret', 'alfamart']);
+    console.error('- Enabled payments configured:', ['credit_card', 'bca_va', 'bni_va', 'bri_va', 'cimb_va', 'mandiri_va', 'permata_va', 'other_va', 'gopay', 'shopeepay', 'qris', 'akulaku', 'indomaret', 'alfamart']);
     throw error;
   }
 }
