@@ -85,6 +85,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
         'bni_va',
         'bri_va',
         'cimb_va',
+        'danamon_va',
         'mandiri_va',
         'permata_va',
         'other_va',
@@ -124,7 +125,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
     console.error('❌ Error creating Midtrans transaction:', error);
     console.error('- Error details:', error);
     console.error('- Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
-    console.error('- Enabled payments configured:', ['credit_card', 'bca_va', 'bni_va', 'bri_va', 'cimb_va', 'mandiri_va', 'permata_va', 'other_va', 'gopay', 'gopay_static_qr', 'shopeepay', 'qris', 'akulaku', 'indomaret', 'alfamart']);
+    console.error('- Enabled payments configured:', ['credit_card', 'bca_va', 'bni_va', 'bri_va', 'cimb_va', 'danamon_va', 'mandiri_va', 'permata_va', 'other_va', 'gopay', 'gopay_static_qr', 'shopeepay', 'qris', 'akulaku', 'indomaret', 'alfamart']);
     throw error;
   }
 }
