@@ -92,6 +92,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
         'gopay',
         'gopay_static_qr',
         'shopeepay',
+        'dana',
         'qris',
         'akulaku',
         'indomaret',
@@ -110,6 +111,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
     console.log('   - Bank Mandiri VA included:', parameter.enabled_payments.includes('mandiri_va') ? '✅ YES' : '❌ NO');
     console.log('   - GoPay included:', parameter.enabled_payments.includes('gopay') ? '✅ YES' : '❌ NO');
     console.log('   - Danamon VA included:', parameter.enabled_payments.includes('danamon_va') ? '✅ YES' : '❌ NO');
+    console.log('   - Dana E-Wallet included:', parameter.enabled_payments.includes('dana') ? '✅ YES' : '❌ NO');
     console.log('🌐 Environment Configuration:');
     console.log('   - Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
     console.log('   - Server Key exists:', !!serverKey);
