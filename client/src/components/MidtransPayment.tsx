@@ -305,34 +305,7 @@ export default function MidtransPayment({
           </div>
         </div>
 
-        {/* Payment Methods */}
-        <div className="space-y-3">
-          <p className="text-sm font-medium">Metode Pembayaran yang Tersedia:</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Badge variant="outline" className="justify-center py-2">
-              <CreditCard className="w-4 h-4 mr-1" />
-              Kartu Kredit
-            </Badge>
-            <Badge variant="outline" className="justify-center py-2">
-              <Building2 className="w-4 h-4 mr-1" />
-              Virtual Account
-            </Badge>
-            <Badge variant="outline" className="justify-center py-2">
-              <Smartphone className="w-4 h-4 mr-1" />
-              E-Wallet
-            </Badge>
-            <Badge variant="outline" className="justify-center py-2">
-              <QrCode className="w-4 h-4 mr-1" />
-              QRIS
-            </Badge>
-          </div>
-          <div className="flex justify-center">
-            <Badge variant="outline" className="justify-center py-2">
-              <Store className="w-4 h-4 mr-1" />
-              Convenience Store
-            </Badge>
-          </div>
-        </div>
+
 
         {/* Payment Button */}
         <Button
