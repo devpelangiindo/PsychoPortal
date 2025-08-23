@@ -179,6 +179,22 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
               <span className="text-xl font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
                 Free Access
               </span>
+            ) : assessment.type === 'sensory' ? (
+              // Special promotional pricing for Sensory Profile Assessment
+              <div className="flex flex-col">
+                <div className="flex items-baseline">
+                  <span className="text-sm font-medium text-gray-500 line-through mr-2">
+                    Rp {new Intl.NumberFormat('id-ID').format(500000)}
+                  </span>
+                  <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-semibold">
+                    PROMO
+                  </span>
+                </div>
+                <div className="flex items-baseline mt-1">
+                  <span className="text-lg font-semibold mr-1 text-red-600">Rp</span>
+                  <span className="text-2xl font-bold text-red-600">{new Intl.NumberFormat('id-ID').format(parseFloat(assessment.price))}</span>
+                </div>
+              </div>
             ) : (
               <>
                 <span className="text-lg font-semibold mr-1">Rp</span>
