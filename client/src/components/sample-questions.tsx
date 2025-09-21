@@ -216,7 +216,7 @@ export default function SampleQuestions({ assessmentType, assessmentName, onComp
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-card rounded-2xl shadow-2xl max-w-4xl w-full h-[90vh] flex flex-col">
         {/* Header */}
         <div className={`bg-gradient-to-r ${getGradientClass()} text-white p-6 rounded-t-2xl`}>
           <div className="flex items-center justify-between">
@@ -252,8 +252,8 @@ export default function SampleQuestions({ assessmentType, assessmentName, onComp
           <Progress value={progress} className="h-2" />
         </div>
 
-        {/* Question */}
-        <div className="p-6">
+        {/* Question - Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
             {currentQuestion.text}
           </h3>
@@ -261,10 +261,10 @@ export default function SampleQuestions({ assessmentType, assessmentName, onComp
           <RadioGroup
             value={answers[currentQuestion.id] || ''}
             onValueChange={handleAnswerChange}
-            className="space-y-3"
+            className="space-y-4"
           >
             {currentQuestion.options.map((option) => (
-              <div key={option.value} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <div key={option.value} className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 <RadioGroupItem 
                   value={option.value} 
                   id={`${currentQuestion.id}-${option.value}`}
@@ -272,7 +272,7 @@ export default function SampleQuestions({ assessmentType, assessmentName, onComp
                 />
                 <Label 
                   htmlFor={`${currentQuestion.id}-${option.value}`} 
-                  className="flex-1 cursor-pointer"
+                  className="flex-1 cursor-pointer text-base"
                 >
                   {option.label}
                 </Label>
@@ -281,8 +281,8 @@ export default function SampleQuestions({ assessmentType, assessmentName, onComp
           </RadioGroup>
         </div>
 
-        {/* Navigation */}
-        <div className="flex justify-between items-center p-6 border-t bg-gray-50 dark:bg-gray-800/50 rounded-b-2xl">
+        {/* Navigation - Always Visible */}
+        <div className="flex-shrink-0 flex justify-between items-center p-6 border-t bg-gray-50 dark:bg-gray-800/50 rounded-b-2xl">
           <Button
             variant="outline"
             onClick={handlePrevious}
