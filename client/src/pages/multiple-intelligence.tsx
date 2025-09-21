@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Save, Brain, Lightbulb, Calculator, Play, Music, Users, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Brain, Lightbulb, Calculator, Play, Music, Users, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -445,6 +445,7 @@ export default function MultipleIntelligence() {
   const [answers, setAnswers] = useState<Record<number, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const saveProgressDebounced = useRef<NodeJS.Timeout>();
 
   const { data: userAssessment, isLoading } = useQuery({
     queryKey: ['/api/user-assessments', userAssessmentId],
@@ -470,10 +471,7 @@ export default function MultipleIntelligence() {
 
   const submitAssessmentMutation = useMutation({
     mutationFn: async (results: any) => {
-      return apiRequest(`/api/user-assessments/${userAssessmentId}/complete`, {
-        method: 'POST',
-        body: JSON.stringify({ results }),
-      });
+      return apiRequest("POST", `/api/user-assessments/${userAssessmentId}/complete`, { results });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-assessments'] });
@@ -504,38 +502,26 @@ export default function MultipleIntelligence() {
   });
 
   const saveProgressMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest(`/api/user-assessments/${userAssessmentId}/progress`, {
-        method: 'POST',
-        body: JSON.stringify({ 
-          answers,
-          currentQuestion: currentQuestionIndex + 1,
-          totalQuestions: questions.length
-        }),
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Progress Tersimpan",
-        description: "Kemajuan asesmen Anda telah disimpan.",
-        variant: "default",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Gagal Menyimpan Progress",
-        description: error.message || "Terjadi kesalahan saat menyimpan progress.",
-        variant: "destructive",
-      });
+    mutationFn: async (progressData: any) => {
+      if (!userAssessmentId) throw new Error("No assessment found");
+      return apiRequest("POST", `/api/user-assessments/${userAssessmentId}/save-progress`, progressData);
     },
   });
 
   const handleAnswerChange = (value: string) => {
     const currentQuestion = questions[currentQuestionIndex];
-    setAnswers(prev => ({
-      ...prev,
+    const newAnswers = {
+      ...answers,
       [currentQuestion.id]: value === 'ya'
-    }));
+    };
+    setAnswers(newAnswers);
+    
+    // Auto-save progress
+    autoSaveProgress({
+      answers: newAnswers,
+      currentQuestion: currentQuestionIndex + 1,
+      totalQuestions: questions.length
+    });
   };
 
   const calculateResults = () => {
@@ -607,9 +593,34 @@ export default function MultipleIntelligence() {
     }
   };
 
-  const saveProgress = () => {
-    saveProgressMutation.mutate();
+  // Enhanced auto-save with debouncing
+  const autoSaveProgress = (data: any) => {
+    if (saveProgressDebounced.current) {
+      clearTimeout(saveProgressDebounced.current);
+    }
+    saveProgressDebounced.current = setTimeout(() => {
+      saveProgressMutation.mutate(data);
+    }, 500); // Wait 0.5 seconds for better responsiveness
   };
+
+  // Save when user navigates away from the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (userAssessmentId && Object.keys(answers).length > 0) {
+        // Synchronous save when leaving page
+        navigator.sendBeacon(`/api/user-assessments/${userAssessmentId}/save-progress`, 
+          JSON.stringify({
+            answers,
+            currentQuestion: currentQuestionIndex + 1,
+            totalQuestions: questions.length
+          })
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [userAssessmentId, answers, currentQuestionIndex]);
 
   if (isLoading) {
     return (
@@ -742,18 +753,11 @@ export default function MultipleIntelligence() {
               <span>Sebelumnya</span>
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={saveProgress}
-              disabled={saveProgressMutation.isPending}
-              className="flex items-center space-x-2"
-              data-testid="button-save-progress"
-            >
-              <Save className="w-4 h-4" />
-              <span>
-                {saveProgressMutation.isPending ? "Menyimpan..." : "Simpan Progress"}
+            <div className="text-center">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Progress tersimpan otomatis
               </span>
-            </Button>
+            </div>
 
             {currentQuestionIndex === questions.length - 1 ? (
               <Button
