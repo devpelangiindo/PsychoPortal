@@ -167,6 +167,56 @@ function determineSensoryPatterns(sectionScores: any) {
   return patterns;
 }
 
+// Helper function for intelligence-specific recommendations in PDF
+function getIntelligenceRecommendationsForPDF(category: string): string[] {
+  const recommendations: Record<string, string[]> = {
+    'visual_spasial': [
+      'Gunakan mind map dan diagram saat belajar',
+      'Manfaatkan media visual seperti gambar dan video',
+      'Praktikkan aktivitas seni dan design',
+      'Latih kemampuan navigasi dan orientasi ruang'
+    ],
+    'linguistik': [
+      'Perbanyak membaca dan menulis',
+      'Latih public speaking dan storytelling',
+      'Pelajari bahasa asing',
+      'Ikuti aktivitas debat dan diskusi'
+    ],
+    'logis_matematis': [
+      'Latih kemampuan problem solving',
+      'Pelajari programming dan logika',
+      'Mainkan game strategi dan puzzle',
+      'Praktikkan metode ilmiah dalam berpikir'
+    ],
+    'kinestetik': [
+      'Integrasikan gerakan dalam proses belajar',
+      'Ikuti aktivitas olahraga dan tari',
+      'Praktikkan pembelajaran hands-on',
+      'Gunakan role-play dan simulasi'
+    ],
+    'musik': [
+      'Gunakan lagu untuk mengingat informasi',
+      'Pelajari alat musik',
+      'Ikuti aktivitas bernyanyi atau paduan suara',
+      'Manfaatkan ritme dalam pembelajaran'
+    ],
+    'interpersonal': [
+      'Ikuti kegiatan kelompok dan teamwork',
+      'Praktikkan empati dan komunikasi',
+      'Latih kemampuan leadership',
+      'Terlibat dalam aktivitas sosial dan volunteer'
+    ],
+    'intrapersonal': [
+      'Luangkan waktu untuk refleksi diri',
+      'Latih journaling dan self-assessment',
+      'Praktikkan mindfulness dan meditasi',
+      'Tentukan tujuan personal yang jelas'
+    ]
+  };
+  
+  return recommendations[category] || [];
+}
+
 // PDF Generation Function
 function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -260,6 +310,68 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
           : 'Anda belajar terbaik melalui praktik langsung dan gerakan. Lebih mudah memahami informasi melalui aktivitas hands-on.';
         
         doc.text(interpretation, { align: 'justify' });
+        
+      } else if (assessmentType === 'intelligence') {
+        const { categoryScores, dominantIntelligences } = results;
+        
+        doc.fontSize(14).font('Helvetica-Bold')
+           .text('HASIL ASESMEN KECERDASAN MAJEMUK', { underline: true });
+        
+        doc.moveDown(0.5);
+        
+        // Display top 3 intelligences
+        if (dominantIntelligences && dominantIntelligences.length > 0) {
+          doc.fontSize(12).font('Helvetica-Bold')
+             .text('Kecerdasan Dominan:');
+          
+          doc.moveDown(0.3);
+          
+          dominantIntelligences.slice(0, 3).forEach((intelligence: any, index: number) => {
+            doc.fontSize(12).font('Helvetica')
+               .text(`${index + 1}. ${intelligence.name}: ${intelligence.percentage}%`);
+          });
+        }
+        
+        doc.moveDown(1);
+        
+        // Complete intelligence profile
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text('Profil Kecerdasan Lengkap:');
+        
+        doc.moveDown(0.3);
+        
+        if (categoryScores && categoryScores.length > 0) {
+          categoryScores.forEach((intelligence: any) => {
+            doc.fontSize(11).font('Helvetica')
+               .text(`• ${intelligence.name}: ${intelligence.score}/${intelligence.total} (${intelligence.percentage}%)`);
+          });
+        }
+        
+        doc.moveDown(1);
+        
+        // Interpretation and recommendations
+        doc.fontSize(12).font('Helvetica-Bold')
+           .text('Interpretasi:');
+        
+        doc.fontSize(11).font('Helvetica')
+           .text('Hasil asesmen menunjukkan profil kecerdasan majemuk Anda. Setiap orang memiliki kombinasi unik dari berbagai jenis kecerdasan. Kecerdasan dominan menunjukkan area di mana Anda memiliki potensi terbesar untuk belajar dan berkembang.', { align: 'justify' });
+        
+        doc.moveDown(0.8);
+        
+        // Recommendations based on top intelligence
+        if (dominantIntelligences && dominantIntelligences.length > 0) {
+          const topIntelligence = dominantIntelligences[0];
+          doc.fontSize(12).font('Helvetica-Bold')
+             .text('Rekomendasi Pengembangan:');
+          
+          doc.fontSize(11).font('Helvetica');
+          
+          // Get specific recommendations based on category
+          const recommendations = getIntelligenceRecommendationsForPDF(topIntelligence.category);
+          recommendations.forEach((rec: string) => {
+            doc.text(`• ${rec}`);
+          });
+        }
         
       } else if (assessmentType === 'sensory') {
         const { totalScore, interpretation, sectionScores, participantInfo, responses } = results;

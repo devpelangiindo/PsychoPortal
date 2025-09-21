@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText } from "lucide-react";
+import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, Lightbulb, Calculator, Play, Music, Users, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -247,6 +247,296 @@ export default function AssessmentResults() {
     );
   };
 
+  const renderMultipleIntelligenceResults = (results: any) => {
+    if (!results || !results.categoryScores) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5" />
+              Hasil Asesmen Kecerdasan Majemuk
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-neutral-600 dark:text-muted-foreground mb-4">
+              Hasil asesmen kecerdasan majemuk Anda telah disimpan dan sedang diproses.
+            </p>
+            <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                Interpretasi hasil akan tersedia setelah semua pertanyaan dijawab.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    const { categoryScores, dominantIntelligences } = results;
+
+    // Intelligence category definitions
+    const intelligenceInfo: Record<string, any> = {
+      'visual_spasial': { 
+        name: "Visual Spasial", 
+        icon: <Eye className="w-6 h-6" />, 
+        color: "bg-purple-500",
+        bgColor: "bg-purple-50 dark:bg-purple-950/20",
+        description: "Kemampuan memvisualisasikan dan memanipulasi objek dalam ruang" 
+      },
+      'linguistik': { 
+        name: "Linguistik", 
+        icon: <Lightbulb className="w-6 h-6" />, 
+        color: "bg-blue-500",
+        bgColor: "bg-blue-50 dark:bg-blue-950/20",
+        description: "Kemampuan menggunakan bahasa secara efektif" 
+      },
+      'logis_matematis': { 
+        name: "Logis Matematis", 
+        icon: <Calculator className="w-6 h-6" />, 
+        color: "bg-green-500",
+        bgColor: "bg-green-50 dark:bg-green-950/20",
+        description: "Kemampuan bernalar logis dan menyelesaikan masalah matematika" 
+      },
+      'kinestetik': { 
+        name: "Kinestetik", 
+        icon: <Play className="w-6 h-6" />, 
+        color: "bg-orange-500",
+        bgColor: "bg-orange-50 dark:bg-orange-950/20",
+        description: "Kemampuan menggunakan tubuh untuk mengekspresikan ide dan perasaan" 
+      },
+      'musik': { 
+        name: "Musik", 
+        icon: <Music className="w-6 h-6" />, 
+        color: "bg-pink-500",
+        bgColor: "bg-pink-50 dark:bg-pink-950/20",
+        description: "Kemampuan memahami dan mengekspresikan musik" 
+      },
+      'interpersonal': { 
+        name: "Interpersonal", 
+        icon: <Users className="w-6 h-6" />, 
+        color: "bg-indigo-500",
+        bgColor: "bg-indigo-50 dark:bg-indigo-950/20",
+        description: "Kemampuan berinteraksi dan memahami orang lain" 
+      },
+      'intrapersonal': { 
+        name: "Intrapersonal", 
+        icon: <User className="w-6 h-6" />, 
+        color: "bg-teal-500",
+        bgColor: "bg-teal-50 dark:bg-teal-950/20",
+        description: "Kemampuan memahami diri sendiri" 
+      }
+    };
+
+    // Get top 3 intelligences - ensure they have category field
+    let topIntelligences = dominantIntelligences;
+    if (!topIntelligences || !Array.isArray(topIntelligences) || topIntelligences.length === 0) {
+      // Fallback to top 3 from categoryScores, sorted by percentage
+      topIntelligences = categoryScores
+        ? [...categoryScores].sort((a, b) => b.percentage - a.percentage).slice(0, 3)
+        : [];
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Top 3 Dominant Intelligences */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5" />
+              Kecerdasan Dominan Anda
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {topIntelligences.map((intelligence: any, index: number) => {
+                const category = intelligence.category || intelligence.name?.toLowerCase().replace(/\s+/g, '_');
+                const info = intelligenceInfo[category];
+                if (!info) {
+                  console.warn('Intelligence category not found:', category, intelligence);
+                  return null;
+                }
+                
+                return (
+                  <div key={category} className={`p-4 rounded-lg ${info.bgColor}`}>
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className={`p-3 rounded-full ${info.color} text-white`}>
+                        {info.icon}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold">{info.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <Badge className={`${info.color} text-white`}>
+                              #{index + 1}
+                            </Badge>
+                            <span className="font-bold text-lg">{intelligence.percentage}%</span>
+                          </div>
+                        </div>
+                        <p className="text-neutral-600 dark:text-neutral-300 text-sm mt-1">
+                          {info.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* All Intelligence Scores */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Profil Kecerdasan Lengkap</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {categoryScores.map((intelligence: any) => {
+                const category = intelligence.category || intelligence.name?.toLowerCase().replace(/\s+/g, '_');
+                const info = intelligenceInfo[category];
+                if (!info) {
+                  console.warn('Intelligence category not found:', category, intelligence);
+                  return null;
+                }
+                
+                return (
+                  <div key={category} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1 rounded ${info.color} text-white`}>
+                          {info.icon}
+                        </div>
+                        <span className="font-medium">{info.name}</span>
+                      </div>
+                      <span className="font-semibold">{intelligence.score}/{intelligence.total} ({intelligence.percentage}%)</span>
+                    </div>
+                    <Progress value={intelligence.percentage} className="h-2" />
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recommendations based on top intelligences */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5" />
+              Rekomendasi Pengembangan
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-neutral-600 dark:text-muted-foreground">
+                Berdasarkan profil kecerdasan dominan Anda, berikut adalah rekomendasi untuk mengoptimalkan potensi:
+              </p>
+              
+              {topIntelligences.slice(0, 2).map((intelligence: any, index: number) => {
+                const category = intelligence.category || intelligence.name?.toLowerCase().replace(/\s+/g, '_');
+                const info = intelligenceInfo[category];
+                if (!info) {
+                  console.warn('Intelligence category not found:', category, intelligence);
+                  return null;
+                }
+
+                const recommendations = getIntelligenceRecommendations(category);
+                
+                return (
+                  <div key={category} className={`p-4 rounded-lg ${info.bgColor}`}>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <div className={`p-2 rounded ${info.color} text-white`}>
+                        {info.icon}
+                      </div>
+                      {info.name} ({intelligence.percentage}%)
+                    </h4>
+                    <ul className="list-disc list-inside text-sm space-y-1 text-neutral-600 dark:text-neutral-300">
+                      {recommendations.map((rec: string, idx: number) => (
+                        <li key={idx}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Professional Recommendation */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Catatan Penting
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
+                <strong>Penting:</strong> Hasil asesmen ini memberikan gambaran umum tentang profil kecerdasan majemuk Anda.
+              </p>
+              <ul className="list-disc list-inside text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                <li>Setiap orang memiliki kombinasi unik dari berbagai jenis kecerdasan</li>
+                <li>Kecerdasan dapat dikembangkan melalui latihan dan pengalaman</li>
+                <li>Gunakan hasil ini sebagai panduan untuk mengoptimalkan cara belajar Anda</li>
+                <li>Konsultasikan dengan ahli pendidikan untuk strategi pengembangan yang tepat</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // Helper function for intelligence-specific recommendations
+  const getIntelligenceRecommendations = (category: string): string[] => {
+    const recommendations: Record<string, string[]> = {
+      'visual_spasial': [
+        'Gunakan mind map dan diagram saat belajar',
+        'Manfaatkan media visual seperti gambar dan video',
+        'Praktikkan aktivitas seni dan desain',
+        'Latih kemampuan navigasi dan orientasi ruang'
+      ],
+      'linguistik': [
+        'Perbanyak membaca dan menulis',
+        'Latih public speaking dan storytelling',
+        'Pelajari bahasa asing',
+        'Ikuti aktivitas debat dan diskusi'
+      ],
+      'logis_matematis': [
+        'Latih kemampuan problem solving',
+        'Pelajari programming dan logika',
+        'Mainkan game strategi dan puzzle',
+        'Praktikkan metode ilmiah dalam berpikir'
+      ],
+      'kinestetik': [
+        'Integrasikan gerakan dalam proses belajar',
+        'Ikuti aktivitas olahraga dan tari',
+        'Praktikkan pembelajaran hands-on',
+        'Gunakan role-play dan simulasi'
+      ],
+      'musik': [
+        'Gunakan lagu untuk mengingat informasi',
+        'Pelajari alat musik',
+        'Ikuti aktivitas bernyanyi atau paduan suara',
+        'Manfaatkan ritme dalam pembelajaran'
+      ],
+      'interpersonal': [
+        'Ikuti kegiatan kelompok dan teamwork',
+        'Praktikkan empati dan komunikasi',
+        'Latih kemampuan leadership',
+        'Terlibat dalam aktivitas sosial dan volunteer'
+      ],
+      'intrapersonal': [
+        'Luangkan waktu untuk refleksi diri',
+        'Latih journaling dan self-assessment',
+        'Praktikkan mindfulness dan meditasi',
+        'Tentukan tujuan personal yang jelas'
+      ]
+    };
+    
+    return recommendations[category] || [];
+  };
+
   const renderSensoryProfileResults = (results: any) => {
     if (!results || !results.sectionScores) {
       return (
@@ -468,6 +758,8 @@ export default function AssessmentResults() {
 
         {userAssessment.assessment.type === 'learning' 
           ? renderLearningStyleResults(userAssessment.results)
+          : userAssessment.assessment.type === 'intelligence' 
+          ? renderMultipleIntelligenceResults(userAssessment.results)
           : renderSensoryProfileResults(userAssessment.results)
         }
 
