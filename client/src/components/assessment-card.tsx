@@ -1,4 +1,5 @@
-import { Brain, GraduationCap, Lightbulb, Clock, Users, Play } from "lucide-react";
+import { useState } from "react";
+import { Brain, GraduationCap, Lightbulb, Clock, Users, Play, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -7,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import SampleQuestions, { SampleResults } from "@/components/sample-questions";
 import type { Assessment } from "@shared/schema";
 
 interface AssessmentCardProps {
@@ -19,6 +21,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
   const { addItem, items } = useCart();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const [showSample, setShowSample] = useState(false);
+  const [showSampleResults, setShowSampleResults] = useState(false);
 
   const isInCart = items.some(item => item.id === assessment.id);
   const isFree = parseFloat(assessment.price) === 0;
@@ -94,6 +98,34 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
       });
     },
   });
+
+  const handleTrySample = () => {
+    setShowSample(true);
+  };
+
+  const handleSampleComplete = () => {
+    setShowSample(false);
+    setShowSampleResults(true);
+  };
+
+  const handleCloseSample = () => {
+    setShowSample(false);
+    setShowSampleResults(false);
+  };
+
+  const handleSignupFromSample = () => {
+    setShowSampleResults(false);
+    setLocation("/register");
+  };
+
+  const handleLoginFromSample = () => {
+    setShowSampleResults(false);
+    setLocation("/login");
+  };
+
+  const getAssessmentType = (): 'sensory' | 'learning' | 'intelligence' => {
+    return assessment.type as 'sensory' | 'learning' | 'intelligence';
+  };
 
   const handleAddToCart = () => {
     if (isInCart) {
@@ -181,6 +213,20 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
           </div>
         )}
         
+        {/* Try Sample Button - Always Visible */}
+        <div className="mb-4">
+          <Button
+            onClick={handleTrySample}
+            variant="outline"
+            size="sm"
+            className="w-full px-4 py-2 rounded-lg font-medium transition-all duration-200 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+            data-testid={`button-try-sample-${assessment.id}`}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Coba Sample Gratis
+          </Button>
+        </div>
+
         <div className="flex items-center justify-between">
           <div className="flex items-baseline text-primary">
             {parseFloat(assessment.price) === 0 ? (
@@ -240,6 +286,27 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
           )}
         </div>
       </CardContent>
+
+      {/* Sample Questions Modal */}
+      {showSample && (
+        <SampleQuestions
+          assessmentType={getAssessmentType()}
+          assessmentName={assessment.name}
+          onComplete={handleSampleComplete}
+          onClose={handleCloseSample}
+        />
+      )}
+
+      {/* Sample Results Modal */}
+      {showSampleResults && (
+        <SampleResults
+          assessmentType={getAssessmentType()}
+          assessmentName={assessment.name}
+          onSignup={handleSignupFromSample}
+          onLogin={handleLoginFromSample}
+          onClose={handleCloseSample}
+        />
+      )}
     </Card>
   );
 }
