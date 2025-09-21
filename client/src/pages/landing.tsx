@@ -34,10 +34,10 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
       <Header />
-      {/* Hero Section */}
+      {/* Hero Section - Assessments as Primary Focus */}
       <section className="gradient-hero py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
+          <div className="text-center mb-16">
             <div className="flex justify-center mb-8">
               <img 
                 src={logoPath} 
@@ -48,8 +48,12 @@ export default function Landing() {
             <h1 className="text-4xl md:text-6xl font-bold dark:text-foreground mb-6 text-[#248f59]">
               Platform <span className="text-primary">Asesmen</span> Psikologi Profesional
             </h1>
-            <p className="text-xl text-neutral-500 dark:text-muted-foreground mb-8 max-w-3xl mx-auto">Akses asesmen psikologi yang telah divalidasi, termasuk Profil Sensori dan Inventori Gaya Belajar. Dengan model sistem pembayaran per-tes yang aman.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <p className="text-xl text-neutral-500 dark:text-muted-foreground mb-8 max-w-3xl mx-auto">
+              Mulai perjalanan self-discovery Anda dengan asesmen psikologi teruji. Coba gratis beberapa pertanyaan sebelum mendaftar!
+            </p>
+            
+            {/* Authentication Options */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-12">
               <Button 
                 size="lg" 
                 className="px-8 py-4 text-lg font-semibold bg-green-600 hover:bg-green-700"
@@ -58,25 +62,48 @@ export default function Landing() {
                 <UserPlus className="w-5 h-5 mr-2" />
                 Daftar Sekarang
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="px-8 py-4 text-lg font-semibold border-2"
-                onClick={handleLearnMore}
-              >
-                Pelajari Lebih Lanjut
-              </Button>
-            </div>
-            
-            {/* Authentication Options */}
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
-              <span className="text-sm text-neutral-500 dark:text-muted-foreground">Sudah punya akun?</span>
+              <span className="text-sm text-neutral-500 dark:text-muted-foreground">atau</span>
               <Button variant="link" onClick={handleLogin} className="text-green-600 hover:text-green-700">
                 <LogIn className="w-4 h-4 mr-2" />
-                Masuk di sini
+                Masuk jika sudah punya akun
               </Button>
             </div>
           </div>
+
+          {/* Featured Assessments as Hero */}
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
+              Coba Asesmen Kami Sekarang!
+            </h2>
+            <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-2xl mx-auto">
+              Pilih asesmen di bawah dan coba beberapa pertanyaan sample untuk merasakan pengalaman sebelum mendaftar
+            </p>
+          </div>
+          
+          {isLoading ? (
+            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              {[1, 2].map((i) => (
+                <Card key={i} className="assessment-card-hover">
+                  <div className="h-48 bg-muted animate-pulse" />
+                  <CardContent className="p-8">
+                    <div className="h-6 bg-muted rounded mb-4 animate-pulse" />
+                    <div className="h-4 bg-muted rounded mb-2 animate-pulse" />
+                    <div className="h-4 bg-muted rounded mb-6 animate-pulse" />
+                    <div className="flex justify-between items-center">
+                      <div className="h-8 w-20 bg-muted rounded animate-pulse" />
+                      <div className="h-10 w-32 bg-muted rounded animate-pulse" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              {assessments?.map((assessment) => (
+                <AssessmentCard key={assessment.id} assessment={assessment} showAddToCart={true} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
       {/* About Us Section with Video */}
@@ -121,42 +148,6 @@ export default function Landing() {
               </Button>
             </div>
           </div>
-        </div>
-      </section>
-      {/* Featured Assessments */}
-      <section id="assessments" className="py-20 bg-neutral-50 dark:bg-muted/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
-              Asesmen yang Tersedia
-            </h2>
-            <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-2xl mx-auto">Pilih dari alat asesmen psikologi yang telah divalidasi berikut ini</p>
-          </div>
-          
-          {isLoading ? (
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {[1, 2].map((i) => (
-                <Card key={i} className="assessment-card-hover">
-                  <div className="h-48 bg-muted animate-pulse" />
-                  <CardContent className="p-8">
-                    <div className="h-6 bg-muted rounded mb-4 animate-pulse" />
-                    <div className="h-4 bg-muted rounded mb-2 animate-pulse" />
-                    <div className="h-4 bg-muted rounded mb-6 animate-pulse" />
-                    <div className="flex justify-between items-center">
-                      <div className="h-8 w-20 bg-muted rounded animate-pulse" />
-                      <div className="h-10 w-32 bg-muted rounded animate-pulse" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {assessments?.map((assessment) => (
-                <AssessmentCard key={assessment.id} assessment={assessment} showAddToCart={true} />
-              ))}
-            </div>
-          )}
         </div>
       </section>
       {/* How It Works */}
