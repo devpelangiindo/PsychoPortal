@@ -1679,6 +1679,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (userAssessment.assessment.type === 'learning') {
         // Calculate learning style results
         processedResults = calculateLearningStyleResults(responses, participantInfo);
+      } else if (userAssessment.assessment.type === 'intelligence') {
+        // Calculate multiple intelligence results
+        processedResults = calculateMultipleIntelligenceResults(responses, participantInfo);
       } else {
         // Default results structure
         processedResults = {

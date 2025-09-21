@@ -469,9 +469,20 @@ export default function MultipleIntelligence() {
     }
   }, [user, setLocation, toast]);
 
+  // Restore saved responses when userAssessment data is loaded
+  useEffect(() => {
+    if (userAssessment?.results?.responses) {
+      setAnswers(userAssessment.results.responses);
+      // Also restore the current page if saved
+      if (userAssessment.results.currentPage !== undefined) {
+        setCurrentQuestionIndex(userAssessment.results.currentPage);
+      }
+    }
+  }, [userAssessment]);
+
   const submitAssessmentMutation = useMutation({
-    mutationFn: async (results: any) => {
-      return apiRequest("POST", `/api/user-assessments/${userAssessmentId}/complete`, { results });
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", `/api/user-assessments/${userAssessmentId}/complete`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-assessments'] });
@@ -572,10 +583,13 @@ export default function MultipleIntelligence() {
     }
 
     setIsSubmitting(true);
-    const results = calculateResults();
     
     try {
-      await submitAssessmentMutation.mutateAsync(results);
+      // Send raw responses to backend - backend will calculate results
+      await submitAssessmentMutation.mutateAsync({
+        responses: answers,
+        participantInfo: {}
+      });
     } finally {
       setIsSubmitting(false);
     }
