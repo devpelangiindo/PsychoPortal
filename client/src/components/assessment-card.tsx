@@ -1,4 +1,4 @@
-import { Brain, GraduationCap, Clock, Users, Play } from "lucide-react";
+import { Brain, GraduationCap, Lightbulb, Clock, Users, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
   const getIcon = (type: string) => {
     if (type === 'sensory') {
       return <Brain className="w-12 h-12 text-secondary" />;
+    } else if (type === 'intelligence') {
+      return <Lightbulb className="w-12 h-12 text-purple-600" />;
     }
     return <GraduationCap className="w-12 h-12 text-accent" />;
   };
@@ -33,6 +35,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
   const getGradientClass = (type: string) => {
     if (type === 'sensory') {
       return 'bg-secondary-light';
+    } else if (type === 'intelligence') {
+      return 'bg-purple-100 dark:bg-purple-900/20';
     }
     return 'bg-accent-light';
   };
@@ -40,6 +44,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
   const getIconLabel = (type: string) => {
     if (type === 'sensory') {
       return 'Pemrosesan Sensoris';
+    } else if (type === 'intelligence') {
+      return 'Kecerdasan Majemuk';
     }
     return 'Preferensi Belajar';
   };
@@ -73,6 +79,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
         setLocation(`/sensory-profile/${data.userAssessmentId}`);
       } else if (assessment.type === 'learning') {
         setLocation(`/learning-style/${data.userAssessmentId}`);
+      } else if (assessment.type === 'intelligence') {
+        setLocation(`/multiple-intelligence/${data.userAssessmentId}`);
       } else {
         // Fallback to assessment detail page
         setLocation(`/assessment/${assessment.id}`);
