@@ -238,8 +238,9 @@ function calculateMultipleIntelligenceResults(responses: any, participantInfo: a
       Object.entries(scoresByCategory).map(([cat, data]) => [cat, data.percentage])
     ),
     ranking,
-    profilKecerdasanLengkap,
+    categoryScores: ranking, // For PDF generation compatibility
     dominantIntelligences: ranking.slice(0, 3), // Top 3
+    profilKecerdasanLengkap,
     completedAt: new Date().toISOString()
   };
 }
