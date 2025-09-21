@@ -2145,7 +2145,7 @@ async function initializeAssessments() {
       // Create default assessments
       await storage.createAssessment({
         name: "Asesmen Profil Sensori",
-        description: "Evaluasi komprehensif pola dan preferensi pemrosesan sensoris. Mengidentifikasi ambang batas sensoris individu dan respons perilaku di berbagai sistem sensoris.",
+        description: "Tes pola respon anak dan dewasa terhadap rangsangan sensorik, yang berkaitan dengan cara belajar dan cara hidup. Follow-up bersama psikolog klinis ternama bersama tim.",
         price: "400000",
         duration: "30-45 menit",
         ageRange: "Usia 3-65+",
@@ -2155,7 +2155,7 @@ async function initializeAssessments() {
 
       await storage.createAssessment({
         name: "Inventori Gaya Belajar",
-        description: "Mengidentifikasi preferensi belajar individu dan pendekatan pendidikan yang optimal. Menilai modalitas belajar visual, auditori, kinestetik, dan membaca/menulis.",
+        description: "Mengenali cara belajar pribadi dan pendekatan pendidikan yang optimal. Mengukur moda belajar visual, auditori, kinestetik, dan baca/tulis.",
         price: "0.00",
         duration: "20-30 menit",
         ageRange: "Usia 12+",
