@@ -597,13 +597,29 @@ export default function MultipleIntelligence() {
 
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      
+      // Immediately save progress when navigating - no debouncing for navigation
+      saveProgressMutation.mutate({
+        responses: answers,
+        currentPage: nextIndex,
+        participantInfo: {}
+      });
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+      const prevIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(prevIndex);
+      
+      // Immediately save progress when navigating - no debouncing for navigation
+      saveProgressMutation.mutate({
+        responses: answers,
+        currentPage: prevIndex,
+        participantInfo: {}
+      });
     }
   };
 
