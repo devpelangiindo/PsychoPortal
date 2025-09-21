@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Brain, GraduationCap, Lightbulb, Clock, Users, Play, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -287,25 +288,27 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
         </div>
       </CardContent>
 
-      {/* Sample Questions Modal */}
-      {showSample && (
+      {/* Sample Questions Modal - Rendered as Portal for full-screen */}
+      {showSample && createPortal(
         <SampleQuestions
           assessmentType={getAssessmentType()}
           assessmentName={assessment.name}
           onComplete={handleSampleComplete}
           onClose={handleCloseSample}
-        />
+        />,
+        document.body
       )}
 
-      {/* Sample Results Modal */}
-      {showSampleResults && (
+      {/* Sample Results Modal - Rendered as Portal for full-screen */}
+      {showSampleResults && createPortal(
         <SampleResults
           assessmentType={getAssessmentType()}
           assessmentName={assessment.name}
           onSignup={handleSignupFromSample}
           onLogin={handleLoginFromSample}
           onClose={handleCloseSample}
-        />
+        />,
+        document.body
       )}
     </Card>
   );
