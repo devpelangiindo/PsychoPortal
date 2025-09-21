@@ -341,7 +341,9 @@ export default function Dashboard() {
                               ? `/sensory-profile/${userAssessment.id}`
                               : userAssessment.assessment.type === 'learning'
                                 ? `/learning-style/${userAssessment.id}`
-                                : `/assessment/${userAssessment.id}`
+                                : userAssessment.assessment.type === 'intelligence'
+                                  ? `/multiple-intelligence/${userAssessment.id}`
+                                  : `/assessment/${userAssessment.id}`
                           }>
                             <Button size="sm">Mulai Tes</Button>
                           </Link>
@@ -352,7 +354,9 @@ export default function Dashboard() {
                               ? `/sensory-profile/${userAssessment.id}`
                               : userAssessment.assessment.type === 'learning'
                                 ? `/learning-style/${userAssessment.id}`
-                                : `/assessment/${userAssessment.id}`
+                                : userAssessment.assessment.type === 'intelligence'
+                                  ? `/multiple-intelligence/${userAssessment.id}`
+                                  : `/assessment/${userAssessment.id}`
                           }>
                             <Button size="sm" variant="outline">Lanjutkan</Button>
                           </Link>
