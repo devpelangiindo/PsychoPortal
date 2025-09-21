@@ -516,11 +516,11 @@ export default function MultipleIntelligence() {
     };
     setAnswers(newAnswers);
     
-    // Auto-save progress
+    // Auto-save progress with proper backend structure
     autoSaveProgress({
-      answers: newAnswers,
-      currentQuestion: currentQuestionIndex + 1,
-      totalQuestions: questions.length
+      responses: newAnswers,
+      currentPage: currentQuestionIndex,
+      participantInfo: {}
     });
   };
 
@@ -607,12 +607,12 @@ export default function MultipleIntelligence() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (userAssessmentId && Object.keys(answers).length > 0) {
-        // Synchronous save when leaving page
+        // Synchronous save when leaving page with proper backend structure
         navigator.sendBeacon(`/api/user-assessments/${userAssessmentId}/save-progress`, 
           JSON.stringify({
-            answers,
-            currentQuestion: currentQuestionIndex + 1,
-            totalQuestions: questions.length
+            responses: answers,
+            currentPage: currentQuestionIndex,
+            participantInfo: {}
           })
         );
       }
