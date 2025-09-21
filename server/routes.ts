@@ -149,6 +149,101 @@ function calculateLearningStyleResults(responses: any, participantInfo: any) {
   };
 }
 
+function calculateMultipleIntelligenceResults(responses: any, participantInfo: any) {
+  // Define the 7 intelligence categories with question mappings
+  const categoryMapping = {
+    'visual_spasial': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    'linguistik': [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    'logis_matematis': [21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+    'kinestetik': [31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
+    'musik': [41, 42, 43, 44, 45, 46, 47, 48, 49, 50],
+    'interpersonal': [51, 52, 53, 54, 55, 56, 57, 58, 59, 60],
+    'intrapersonal': [61, 62, 63, 64, 65, 66, 67, 68, 69, 70]
+  };
+
+  const categoryNames = {
+    'visual_spasial': 'Visual Spasial',
+    'linguistik': 'Linguistik', 
+    'logis_matematis': 'Logis Matematis',
+    'kinestetik': 'Kinestetik',
+    'musik': 'Musik',
+    'interpersonal': 'Interpersonal',
+    'intrapersonal': 'Intrapersonal'
+  };
+
+  // Validate responses parameter
+  if (!responses || typeof responses !== 'object') {
+    console.error('Invalid responses parameter:', responses);
+    return {
+      responses: responses || {},
+      participantInfo: participantInfo || {},
+      scoresByCategory: {},
+      percentages: {},
+      ranking: [],
+      profilKecerdasanLengkap: [],
+      completedAt: new Date().toISOString()
+    };
+  }
+
+  // Calculate scores for each category
+  const scoresByCategory: Record<string, { score: number; total: number; percentage: number }> = {};
+  
+  for (const [category, questionIds] of Object.entries(categoryMapping)) {
+    let score = 0;
+    let total = questionIds.length;
+    
+    // Count "true" responses (answered "Ya") for this category
+    for (const questionId of questionIds) {
+      if (responses[questionId.toString()] === true) {
+        score += 1;
+      }
+    }
+    
+    const percentage = Math.round((score / total) * 100);
+    
+    scoresByCategory[category] = {
+      score,
+      total,
+      percentage
+    };
+  }
+
+  // Create ranking (highest to lowest percentage)
+  const ranking = Object.entries(scoresByCategory)
+    .map(([category, data]) => ({
+      category,
+      name: categoryNames[category as keyof typeof categoryNames],
+      score: data.score,
+      total: data.total,
+      percentage: data.percentage
+    }))
+    .sort((a, b) => b.percentage - a.percentage);
+
+  // Create profil kecerdasan lengkap for PDF generation
+  const profilKecerdasanLengkap = ranking.map((item, index) => ({
+    dimensi: item.name,
+    skor: item.score,
+    total: item.total,
+    persentase: item.percentage,
+    ranking: index + 1,
+    kategori: item.percentage >= 70 ? 'Tinggi' : item.percentage >= 40 ? 'Sedang' : 'Rendah',
+    rekomendasi: getIntelligenceRecommendationsForPDF(item.category)
+  }));
+
+  return {
+    responses,
+    participantInfo: participantInfo || {},
+    scoresByCategory,
+    percentages: Object.fromEntries(
+      Object.entries(scoresByCategory).map(([cat, data]) => [cat, data.percentage])
+    ),
+    ranking,
+    profilKecerdasanLengkap,
+    dominantIntelligences: ranking.slice(0, 3), // Top 3
+    completedAt: new Date().toISOString()
+  };
+}
+
 function determineSensoryPatterns(sectionScores: any) {
   const patterns: any = {};
   
