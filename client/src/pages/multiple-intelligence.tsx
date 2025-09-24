@@ -447,9 +447,9 @@ export default function MultipleIntelligence() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const saveProgressDebounced = useRef<NodeJS.Timeout>();
 
-  const { data: userAssessment, isLoading } = useQuery({
-    queryKey: ['/api/user-assessments', userAssessmentId],
-    enabled: !!userAssessmentId
+  const { data: userAssessment, isLoading } = useQuery<UserAssessmentWithDetails>({
+    queryKey: [`/api/user-assessments/by-id/${userAssessmentId}`],
+    enabled: !!userAssessmentId && !!user
   });
 
   useEffect(() => {
