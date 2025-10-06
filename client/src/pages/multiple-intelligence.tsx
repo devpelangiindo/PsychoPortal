@@ -761,6 +761,11 @@ export default function MultipleIntelligence() {
                   👑 Admin
                 </span>
               )}
+              {user?.role === 'internal' && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                  🏢 Internal
+                </span>
+              )}
             </div>
             <p className="text-gray-600 dark:text-gray-300">
               Pertanyaan {currentQuestionIndex + 1} dari {questions.length}

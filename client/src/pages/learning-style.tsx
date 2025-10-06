@@ -548,6 +548,11 @@ export default function LearningStyle() {
                   👑 Admin
                 </span>
               )}
+              {user?.role === 'internal' && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
+                  🏢 Internal
+                </span>
+              )}
             </div>
             <span className="text-sm text-neutral-500 dark:text-muted-foreground">
               Pertanyaan {currentStep + 1} dari {questions.length}
