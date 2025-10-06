@@ -13,7 +13,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import type { UserAssessmentWithDetails } from "@shared/schema";
+import type { UserAssessmentWithDetails, Assessment } from "@shared/schema";
 
 interface Question {
   id: number;
@@ -154,7 +154,7 @@ const questions: Question[] = [
 ];
 
 export default function LearningStyle() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [, params] = useRoute("/learning-style/:assessmentId");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -163,13 +163,66 @@ export default function LearningStyle() {
   const [currentStep, setCurrentStep] = useState(0);
   const [responses, setResponses] = useState<Record<number, 'visual' | 'auditori' | 'kinestetik'>>({});
   const [isStarted, setIsStarted] = useState(false);
+  const [isCreatingAccess, setIsCreatingAccess] = useState(false);
+  const [hasTriedCreate, setHasTriedCreate] = useState(false);
 
   const assessmentId = params?.assessmentId ? parseInt(params.assessmentId) : null;
 
   const { data: userAssessment, isLoading } = useQuery<UserAssessmentWithDetails>({
     queryKey: [`/api/user-assessments/by-id/${assessmentId}`],
     enabled: !!assessmentId && isAuthenticated,
+    retry: false
   });
+
+  const { data: assessments } = useQuery<Assessment[]>({
+    queryKey: ["/api/assessments"],
+    enabled: !!user
+  });
+
+  const createAccessMutation = useMutation({
+    mutationFn: async (assessmentId: number) => {
+      const response = await fetch(`/api/assessments/${assessmentId}/direct-access`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Gagal membuat akses');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data: { userAssessmentId: number }) => {
+      setIsCreatingAccess(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/user-assessments/by-id/${assessmentId}`] });
+      setLocation(`/learning-style/${data.userAssessmentId}`);
+    },
+    onError: (error: any) => {
+      setIsCreatingAccess(false);
+      setHasTriedCreate(true);
+      toast({
+        title: "Gagal Membuat Akses",
+        description: error.message || "Terjadi kesalahan saat membuat akses asesmen.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  useEffect(() => {
+    if (!userAssessment && !isLoading && user && assessments && !hasTriedCreate && !isCreatingAccess) {
+      const learningAssessment = assessments.find(a => a.type === 'learning' && a.name === 'Inventori Gaya Belajar');
+      
+      if (learningAssessment && parseFloat(learningAssessment.price) === 0) {
+        setIsCreatingAccess(true);
+        setHasTriedCreate(true);
+        createAccessMutation.mutate(learningAssessment.id);
+      }
+    }
+  }, [userAssessment, isLoading, user, assessments, hasTriedCreate, isCreatingAccess]);
 
   // Restore progress when assessment loads
   useEffect(() => {
@@ -355,14 +408,16 @@ export default function LearningStyle() {
     startAssessmentMutation.mutate();
   };
 
-  if (isLoading) {
+  if (isLoading || isCreatingAccess) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-background">
         <Header />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="animate-pulse space-y-8">
-            <div className="h-8 bg-muted rounded w-1/3" />
-            <div className="h-64 bg-muted rounded" />
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-neutral-500 dark:text-muted-foreground">
+              {isCreatingAccess ? "Membuat akses asesmen gratis..." : "Memuat asesmen..."}
+            </p>
           </div>
         </div>
         <Footer />
@@ -370,7 +425,7 @@ export default function LearningStyle() {
     );
   }
 
-  if (!userAssessment) {
+  if (!userAssessment && hasTriedCreate) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-background">
         <Header />
@@ -392,7 +447,7 @@ export default function LearningStyle() {
     );
   }
 
-  if (!isStarted && userAssessment.status === 'available') {
+  if (!isStarted && userAssessment?.status === 'available') {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-background">
         <Header />

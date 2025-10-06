@@ -13,7 +13,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import type { UserAssessmentWithDetails } from "@shared/schema";
+import type { UserAssessmentWithDetails, Assessment } from "@shared/schema";
 
 interface Question {
   id: number;
@@ -444,12 +444,20 @@ export default function MultipleIntelligence() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreatingAccess, setIsCreatingAccess] = useState(false);
+  const [hasTriedCreate, setHasTriedCreate] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const saveProgressDebounced = useRef<NodeJS.Timeout>();
 
-  const { data: userAssessment, isLoading } = useQuery<UserAssessmentWithDetails>({
+  const { data: userAssessment, isLoading, error: userAssessmentError } = useQuery<UserAssessmentWithDetails>({
     queryKey: [`/api/user-assessments/by-id/${userAssessmentId}`],
-    enabled: !!userAssessmentId && !!user
+    enabled: !!userAssessmentId && !!user,
+    retry: false
+  });
+
+  const { data: assessments } = useQuery<Assessment[]>({
+    queryKey: ["/api/assessments"],
+    enabled: !!user
   });
 
   useEffect(() => {
@@ -469,13 +477,61 @@ export default function MultipleIntelligence() {
     }
   }, [user, setLocation, toast]);
 
+  const createAccessMutation = useMutation({
+    mutationFn: async (assessmentId: number) => {
+      const response = await fetch(`/api/assessments/${assessmentId}/direct-access`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Gagal membuat akses');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data: { userAssessmentId: number }) => {
+      setIsCreatingAccess(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/user-assessments/by-id/${userAssessmentId}`] });
+      setLocation(`/multiple-intelligence/${data.userAssessmentId}`);
+    },
+    onError: (error: any) => {
+      setIsCreatingAccess(false);
+      setHasTriedCreate(true);
+      toast({
+        title: "Gagal Membuat Akses",
+        description: error.message || "Terjadi kesalahan saat membuat akses asesmen.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  useEffect(() => {
+    if (!userAssessment && !isLoading && user && assessments && !hasTriedCreate && !isCreatingAccess) {
+      const intelligenceAssessment = assessments.find(a => a.type === 'intelligence' && a.name === 'Kecerdasan Majemuk');
+      
+      if (intelligenceAssessment && parseFloat(intelligenceAssessment.price) === 0) {
+        setIsCreatingAccess(true);
+        setHasTriedCreate(true);
+        createAccessMutation.mutate(intelligenceAssessment.id);
+      }
+    }
+  }, [userAssessment, isLoading, user, assessments, hasTriedCreate, isCreatingAccess]);
+
   // Restore saved responses when userAssessment data is loaded
   useEffect(() => {
-    if (userAssessment?.results?.responses) {
-      setAnswers(userAssessment.results.responses);
-      // Also restore the current page if saved
-      if (userAssessment.results.currentPage !== undefined) {
-        setCurrentQuestionIndex(userAssessment.results.currentPage);
+    if (userAssessment?.results) {
+      const results = userAssessment.results as any;
+      if (results.responses) {
+        setAnswers(results.responses);
+        // Also restore the current page if saved
+        if (results.currentPage !== undefined) {
+          setCurrentQuestionIndex(results.currentPage);
+        }
       }
     }
   }, [userAssessment]);
@@ -652,25 +708,27 @@ export default function MultipleIntelligence() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [userAssessmentId, answers, currentQuestionIndex]);
 
-  if (isLoading) {
+  if (isLoading || isCreatingAccess) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600 dark:text-gray-300">Memuat asesmen...</p>
+          <p className="text-lg text-gray-600 dark:text-gray-300">
+            {isCreatingAccess ? "Membuat akses asesmen gratis..." : "Memuat asesmen..."}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (!userAssessment) {
+  if (!userAssessment && hasTriedCreate) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <h3 className="text-lg font-semibold text-red-600 mb-2">Asesmen Tidak Ditemukan</h3>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Asesmen yang Anda cari tidak ditemukan atau Anda tidak memiliki akses.
+              Asesmen ini tidak tersedia atau Anda tidak memiliki akses.
             </p>
             <Button onClick={() => setLocation("/dashboard")}>
               Kembali ke Dashboard
