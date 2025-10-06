@@ -288,8 +288,17 @@ export default function AdminUsers() {
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{user.whatsappNumber || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
-                          {user.role === 'admin' ? 'Admin' : 'Pengguna'}
+                        <Badge 
+                          variant={
+                            user.role === 'admin' 
+                              ? 'destructive' 
+                              : user.role === 'internal'
+                                ? 'default'
+                                : 'secondary'
+                          }
+                          className={user.role === 'internal' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                        >
+                          {user.role === 'admin' ? 'Admin' : user.role === 'internal' ? 'Internal' : 'Pengguna'}
                         </Badge>
                       </TableCell>
                       <TableCell>
