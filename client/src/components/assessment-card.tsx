@@ -27,6 +27,7 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
 
   const isInCart = items.some(item => item.id === assessment.id);
   const isFree = parseFloat(assessment.price) === 0;
+  const isAdmin = user?.role === 'admin';
 
   const getIcon = (type: string) => {
     if (type === 'sensory') {
@@ -73,9 +74,9 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
       
       return response.json();
     },
-    onSuccess: (data: { userAssessmentId: number }) => {
+    onSuccess: (data: { userAssessmentId: number; isAdminAccess?: boolean }) => {
       toast({
-        title: "Akses Gratis Berhasil!",
+        title: data.isAdminAccess ? "Akses Admin Berhasil!" : "Akses Gratis Berhasil!",
         description: `${assessment.name} siap untuk dikerjakan.`,
         variant: "default",
       });
@@ -259,15 +260,25 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
           </div>
           {showAddToCart && (
             <>
-              {isFree ? (
+              {isFree || isAdmin ? (
                 <Button
                   onClick={handleDirectAccess}
                   disabled={directAccessMutation.isPending}
                   size="sm"
-                  className="px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 disabled:opacity-50"
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm ${
+                    isAdmin && !isFree
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-105 disabled:opacity-50'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 disabled:opacity-50'
+                  }`}
+                  data-testid={`button-access-${assessment.id}`}
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  {directAccessMutation.isPending ? "Memproses..." : "Mulai Sekarang"}
+                  {directAccessMutation.isPending 
+                    ? "Memproses..." 
+                    : isAdmin && !isFree 
+                      ? "Akses sebagai Admin" 
+                      : "Mulai Sekarang"
+                  }
                 </Button>
               ) : (
                 <Button
@@ -279,6 +290,7 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
                       ? 'bg-gray-400 text-white cursor-not-allowed' 
                       : 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
                   }`}
+                  data-testid={`button-cart-${assessment.id}`}
                 >
                   {isInCart ? "✓ Di Keranjang" : "+ Keranjang"}
                 </Button>
