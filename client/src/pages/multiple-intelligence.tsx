@@ -752,9 +752,16 @@ export default function MultipleIntelligence() {
         <div ref={scrollRef} className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Asesmen Kecerdasan Majemuk
-            </h1>
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                Asesmen Kecerdasan Majemuk
+              </h1>
+              {user?.role === 'admin' && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                  👑 Admin
+                </span>
+              )}
+            </div>
             <p className="text-gray-600 dark:text-gray-300">
               Pertanyaan {currentQuestionIndex + 1} dari {questions.length}
             </p>

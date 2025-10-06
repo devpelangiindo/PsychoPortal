@@ -539,9 +539,16 @@ export default function LearningStyle() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-neutral-900 dark:text-foreground">
-              Inventori Gaya Belajar
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-foreground">
+                Inventori Gaya Belajar
+              </h1>
+              {user?.role === 'admin' && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                  👑 Admin
+                </span>
+              )}
+            </div>
             <span className="text-sm text-neutral-500 dark:text-muted-foreground">
               Pertanyaan {currentStep + 1} dari {questions.length}
             </span>
