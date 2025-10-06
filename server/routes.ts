@@ -1464,19 +1464,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Direct access for free assessments (bypass payment)
+  // Direct access for free assessments or admin bypass (no payment required)
   app.post('/api/assessments/:assessmentId/direct-access', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const assessmentId = parseInt(req.params.assessmentId);
+      const isAdmin = req.user.role === 'admin';
       
-      // Verify assessment exists and is free
+      // Verify assessment exists
       const assessment = await storage.getAssessment(assessmentId);
       if (!assessment) {
         return res.status(404).json({ message: "Asesmen tidak ditemukan" });
       }
       
-      if (parseFloat(assessment.price) !== 0) {
+      const isFree = parseFloat(assessment.price) === 0;
+      
+      // Allow access if: assessment is free OR user is admin
+      if (!isFree && !isAdmin) {
         return res.status(400).json({ message: "Asesmen ini tidak gratis dan memerlukan pembayaran" });
       }
       
@@ -1489,40 +1493,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // For free assessments, we need to create a "virtual" order to satisfy the schema
-      // Create a free order first
-      const freeOrder = await storage.createOrder({
+      // Create order (free or admin bypass)
+      const order = await storage.createOrder({
         userId,
-        totalAmount: '0.00',
+        totalAmount: isFree ? '0.00' : assessment.price,
         status: 'completed'
       });
       
-      // Create order item for the free assessment
+      // Create order item
       await storage.createOrderItem({
-        orderId: freeOrder.id,
+        orderId: order.id,
         assessmentId,
-        price: '0.00'
+        price: isFree ? '0.00' : assessment.price
       });
       
-      // Create user assessment with the free order
+      // Create user assessment
       const userAssessmentData = {
         userId,
         assessmentId,
-        orderId: freeOrder.id,
+        orderId: order.id,
         status: 'purchased' as const
       };
       
-      console.log(`🎁 Creating free direct access for user ${userId}, assessment ${assessmentId}`);
+      const accessType = isAdmin && !isFree ? 'admin access' : 'free access';
+      console.log(`🎁 Creating ${accessType} for user ${userId}, assessment ${assessmentId}`);
       const userAssessmentId = await storage.createUserAssessment(userAssessmentData);
       
       res.json({ 
-        message: "Akses gratis berhasil dibuat",
-        userAssessmentId
+        message: isAdmin && !isFree ? "Akses admin berhasil dibuat" : "Akses gratis berhasil dibuat",
+        userAssessmentId,
+        isAdminAccess: isAdmin && !isFree
       });
       
     } catch (error) {
-      console.error("Error creating direct access for free assessment:", error);
-      res.status(500).json({ message: "Gagal membuat akses gratis" });
+      console.error("Error creating direct access:", error);
+      res.status(500).json({ message: "Gagal membuat akses" });
     }
   });
 
