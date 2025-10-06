@@ -384,9 +384,10 @@ export default function AdminUsers() {
                   <FormItem>
                     <FormLabel>Role</FormLabel>
                     <FormControl>
-                      <select {...field} className="w-full border border-gray-300 rounded-md px-3 py-2">
+                      <select {...field} className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-md px-3 py-2">
                         <option value="user">Pengguna</option>
                         <option value="admin">Admin</option>
+                        <option value="internal">Internal</option>
                       </select>
                     </FormControl>
                     <FormMessage />
