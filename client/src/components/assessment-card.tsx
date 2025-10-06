@@ -28,6 +28,7 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
   const isInCart = items.some(item => item.id === assessment.id);
   const isFree = parseFloat(assessment.price) === 0;
   const isAdmin = user?.role === 'admin';
+  const isInternal = user?.role === 'internal';
 
   const getIcon = (type: string) => {
     if (type === 'sensory') {
@@ -74,9 +75,13 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
       
       return response.json();
     },
-    onSuccess: (data: { userAssessmentId: number; isAdminAccess?: boolean }) => {
+    onSuccess: (data: { userAssessmentId: number; isAdminAccess?: boolean; isInternalAccess?: boolean }) => {
       toast({
-        title: data.isAdminAccess ? "Akses Admin Berhasil!" : "Akses Gratis Berhasil!",
+        title: data.isAdminAccess 
+          ? "Akses Admin Berhasil!" 
+          : data.isInternalAccess 
+            ? "Akses Internal Berhasil!"
+            : "Akses Gratis Berhasil!",
         description: `${assessment.name} siap untuk dikerjakan.`,
         variant: "default",
       });
@@ -260,13 +265,13 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
           </div>
           {showAddToCart && (
             <>
-              {isFree || isAdmin ? (
+              {isFree || isAdmin || isInternal ? (
                 <Button
                   onClick={handleDirectAccess}
                   disabled={directAccessMutation.isPending}
                   size="sm"
                   className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm ${
-                    isAdmin && !isFree
+                    (isAdmin || isInternal) && !isFree
                       ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-105 disabled:opacity-50'
                       : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 disabled:opacity-50'
                   }`}
@@ -275,8 +280,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
                   <Play className="w-4 h-4 mr-2" />
                   {directAccessMutation.isPending 
                     ? "Memproses..." 
-                    : isAdmin && !isFree 
-                      ? "Akses sebagai Admin" 
+                    : (isAdmin || isInternal) && !isFree 
+                      ? (isAdmin ? "Akses sebagai Admin" : "Akses Internal")
                       : "Mulai Sekarang"
                   }
                 </Button>
