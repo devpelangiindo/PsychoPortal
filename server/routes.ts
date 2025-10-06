@@ -1470,6 +1470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const assessmentId = parseInt(req.params.assessmentId);
       const isAdmin = req.user.role === 'admin';
+      const isInternal = req.user.role === 'internal';
       
       // Verify assessment exists
       const assessment = await storage.getAssessment(assessmentId);
@@ -1479,8 +1480,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const isFree = parseFloat(assessment.price) === 0;
       
-      // Allow access if: assessment is free OR user is admin
-      if (!isFree && !isAdmin) {
+      // Allow access if: assessment is free OR user is admin OR user is internal
+      if (!isFree && !isAdmin && !isInternal) {
         return res.status(400).json({ message: "Asesmen ini tidak gratis dan memerlukan pembayaran" });
       }
       
@@ -1515,14 +1516,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'purchased' as const
       };
       
-      const accessType = isAdmin && !isFree ? 'admin access' : 'free access';
+      const accessType = (isAdmin || isInternal) && !isFree 
+        ? (isAdmin ? 'admin access' : 'internal access')
+        : 'free access';
       console.log(`🎁 Creating ${accessType} for user ${userId}, assessment ${assessmentId}`);
       const userAssessmentId = await storage.createUserAssessment(userAssessmentData);
       
       res.json({ 
-        message: isAdmin && !isFree ? "Akses admin berhasil dibuat" : "Akses gratis berhasil dibuat",
+        message: (isAdmin || isInternal) && !isFree 
+          ? (isAdmin ? "Akses admin berhasil dibuat" : "Akses internal berhasil dibuat")
+          : "Akses gratis berhasil dibuat",
         userAssessmentId,
-        isAdminAccess: isAdmin && !isFree
+        isAdminAccess: isAdmin && !isFree,
+        isInternalAccess: isInternal && !isFree
       });
       
     } catch (error) {
