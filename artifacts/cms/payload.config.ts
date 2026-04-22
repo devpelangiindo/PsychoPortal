@@ -26,6 +26,12 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    components: {
+      graphics: {
+        Logo: '/src/components/AdminLogo#AdminLogo',
+        Icon: '/src/components/AdminLogo#AdminIcon',
+      },
+    },
     meta: {
       titleSuffix: '— pi-psychology.com CMS',
       description: 'Content Management System for Rumah Psikologi Pelangi Indonesia',
@@ -40,7 +46,11 @@ export default buildConfig({
     schemaName: 'cms',
   }),
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || 'pi-psychology-cms-secret-change-in-production',
+  secret: process.env.PAYLOAD_SECRET || (
+    process.env.NODE_ENV === 'production'
+      ? undefined
+      : 'dev-only-insecure-fallback'
+  ) as string,
   serverURL,
   routes: {
     admin: '/',

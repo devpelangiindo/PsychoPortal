@@ -1,0 +1,68 @@
+/* Rumah Psikologi Pelangi Indonesia – Payload Admin Branding */
+
+:root {
+  /* Green primary palette matching pi-psychology.com brand */
+  --theme-success-100: #e6f4ea;
+  --theme-success-150: #c8e6ce;
+  --theme-success-200: #a3d5ac;
+  --theme-success-250: #72bc7e;
+  --theme-success-300: #4caf50;
+  --theme-success-350: #3d9142;
+  --theme-success-400: #2e7d32;
+  --theme-success-450: #1b5e20;
+  --theme-success-500: #1b5e20;
+  --theme-success-550: #14461a;
+
+  /* Override brand accent to green */
+  --theme-elevation-0: #ffffff;
+  --theme-elevation-50: #f7faf7;
+  --theme-elevation-100: #f0f7f0;
+  --theme-elevation-150: #e8f5e8;
+  --theme-elevation-200: #dceadc;
+  --theme-elevation-250: #cce0cc;
+  --theme-elevation-300: #b8d4b8;
+  --theme-elevation-350: #9fbf9f;
+  --theme-elevation-400: #82a882;
+  --theme-elevation-450: #638f63;
+  --theme-elevation-500: #4a7a4a;
+  --theme-elevation-550: #336533;
+  --theme-elevation-600: #1e4f1e;
+  --theme-elevation-650: #0f3a0f;
+  --theme-elevation-700: #051e05;
+  --theme-elevation-750: #020e02;
+  --theme-elevation-800: #010701;
+  --theme-elevation-850: #000400;
+  --theme-elevation-900: #000200;
+  --theme-elevation-950: #000100;
+  --theme-elevation-1000: #000000;
+}
+
+/* Brand green for primary buttons, links, and accents */
+.btn--style-primary,
+a.btn--style-primary {
+  background-color: #2e7d32 !important;
+  border-color: #2e7d32 !important;
+}
+
+.btn--style-primary:hover,
+a.btn--style-primary:hover {
+  background-color: #1b5e20 !important;
+  border-color: #1b5e20 !important;
+}
+
+/* Header and navigation accent */
+.nav__header {
+  border-color: #4caf50 !important;
+}
+
+/* Organization name displayed in admin */
+.nav__header::before {
+  content: 'Rumah Psikologi Pelangi Indonesia';
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #4caf50;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.5rem 1rem 0;
+}
