@@ -2383,6 +2383,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // CMS Services endpoints - proxy to Payload CMS
+  const getCmsBaseUrl = () => {
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    }
+    return process.env.PAYLOAD_PUBLIC_SERVER_URL || 'http://localhost:3000';
+  };
+
+  app.get('/api/cms/services', async (req, res) => {
+    try {
+      const baseUrl = getCmsBaseUrl();
+      const url = `${baseUrl}/admin/api/services?where[status][equals]=active&sort=orderIndex&limit=100&depth=1`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(response.status).json({ message: 'Failed to fetch services from CMS' });
+      }
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching CMS services:', error);
+      res.status(500).json({ message: 'Failed to fetch services' });
+    }
+  });
+
+  app.get('/api/cms/services/:slug', async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const baseUrl = getCmsBaseUrl();
+      const url = `${baseUrl}/admin/api/services?where[slug][equals]=${encodeURIComponent(slug)}&where[status][equals]=active&depth=1`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(response.status).json({ message: 'Failed to fetch service from CMS' });
+      }
+      const data = await response.json();
+      if (!data.docs || data.docs.length === 0) {
+        return res.status(404).json({ message: 'Service not found' });
+      }
+      res.json(data.docs[0]);
+    } catch (error) {
+      console.error('Error fetching CMS service by slug:', error);
+      res.status(500).json({ message: 'Failed to fetch service' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
