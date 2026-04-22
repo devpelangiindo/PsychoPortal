@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { lexicalHTML } from '@payloadcms/richtext-lexical'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -31,6 +32,7 @@ export const Pages: CollectionConfig = {
       type: 'richText',
       label: 'Konten',
     },
+    lexicalHTML('content', { name: 'contentHtml' }),
     {
       name: 'excerpt',
       type: 'textarea',

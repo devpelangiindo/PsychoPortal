@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { lexicalHTML } from '@payloadcms/richtext-lexical'
 
 export const TeamMembers: CollectionConfig = {
   slug: 'team-members',
@@ -36,6 +37,7 @@ export const TeamMembers: CollectionConfig = {
       type: 'richText',
       label: 'Biografi',
     },
+    lexicalHTML('bio', { name: 'bioHtml' }),
     {
       name: 'email',
       type: 'email',

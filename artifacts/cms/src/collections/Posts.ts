@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { lexicalHTML } from '@payloadcms/richtext-lexical'
 
 export const Posts: CollectionConfig = {
   slug: 'posts',
@@ -28,6 +29,7 @@ export const Posts: CollectionConfig = {
       type: 'richText',
       label: 'Konten Artikel',
     },
+    lexicalHTML('content', { name: 'contentHtml' }),
     {
       name: 'excerpt',
       type: 'textarea',

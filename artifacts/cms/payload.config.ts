@@ -2,7 +2,26 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { buildConfig } from 'payload'
 import { postgresAdapter } from '@payloadcms/db-postgres'
-import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import {
+  lexicalEditor,
+  HeadingFeature,
+  BoldFeature,
+  ItalicFeature,
+  UnderlineFeature,
+  StrikethroughFeature,
+  OrderedListFeature,
+  UnorderedListFeature,
+  LinkFeature,
+  BlockquoteFeature,
+  ParagraphFeature,
+  FixedToolbarFeature,
+  InlineToolbarFeature,
+  HTMLConverterFeature,
+  HorizontalRuleFeature,
+  IndentFeature,
+  AlignFeature,
+  UploadFeature,
+} from '@payloadcms/richtext-lexical'
 import sharp from 'sharp'
 
 import { Users } from './src/collections/Users'
@@ -19,6 +38,26 @@ const serverURL = process.env.PAYLOAD_PUBLIC_SERVER_URL ||
   (process.env.REPLIT_DEV_DOMAIN
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : `http://localhost:${process.env.PORT || 23740}`)
+
+export const defaultEditorFeatures = [
+  HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
+  ParagraphFeature(),
+  BoldFeature(),
+  ItalicFeature(),
+  UnderlineFeature(),
+  StrikethroughFeature(),
+  OrderedListFeature(),
+  UnorderedListFeature(),
+  LinkFeature({}),
+  BlockquoteFeature(),
+  HorizontalRuleFeature(),
+  IndentFeature(),
+  AlignFeature(),
+  UploadFeature({ collections: { media: { fields: [] } } }),
+  FixedToolbarFeature(),
+  InlineToolbarFeature(),
+  HTMLConverterFeature({}),
+]
 
 export default buildConfig({
   admin: {
@@ -45,7 +84,9 @@ export default buildConfig({
     },
     schemaName: 'cms',
   }),
-  editor: lexicalEditor(),
+  editor: lexicalEditor({
+    features: defaultEditorFeatures,
+  }),
   secret: process.env.PAYLOAD_SECRET || (
     process.env.NODE_ENV === 'production'
       ? undefined

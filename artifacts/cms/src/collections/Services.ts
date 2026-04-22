@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { lexicalHTML } from '@payloadcms/richtext-lexical'
 
 export const Services: CollectionConfig = {
   slug: 'services',
@@ -28,7 +29,7 @@ export const Services: CollectionConfig = {
       type: 'textarea',
       label: 'Deskripsi Singkat',
       admin: {
-        description: 'Shown on the services listing page',
+        description: 'Ditampilkan di halaman daftar layanan (teks singkat, tanpa format)',
       },
     },
     {
@@ -36,6 +37,7 @@ export const Services: CollectionConfig = {
       type: 'richText',
       label: 'Deskripsi Lengkap',
     },
+    lexicalHTML('description', { name: 'descriptionHtml' }),
     {
       name: 'featuredImage',
       type: 'upload',
