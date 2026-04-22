@@ -28,6 +28,7 @@ import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailed from "@/pages/payment-failed";
 import PaymentReturn from "@/pages/payment-return";
 import AutoRedirect from "@/pages/auto-redirect";
+import Kontak from "@/pages/kontak";
 
 import NotFound from "@/pages/not-found";
 
@@ -41,6 +42,7 @@ function Router() {
       
       {/* Public routes - always available */}
       <Route path="/assessments" component={Assessments} />
+      <Route path="/kontak" component={Kontak} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/forgot-password" component={ForgotPassword} />

@@ -995,6 +995,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     throw error;
   }
 
+  // Contact form endpoint - public, no auth required
+  app.post('/api/contact', async (req: any, res: any) => {
+    try {
+      const contactSchema = z.object({
+        name: z.string().min(2),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        subject: z.string().min(3),
+        message: z.string().min(10),
+      });
+
+      const parsed = contactSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: 'Data tidak valid', errors: parsed.error.flatten() });
+      }
+
+      const { name, email, phone, subject, message } = parsed.data;
+      const sent = await emailService.sendContactEmail({ name, email, phone, subject, message });
+
+      if (sent) {
+        return res.json({ success: true, message: 'Pesan berhasil dikirim' });
+      } else {
+        return res.status(500).json({ message: 'Gagal mengirim pesan. Silakan coba lagi.' });
+      }
+    } catch (error) {
+      console.error('Contact form error:', error);
+      return res.status(500).json({ message: 'Terjadi kesalahan server' });
+    }
+  });
+
   // Auth routes
   app.get('/api/auth/user', async (req: any, res) => {
     try {

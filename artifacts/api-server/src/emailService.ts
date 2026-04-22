@@ -17,6 +17,14 @@ interface SendOtpEmailParams {
   firstName?: string;
 }
 
+export interface SendContactEmailParams {
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
 
@@ -47,6 +55,112 @@ class EmailService {
     };
 
     this.transporter = nodemailer.createTransport(config);
+  }
+
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }
+
+  async sendContactEmail({ name, email, phone, subject, message }: SendContactEmailParams): Promise<boolean> {
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+
+    const safeName = this.escapeHtml(name);
+    const safeEmail = this.escapeHtml(email);
+    const safePhone = phone ? this.escapeHtml(phone) : undefined;
+    const safeSubject = this.escapeHtml(subject);
+    const safeMessage = this.escapeHtml(message);
+
+    const emailSubject = `[Kontak Website] ${safeSubject}`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Pesan Kontak Baru</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .field { margin-bottom: 16px; }
+          .label { font-weight: bold; color: #16a34a; }
+          .value { margin-top: 4px; padding: 10px; background: #fff; border-left: 3px solid #22c55e; }
+          .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🧠 Rumah Psikologi Pelangi Indonesia</h1>
+            <p>Pesan Kontak Baru dari Website</p>
+          </div>
+          <div class="content">
+            <h2>Pesan Baru Masuk</h2>
+            <div class="field">
+              <div class="label">Nama</div>
+              <div class="value">${safeName}</div>
+            </div>
+            <div class="field">
+              <div class="label">Email</div>
+              <div class="value"><a href="mailto:${safeEmail}">${safeEmail}</a></div>
+            </div>
+            ${safePhone ? `<div class="field"><div class="label">Nomor HP / WhatsApp</div><div class="value"><a href="https://wa.me/62${safePhone.replace(/^0/, '')}">${safePhone}</a></div></div>` : ''}
+            <div class="field">
+              <div class="label">Subjek</div>
+              <div class="value">${safeSubject}</div>
+            </div>
+            <div class="field">
+              <div class="label">Pesan</div>
+              <div class="value" style="white-space: pre-wrap;">${safeMessage}</div>
+            </div>
+            <div class="footer">
+              <p>Pesan ini dikirim dari formulir kontak di website Rumah Psikologi Pelangi Indonesia.</p>
+              <p>&copy; ${new Date().getFullYear()} Rumah Psikologi Pelangi Indonesia.</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    if (!this.transporter) {
+      console.log('\n=== CONTACT FORM MESSAGE (Development Mode) ===');
+      console.log(`From: ${name} <${email}>`);
+      if (phone) console.log(`Phone: ${phone}`);
+      console.log(`Subject: ${subject}`);
+      console.log(`Message:\n${message}`);
+      console.log('================================================\n');
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('[WARN] Email transporter not configured in production. Contact message was NOT delivered.');
+        return false;
+      }
+      return true;
+    }
+
+    if (!adminEmail) {
+      console.warn('ADMIN_EMAIL not set; cannot deliver contact form email.');
+      return false;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: adminEmail,
+        replyTo: email,
+        subject: emailSubject,
+        html: htmlContent,
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to send contact email:', error);
+      return false;
+    }
   }
 
   async sendOtpEmail({ to, otp, purpose, firstName }: SendOtpEmailParams): Promise<boolean> {

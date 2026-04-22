@@ -70,6 +70,24 @@ export default function Footer() {
           </div>
           
           <div>
+            <h4 className="text-lg font-semibold mb-4">Tautan</h4>
+            <ul className="space-y-2 mb-6">
+              <li>
+                <Link href="/" className="text-green-50 hover:text-white transition-colors">
+                  Beranda
+                </Link>
+              </li>
+              <li>
+                <Link href="/assessments" className="text-green-50 hover:text-white transition-colors">
+                  Asesmen
+                </Link>
+              </li>
+              <li>
+                <Link href="/kontak" className="text-green-50 hover:text-white transition-colors">
+                  Kontak
+                </Link>
+              </li>
+            </ul>
             <h4 className="text-lg font-semibold mb-4">Bantuan</h4>
             <ul className="space-y-3">
               <li>

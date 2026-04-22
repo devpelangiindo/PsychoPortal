@@ -62,6 +62,9 @@ export default function Header() {
                 <Link href="/assessments" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
                   Asesmen
                 </Link>
+                <Link href="/kontak" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                  Kontak
+                </Link>
                 {isAuthenticated && (
                   <Link href="/dashboard" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
                     Dashboard
@@ -156,6 +159,9 @@ export default function Header() {
                 </Link>
                 <Link href="/assessments" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
                   Asesmen
+                </Link>
+                <Link href="/kontak" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
+                  Kontak
                 </Link>
                 {isAuthenticated && (
                   <Link href="/dashboard" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
