@@ -2427,6 +2427,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/cms/posts', async (req, res) => {
+    try {
+      const baseUrl = getCmsBaseUrl();
+      const url = `${baseUrl}/admin/api/posts?where[status][equals]=published&sort=-publishedAt&limit=100&depth=1`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(response.status).json({ message: 'Failed to fetch posts from CMS' });
+      }
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching CMS posts:', error);
+      res.status(500).json({ message: 'Failed to fetch posts' });
+    }
+  });
+
+  app.get('/api/cms/posts/:slug', async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const baseUrl = getCmsBaseUrl();
+      const url = `${baseUrl}/admin/api/posts?where[slug][equals]=${encodeURIComponent(slug)}&where[status][equals]=published&depth=1`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(response.status).json({ message: 'Failed to fetch post from CMS' });
+      }
+      const data = await response.json();
+      if (!data.docs || data.docs.length === 0) {
+        return res.status(404).json({ message: 'Post not found' });
+      }
+      res.json(data.docs[0]);
+    } catch (error) {
+      console.error('Error fetching CMS post by slug:', error);
+      res.status(500).json({ message: 'Failed to fetch post' });
+    }
+  });
+
+  app.get('/api/cms/team-members', async (req, res) => {
+    try {
+      const baseUrl = getCmsBaseUrl();
+      const url = `${baseUrl}/admin/api/team-members?where[isActive][equals]=true&sort=orderIndex&limit=100&depth=1`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(response.status).json({ message: 'Failed to fetch team members from CMS' });
+      }
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching CMS team members:', error);
+      res.status(500).json({ message: 'Failed to fetch team members' });
+    }
+  });
+
+  app.get('/api/cms/team-members/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const baseUrl = getCmsBaseUrl();
+      const url = `${baseUrl}/admin/api/team-members/${encodeURIComponent(id)}?depth=1`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(404).json({ message: 'Team member not found' });
+      }
+      const data = await response.json();
+      if (!data.isActive) {
+        return res.status(404).json({ message: 'Team member not found' });
+      }
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching CMS team member:', error);
+      res.status(500).json({ message: 'Failed to fetch team member' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

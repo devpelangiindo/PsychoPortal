@@ -31,6 +31,9 @@ import AutoRedirect from "@/pages/auto-redirect";
 import Kontak from "@/pages/kontak";
 import Layanan from "@/pages/layanan";
 import LayananDetail from "@/pages/layanan-detail";
+import Artikel from "@/pages/artikel";
+import ArtikelDetail from "@/pages/artikel-detail";
+import TimDetail from "@/pages/tim-detail";
 
 import NotFound from "@/pages/not-found";
 
@@ -46,6 +49,9 @@ function Router() {
       <Route path="/assessments" component={Assessments} />
       <Route path="/layanan" component={Layanan} />
       <Route path="/layanan/:slug" component={LayananDetail} />
+      <Route path="/artikel" component={Artikel} />
+      <Route path="/artikel/:slug" component={ArtikelDetail} />
+      <Route path="/tim/:id" component={TimDetail} />
       <Route path="/kontak" component={Kontak} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
