@@ -28,7 +28,9 @@ export default buildConfig({
     },
     meta: {
       titleSuffix: '— pi-psychology.com CMS',
+      description: 'Content Management System for Rumah Psikologi Pelangi Indonesia',
     },
+    theme: 'light',
   },
   collections: [Users, Media, Pages, Posts, TeamMembers, Services],
   db: postgresAdapter({
