@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   basePath: '/admin',
   serverExternalPackages: ['sharp', 'payload', '@payloadcms/db-postgres', 'graphql'],
   reactStrictMode: false,
+  allowedDevOrigins: [
+    '*.riker.replit.dev',
+    '*.replit.dev',
+    process.env.REPLIT_DEV_DOMAIN,
+  ].filter(Boolean) as string[],
 }
 
 export default withPayload(nextConfig, { devBundleServerPackages: false })
