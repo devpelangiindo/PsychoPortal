@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Menu, X, User, LogIn, UserPlus } from "lucide-react";
+import { ShoppingCart, Menu, X, User, LogIn, UserPlus, Brain } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/lib/cart";
 import ShoppingCartSidebar from "@/components/shopping-cart";
@@ -55,12 +55,13 @@ export default function Header() {
               </Link>
               
               {/* Desktop Navigation */}
-              <nav className="hidden md:ml-8 md:flex space-x-8">
+              <nav className="hidden md:ml-8 md:flex space-x-8 items-center">
                 <Link href="/" className="text-neutral-900 dark:text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
                   Beranda
                 </Link>
-                <Link href="/assessments" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
-                  Asesmen
+                <Link href="/assessments" className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-colors">
+                  <Brain className="w-4 h-4" />
+                  Asesmen Online
                 </Link>
                 <Link href="/kontak" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
                   Kontak
@@ -157,8 +158,9 @@ export default function Header() {
                 <Link href="/" className="block px-3 py-2 text-neutral-900 dark:text-foreground hover:text-primary font-medium transition-colors">
                   Beranda
                 </Link>
-                <Link href="/assessments" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
-                  Asesmen
+                <Link href="/assessments" className="flex items-center gap-2 mx-3 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold transition-colors">
+                  <Brain className="w-4 h-4" />
+                  Asesmen Online
                 </Link>
                 <Link href="/kontak" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
                   Kontak

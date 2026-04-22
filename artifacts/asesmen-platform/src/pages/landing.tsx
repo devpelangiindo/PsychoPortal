@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ShoppingCart, Brain, GraduationCap, Clock, Users, Shield, Lock, IdCard, InfoIcon, UserPlus, LogIn } from "lucide-react";
+import { ShoppingCart, Brain, GraduationCap, Clock, Users, Shield, Lock, IdCard, InfoIcon, UserPlus, LogIn, ArrowRight } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
@@ -22,6 +22,10 @@ export default function Landing() {
 
   const handleLogin = () => {
     setLocation("/login");
+  };
+
+  const handleStartAssessment = () => {
+    setLocation("/assessments");
   };
 
   const handleLearnMore = () => {
@@ -52,11 +56,25 @@ export default function Landing() {
               Mulai perjalanan self-discovery Anda dengan asesmen psikologi teruji. Coba gratis beberapa pertanyaan sebelum mendaftar!
             </p>
             
+            {/* Primary CTA - Start Assessment */}
+            <div className="mb-6">
+              <Button
+                size="lg"
+                className="px-10 py-5 text-xl font-bold bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+                onClick={handleStartAssessment}
+              >
+                <Brain className="w-6 h-6 mr-2" />
+                Mulai Asesmen Sekarang
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+
             {/* Authentication Options */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-12">
               <Button 
                 size="lg" 
-                className="px-8 py-4 text-lg font-semibold bg-green-600 hover:bg-green-700"
+                variant="outline"
+                className="px-8 py-4 text-lg font-semibold border-green-600 text-green-600 hover:bg-green-50"
                 onClick={handleGetStarted}
               >
                 <UserPlus className="w-5 h-5 mr-2" />
