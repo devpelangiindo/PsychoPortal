@@ -17,8 +17,8 @@ const dirname = path.dirname(filename)
 
 const serverURL = process.env.PAYLOAD_PUBLIC_SERVER_URL ||
   (process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}/admin`
-    : `http://localhost:${process.env.PORT || 23740}/admin`)
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+    : `http://localhost:${process.env.PORT || 23740}`)
 
 export default buildConfig({
   admin: {
@@ -53,8 +53,8 @@ export default buildConfig({
   ) as string,
   serverURL,
   routes: {
-    admin: '/',
-    api: '/api',
+    admin: '/admin',
+    api: '/admin/api',
   },
   sharp,
   typescript: {
