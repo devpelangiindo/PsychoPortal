@@ -3,7 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "../storage";
 import { getSession } from "../replitAuth";
 import type { UserAssessmentWithDetails } from "@workspace/db";
-import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema, registerSchema, loginSchema, otpVerificationSchema, adminLoginSchema, userUpdateSchema, passwordResetSchema } from "@workspace/db";
+import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema, registerSchema, loginSchema, otpVerificationSchema, adminLoginSchema, userUpdateSchema, passwordResetSchema, cmsPages, cmsPosts, cmsTeamMembers, cmsServices, insertCmsPageSchema, insertCmsPostSchema, insertCmsTeamMemberSchema, insertCmsServiceSchema } from "@workspace/db";
+import { db } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import PDFDocument from "pdfkit";
 import { randomBytes } from "crypto";
@@ -2351,6 +2353,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: error.message 
       });
     }
+  });
+
+  // ========================
+  // CMS API Routes
+  // ========================
+
+  function isAdmin(req: any, res: any, next: any) {
+    if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'internal')) {
+      return res.status(403).json({ message: "Forbidden: Admin access required" });
+    }
+    next();
+  }
+
+  // CMS Stats
+  app.get("/api/cms/stats", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const [pages, posts, teamMembers, services] = await Promise.all([
+        db.select().from(cmsPages),
+        db.select().from(cmsPosts),
+        db.select().from(cmsTeamMembers),
+        db.select().from(cmsServices),
+      ]);
+      res.json({
+        pages: pages.length,
+        posts: posts.length,
+        teamMembers: teamMembers.length,
+        services: services.length,
+        publishedPages: pages.filter(p => p.status === 'published').length,
+        publishedPosts: posts.filter(p => p.status === 'published').length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // === CMS Pages ===
+  app.get("/api/cms/pages", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(cmsPages);
+      res.json(rows);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.get("/api/cms/pages/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const row = await db.select().from(cmsPages).where(eq(cmsPages.id, parseInt(req.params.id))).limit(1);
+      if (!row.length) return res.status(404).json({ message: "Not found" });
+      res.json(row[0]);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post("/api/cms/pages", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = insertCmsPageSchema.parse(req.body);
+      const result = await db.insert(cmsPages).values(data).returning();
+      res.status(201).json(result[0]);
+    } catch (error: any) { res.status(400).json({ message: error.message }); }
+  });
+
+  app.put("/api/cms/pages/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = insertCmsPageSchema.partial().parse(req.body);
+      const result = await db.update(cmsPages).set({ ...data, updatedAt: new Date() }).where(eq(cmsPages.id, parseInt(req.params.id))).returning();
+      if (!result.length) return res.status(404).json({ message: "Not found" });
+      res.json(result[0]);
+    } catch (error: any) { res.status(400).json({ message: error.message }); }
+  });
+
+  app.delete("/api/cms/pages/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      await db.delete(cmsPages).where(eq(cmsPages.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // === CMS Posts ===
+  app.get("/api/cms/posts", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(cmsPosts);
+      res.json(rows);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.get("/api/cms/posts/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const row = await db.select().from(cmsPosts).where(eq(cmsPosts.id, parseInt(req.params.id))).limit(1);
+      if (!row.length) return res.status(404).json({ message: "Not found" });
+      res.json(row[0]);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post("/api/cms/posts", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = insertCmsPostSchema.parse(req.body);
+      const result = await db.insert(cmsPosts).values(data).returning();
+      res.status(201).json(result[0]);
+    } catch (error: any) { res.status(400).json({ message: error.message }); }
+  });
+
+  app.put("/api/cms/posts/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = insertCmsPostSchema.partial().parse(req.body);
+      const result = await db.update(cmsPosts).set({ ...data, updatedAt: new Date() }).where(eq(cmsPosts.id, parseInt(req.params.id))).returning();
+      if (!result.length) return res.status(404).json({ message: "Not found" });
+      res.json(result[0]);
+    } catch (error: any) { res.status(400).json({ message: error.message }); }
+  });
+
+  app.delete("/api/cms/posts/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      await db.delete(cmsPosts).where(eq(cmsPosts.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // === CMS Team Members ===
+  app.get("/api/cms/team-members", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(cmsTeamMembers);
+      res.json(rows);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.get("/api/cms/team-members/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const row = await db.select().from(cmsTeamMembers).where(eq(cmsTeamMembers.id, parseInt(req.params.id))).limit(1);
+      if (!row.length) return res.status(404).json({ message: "Not found" });
+      res.json(row[0]);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post("/api/cms/team-members", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = insertCmsTeamMemberSchema.parse(req.body);
+      const result = await db.insert(cmsTeamMembers).values(data).returning();
+      res.status(201).json(result[0]);
+    } catch (error: any) { res.status(400).json({ message: error.message }); }
+  });
+
+  app.put("/api/cms/team-members/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = insertCmsTeamMemberSchema.partial().parse(req.body);
+      const result = await db.update(cmsTeamMembers).set({ ...data, updatedAt: new Date() }).where(eq(cmsTeamMembers.id, parseInt(req.params.id))).returning();
+      if (!result.length) return res.status(404).json({ message: "Not found" });
+      res.json(result[0]);
+    } catch (error: any) { res.status(400).json({ message: error.message }); }
+  });
+
+  app.delete("/api/cms/team-members/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      await db.delete(cmsTeamMembers).where(eq(cmsTeamMembers.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // === CMS Services ===
+  app.get("/api/cms/services", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(cmsServices);
+      res.json(rows);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.get("/api/cms/services/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const row = await db.select().from(cmsServices).where(eq(cmsServices.id, parseInt(req.params.id))).limit(1);
+      if (!row.length) return res.status(404).json({ message: "Not found" });
+      res.json(row[0]);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post("/api/cms/services", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = insertCmsServiceSchema.parse(req.body);
+      const result = await db.insert(cmsServices).values(data).returning();
+      res.status(201).json(result[0]);
+    } catch (error: any) { res.status(400).json({ message: error.message }); }
+  });
+
+  app.put("/api/cms/services/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = insertCmsServiceSchema.partial().parse(req.body);
+      const result = await db.update(cmsServices).set({ ...data, updatedAt: new Date() }).where(eq(cmsServices.id, parseInt(req.params.id))).returning();
+      if (!result.length) return res.status(404).json({ message: "Not found" });
+      res.json(result[0]);
+    } catch (error: any) { res.status(400).json({ message: error.message }); }
+  });
+
+  app.delete("/api/cms/services/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      await db.delete(cmsServices).where(eq(cmsServices.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
   });
 
   const httpServer = createServer(app);

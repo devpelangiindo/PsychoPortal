@@ -233,6 +233,85 @@ export type OrderWithItems = Order & {
   })[];
 };
 
+// ========================
+// CMS Tables
+// ========================
+
+export const cmsPages = pgTable("cms_pages", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  content: text("content"),
+  excerpt: text("excerpt"),
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  metaTitle: varchar("meta_title", { length: 255 }),
+  metaDescription: text("meta_description"),
+  featuredImage: varchar("featured_image", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const cmsPosts = pgTable("cms_posts", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  content: text("content"),
+  excerpt: text("excerpt"),
+  category: varchar("category", { length: 100 }),
+  tags: text("tags"),
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+  featuredImage: varchar("featured_image", { length: 500 }),
+  author: varchar("author", { length: 100 }),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const cmsTeamMembers = pgTable("cms_team_members", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 255 }).notNull(),
+  bio: text("bio"),
+  photo: varchar("photo", { length: 500 }),
+  email: varchar("email", { length: 255 }),
+  linkedIn: varchar("linked_in", { length: 500 }),
+  orderIndex: integer("order_index").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const cmsServices = pgTable("cms_services", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  description: text("description"),
+  shortDescription: text("short_description"),
+  icon: varchar("icon", { length: 100 }),
+  featuredImage: varchar("featured_image", { length: 500 }),
+  price: varchar("price", { length: 100 }),
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCmsPageSchema = createInsertSchema(cmsPages).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCmsPage = z.infer<typeof insertCmsPageSchema>;
+export type CmsPage = typeof cmsPages.$inferSelect;
+
+export const insertCmsPostSchema = createInsertSchema(cmsPosts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCmsPost = z.infer<typeof insertCmsPostSchema>;
+export type CmsPost = typeof cmsPosts.$inferSelect;
+
+export const insertCmsTeamMemberSchema = createInsertSchema(cmsTeamMembers).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCmsTeamMember = z.infer<typeof insertCmsTeamMemberSchema>;
+export type CmsTeamMember = typeof cmsTeamMembers.$inferSelect;
+
+export const insertCmsServiceSchema = createInsertSchema(cmsServices).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCmsService = z.infer<typeof insertCmsServiceSchema>;
+export type CmsService = typeof cmsServices.$inferSelect;
+
 // User assessment with assessment details
 export type UserAssessmentWithDetails = UserAssessment & {
   assessment: Assessment;
