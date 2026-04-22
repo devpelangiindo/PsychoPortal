@@ -149,8 +149,8 @@ export default buildConfig({
   })(),
   serverURL,
   routes: {
-    admin: '/admin',
-    api: '/admin/api',
+    admin: '/',
+    api: '/api',
   },
   sharp,
   typescript: {
