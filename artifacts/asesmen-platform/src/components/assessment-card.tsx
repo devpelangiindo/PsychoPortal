@@ -1,0 +1,332 @@
+import { useState } from "react";
+import { createPortal } from "react-dom";
+import { Brain, GraduationCap, Lightbulb, Clock, Users, Play, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/lib/cart";
+import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import SampleQuestions, { SampleResults } from "@/components/sample-questions";
+import type { Assessment } from "@shared/schema";
+
+interface AssessmentCardProps {
+  assessment: Assessment;
+  showAddToCart: boolean;
+}
+
+export default function AssessmentCard({ assessment, showAddToCart }: AssessmentCardProps) {
+  const { toast } = useToast();
+  const { addItem, items } = useCart();
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+  const [showSample, setShowSample] = useState(false);
+  const [showSampleResults, setShowSampleResults] = useState(false);
+
+  const isInCart = items.some(item => item.id === assessment.id);
+  const isFree = parseFloat(assessment.price) === 0;
+  const isAdmin = user?.role === 'admin';
+  const isInternal = user?.role === 'internal';
+
+  const getIcon = (type: string) => {
+    if (type === 'sensory') {
+      return <Brain className="w-12 h-12 text-secondary" />;
+    } else if (type === 'intelligence') {
+      return <Lightbulb className="w-12 h-12 text-purple-600" />;
+    }
+    return <GraduationCap className="w-12 h-12 text-accent" />;
+  };
+
+  const getGradientClass = (type: string) => {
+    if (type === 'sensory') {
+      return 'bg-secondary-light';
+    } else if (type === 'intelligence') {
+      return 'bg-purple-100 dark:bg-purple-900/20';
+    }
+    return 'bg-accent-light';
+  };
+
+  const getIconLabel = (type: string) => {
+    if (type === 'sensory') {
+      return 'Pemrosesan Sensoris';
+    } else if (type === 'intelligence') {
+      return 'Kecerdasan Majemuk';
+    }
+    return 'Preferensi Belajar';
+  };
+
+  // Mutation untuk direct access free assessment
+  const directAccessMutation = useMutation({
+    mutationFn: async (assessmentId: number) => {
+      const response = await fetch(`/api/assessments/${assessmentId}/direct-access`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Gagal mengakses asesmen');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data: { userAssessmentId: number; isAdminAccess?: boolean; isInternalAccess?: boolean }) => {
+      toast({
+        title: data.isAdminAccess 
+          ? "Akses Admin Berhasil!" 
+          : data.isInternalAccess 
+            ? "Akses Internal Berhasil!"
+            : "Akses Gratis Berhasil!",
+        description: `${assessment.name} siap untuk dikerjakan.`,
+        variant: "default",
+      });
+      // Redirect to assessment taking page based on assessment type
+      if (assessment.type === 'sensory') {
+        setLocation(`/sensory-profile/${data.userAssessmentId}`);
+      } else if (assessment.type === 'learning') {
+        setLocation(`/learning-style/${data.userAssessmentId}`);
+      } else if (assessment.type === 'intelligence') {
+        setLocation(`/multiple-intelligence/${data.userAssessmentId}`);
+      } else {
+        // Fallback to assessment detail page
+        setLocation(`/assessment/${assessment.id}`);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Gagal Mengakses Asesmen",
+        description: error.message || "Terjadi kesalahan saat mengakses asesmen gratis.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTrySample = () => {
+    setShowSample(true);
+  };
+
+  const handleSampleComplete = () => {
+    setShowSample(false);
+    setShowSampleResults(true);
+  };
+
+  const handleCloseSample = () => {
+    setShowSample(false);
+    setShowSampleResults(false);
+  };
+
+  const handleSignupFromSample = () => {
+    setShowSampleResults(false);
+    setLocation("/register");
+  };
+
+  const handleLoginFromSample = () => {
+    setShowSampleResults(false);
+    setLocation("/login");
+  };
+
+  const getAssessmentType = (): 'sensory' | 'learning' | 'intelligence' => {
+    return assessment.type as 'sensory' | 'learning' | 'intelligence';
+  };
+
+  const handleAddToCart = () => {
+    if (isInCart) {
+      toast({
+        title: "Sudah di Keranjang",
+        description: "Asesmen ini sudah ada di keranjang Anda.",
+        variant: "default",
+      });
+      return;
+    }
+
+    addItem({
+      id: assessment.id,
+      name: assessment.name,
+      price: assessment.price,
+      description: assessment.description,
+      duration: assessment.duration,
+      ageRange: assessment.ageRange,
+      type: assessment.type,
+    });
+
+    toast({
+      title: "Ditambahkan ke Keranjang",
+      description: `${assessment.name} telah ditambahkan ke keranjang Anda.`,
+      variant: "default",
+    });
+  };
+
+  const handleDirectAccess = () => {
+    if (!user) {
+      toast({
+        title: "Login Diperlukan",
+        description: "Silakan login terlebih dahulu untuk mengakses asesmen gratis.",
+        variant: "default",
+      });
+      setLocation("/login");
+      return;
+    }
+
+    directAccessMutation.mutate(assessment.id);
+  };
+
+  return (
+    <Card className="assessment-card-hover bg-white dark:bg-card rounded-2xl shadow-lg border border-gray-100 dark:border-border overflow-hidden">
+      {/* Professional assessment illustration */}
+      <div className={`h-48 ${getGradientClass(assessment.type)} flex items-center justify-center`}>
+        <div className="text-center">
+          {getIcon(assessment.type)}
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-foreground mt-4">
+            {getIconLabel(assessment.type)}
+          </h3>
+        </div>
+      </div>
+      
+      <CardContent className="p-8">
+        <h3 className="text-2xl font-bold text-neutral-900 dark:text-foreground mb-4">
+          {assessment.name}
+        </h3>
+        <p className="text-neutral-500 dark:text-muted-foreground mb-6 leading-relaxed">
+          {assessment.description}
+        </p>
+        
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center text-sm text-neutral-500 dark:text-muted-foreground">
+            <Clock className="w-4 h-4 mr-2" />
+            <span>{assessment.duration}</span>
+          </div>
+          <div className="flex items-center text-sm text-neutral-500 dark:text-muted-foreground">
+            <Users className="w-4 h-4 mr-2" />
+            <span>{assessment.ageRange}</span>
+          </div>
+        </div>
+        
+        {/* Special benefit for Sensory Profile */}
+        {assessment.type === 'sensory' && (
+          <div className="mb-4">
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Gratis Konsultasi Online 1 Kali
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Try Sample Button - Always Visible */}
+        <div className="mb-4">
+          <Button
+            onClick={handleTrySample}
+            variant="outline"
+            size="sm"
+            className="w-full px-4 py-2 rounded-lg font-medium transition-all duration-200 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+            data-testid={`button-try-sample-${assessment.id}`}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Coba Sample Gratis
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-baseline text-primary">
+            {parseFloat(assessment.price) === 0 ? (
+              <span className="text-xl font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                Free Access
+              </span>
+            ) : assessment.type === 'sensory' ? (
+              // Special promotional pricing for Sensory Profile Assessment
+              <div className="flex flex-col">
+                <div className="flex items-baseline">
+                  <span className="text-sm font-medium text-gray-500 line-through mr-2">
+                    Rp {new Intl.NumberFormat('id-ID').format(500000)}
+                  </span>
+                  <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full font-semibold">
+                    PROMO
+                  </span>
+                </div>
+                <div className="flex items-baseline mt-1">
+                  <span className="text-lg font-semibold mr-1 text-red-600">Rp</span>
+                  <span className="text-2xl font-bold text-red-600">{new Intl.NumberFormat('id-ID').format(parseFloat(assessment.price))}</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="text-lg font-semibold mr-1">Rp</span>
+                <span className="text-2xl font-bold">{new Intl.NumberFormat('id-ID').format(parseFloat(assessment.price))}</span>
+              </>
+            )}
+          </div>
+          {showAddToCart && (
+            <>
+              {isFree || isAdmin || isInternal ? (
+                <Button
+                  onClick={handleDirectAccess}
+                  disabled={directAccessMutation.isPending}
+                  size="sm"
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm ${
+                    (isAdmin || isInternal) && !isFree
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-105 disabled:opacity-50'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 disabled:opacity-50'
+                  }`}
+                  data-testid={`button-access-${assessment.id}`}
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  {directAccessMutation.isPending 
+                    ? "Memproses..." 
+                    : (isAdmin || isInternal) && !isFree 
+                      ? (isAdmin ? "Akses sebagai Admin" : "Akses Internal")
+                      : "Mulai Sekarang"
+                  }
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={isInCart}
+                  size="sm"
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg text-sm ${
+                    isInCart 
+                      ? 'bg-gray-400 text-white cursor-not-allowed' 
+                      : 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
+                  }`}
+                  data-testid={`button-cart-${assessment.id}`}
+                >
+                  {isInCart ? "✓ Di Keranjang" : "+ Keranjang"}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </CardContent>
+
+      {/* Sample Questions Modal - Rendered as Portal for full-screen */}
+      {showSample && createPortal(
+        <SampleQuestions
+          assessmentType={getAssessmentType()}
+          assessmentName={assessment.name}
+          onComplete={handleSampleComplete}
+          onClose={handleCloseSample}
+        />,
+        document.body
+      )}
+
+      {/* Sample Results Modal - Rendered as Portal for full-screen */}
+      {showSampleResults && createPortal(
+        <SampleResults
+          assessmentType={getAssessmentType()}
+          assessmentName={assessment.name}
+          onSignup={handleSignupFromSample}
+          onLogin={handleLoginFromSample}
+          onClose={handleCloseSample}
+        />,
+        document.body
+      )}
+    </Card>
+  );
+}

@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(120, 30%, 98%);
+  --foreground: hsl(150, 40%, 25%);
+  --muted: hsl(120, 25%, 95%);
+  --muted-foreground: hsl(140, 20%, 45%);
+  --popover: hsl(120, 30%, 98%);
+  --popover-foreground: hsl(150, 40%, 25%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(150, 40%, 25%);
+  --border: hsl(120, 20%, 85%);
+  --input: hsl(120, 20%, 90%);
+  --primary: hsl(150, 60%, 35%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(120, 50%, 60%);
+  --secondary-foreground: hsl(150, 40%, 25%);
+  --accent: hsl(90, 50%, 65%);
+  --accent-foreground: hsl(150, 40%, 25%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(150, 60%, 35%);
+  --radius: 0.5rem;
+  --neutral-50: hsl(120, 30%, 98%);
+  --neutral-100: hsl(120, 25%, 95%);
+  --neutral-500: hsl(140, 20%, 45%);
+  --neutral-900: hsl(150, 40%, 25%);
+}
+
+.dark {
+  --background: hsl(150, 40%, 8%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(140, 30%, 12%);
+  --muted-foreground: hsl(130, 20%, 65%);
+  --popover: hsl(150, 40%, 8%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(145, 30%, 10%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(140, 30%, 18%);
+  --input: hsl(140, 30%, 18%);
+  --primary: hsl(150, 60%, 45%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(120, 50%, 65%);
+  --secondary-foreground: hsl(150, 40%, 15%);
+  --accent: hsl(90, 50%, 70%);
+  --accent-foreground: hsl(150, 40%, 15%);
+  --destructive: hsl(0, 62%, 40%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(150, 60%, 45%);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Custom styles for the professional design */
+.gradient-hero {
+  background: linear-gradient(135deg, rgba(34, 139, 34, 0.05) 0%, rgba(154, 205, 50, 0.05) 100%);
+}
+
+.assessment-card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.assessment-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+/* Prevent hover effects during scroll */
+@media (hover: hover) and (pointer: fine) {
+  .assessment-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  }
+}
+
+.icon-secondary {
+  color: hsl(120, 50%, 60%);
+}
+
+.icon-accent {
+  color: hsl(90, 50%, 65%);
+}
+
+.bg-secondary-light {
+  background: linear-gradient(135deg, rgba(34, 139, 34, 0.1) 0%, rgba(154, 205, 50, 0.12) 100%);
+}
+
+.bg-accent-light {
+  background: linear-gradient(135deg, rgba(154, 205, 50, 0.1) 0%, rgba(154, 205, 50, 0.15) 100%);
+}
+
+/* Professional header styling */
+.header-shadow {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Shopping cart indicator */
+.cart-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: hsl(90, 50%, 65%);
+  color: hsl(150, 40%, 25%);
+  font-size: 0.75rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* Payment form styling */
+.payment-card {
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.payment-card:hover {
+  border-color: hsl(150, 60%, 35%);
+}
+
+.payment-card.selected {
+  border-color: hsl(150, 60%, 35%);
+  background: rgba(34, 139, 34, 0.05);
+}
+
+/* Trust indicators */
+.trust-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: hsl(150, 60%, 35%);
+  font-size: 0.875rem;
+}
+
+/* Dashboard card styling */
+.dashboard-card {
+  background: hsl(var(--neutral-50));
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.dashboard-item {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Status badges */
+.status-available {
+  background: hsl(120, 50%, 95%);
+  color: hsl(120, 50%, 30%);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-completed {
+  background: hsl(150, 60%, 95%);
+  color: hsl(150, 60%, 25%);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-in-progress {
+  background: hsl(90, 50%, 95%);
+  color: hsl(90, 50%, 30%);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
