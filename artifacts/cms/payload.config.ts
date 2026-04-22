@@ -141,11 +141,12 @@ export default buildConfig({
       options: gcsOptions,
     }),
   ],
-  secret: process.env.PAYLOAD_SECRET || (
-    process.env.NODE_ENV === 'production'
-      ? undefined
-      : 'dev-only-insecure-fallback'
-  ) as string,
+  secret: process.env.PAYLOAD_SECRET || (() => {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[CMS] WARNING: PAYLOAD_SECRET env var is not set. Set it for proper security.')
+    }
+    return 'pi-psychology-cms-default-secret-set-PAYLOAD_SECRET-in-production'
+  })(),
   serverURL,
   routes: {
     admin: '/admin',

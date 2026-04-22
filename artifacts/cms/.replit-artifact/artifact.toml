@@ -17,6 +17,24 @@ localPort = 23740
 [services.development]
 run = "pnpm --filter @workspace/cms run dev"
 
+[services.production]
+
+[services.production.build]
+args = ["pnpm", "--filter", "@workspace/cms", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["pnpm", "--filter", "@workspace/cms", "run", "start"]
+
+[services.production.run.env]
+PORT = "23740"
+NODE_ENV = "production"
+
+[services.production.health.startup]
+path = "/admin"
+
 [services.env]
 PORT = "23740"
 BASE_PATH = "/admin"
