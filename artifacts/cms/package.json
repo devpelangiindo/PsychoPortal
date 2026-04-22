@@ -10,9 +10,11 @@
     "generate:importmap": "payload generate:importmap"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
     "@payloadcms/db-postgres": "^3.83.0",
     "@payloadcms/next": "^3.83.0",
     "@payloadcms/richtext-lexical": "^3.83.0",
+    "@payloadcms/storage-gcs": "^3.83.0",
     "graphql": "^16.13.2",
     "next": "^15.5.15",
     "payload": "^3.83.0",

@@ -9,12 +9,16 @@ pnpm workspace monorepo using TypeScript. This project contains two main product
 
 ## CMS Admin (pi-psychology.com)
 
-The CMS admin panel allows authorized admin/internal users to manage marketing website content:
-- **Collections**: Pages, Blog & Artikel (Posts), Tim (Team Members), Layanan (Services)
-- **Authentication**: Uses same JWT auth as asesmen platform (admin/internal role required)
-- **Database tables**: `cms_pages`, `cms_posts`, `cms_team_members`, `cms_services`
-- **API routes**: `/api/cms/pages`, `/api/cms/posts`, `/api/cms/team-members`, `/api/cms/services`, `/api/cms/stats`
-- **Preview path**: `/cms/` — Login at `/cms/login`
+Payload CMS (Next.js) for the pi-psychology.com marketing website, served at `/admin`:
+- **Collections**: Pages, Blog & Artikel (Posts), Tim (Team Members), Layanan (Services), Media
+- **Authentication**: Payload CMS built-in user auth (`cms-users` collection)
+- **Database schema**: Uses PostgreSQL with `cms` schema prefix
+- **Image Uploads**: Uses Replit Object Storage (GCS) via `@payloadcms/storage-gcs`
+  - All media uploads go to GCS bucket (env: `DEFAULT_OBJECT_STORAGE_BUCKET_ID`)
+  - Files are publicly accessible (`acl: 'Public'`)
+  - Authenticated via Replit sidecar at `http://127.0.0.1:1106`
+- **Payload admin routes**: `/admin` (admin panel), `/admin/api` (Payload REST API)
+- **Image fields**: All content collections have `type: 'upload'` fields linked to the `media` collection
 
 ## Stack
 
