@@ -4,7 +4,7 @@ import type { NextConfig } from 'next'
 const nextConfig: NextConfig = {
   serverExternalPackages: ['sharp', 'payload', '@payloadcms/db-postgres', 'graphql'],
   reactStrictMode: false,
-  basePath: '/admin',
+  assetPrefix: '/admin',
   allowedDevOrigins: [
     '*.riker.replit.dev',
     '*.replit.dev',
