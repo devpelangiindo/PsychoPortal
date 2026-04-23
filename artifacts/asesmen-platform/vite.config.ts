@@ -73,6 +73,12 @@ export default defineConfig({
     fs: {
       strict: false,
     },
+    proxy: {
+      "/_next": {
+        target: "http://localhost:23740",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
