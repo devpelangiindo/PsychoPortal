@@ -6,12 +6,15 @@ import { handleServerFunctions } from '../utilities/handleServerFunctions'
 
 export default function RootLayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <RootLayout
-      config={configPromise}
-      importMap={importMap}
-      serverFunction={handleServerFunctions}
-    >
-      {children}
-    </RootLayout>
+    <>
+      <link rel="stylesheet" href="/admin/payload-admin-styles" precedence="high" />
+      <RootLayout
+        config={configPromise}
+        importMap={importMap}
+        serverFunction={handleServerFunctions}
+      >
+        {children}
+      </RootLayout>
+    </>
   )
 }

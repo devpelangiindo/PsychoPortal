@@ -20,6 +20,14 @@ Payload CMS (Next.js) for the pi-psychology.com marketing website, served at `/a
 - **Payload admin routes**: `/admin` (admin panel), `/admin/api` (Payload REST API)
 - **Image fields**: All content collections have `type: 'upload'` fields linked to the `media` collection
 
+### CMS CSS Architecture (important)
+
+The Payload admin uses a sub-path setup (`assetPrefix: '/admin'`) where importing CSS via webpack module system causes a "multiple React copies" error. The workaround:
+- A Next.js Route Handler at `src/app/(payload)/admin/payload-admin-styles/route.ts` serves the full Payload CSS (`@payloadcms/next/dist/prod/styles.css`, 306KB) directly
+- `src/app/layout.tsx` injects a `<link rel="stylesheet" href="/admin/payload-admin-styles" precedence="high">` via React 19's stylesheet hoisting
+- The asesmen-platform Vite proxy at `"/_next"` forwards bare `/_next/...` requests to CMS (port 23740) to fix HMR routing
+- Admin creds: `admin@pi-psychology.com` / `AdminCMS2025!`
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
