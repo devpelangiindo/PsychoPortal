@@ -120,6 +120,7 @@ export default buildConfig({
       description: 'Content Management System for Rumah Psikologi Pelangi Indonesia',
     },
     theme: 'light',
+    suppressHydrationWarning: true,
   },
   collections: [Users, Media, Pages, Posts, TeamMembers, Services],
   db: postgresAdapter({
