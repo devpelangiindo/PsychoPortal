@@ -2,10 +2,21 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. This project contains two main products:
-1. **Asesmen Platform** (`artifacts/asesmen-platform`) — Psychological assessment platform for Rumah Psikologi Pelangi Indonesia, served at `/asesmen`
-2. **CMS Admin** (`artifacts/cms`) — Content Management System for pi-psychology.com marketing website, served at `/admin`
-3. **API Server** (`artifacts/api-server`) — Shared Express backend for both artifacts, served at `/api` (also handles `/` → redirects to `/asesmen`)
+pnpm workspace monorepo using TypeScript. This project contains four main products:
+1. **Marketing Website** (`artifacts/marketing-site`) — Public marketing site for Pelangi Indonesia Group (pi-psychology.com), served at `/`
+2. **Asesmen Platform** (`artifacts/asesmen-platform`) — Psychological assessment platform, served at `/asesmen`
+3. **CMS Admin** (`artifacts/cms`) — Payload CMS for content management, served at `/admin`
+4. **API Server** (`artifacts/api-server`) — Shared Express backend, served at `/api`
+
+## Marketing Website (`artifacts/marketing-site`)
+
+React + Vite + Tailwind CSS marketing site for Pelangi Indonesia Group:
+- **Brand colors**: Deep green #1B4332 (primary), mid green #2D6A4F, fresh green #52B788, terracotta #9A6E5E, gold #D4AC0D
+- **Fonts**: Plus Jakarta Sans (headings + body), Lora (serif/blockquotes)
+- **Pages**: `/` (Homepage), `/tentang-kami`, `/produk-layanan`, `/produk-layanan/:slug`, `/artikel`, `/artikel/:slug`, `/kontak`
+- **All content is hardcoded** (no CMS integration yet)
+- Contact: WA Bantul +62 816-669-533, WA Colombo +62 811-256-238, email info@pi-education.com
+- Social: @rumahpsikologi_pi (Instagram), @pelangi_indonesia (TikTok)
 
 ## CMS Admin (pi-psychology.com)
 
