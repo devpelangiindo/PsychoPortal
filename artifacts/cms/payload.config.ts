@@ -32,6 +32,8 @@ import { Pages } from './src/collections/Pages'
 import { Posts } from './src/collections/Posts'
 import { TeamMembers } from './src/collections/TeamMembers'
 import { Services } from './src/collections/Services'
+import { Testimonials } from './src/collections/Testimonials'
+import { SiteStats } from './src/globals/SiteStats'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -122,7 +124,8 @@ export default buildConfig({
     theme: 'light',
     suppressHydrationWarning: true,
   },
-  collections: [Users, Media, Pages, Posts, TeamMembers, Services],
+  collections: [Users, Media, Pages, Posts, TeamMembers, Services, Testimonials],
+  globals: [SiteStats],
   db: postgresAdapter({
     pool: {
       connectionString: process.env.DATABASE_URL,
