@@ -46,7 +46,7 @@ export default function Footer() {
               <div>
                 <p className="text-green-300 text-xs font-semibold uppercase tracking-wider mb-1">Kantor Pusat</p>
                 <a
-                  href="https://maps.google.com/?q=Jl.+Colombo+No.8,+Samirono,+Caturtunggal,+Depok,+Sleman,+DIY"
+                  href="https://maps.app.goo.gl/USTLE9obhyvUK1NAA"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start gap-2 text-green-100/80 hover:text-white transition-colors text-sm"
