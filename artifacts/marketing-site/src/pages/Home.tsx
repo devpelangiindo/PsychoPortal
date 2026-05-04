@@ -488,9 +488,6 @@ export default function Home() {
 
       <Footer />
 
-      <a href="https://wa.me/62816669533" target="_blank" rel="noopener noreferrer" className="wa-float" aria-label="Chat via WhatsApp">
-        <SiWhatsapp size={26} color="white" />
-      </a>
     </div>
   );
 }

@@ -1,8 +1,14 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown, ShoppingCart } from "lucide-react";
 
-const services = [
+const services: Array<{
+  label: string;
+  href: string;
+  external?: boolean;
+  separator?: boolean;
+  highlight?: boolean;
+}> = [
   { label: "Asesmen", href: "/produk-layanan/asesmen" },
   { label: "Konseling", href: "/produk-layanan/konseling" },
   { label: "Terapi", href: "/produk-layanan/terapi" },
@@ -12,6 +18,7 @@ const services = [
   { label: "Franchise", href: "/produk-layanan/franchise" },
   { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
   { label: "HORECAL", href: "/produk-layanan/horecal" },
+  { label: "Platform Asesmen", href: "/asesmen", separator: true, highlight: true },
 ];
 
 export default function Navbar() {
@@ -92,27 +99,27 @@ export default function Navbar() {
                   onMouseLeave={() => setDropdownOpen(false)}
                   className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
                 >
-                  {services.map((s) =>
-                    s.external ? (
-                      <a
-                        key={s.href}
-                        href={s.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
-                      >
-                        {s.label}
-                      </a>
-                    ) : (
-                      <Link
-                        key={s.href}
-                        href={s.href}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
-                      >
-                        {s.label}
-                      </Link>
-                    )
-                  )}
+                  {services.map((s) => {
+                    const cls = s.highlight
+                      ? "block px-4 py-2 text-sm font-semibold text-white rounded-md mx-2 my-1 text-center transition-colors hover:opacity-90"
+                      : "block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
+                    const style = s.highlight ? { background: "#2D6A4F" } : undefined;
+                    const wrapper = (child: React.ReactNode) => (
+                      <div key={s.href} className={s.separator ? "border-t border-gray-100 mt-1 pt-1" : ""}>
+                        {child}
+                      </div>
+                    );
+                    if (s.external || s.highlight) {
+                      return wrapper(
+                        <a href={s.href} target={s.external ? "_blank" : undefined} rel={s.external ? "noopener noreferrer" : undefined} className={cls} style={style}>
+                          {s.label}
+                        </a>
+                      );
+                    }
+                    return wrapper(
+                      <Link href={s.href} className={cls}>{s.label}</Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -125,25 +132,6 @@ export default function Navbar() {
             </Link>
           </nav>
 
-          {/* CTA buttons */}
-          <div className="hidden lg:flex items-center gap-3">
-            <a
-              href="https://wa.me/62816669533"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 text-sm font-semibold rounded-lg text-white transition-all hover:scale-105 hover:shadow-md"
-              style={{ background: "#25D366" }}
-            >
-              WhatsApp
-            </a>
-            <a
-              href="/asesmen"
-              className="px-4 py-2 text-sm font-semibold rounded-lg text-white transition-all hover:scale-105 hover:shadow-md"
-              style={{ background: "#2D6A4F" }}
-            >
-              Platform Asesmen
-            </a>
-          </div>
 
           {/* Mobile menu toggle */}
           <button
@@ -182,27 +170,20 @@ export default function Navbar() {
               </button>
               {dropdownOpen && (
                 <div className="ml-4 space-y-1">
-                  {services.map((s) =>
-                    s.external ? (
-                      <a
-                        key={s.href}
-                        href={s.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors"
-                      >
-                        {s.label}
-                      </a>
-                    ) : (
-                      <Link
-                        key={s.href}
-                        href={s.href}
-                        className="block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors"
-                      >
-                        {s.label}
-                      </Link>
-                    )
-                  )}
+                  {services.map((s) => {
+                    const cls = s.highlight
+                      ? "block px-4 py-2 text-sm font-semibold text-white rounded-lg text-center transition-colors hover:opacity-90"
+                      : "block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors";
+                    const style = s.highlight ? { background: "#2D6A4F" } : undefined;
+                    const inner = s.external || s.highlight
+                      ? <a key={s.href} href={s.href} target={s.external ? "_blank" : undefined} rel={s.external ? "noopener noreferrer" : undefined} className={cls} style={style}>{s.label}</a>
+                      : <Link key={s.href} href={s.href} className={cls}>{s.label}</Link>;
+                    return (
+                      <div key={s.href} className={s.separator ? "border-t border-gray-100 mt-1 pt-1" : ""}>
+                        {inner}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -212,24 +193,6 @@ export default function Navbar() {
             >
               Kontak
             </Link>
-            <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
-              <a
-                href="https://wa.me/62816669533"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block px-4 py-3 text-sm font-semibold text-center rounded-lg text-white"
-                style={{ background: "#25D366" }}
-              >
-                Hubungi via WhatsApp
-              </a>
-              <a
-                href="/asesmen"
-                className="block px-4 py-3 text-sm font-semibold text-center rounded-lg text-white"
-                style={{ background: "#2D6A4F" }}
-              >
-                Platform Asesmen
-              </a>
-            </div>
           </nav>
         </div>
       )}
