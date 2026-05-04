@@ -17,7 +17,7 @@ const FALLBACK_SERVICES = [
   { slug: "produk-digital", name: "Produk Digital", shortDescription: "Modul digital dan e-book berkualitas untuk pengembangan diri.", longDesc: "Berbagai modul pembelajaran digital, e-book, dan materi pelatihan yang dikembangkan oleh tim ahli Pelangi Indonesia.", color: "#1B4332" },
   { slug: "kursus", name: "Kursus", shortDescription: "Kursus pengembangan minat bakat: musik, tari, olahraga, akademik.", longDesc: "Program kursus terstruktur untuk anak dan remaja: Baca Tulis, Matematika, Bimbingan Belajar Privat, Sempoa, Balet, Taekwondo, Renang, Tari, Musik, Senam, dan Yoga.", color: "#2D6A4F", highlights: ["Baca Tulis — Rp 325.000/bulan", "Matematika", "Sempoa", "Balet", "Taekwondo", "Renang", "Tari", "Musik", "Senam", "Yoga", "Bimbingan Belajar Privat"] },
   { slug: "franchise", name: "Franchise", shortDescription: "Peluang kemitraan dan franchise untuk memperluas jangkauan layanan.", longDesc: "Program franchise Pelangi Indonesia memungkinkan institusi lain untuk mengadopsi sistem layanan psikologi dan pendidikan kami.", color: "#9A6E5E" },
-  { slug: "sekolah", name: "Sekolah Pelangi Indonesia", shortDescription: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", longDesc: "Sekolah Pelangi Indonesia adalah lembaga pendidikan inklusif yang menerima semua anak termasuk Anak Berkebutuhan Khusus.", color: "#1B4332" },
+  { slug: "sekolah", name: "Sekolah Pelangi Indonesia", shortDescription: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", longDesc: "Sekolah Pelangi Indonesia adalah lembaga pendidikan inklusif yang menerima semua anak termasuk Anak Berkebutuhan Khusus.", color: "#1B4332", externalHref: "https://www.pi-education.com/" },
   { slug: "horecal", name: "HORECAL", shortDescription: "Layanan bisnis operasional untuk fasilitas edukasi dan kelembagaan.", longDesc: "HORECAL adalah unit usaha pendukung Pelangi Indonesia yang menyediakan layanan bisnis operasional komprehensif.", color: "#9A6E5E" },
 ];
 
@@ -27,12 +27,10 @@ function serviceColor(slug: string): string {
 
 // ─── Service List Card ────────────────────────────────────────────────────────
 
-function ServiceCard({ service }: { service: { slug: string; name: string; shortDescription?: string; color: string } }) {
-  return (
-    <Link
-      href={`/produk-layanan/${service.slug}`}
-      className="service-card block p-6 bg-white rounded-2xl border border-gray-100 shadow-sm group"
-    >
+function ServiceCard({ service }: { service: { slug: string; name: string; shortDescription?: string; color: string; externalHref?: string } }) {
+  const cardClass = "service-card block p-6 bg-white rounded-2xl border border-gray-100 shadow-sm group";
+  const inner = (
+    <>
       <div className="w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white text-lg font-bold" style={{ background: service.color }}>
         {service.name.charAt(0)}
       </div>
@@ -41,8 +39,12 @@ function ServiceCard({ service }: { service: { slug: string; name: string; short
       <div className="flex items-center gap-1 text-xs font-semibold" style={{ color: service.color }}>
         Pelajari Selengkapnya <ArrowRight size={12} />
       </div>
-    </Link>
+    </>
   );
+  if (service.externalHref) {
+    return <a href={service.externalHref} target="_blank" rel="noopener noreferrer" className={cardClass}>{inner}</a>;
+  }
+  return <Link href={`/produk-layanan/${service.slug}`} className={cardClass}>{inner}</Link>;
 }
 
 // ─── Service Detail ───────────────────────────────────────────────────────────

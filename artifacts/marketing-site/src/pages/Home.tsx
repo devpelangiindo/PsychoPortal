@@ -45,7 +45,7 @@ const services = [
   { slug: "produk-digital", name: "Produk Digital", desc: "Modul digital dan e-book berkualitas untuk pengembangan diri.", color: "#1B4332" },
   { slug: "kursus", name: "Kursus", desc: "Kursus pengembangan minat bakat: musik, tari, olahraga, akademik.", color: "#2D6A4F" },
   { slug: "franchise", name: "Franchise", desc: "Peluang kemitraan dan franchise untuk memperluas jangkauan.", color: "#9A6E5E" },
-  { slug: "sekolah", name: "Sekolah Pelangi Indonesia", desc: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", color: "#3A7D58" },
+  { slug: "sekolah", name: "Sekolah Pelangi Indonesia", desc: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", color: "#3A7D58", externalHref: "https://www.pi-education.com/" },
   { slug: "horecal", name: "HORECAL", desc: "Layanan bisnis operasional untuk fasilitas edukasi dan kelembagaan.", color: "#1B4332" },
 ];
 
@@ -321,22 +321,26 @@ export default function Home() {
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {services.map((s) => (
-              <Link
-                key={s.slug}
-                href={`/produk-layanan/${s.slug}`}
-                className="service-card block p-6 bg-white rounded-2xl border border-gray-100 shadow-sm group"
-              >
-                <div className="w-10 h-10 rounded-xl mb-4 flex items-center justify-center text-white text-sm font-bold" style={{ background: s.color }}>
-                  {s.name.charAt(0)}
-                </div>
-                <h3 className="font-bold text-gray-900 mb-2 group-hover:text-green-800 transition-colors">{s.name}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
-                <div className="mt-4 flex items-center gap-1 text-xs font-semibold" style={{ color: "#2D6A4F" }}>
-                  Selengkapnya <ArrowRight size={12} />
-                </div>
-              </Link>
-            ))}
+            {services.map((s) => {
+              const cardClass = "service-card block p-6 bg-white rounded-2xl border border-gray-100 shadow-sm group";
+              const inner = (
+                <>
+                  <div className="w-10 h-10 rounded-xl mb-4 flex items-center justify-center text-white text-sm font-bold" style={{ background: s.color }}>
+                    {s.name.charAt(0)}
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-2 group-hover:text-green-800 transition-colors">{s.name}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
+                  <div className="mt-4 flex items-center gap-1 text-xs font-semibold" style={{ color: "#2D6A4F" }}>
+                    Selengkapnya <ArrowRight size={12} />
+                  </div>
+                </>
+              );
+              return s.externalHref ? (
+                <a key={s.slug} href={s.externalHref} target="_blank" rel="noopener noreferrer" className={cardClass}>{inner}</a>
+              ) : (
+                <Link key={s.slug} href={`/produk-layanan/${s.slug}`} className={cardClass}>{inner}</Link>
+              );
+            })}
           </div>
           <div className="text-center mt-10">
             <Link
@@ -426,9 +430,9 @@ export default function Home() {
                 <p className="text-gray-600 text-sm leading-relaxed mb-5">
                   Sekolah inklusif yang menyediakan pendidikan berkualitas dengan metode pembelajaran aktif, inovatif, dan ramah anak berkebutuhan khusus.
                 </p>
-                <Link href="/produk-layanan/sekolah" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:shadow-md" style={{ background: "#2D6A4F" }}>
+                <a href="https://www.pi-education.com/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:shadow-md" style={{ background: "#2D6A4F" }}>
                   More Information <ArrowRight size={14} />
-                </Link>
+                </a>
               </div>
             </div>
 
