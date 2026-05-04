@@ -80,18 +80,28 @@ export default function Navbar() {
 
             {/* Dropdown */}
             <div className="relative">
-              <button
+              <div
                 onMouseEnter={() => setDropdownOpen(true)}
                 onMouseLeave={() => setDropdownOpen(false)}
-                onClick={() => setDropdownOpen((o) => !o)}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
+                className="flex items-center rounded-md text-gray-700 hover:text-green-800 transition-colors"
               >
-                Produk & Layanan
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
-                />
-              </button>
+                <Link
+                  href="/produk-layanan"
+                  className="px-3 py-2 text-sm font-medium hover:bg-green-50 rounded-l-md transition-colors"
+                >
+                  Produk & Layanan
+                </Link>
+                <button
+                  onClick={() => setDropdownOpen((o) => !o)}
+                  className="px-1 py-2 hover:bg-green-50 rounded-r-md transition-colors"
+                  aria-label="Buka menu layanan"
+                >
+                  <ChevronDown
+                    size={14}
+                    className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+              </div>
 
               {dropdownOpen && (
                 <div
