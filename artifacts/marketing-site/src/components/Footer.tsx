@@ -139,7 +139,7 @@ export default function Footer() {
                 <SiTiktok size={14} />
               </a>
               <a
-                href="https://tr.ee/hImCRwfXLQ"
+                href="https://web.facebook.com/people/Rumah-Psikologi-PI/pfbid0343FpfZzRdyVTUTtih66188toGko2qq1z9ssNfDGofRLKhc5tqzxtfjBGByMB8EvNl/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-white"
@@ -148,7 +148,7 @@ export default function Footer() {
                 <SiFacebook size={14} />
               </a>
               <a
-                href="https://tr.ee/Ie39KE6hhb"
+                href="https://www.youtube.com/@rumahpsikologipi9364"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-white"
