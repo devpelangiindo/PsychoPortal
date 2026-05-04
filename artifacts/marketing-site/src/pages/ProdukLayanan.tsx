@@ -167,16 +167,25 @@ function ServiceDetail({ slug }: { slug: string }) {
 export default function ProdukLayanan() {
   const [matchDetail, paramsDetail] = useRoute("/produk-layanan/:slug");
 
-  if (matchDetail && paramsDetail?.slug) {
-    return <ServiceDetail slug={paramsDetail.slug} />;
-  }
-
+  // Hooks must always be called before any conditional returns
   const { data: cmsServices, isLoading } = useQuery({
     queryKey: ["cms-services"],
     queryFn: fetchServices,
     staleTime: 5 * 60 * 1000,
     retry: 1,
+    enabled: !matchDetail,
   });
+
+  // Handle detail / external-redirect routes after all hooks
+  if (matchDetail && paramsDetail?.slug) {
+    const slug = paramsDetail.slug;
+    const external = FALLBACK_SERVICES.find((s) => s.slug === slug)?.externalHref;
+    if (external) {
+      window.location.replace(external);
+      return null;
+    }
+    return <ServiceDetail slug={slug} />;
+  }
 
   // Use CMS data if available, otherwise fall back to hardcoded
   const services =
@@ -186,12 +195,14 @@ export default function ProdukLayanan() {
           name: s.title,
           shortDescription: s.shortDescription,
           color: serviceColor(s.slug),
+          externalHref: FALLBACK_SERVICES.find((f) => f.slug === s.slug)?.externalHref,
         }))
       : FALLBACK_SERVICES.map((s) => ({
           slug: s.slug,
           name: s.name,
           shortDescription: s.shortDescription,
           color: s.color,
+          externalHref: s.externalHref,
         }));
 
   return (

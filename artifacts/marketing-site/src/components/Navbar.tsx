@@ -10,7 +10,7 @@ const services = [
   { label: "Produk Digital", href: "/produk-layanan/produk-digital" },
   { label: "Kursus", href: "/produk-layanan/kursus" },
   { label: "Franchise", href: "/produk-layanan/franchise" },
-  { label: "Sekolah Pelangi Indonesia", href: "/produk-layanan/sekolah" },
+  { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
   { label: "HORECAL", href: "/produk-layanan/horecal" },
 ];
 
@@ -92,15 +92,27 @@ export default function Navbar() {
                   onMouseLeave={() => setDropdownOpen(false)}
                   className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
                 >
-                  {services.map((s) => (
-                    <Link
-                      key={s.href}
-                      href={s.href}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
-                    >
-                      {s.label}
-                    </Link>
-                  ))}
+                  {services.map((s) =>
+                    s.external ? (
+                      <a
+                        key={s.href}
+                        href={s.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
+                      >
+                        {s.label}
+                      </a>
+                    ) : (
+                      <Link
+                        key={s.href}
+                        href={s.href}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
+                      >
+                        {s.label}
+                      </Link>
+                    )
+                  )}
                 </div>
               )}
             </div>
@@ -170,15 +182,27 @@ export default function Navbar() {
               </button>
               {dropdownOpen && (
                 <div className="ml-4 space-y-1">
-                  {services.map((s) => (
-                    <Link
-                      key={s.href}
-                      href={s.href}
-                      className="block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors"
-                    >
-                      {s.label}
-                    </Link>
-                  ))}
+                  {services.map((s) =>
+                    s.external ? (
+                      <a
+                        key={s.href}
+                        href={s.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors"
+                      >
+                        {s.label}
+                      </a>
+                    ) : (
+                      <Link
+                        key={s.href}
+                        href={s.href}
+                        className="block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors"
+                      >
+                        {s.label}
+                      </Link>
+                    )
+                  )}
                 </div>
               )}
             </div>
