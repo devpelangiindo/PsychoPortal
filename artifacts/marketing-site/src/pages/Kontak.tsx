@@ -144,8 +144,7 @@ export default function Kontak() {
             </div>
             <div className="space-y-3">
               {[
-                { day: "Senin – Jumat", time: "08.00 – 17.00 WIB" },
-                { day: "Sabtu", time: "08.00 – 13.00 WIB" },
+                { day: "Senin – Sabtu", time: "08.00 – 17.00 WIB" },
                 { day: "Minggu & Hari Libur", time: "Tutup" },
               ].map((h) => (
                 <div key={h.day} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
