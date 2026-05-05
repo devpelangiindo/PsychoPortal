@@ -7,7 +7,7 @@ const offices = [
   {
     type: "Kantor Pusat",
     address: "Jl. Colombo No.8, Samirono, Caturtunggal, Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281",
-    mapsUrl: "https://maps.google.com/?q=Jl.+Colombo+No.8,+Samirono,+Caturtunggal,+Depok,+Sleman,+DIY",
+    mapsUrl: "https://maps.app.goo.gl/USTLE9obhyvUK1NAA",
     wa: "+62 811-256-238",
     waUrl: "https://wa.me/62811256238",
     label: "CSO Colombo",
