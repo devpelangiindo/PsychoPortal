@@ -45,19 +45,19 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-3 group">
             <img
               src="/logo-pi-group.png"
               alt="Pelangi Indonesia Group"
-              className="h-14 w-14 object-contain shrink-0 transition-transform group-hover:scale-105"
+              className="h-16 w-16 object-contain shrink-0 transition-transform group-hover:scale-105"
             />
             <div className="hidden sm:block">
-              <div className="text-sm font-bold leading-tight" style={{ color: "#1B4332" }}>
+              <div className="text-base font-bold leading-tight" style={{ color: "#1B4332" }}>
                 Pelangi Indonesia
               </div>
-              <div className="text-xs leading-tight" style={{ color: "#52B788" }}>
+              <div className="text-sm leading-tight font-medium" style={{ color: "#52B788" }}>
                 Group
               </div>
             </div>
