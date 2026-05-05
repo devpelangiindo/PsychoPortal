@@ -26,7 +26,7 @@ const social = [
   { label: "Instagram", icon: SiInstagram, url: "https://www.instagram.com/rumahpsikologi_pi/", color: "#E1306C" },
   { label: "TikTok", icon: SiTiktok, url: "https://www.tiktok.com/@pelangi_indonesia", color: "#000000" },
   { label: "Facebook", icon: SiFacebook, url: "https://www.facebook.com/people/Rumah-Psikologi-PI/pfbid0yy9cryYrKvjhKvgAHff4KJQbbFx6GZwkXBRZLmKWvHW3nTLNmVfaEws6BEG7RXPTl/", color: "#1877F2" },
-  { label: "YouTube", icon: SiYoutube, url: "https://tr.ee/Ie39KE6hhb", color: "#FF0000" },
+  { label: "YouTube", icon: SiYoutube, url: "https://www.youtube.com/@rumahpsikologipi9364", color: "#FF0000" },
 ];
 
 export default function Kontak() {
