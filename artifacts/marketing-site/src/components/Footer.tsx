@@ -137,7 +137,7 @@ export default function Footer() {
                 <SiTiktok size={14} />
               </a>
               <a
-                href="https://web.facebook.com/people/Rumah-Psikologi-PI/pfbid0343FpfZzRdyVTUTtih66188toGko2qq1z9ssNfDGofRLKhc5tqzxtfjBGByMB8EvNl/"
+                href="https://www.facebook.com/people/Rumah-Psikologi-PI/pfbid0yy9cryYrKvjhKvgAHff4KJQbbFx6GZwkXBRZLmKWvHW3nTLNmVfaEws6BEG7RXPTl/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors text-white"
