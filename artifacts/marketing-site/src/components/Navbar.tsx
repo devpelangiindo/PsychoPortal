@@ -51,7 +51,7 @@ export default function Navbar() {
             <img
               src="/logo-pi-group.png"
               alt="Pelangi Indonesia Group"
-              className="h-11 w-11 object-contain shrink-0 transition-transform group-hover:scale-105"
+              className="h-14 w-14 object-contain shrink-0 transition-transform group-hover:scale-105"
             />
             <div className="hidden sm:block">
               <div className="text-sm font-bold leading-tight" style={{ color: "#1B4332" }}>
