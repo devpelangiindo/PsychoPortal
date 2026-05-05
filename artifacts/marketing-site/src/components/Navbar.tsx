@@ -48,11 +48,13 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <img
-              src="/logo-pi-group.png"
-              alt="Pelangi Indonesia Group"
-              className="h-12 w-12 rounded-full object-cover shrink-0 shadow-sm transition-transform group-hover:scale-105"
-            />
+            <div className="h-12 w-12 rounded-full overflow-hidden shrink-0 shadow-sm transition-transform group-hover:scale-105">
+              <img
+                src="/logo-pi-group.png"
+                alt="Pelangi Indonesia Group"
+                className="w-full h-full object-cover scale-150"
+              />
+            </div>
             <div className="hidden sm:block">
               <div className="text-sm font-bold leading-tight" style={{ color: "#1B4332" }}>
                 Pelangi Indonesia
