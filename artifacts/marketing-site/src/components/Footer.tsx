@@ -24,7 +24,7 @@ export default function Footer() {
               <img
                 src="/logo-pi-group.png"
                 alt="Pelangi Indonesia Group"
-                className="w-12 h-12 rounded-full object-cover shrink-0 shadow-md"
+                className="w-20 h-20 rounded-full object-cover shrink-0 shadow-md"
               />
               <div>
                 <div className="font-bold text-white text-base leading-tight">Pelangi Indonesia</div>
