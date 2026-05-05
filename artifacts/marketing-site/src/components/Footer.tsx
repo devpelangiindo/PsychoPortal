@@ -21,13 +21,11 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-1">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shrink-0 shadow-md">
-                <img
-                  src="/logo-pi-group.png"
-                  alt="Pelangi Indonesia Group"
-                  className="w-10 h-10 object-contain"
-                />
-              </div>
+              <img
+                src="/logo-pi-group.png"
+                alt="Pelangi Indonesia Group"
+                className="w-12 h-12 rounded-full object-cover shrink-0 shadow-md"
+              />
               <div>
                 <div className="font-bold text-white text-base leading-tight">Pelangi Indonesia</div>
                 <div className="text-green-300 text-sm">Group</div>
