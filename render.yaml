@@ -9,7 +9,7 @@ services:
     name: psychoportal-api
     runtime: node
     plan: starter
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @workspace/api-server run build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm --filter @workspace/api-server run build
     startCommand: pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run start:prod
     healthCheckPath: /api/healthz
     envVars:
@@ -47,7 +47,7 @@ services:
   - type: web
     name: psychoportal-marketing
     runtime: static
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && PORT=8081 BASE_PATH=/ pnpm --filter @workspace/marketing-site run build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && PORT=8081 BASE_PATH=/ pnpm --filter @workspace/marketing-site run build
     staticPublishPath: artifacts/marketing-site/dist/public
     envVars:
       - key: NODE_ENV
@@ -62,7 +62,7 @@ services:
   - type: web
     name: psychoportal-asesmen
     runtime: static
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && PORT=8084 BASE_PATH=/asesmen/ pnpm --filter @workspace/asesmen-platform run build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && PORT=8084 BASE_PATH=/asesmen/ pnpm --filter @workspace/asesmen-platform run build
     staticPublishPath: artifacts/asesmen-platform/dist/public
     envVars:
       - key: NODE_ENV
