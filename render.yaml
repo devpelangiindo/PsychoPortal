@@ -23,8 +23,6 @@ services:
         generateValue: true
       - key: JWT_SECRET
         generateValue: true
-      - key: PAYLOAD_PUBLIC_SERVER_URL
-        value: https://psychoportal-cms.onrender.com
       - key: MIDTRANS_PRODUCTION_SERVER_KEY
         sync: false
       - key: MIDTRANS_PRODUCTION_CLIENT_KEY
@@ -47,26 +45,6 @@ services:
         sync: false
 
   - type: web
-    name: psychoportal-cms
-    runtime: node
-    plan: starter
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @workspace/cms run build
-    startCommand: pnpm --filter @workspace/cms run start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: psychoportal-db
-          property: connectionString
-      - key: PAYLOAD_SECRET
-        generateValue: true
-      - key: PAYLOAD_PUBLIC_SERVER_URL
-        value: https://psychoportal-cms.onrender.com
-      - key: DEFAULT_OBJECT_STORAGE_BUCKET_ID
-        sync: false
-
-  - type: web
     name: psychoportal-marketing
     runtime: static
     buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && PORT=8081 BASE_PATH=/ pnpm --filter @workspace/marketing-site run build
@@ -74,8 +52,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: VITE_CMS_BASE_URL
-        value: https://psychoportal-cms.onrender.com
       - key: VITE_ASESMEN_PLATFORM_URL
         value: https://psychoportal-asesmen.onrender.com/asesmen/
     routes:
