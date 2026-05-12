@@ -1,6 +1,8 @@
 import {
   users,
   assessments,
+  bookingServices,
+  psychologistBookings,
   orders,
   orderItems,
   userAssessments,
@@ -9,6 +11,11 @@ import {
   type UpsertUser,
   type Assessment,
   type InsertAssessment,
+  type BookingService,
+  type InsertBookingService,
+  type PsychologistBooking,
+  type InsertPsychologistBooking,
+  type PsychologistBookingWithDetails,
   type Order,
   type InsertOrder,
   type OrderItem,
@@ -43,6 +50,18 @@ export interface IStorage {
   getAssessments(): Promise<Assessment[]>;
   getAssessment(id: number): Promise<Assessment | undefined>;
   createAssessment(assessment: InsertAssessment): Promise<Assessment>;
+
+  // Psychologist booking operations
+  getBookingServices(): Promise<BookingService[]>;
+  getBookingService(id: number): Promise<BookingService | undefined>;
+  createBookingService(service: InsertBookingService): Promise<BookingService>;
+  createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking>;
+  getUserPsychologistBookings(userId: string): Promise<PsychologistBookingWithDetails[]>;
+  getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]>;
+  getPsychologistBookingsByProvider(psychologistName: string): Promise<PsychologistBookingWithDetails[]>;
+  getPsychologistBooking(id: number): Promise<PsychologistBookingWithDetails | undefined>;
+  getPsychologistBookingByOrder(orderId: number): Promise<PsychologistBookingWithDetails | undefined>;
+  updatePsychologistBookingStatus(id: number, status: string): Promise<void>;
 
   // Order operations
   createOrder(order: InsertOrder): Promise<Order>;
@@ -185,6 +204,138 @@ export class DatabaseStorage implements IStorage {
       .values(assessment)
       .returning();
     return newAssessment;
+  }
+
+  // Psychologist booking operations
+  async getBookingServices(): Promise<BookingService[]> {
+    return await db.select().from(bookingServices).where(eq(bookingServices.isActive, true));
+  }
+
+  async getBookingService(id: number): Promise<BookingService | undefined> {
+    const [service] = await db.select().from(bookingServices).where(eq(bookingServices.id, id));
+    return service;
+  }
+
+  async createBookingService(service: InsertBookingService): Promise<BookingService> {
+    const [newService] = await db.insert(bookingServices).values(service).returning();
+    return newService;
+  }
+
+  async createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking> {
+    const [newBooking] = await db.insert(psychologistBookings).values(booking).returning();
+    return newBooking;
+  }
+
+  async getUserPsychologistBookings(userId: string): Promise<PsychologistBookingWithDetails[]> {
+    const results = await db
+      .select({
+        booking: psychologistBookings,
+        service: bookingServices,
+        order: orders,
+      })
+      .from(psychologistBookings)
+      .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
+      .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
+      .where(eq(psychologistBookings.userId, userId))
+      .orderBy(psychologistBookings.createdAt);
+
+    return results.map((row) => ({
+      ...row.booking,
+      service: row.service,
+      order: row.order,
+    }));
+  }
+
+  async getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]> {
+    const results = await db
+      .select({
+        booking: psychologistBookings,
+        service: bookingServices,
+        order: orders,
+      })
+      .from(psychologistBookings)
+      .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
+      .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
+      .orderBy(psychologistBookings.createdAt);
+
+    return results.map((row) => ({
+      ...row.booking,
+      service: row.service,
+      order: row.order,
+    }));
+  }
+
+  async getPsychologistBookingsByProvider(psychologistName: string): Promise<PsychologistBookingWithDetails[]> {
+    const results = await db
+      .select({
+        booking: psychologistBookings,
+        service: bookingServices,
+        order: orders,
+      })
+      .from(psychologistBookings)
+      .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
+      .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
+      .where(eq(psychologistBookings.psychologistName, psychologistName))
+      .orderBy(psychologistBookings.createdAt);
+
+    return results.map((row) => ({
+      ...row.booking,
+      service: row.service,
+      order: row.order,
+    }));
+  }
+
+  async getPsychologistBooking(id: number): Promise<PsychologistBookingWithDetails | undefined> {
+    const [result] = await db
+      .select({
+        booking: psychologistBookings,
+        service: bookingServices,
+        order: orders,
+      })
+      .from(psychologistBookings)
+      .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
+      .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
+      .where(eq(psychologistBookings.id, id));
+
+    if (!result) return undefined;
+
+    return {
+      ...result.booking,
+      service: result.service,
+      order: result.order,
+    };
+  }
+
+  async getPsychologistBookingByOrder(orderId: number): Promise<PsychologistBookingWithDetails | undefined> {
+    const [result] = await db
+      .select({
+        booking: psychologistBookings,
+        service: bookingServices,
+        order: orders,
+      })
+      .from(psychologistBookings)
+      .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
+      .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
+      .where(eq(psychologistBookings.orderId, orderId));
+
+    if (!result) return undefined;
+
+    return {
+      ...result.booking,
+      service: result.service,
+      order: result.order,
+    };
+  }
+
+  async updatePsychologistBookingStatus(id: number, status: string): Promise<void> {
+    await db
+      .update(psychologistBookings)
+      .set({
+        status,
+        paidAt: status === "paid" ? new Date() : undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(psychologistBookings.id, id));
   }
 
   // Order operations

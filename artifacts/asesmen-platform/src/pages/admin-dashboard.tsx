@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -207,7 +207,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -260,6 +260,25 @@ export default function AdminDashboard() {
               <Link href="/admin/reports">
                 <Button className="w-full bg-purple-600 hover:bg-purple-700">
                   Lihat Laporan
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarCheck className="w-5 h-5 text-emerald-600" />
+                Booking Psikolog
+              </CardTitle>
+              <CardDescription>
+                Review booking konsultasi dari semua psikolog
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/psychologist/dashboard">
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  Lihat Booking
                 </Button>
               </Link>
             </CardContent>

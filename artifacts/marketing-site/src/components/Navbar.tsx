@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown, ShoppingCart } from "lucide-react";
+import { getAsesmenPlatformHref, getBookingHref } from "@/lib/platform-links";
 
 const services: Array<{
   label: string;
   href: string;
   external?: boolean;
-  separator?: boolean;
-  highlight?: boolean;
 }> = [
   { label: "Asesmen", href: "/produk-layanan/asesmen" },
+  { label: "Booking Psikolog", href: "__BOOKING__" },
   { label: "Konseling", href: "/produk-layanan/konseling" },
   { label: "Terapi", href: "/produk-layanan/terapi" },
   { label: "Pelatihan", href: "/produk-layanan/pelatihan" },
@@ -18,7 +18,7 @@ const services: Array<{
   { label: "Franchise", href: "/produk-layanan/franchise" },
   { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
   { label: "HORECAL", href: "/produk-layanan/horecal" },
-  { label: "Platform Asesmen", href: "/asesmen", separator: true, highlight: true },
+  { label: "Platform Asesmen", href: "__ASESMEN_PLATFORM__" },
 ];
 
 export default function Navbar() {
@@ -110,24 +110,26 @@ export default function Navbar() {
                   className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
                 >
                   {services.map((s) => {
-                    const cls = s.highlight
-                      ? "block px-4 py-2 text-sm font-semibold text-white rounded-md mx-2 my-1 text-center transition-colors hover:opacity-90"
-                      : "block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
-                    const style = s.highlight ? { background: "#2D6A4F" } : undefined;
+                    const href = s.href === "__BOOKING__"
+                      ? getBookingHref()
+                      : s.href === "__ASESMEN_PLATFORM__"
+                        ? getAsesmenPlatformHref()
+                        : s.href;
+                    const cls = "block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
                     const wrapper = (child: React.ReactNode) => (
-                      <div key={s.href} className={s.separator ? "border-t border-gray-100 mt-1 pt-1" : ""}>
+                      <div key={s.href}>
                         {child}
                       </div>
                     );
-                    if (s.external || s.highlight) {
+                    if (s.external || s.href === "__BOOKING__" || s.href === "__ASESMEN_PLATFORM__") {
                       return wrapper(
-                        <a href={s.href} target={s.external ? "_blank" : undefined} rel={s.external ? "noopener noreferrer" : undefined} className={cls} style={style}>
+                        <a href={href} target={s.external ? "_blank" : undefined} rel={s.external ? "noopener noreferrer" : undefined} className={cls}>
                           {s.label}
                         </a>
                       );
                     }
                     return wrapper(
-                      <Link href={s.href} className={cls}>{s.label}</Link>
+                      <Link href={href} className={cls}>{s.label}</Link>
                     );
                   })}
                 </div>
@@ -181,15 +183,17 @@ export default function Navbar() {
               {dropdownOpen && (
                 <div className="ml-4 space-y-1">
                   {services.map((s) => {
-                    const cls = s.highlight
-                      ? "block px-4 py-2 text-sm font-semibold text-white rounded-lg text-center transition-colors hover:opacity-90"
-                      : "block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors";
-                    const style = s.highlight ? { background: "#2D6A4F" } : undefined;
-                    const inner = s.external || s.highlight
-                      ? <a key={s.href} href={s.href} target={s.external ? "_blank" : undefined} rel={s.external ? "noopener noreferrer" : undefined} className={cls} style={style}>{s.label}</a>
-                      : <Link key={s.href} href={s.href} className={cls}>{s.label}</Link>;
+                    const href = s.href === "__BOOKING__"
+                      ? getBookingHref()
+                      : s.href === "__ASESMEN_PLATFORM__"
+                        ? getAsesmenPlatformHref()
+                        : s.href;
+                    const cls = "block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors";
+                    const inner = s.external || s.href === "__BOOKING__" || s.href === "__ASESMEN_PLATFORM__"
+                      ? <a key={s.href} href={href} target={s.external ? "_blank" : undefined} rel={s.external ? "noopener noreferrer" : undefined} className={cls}>{s.label}</a>
+                      : <Link key={s.href} href={href} className={cls}>{s.label}</Link>;
                     return (
-                      <div key={s.href} className={s.separator ? "border-t border-gray-100 mt-1 pt-1" : ""}>
+                      <div key={s.href}>
                         {inner}
                       </div>
                     );

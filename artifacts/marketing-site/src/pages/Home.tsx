@@ -11,6 +11,7 @@ import {
   type CMSTestimonial,
   type CMSStat,
 } from "@/lib/cms";
+import { getBookingHref } from "@/lib/platform-links";
 import { useRef } from "react";
 
 // ─── Fallback data (shown while CMS is empty) ────────────────────────────────
@@ -39,6 +40,7 @@ const businessUnits = [
 
 const services = [
   { slug: "asesmen", name: "Asesmen", desc: "Layanan psikotes dan asesmen berbasis kode etik dan metode ilmiah.", color: "#2D6A4F" },
+  { slug: "booking-psikolog", name: "Booking Psikolog", desc: "Reservasi sesi konsultasi psikolog dengan pembayaran Midtrans dan konfirmasi jadwal melalui WhatsApp.", color: "#9A6E5E", appHref: "booking" },
   { slug: "konseling", name: "Konseling", desc: "Konseling profesional untuk individu, keluarga, dan organisasi.", color: "#3A7D58" },
   { slug: "terapi", name: "Terapi", desc: "Program terapi tumbuh kembang yang terstruktur dan tepat sasaran.", color: "#52B788" },
   { slug: "pelatihan", name: "Pelatihan", desc: "Pelatihan profesional untuk tenaga pendidik dan terapis.", color: "#40916C" },
@@ -335,6 +337,9 @@ export default function Home() {
                   </div>
                 </>
               );
+              if ("appHref" in s && s.appHref === "booking") {
+                return <a key={s.slug} href={getBookingHref()} className={cardClass}>{inner}</a>;
+              }
               return s.externalHref ? (
                 <a key={s.slug} href={s.externalHref} target="_blank" rel="noopener noreferrer" className={cardClass}>{inner}</a>
               ) : (

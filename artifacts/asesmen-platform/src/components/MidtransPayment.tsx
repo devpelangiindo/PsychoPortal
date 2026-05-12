@@ -66,8 +66,7 @@ export default function MidtransPayment({
       console.log('- Final clientKey used:', clientKey ? 'EXISTS' : 'MISSING');
       
       if (!clientKey) {
-        console.error('VITE_MIDTRANS_PRODUCTION_CLIENT_KEY is missing! Production mode only.');
-        reject(new Error('VITE_MIDTRANS_PRODUCTION_CLIENT_KEY is missing - Production mode only'));
+        reject(new Error('VITE_MIDTRANS_PRODUCTION_CLIENT_KEY is missing'));
         return;
       }
 
@@ -116,21 +115,7 @@ export default function MidtransPayment({
 
     setIsLoading(true);
     try {
-      // Validate client key first
       const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY;
-      if (!clientKey) {
-        throw new Error('VITE_MIDTRANS_PRODUCTION_CLIENT_KEY tidak dikonfigurasi - Production mode only');
-      }
-
-      // Load Midtrans script
-      await loadMidtransScript();
-      
-      // Validate snap object
-      if (!window.snap) {
-        throw new Error('Midtrans script tidak berhasil dimuat');
-      }
-
-      // Create transaction
       console.log('Sending transaction request with data:', {
         orderId,
         amount,
@@ -173,6 +158,21 @@ export default function MidtransPayment({
       }
 
       const { token } = transactionData;
+
+      if (!clientKey) {
+        if (transactionData.redirect_url) {
+          window.location.href = transactionData.redirect_url;
+          return;
+        }
+        throw new Error('Midtrans client key belum dikonfigurasi');
+      }
+
+      await loadMidtransScript();
+
+      if (!window.snap) {
+        throw new Error('Midtrans script tidak berhasil dimuat');
+      }
+
       console.log('About to call window.snap.pay with token:', token);
 
       // Validate window.snap exists and has pay method

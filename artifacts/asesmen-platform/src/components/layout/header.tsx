@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Menu, X, User, LogIn, UserPlus, Brain } from "lucide-react";
+import { ShoppingCart, Menu, X, User, LogIn, UserPlus, Brain, CalendarCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/lib/cart";
 import ShoppingCartSidebar from "@/components/shopping-cart";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
+
+const mainSiteHref = import.meta.env.VITE_MAIN_SITE_URL ||
+  (window.location.hostname === "localhost" ? "http://localhost:8081/" : "/");
 
 export default function Header() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -40,7 +43,7 @@ export default function Header() {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <Link href="/" className="flex items-center space-x-3">
+              <a href={mainSiteHref} className="flex items-center space-x-3">
                 <img 
                   src={logoPath} 
                   alt="Rumah Psikologi Pelangi Indonesia" 
@@ -52,7 +55,7 @@ export default function Header() {
                     <span className="text-base">Pelangi Indonesia</span>
                   </h1>
                 </div>
-              </Link>
+              </a>
               
               {/* Desktop Navigation */}
               <nav className="hidden md:ml-8 md:flex space-x-8 items-center">
@@ -63,12 +66,16 @@ export default function Header() {
                   <Brain className="w-4 h-4" />
                   Asesmen Online
                 </Link>
+                <Link href="/booking" className="inline-flex items-center gap-1.5 text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                  <CalendarCheck className="w-4 h-4" />
+                  Booking Psikolog
+                </Link>
                 <Link href="/kontak" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
                   Kontak
                 </Link>
                 {isAuthenticated && (
-                  <Link href="/dashboard" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
-                    Dashboard
+                  <Link href={user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard"} className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                    {user?.role === "psychologist" ? "Dashboard Psikolog" : "Dashboard"}
                   </Link>
                 )}
               </nav>
@@ -162,12 +169,16 @@ export default function Header() {
                   <Brain className="w-4 h-4" />
                   Asesmen Online
                 </Link>
+                <Link href="/booking" className="flex items-center gap-2 px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
+                  <CalendarCheck className="w-4 h-4" />
+                  Booking Psikolog
+                </Link>
                 <Link href="/kontak" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
                   Kontak
                 </Link>
                 {isAuthenticated && (
-                  <Link href="/dashboard" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
-                    Dashboard
+                  <Link href={user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard"} className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
+                    {user?.role === "psychologist" ? "Dashboard Psikolog" : "Dashboard"}
                   </Link>
                 )}
                 

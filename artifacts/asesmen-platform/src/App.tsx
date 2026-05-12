@@ -29,6 +29,8 @@ import PaymentFailed from "@/pages/payment-failed";
 import PaymentReturn from "@/pages/payment-return";
 import AutoRedirect from "@/pages/auto-redirect";
 import Kontak from "@/pages/kontak";
+import Booking from "@/pages/booking";
+import PsychologistDashboard from "@/pages/psychologist-dashboard";
 import Layanan from "@/pages/layanan";
 import LayananDetail from "@/pages/layanan-detail";
 import Artikel from "@/pages/artikel";
@@ -53,6 +55,7 @@ function Router() {
       <Route path="/artikel/:slug" component={ArtikelDetail} />
       <Route path="/tim/:id" component={TimDetail} />
       <Route path="/kontak" component={Kontak} />
+      <Route path="/booking" component={Booking} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/forgot-password" component={ForgotPassword} />
@@ -62,6 +65,7 @@ function Router() {
       <Route path="/cart" component={Cart} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/psychologist/dashboard" component={PsychologistDashboard} />
       <Route path="/assessment/:id" component={AssessmentDetail} />
       <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
       <Route path="/learning-style/:assessmentId" component={LearningStyle} />
@@ -87,10 +91,14 @@ function Router() {
 }
 
 function App() {
+  const routerBase = window.location.pathname.startsWith(import.meta.env.BASE_URL)
+    ? import.meta.env.BASE_URL.replace(/\/$/, "")
+    : "";
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <WouterRouter base={routerBase}>
           <Router />
         </WouterRouter>
         <Toaster />

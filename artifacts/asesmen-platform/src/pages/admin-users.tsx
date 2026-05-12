@@ -23,6 +23,7 @@ interface User {
   firstName: string | null;
   lastName: string | null;
   whatsappNumber: string | null;
+  psychologistProfileName: string | null;
   role: string;
   isActive: boolean;
   lastLoginAt: string | null;
@@ -150,6 +151,7 @@ export default function AdminUsers() {
       firstName: "",
       lastName: "",
       whatsappNumber: "",
+      psychologistProfileName: "",
       isActive: true,
       role: "user",
     },
@@ -175,8 +177,9 @@ export default function AdminUsers() {
       firstName: user.firstName || "",
       lastName: user.lastName || "",
       whatsappNumber: user.whatsappNumber || "",
+      psychologistProfileName: user.psychologistProfileName || "",
       isActive: user.isActive,
-      role: user.role as "user" | "admin",
+      role: user.role as "user" | "admin" | "internal" | "psychologist",
     });
     setIsEditDialogOpen(true);
   };
@@ -294,11 +297,13 @@ export default function AdminUsers() {
                               ? 'destructive' 
                               : user.role === 'internal'
                                 ? 'default'
+                                : user.role === 'psychologist'
+                                  ? 'outline'
                                 : 'secondary'
                           }
                           className={user.role === 'internal' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
                         >
-                          {user.role === 'admin' ? 'Admin' : user.role === 'internal' ? 'Internal' : 'Pengguna'}
+                          {user.role === 'admin' ? 'Admin' : user.role === 'internal' ? 'Internal' : user.role === 'psychologist' ? 'Psikolog' : 'Pengguna'}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -397,12 +402,36 @@ export default function AdminUsers() {
                         <option value="user">Pengguna</option>
                         <option value="admin">Admin</option>
                         <option value="internal">Internal</option>
+                        <option value="psychologist">Psikolog</option>
                       </select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {editForm.watch("role") === "psychologist" && (
+                <FormField
+                  control={editForm.control}
+                  name="psychologistProfileName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Profil Psikolog</FormLabel>
+                      <FormControl>
+                        <select {...field} value={field.value ?? ""} className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-md px-3 py-2">
+                          <option value="">Pilih nama di layanan booking</option>
+                          <option value="Tria Khusni Barokah, M.Psi., Psikolog">Tria Khusni Barokah, M.Psi., Psikolog</option>
+                          <option value="Bagas Paramajana, M.Psi., Psikolog">Bagas Paramajana, M.Psi., Psikolog</option>
+                          <option value="Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog">Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog</option>
+                          <option value="Retno Rahayu, M.Psi., Psikolog">Retno Rahayu, M.Psi., Psikolog</option>
+                          <option value="Ridwan Rahmawan, S.Psi., M.H., Psikolog">Ridwan Rahmawan, S.Psi., M.H., Psikolog</option>
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={editForm.control}

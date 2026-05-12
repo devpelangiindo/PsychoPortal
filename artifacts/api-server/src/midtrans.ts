@@ -7,16 +7,18 @@ import { nanoid } from 'nanoid';
 const serverKey = process.env.MIDTRANS_PRODUCTION_SERVER_KEY;
 const clientKey = process.env.MIDTRANS_PRODUCTION_CLIENT_KEY;
 const merchantId = process.env.MIDTRANS_PRODUCTION_MERCHANT_ID;
+const hasMidtransCredentials = Boolean(serverKey && clientKey && merchantId);
+const allowMissingMidtrans = process.env.NODE_ENV !== 'production';
 
-if (!serverKey) {
+if (!serverKey && !allowMissingMidtrans) {
   throw new Error('Missing MIDTRANS_PRODUCTION_SERVER_KEY environment variable - Production mode only');
 }
 
-if (!clientKey) {
+if (!clientKey && !allowMissingMidtrans) {
   throw new Error('Missing MIDTRANS_PRODUCTION_CLIENT_KEY environment variable - Production mode only');
 }
 
-if (!merchantId) {
+if (!merchantId && !allowMissingMidtrans) {
   throw new Error('Missing MIDTRANS_PRODUCTION_MERCHANT_ID environment variable - Production mode only');
 }
 
@@ -33,20 +35,23 @@ console.log('- MIDTRANS_PRODUCTION_SERVER_KEY:', process.env.MIDTRANS_PRODUCTION
 console.log('- MIDTRANS_PRODUCTION_CLIENT_KEY:', process.env.MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
 console.log('- MIDTRANS_PRODUCTION_MERCHANT_ID:', process.env.MIDTRANS_PRODUCTION_MERCHANT_ID ? 'EXISTS' : 'MISSING');
 console.log('- VITE_MIDTRANS_PRODUCTION_CLIENT_KEY:', process.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
+if (!hasMidtransCredentials) {
+  console.warn('Midtrans credentials are missing. Local development will use mock payment responses.');
+}
 
 // Initialize Midtrans clients
 const snap = new midtransClient.Snap({
   isProduction,
-  serverKey: serverKey,
-  clientKey: clientKey,
-  merchantId: merchantId,
+  serverKey: serverKey || 'local-dev-server-key',
+  clientKey: clientKey || 'local-dev-client-key',
+  merchantId: merchantId || 'local-dev-merchant-id',
 });
 
 const coreApi = new midtransClient.CoreApi({
   isProduction,
-  serverKey: serverKey,
-  clientKey: clientKey,
-  merchantId: merchantId,
+  serverKey: serverKey || 'local-dev-server-key',
+  clientKey: clientKey || 'local-dev-client-key',
+  merchantId: merchantId || 'local-dev-merchant-id',
 });
 
 export interface MidtransTransactionData {
@@ -68,13 +73,29 @@ export interface MidtransTransactionData {
 
 export async function createMidtransTransaction(transactionData: MidtransTransactionData) {
   try {
+    if (!hasMidtransCredentials) {
+      return {
+        token: `local-dev-${nanoid()}`,
+        redirect_url: `http://localhost:8084/asesmen/payment-return?order_id=${encodeURIComponent(transactionData.orderId)}`,
+      };
+    }
+
+    const itemDetails = transactionData.itemDetails.map((item) => ({
+      ...item,
+      id: item.id.slice(0, 50),
+      name: item.name.slice(0, 50),
+      price: Math.round(item.price),
+      quantity: item.quantity,
+    }));
+    const grossAmount = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
     const parameter = {
       transaction_details: {
         order_id: transactionData.orderId,
-        gross_amount: transactionData.amount,
+        gross_amount: grossAmount,
       },
       customer_details: transactionData.customerDetails,
-      item_details: transactionData.itemDetails,
+      item_details: itemDetails,
       // Add merchant configuration
       credit_card: {
         secure: true,
@@ -133,8 +154,7 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
       redirect_url: transaction.redirect_url,
     };
   } catch (error) {
-    console.error('❌ Error creating Midtrans transaction:', error);
-    console.error('- Error details:', error);
+    console.error('❌ Error creating Midtrans transaction:', error instanceof Error ? error.message : error);
     console.error('- Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
     console.error('- Enabled payments configured:', ['credit_card', 'bca_va', 'bni_va', 'bri_va', 'cimb_va', 'danamon_va', 'mandiri_va', 'permata_va', 'other_va', 'gopay', 'gopay_static_qr', 'shopeepay', 'qris', 'akulaku', 'indomaret', 'alfamart']);
     throw error;
@@ -143,10 +163,18 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
 
 export async function checkTransactionStatus(orderId: string) {
   try {
+    if (!hasMidtransCredentials) {
+      return {
+        order_id: orderId,
+        transaction_status: 'pending',
+        fraud_status: 'accept',
+      };
+    }
+
     const statusResponse = await coreApi.transaction.status(orderId);
     return statusResponse;
   } catch (error) {
-    console.error('Error checking transaction status:', error);
+    console.error('Error checking transaction status:', error instanceof Error ? error.message : error);
     throw error;
   }
 }
@@ -186,6 +214,16 @@ export function getMidtransPaymentStatus(transaction_status: string, fraud_statu
 export async function handleMidtransCallback(req: Request, res: Response) {
   try {
     const notification = req.body;
+    if (!hasMidtransCredentials) {
+      return {
+        orderId: notification.order_id,
+        status: getMidtransPaymentStatus(notification.transaction_status || 'pending', notification.fraud_status),
+        amount: Number(notification.gross_amount || 0),
+        paymentType: notification.payment_type || 'local-dev',
+        transactionTime: notification.transaction_time,
+        settlementTime: notification.settlement_time,
+      };
+    }
     
     // Verify notification signature (recommended for production)
     const statusResponse = await coreApi.transaction.notification(notification);

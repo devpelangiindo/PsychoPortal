@@ -14,6 +14,50 @@ import fs from "fs";
 // Using Midtrans payment gateway
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "../midtrans";
 
+const PSYCHOLOGISTS = [
+  { name: "Tria Khusni Barokah, M.Psi., Psikolog", fee: "300000", types: ["child"] },
+  { name: "Bagas Paramajana, M.Psi., Psikolog", fee: "300000", types: ["child"] },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", fee: "400000", types: ["adult", "family"] },
+  { name: "Retno Rahayu, M.Psi., Psikolog", fee: "300000", types: ["adult", "family"] },
+  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", fee: "300000", types: ["adult"] },
+];
+
+const bookingRequestSchema = z.object({
+  serviceId: z.number().int().positive(),
+  clientName: z.string().min(2),
+  birthDate: z.string().min(8),
+  email: z.string().email(),
+  whatsappNumber: z.string().regex(/^[0-9]+$/, "Nomor WhatsApp hanya boleh angka").min(8),
+  mainConcern: z.string().min(10),
+  concernHistory: z.string().optional(),
+  consultationType: z.enum(["child", "adult", "family"]),
+  childName: z.string().optional(),
+  childBirthDate: z.string().optional(),
+  previousDiagnosis: z.string().optional(),
+  preferredDate: z.string().min(4),
+  preferredTime: z.enum(["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"]),
+  psychologistName: z.string().min(2),
+  location: z.enum(["online", "colombo", "bantul"]),
+}).superRefine((data, ctx) => {
+  const psychologist = PSYCHOLOGISTS.find((item) => item.name === data.psychologistName);
+  if (!psychologist || !psychologist.types.includes(data.consultationType)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["psychologistName"],
+      message: "Psikolog tidak sesuai dengan jenis konsultasi",
+    });
+  }
+
+  if (data.consultationType === "child") {
+    if (!data.childName?.trim()) {
+      ctx.addIssue({ code: "custom", path: ["childName"], message: "Nama anak wajib diisi" });
+    }
+    if (!data.childBirthDate?.trim()) {
+      ctx.addIssue({ code: "custom", path: ["childBirthDate"], message: "Tanggal lahir anak wajib diisi" });
+    }
+  }
+});
+
 // Custom authentication middleware for JWT tokens
 function isAuthenticated(req: any, res: any, next: any) {
   try {
@@ -38,6 +82,10 @@ function isAuthenticated(req: any, res: any, next: any) {
   } catch (error) {
     return res.status(401).json({ message: "Unauthorized" });
   }
+}
+
+function getDisplayName(user: { firstName?: string | null; lastName?: string | null }) {
+  return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
 }
 
 // Result calculation functions
@@ -983,6 +1031,44 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
   });
 }
 
+async function fulfillPaidOrder(orderId: number, paymentId?: string) {
+  const order = await storage.getOrder(orderId);
+  if (!order) {
+    console.log(`❌ Order ${orderId} not found`);
+    return { assessmentsCreated: 0, bookingUpdated: false };
+  }
+
+  await storage.updateOrderStatus(orderId, 'completed', paymentId, 'paid');
+
+  let assessmentsCreated = 0;
+  if (order.orderItems.length > 0) {
+    for (const item of order.orderItems) {
+      const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, order.id);
+      if (!existingAssessment) {
+        await storage.createUserAssessment({
+          userId: order.userId,
+          assessmentId: item.assessmentId,
+          orderId: order.id,
+          status: 'available',
+        });
+        assessmentsCreated++;
+        console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
+      }
+    }
+
+    return { assessmentsCreated, bookingUpdated: false };
+  }
+
+  const booking = await storage.getPsychologistBookingByOrder(orderId);
+  if (booking && booking.status !== 'paid') {
+    await storage.updatePsychologistBookingStatus(booking.id, 'paid');
+    console.log(`📅 Booking ${booking.id} marked as paid for order ${orderId}`);
+    return { assessmentsCreated: 0, bookingUpdated: true };
+  }
+
+  return { assessmentsCreated: 0, bookingUpdated: false };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   try {
     // Session middleware for custom authentication
@@ -990,6 +1076,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Initialize default assessments
     await initializeAssessments();
+    await initializeBookingServices();
+    await ensureDefaultAdminUser();
   } catch (error) {
     console.error('Failed to initialize routes:', error);
     throw error;
@@ -1051,6 +1139,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(401).json({ message: "Unauthorized" });
+    }
+  });
+
+  app.get('/api/psychologist/bookings', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.role === 'admin') {
+        return res.json(await storage.getAllPsychologistBookings());
+      }
+
+      const providerName = user.psychologistProfileName || getDisplayName(user);
+      if (!providerName) {
+        return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
+      }
+
+      const bookings = await storage.getPsychologistBookingsByProvider(providerName);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching psychologist bookings:", error);
+      res.status(500).json({ message: "Failed to fetch psychologist bookings" });
     }
   });
 
@@ -1229,7 +1345,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: user.firstName,
           lastName: user.lastName,
           whatsappNumber: user.whatsappNumber,
-          isEmailVerified: user.isEmailVerified
+          isEmailVerified: user.isEmailVerified,
+          role: user.role,
+          psychologistProfileName: user.psychologistProfileName
         },
         accessToken,
         refreshToken
@@ -1337,6 +1455,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Psychologist booking routes
+  app.get('/api/booking-services', async (_req, res) => {
+    try {
+      const services = await storage.getBookingServices();
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching booking services:", error);
+      res.status(500).json({ message: "Failed to fetch booking services" });
+    }
+  });
+
+  app.get('/api/bookings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const bookings = await storage.getUserPsychologistBookings(userId);
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  app.post('/api/bookings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = bookingRequestSchema.parse(req.body);
+      const service = await storage.getBookingService(data.serviceId);
+
+      if (!service || !service.isActive) {
+        return res.status(404).json({ message: "Booking service not found" });
+      }
+
+      const psychologist = PSYCHOLOGISTS.find((item) => item.name === data.psychologistName)!;
+
+      const order = await storage.createOrder({
+        userId,
+        totalAmount: psychologist.fee,
+        status: 'pending',
+      });
+
+      const booking = await storage.createPsychologistBooking({
+        userId,
+        serviceId: service.id,
+        orderId: order.id,
+        clientName: data.clientName,
+        birthDate: data.birthDate,
+        email: data.email,
+        whatsappNumber: data.whatsappNumber,
+        mainConcern: data.mainConcern,
+        concernHistory: data.concernHistory,
+        consultationType: data.consultationType,
+        childName: data.childName,
+        childBirthDate: data.childBirthDate,
+        previousDiagnosis: data.previousDiagnosis,
+        preferredDate: data.preferredDate,
+        preferredTime: data.preferredTime,
+        psychologistName: data.psychologistName,
+        psychologistFee: psychologist.fee,
+        location: data.location,
+        status: 'pending_payment',
+      });
+
+      const bookingWithDetails = await storage.getPsychologistBooking(booking.id);
+      res.status(201).json(bookingWithDetails);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data booking tidak valid", errors: error.flatten() });
+      }
+      console.error("Error creating booking:", error);
+      res.status(500).json({ message: "Failed to create booking" });
+    }
+  });
+
+  app.post('/api/bookings/:id/pay', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getPsychologistBooking(bookingId);
+
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const timestamp = Date.now();
+      const midtransOrderId = `order_${booking.orderId}_${timestamp}`;
+      const user = await storage.getUser(booking.userId);
+      const bookingAmount = booking.psychologistFee || booking.service.price;
+
+      const transaction = await createMidtransTransaction({
+        orderId: midtransOrderId,
+        amount: parseInt(bookingAmount),
+        customerDetails: {
+          first_name: booking.clientName || user?.firstName || 'Customer',
+          last_name: user?.lastName || '',
+          email: booking.email,
+          phone: booking.whatsappNumber,
+        },
+        itemDetails: [
+          {
+            id: `booking_service_${booking.serviceId}`,
+            name: `${booking.service.name} - ${booking.psychologistName || "Psikolog"}`,
+            price: parseInt(bookingAmount),
+            quantity: 1,
+          },
+        ],
+      });
+
+      await storage.updateOrderStatus(booking.orderId, 'pending', midtransOrderId, 'pending');
+
+      res.json({
+        ...transaction,
+        paymentId: midtransOrderId,
+        orderId: booking.orderId,
+        bookingId: booking.id,
+        amount: bookingAmount,
+        status: 'pending',
+      });
+    } catch (error) {
+      console.error("Error creating booking payment:", error);
+      res.status(500).json({ message: "Failed to create booking payment" });
+    }
+  });
+
   // Order routes
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
@@ -1437,7 +1681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔄 Creating Midtrans payment for order ${orderId}`);
 
       // Get user details for customer info
-      const user = await storage.getUserById(order.userId);
+      const user = await storage.getUser(order.userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -1447,18 +1691,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const midtransOrderId = `order_${orderId}_${timestamp}`;
       
       // Prepare Midtrans transaction data
-      const itemDetails = order.orderItems.map(item => ({
+      const booking = order.orderItems.length === 0
+        ? await storage.getPsychologistBookingByOrder(order.id)
+        : undefined;
+
+      const itemDetails = order.orderItems.length > 0 ? order.orderItems.map(item => ({
         id: `assessment_${item.assessmentId}`,
-        name: `Assessment ${item.assessmentId}`,
+        name: item.assessment.name,
         price: parseInt(item.price),
         quantity: 1
-      }));
+      })) : booking ? [{
+        id: `booking_service_${booking.serviceId}`,
+        name: booking.service.name,
+        price: parseInt(booking.service.price),
+        quantity: 1,
+      }] : [];
+
+      if (itemDetails.length === 0) {
+        return res.status(400).json({ message: "Order has no payable items" });
+      }
 
       const transactionData = {
         orderId: midtransOrderId,
         amount: parseInt(order.totalAmount),
         customerDetails: {
-          first_name: user.firstName,
+          first_name: user.firstName || 'Customer',
           last_name: user.lastName || '',
           email: user.email,
           phone: user.whatsappNumber || ''
@@ -1884,6 +2141,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/bookings', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const bookings = await storage.getAllPsychologistBookings();
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching admin bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
   // Update user
   app.patch('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req, res) => {
     try {
@@ -2082,34 +2349,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update order status based on Midtrans notification (ALWAYS sync regardless of current status)
       if (status === 'paid') {
-        const order = await storage.getOrder(numericOrderId);
-        if (order) {
-          console.log(`💳 Processing Midtrans payment completion for order ${numericOrderId}`);
-          
-          // Update order to completed
-          await storage.updateOrderStatus(numericOrderId, 'completed', orderId, 'paid');
-          console.log(`✅ Order ${numericOrderId} status updated to completed`);
-          
-          // Create user assessments
-          for (const item of order.orderItems) {
-            const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, order.id);
-            if (!existingAssessment) {
-              await storage.createUserAssessment({
-                userId: order.userId,
-                assessmentId: item.assessmentId,
-                orderId: order.id,
-                status: 'available'
-              });
-              console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
-            } else {
-              console.log(`⏭️ Assessment ${item.assessmentId} already exists for order ${order.id}`);
-            }
-          }
-          
-          console.log(`🎉 Midtrans: Order ${numericOrderId} completed successfully`);
-        } else {
-          console.log(`❌ Order ${numericOrderId} not found`);
-        }
+        const fulfillment = await fulfillPaidOrder(numericOrderId, orderId);
+        console.log(`🎉 Midtrans: Order ${numericOrderId} completed successfully`, fulfillment);
       } else if (status === 'failed' || status === 'cancelled') {
         await storage.updateOrderStatus(numericOrderId, 'cancelled', orderId, status);
         console.log(`❌ Midtrans: Order ${numericOrderId} ${status}`);
@@ -2200,21 +2441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updatedStatus = order.status;
       if (paymentStatus === 'paid' && order.status !== 'completed') {
         updatedStatus = 'completed';
-        await storage.updateOrderStatus(numericOrderId, 'completed', workingOrderId, 'paid');
-        
-        // Create user assessments if payment is successful
-        for (const item of order.orderItems) {
-          const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, order.id);
-          if (!existingAssessment) {
-            await storage.createUserAssessment({
-              userId: order.userId,
-              assessmentId: item.assessmentId,
-              orderId: order.id,
-              status: 'available'
-            });
-            console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
-          }
-        }
+        await fulfillPaidOrder(numericOrderId, workingOrderId);
         
         console.log(`✅ Order ${numericOrderId} updated to completed`);
       } else if ((paymentStatus === 'failed' || paymentStatus === 'cancelled') && order.status === 'pending') {
@@ -2255,6 +2482,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let assessmentsCreated = 0;
       if (order.status === 'completed' && order.paymentStatus === 'paid') {
         console.log(`Order ${orderId} already completed, checking for missing assessments...`);
+        const fulfillment = await fulfillPaidOrder(orderId, order.paymentId || `midtrans_sim_${orderId}`);
+        assessmentsCreated += fulfillment.assessmentsCreated;
         
         // Create user assessments if they don't exist for this specific order
         if (order.orderItems) {
@@ -2292,35 +2521,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Update order status to completed
-      await storage.updateOrderStatus(orderId, 'completed', `midtrans_sim_${orderId}`, 'paid');
+      const fulfillment = await fulfillPaidOrder(orderId, `midtrans_sim_${orderId}`);
+      assessmentsCreated += fulfillment.assessmentsCreated;
       console.log(`✅ Order ${orderId} status updated to completed via Midtrans simulation`);
-      
-      // Create user assessments for completed order
-      if (order.orderItems) {
-        for (const item of order.orderItems) {
-          // Check if assessment exists for THIS SPECIFIC ORDER (allow multiple instances)
-          const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, orderId);
-          if (!existingAssessment) {
-            await storage.createUserAssessment({
-              userId: order.userId,
-              assessmentId: item.assessmentId,
-              orderId: orderId,
-              status: 'available' as const
-            });
-            assessmentsCreated++;
-            console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId} order ${orderId}`);
-          } else {
-            console.log(`⏭️ Assessment ${item.assessmentId} already exists for order ${orderId}`);
-          }
-        }
-      }
       
       res.json({ 
         message: 'Midtrans payment simulated successfully',
         orderId,
         status: 'completed',
-        assessmentsCreated
+        assessmentsCreated,
+        bookingUpdated: fulfillment.bookingUpdated,
       });
     } catch (error: any) {
       console.error('❌ Error simulating Midtrans payment:', error);
@@ -2539,4 +2749,63 @@ async function initializeAssessments() {
     console.error("Error initializing assessments:", error);
     throw error; // Re-throw to prevent silent failures
   }
+}
+
+async function initializeBookingServices() {
+  try {
+    console.log("Initializing booking services...");
+    const existingServices = await storage.getBookingServices();
+
+    if (existingServices.length === 0) {
+      await storage.createBookingService({
+        name: "Konsultasi Psikolog",
+        description: "Sesi konsultasi bersama psikolog untuk membahas kebutuhan pribadi, keluarga, pendidikan, atau tindak lanjut asesmen. Tim akan mengonfirmasi jadwal final melalui WhatsApp setelah pembayaran.",
+        price: "350000",
+        duration: "60 menit",
+        isActive: true,
+      });
+      console.log("Default psychologist booking service created");
+    } else {
+      console.log(`Found ${existingServices.length} existing booking services`);
+    }
+  } catch (error) {
+    console.error("Error initializing booking services:", error);
+    throw error;
+  }
+}
+
+async function ensureDefaultAdminUser() {
+  const adminEmail = process.env.ADMIN_EMAIL || (process.env.NODE_ENV !== "production" ? "admin@rppi.local" : "");
+  const adminPassword = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV !== "production" ? "Admin12345!" : "");
+
+  if (!adminEmail || !adminPassword) {
+    return;
+  }
+
+  const existingUser = await storage.getUserByEmail(adminEmail);
+  if (existingUser) {
+    if (existingUser.role !== "admin" || !existingUser.isActive) {
+      await storage.updateUser(existingUser.id, {
+        role: "admin",
+        isActive: true,
+        isEmailVerified: true,
+      });
+    }
+    return;
+  }
+
+  const hashedPassword = await AuthUtils.hashPassword(adminPassword);
+  await storage.createUser({
+    id: AuthUtils.generateUserId(),
+    email: adminEmail,
+    password: hashedPassword,
+    firstName: "Admin",
+    lastName: "RPPI",
+    authProvider: "custom",
+    role: "admin",
+    isActive: true,
+    isEmailVerified: true,
+  });
+
+  console.log(`👤 Default admin user ready: ${adminEmail}`);
 }

@@ -66,6 +66,12 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      "/admin": {
+        target: "http://localhost:23740",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,

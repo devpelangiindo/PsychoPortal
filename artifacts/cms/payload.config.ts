@@ -101,9 +101,22 @@ const bucket = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || ''
 if (!bucket) {
   console.warn(
     '[CMS] WARNING: DEFAULT_OBJECT_STORAGE_BUCKET_ID is not set. ' +
-    'Image uploads will fail. Set this env var to enable GCS object storage.'
+    'Using local filesystem uploads for development.'
   )
 }
+
+const storagePlugins = bucket
+  ? [
+      gcsStorage({
+        collections: {
+          media: true,
+        },
+        bucket,
+        acl: 'Public',
+        options: gcsOptions,
+      }),
+    ]
+  : []
 
 export default buildConfig({
   admin: {
@@ -135,16 +148,7 @@ export default buildConfig({
   editor: lexicalEditor({
     features: defaultEditorFeatures,
   }),
-  plugins: [
-    gcsStorage({
-      collections: {
-        media: true,
-      },
-      bucket,
-      acl: 'Public',
-      options: gcsOptions,
-    }),
-  ],
+  plugins: storagePlugins,
   secret: process.env.PAYLOAD_SECRET || (() => {
     if (process.env.NODE_ENV === 'production') {
       console.error('[CMS] WARNING: PAYLOAD_SECRET env var is not set. Set it for proper security.')

@@ -74,7 +74,15 @@ export default defineConfig({
       strict: false,
     },
     proxy: {
+      "/api": {
+        target: "http://localhost:5001",
+        changeOrigin: true,
+      },
       "/_next": {
+        target: "http://localhost:23740",
+        changeOrigin: true,
+      },
+      "/admin": {
         target: "http://localhost:23740",
         changeOrigin: true,
       },

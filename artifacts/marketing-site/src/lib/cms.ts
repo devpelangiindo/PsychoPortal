@@ -1,7 +1,7 @@
 // CMS API helper — reads from Payload CMS at /admin/api
 // All collections have access: { read: () => true } — no auth needed for reads
 
-const CMS_BASE = '/admin/api'
+const CMS_BASE = `${(import.meta.env.VITE_CMS_BASE_URL ?? '').replace(/\/$/, '')}/admin/api`
 
 async function safeFetch<T>(url: string): Promise<T | null> {
   try {

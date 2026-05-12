@@ -46,8 +46,9 @@ export default function Login() {
         description: `Selamat datang, ${data.user.firstName}!`,
       });
       
-      // Redirect to dashboard
-      setLocation('/dashboard');
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
+      const defaultPath = data.user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard";
+      setLocation(redirect || defaultPath);
     },
     onError: (error: any) => {
       if (error.message?.includes("belum diverifikasi")) {

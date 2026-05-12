@@ -1,9 +1,11 @@
 import { Link } from "wouter";
 import { MapPin, Mail, Phone } from "lucide-react";
 import { SiInstagram, SiTiktok, SiFacebook, SiYoutube, SiWhatsapp } from "react-icons/si";
+import { getBookingHref } from "@/lib/platform-links";
 
 const services = [
   { label: "Konseling", href: "/produk-layanan/konseling" },
+  { label: "Booking Psikolog", href: "__BOOKING__" },
   { label: "Asesmen", href: "/produk-layanan/asesmen" },
   { label: "Terapi", href: "/produk-layanan/terapi" },
   { label: "Pelatihan", href: "/produk-layanan/pelatihan" },
@@ -74,12 +76,21 @@ export default function Footer() {
             <ul className="space-y-2">
               {services.map((s) => (
                 <li key={s.href}>
-                  <Link
-                    href={s.href}
-                    className="text-green-100/80 hover:text-white transition-colors text-sm hover:underline underline-offset-2"
-                  >
-                    {s.label}
-                  </Link>
+                  {s.href === "__BOOKING__" ? (
+                    <a
+                      href={getBookingHref()}
+                      className="text-green-100/80 hover:text-white transition-colors text-sm hover:underline underline-offset-2"
+                    >
+                      {s.label}
+                    </a>
+                  ) : (
+                    <Link
+                      href={s.href}
+                      className="text-green-100/80 hover:text-white transition-colors text-sm hover:underline underline-offset-2"
+                    >
+                      {s.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

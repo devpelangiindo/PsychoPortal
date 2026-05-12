@@ -145,31 +145,13 @@ export async function autoSyncOrders() {
           
           console.log(`❓ Order ${orderId} failed Midtrans API check (age: ${ageInMinutes}min) - Error: ${midtransError.message}`);
           
-          // Aggressive cleanup: Any API error older than 1 minute gets cancelled
-          // This covers 404, timeouts, network errors, etc.
-          if (orderAge > 1 * 60 * 1000) { // 1 minute
-            console.log(`⏰ Order ${orderId} is older than 1min with API errors, marking as cancelled`);
-            await storage.updateOrderStatus(orderId, 'cancelled', paymentId || 'api_error', 'expired');
-            syncedCount++;
-          } else {
-            console.log(`⌛ Order ${orderId} is ${ageInMinutes}min old, keeping as pending (will cleanup after 1min)`);
-          }
+          console.log(`⌛ Order ${orderId} remains pending after Midtrans status check error.`);
         }
         
       } catch (error) {
         console.error(`❌ Auto-sync error for order ${order.id}:`, error);
         
-        // Fallback cleanup for any processing errors
-        const orderAge = Date.now() - new Date(order.createdAt!).getTime();
-        if (orderAge > 2 * 60 * 1000) { // 2 minutes fallback
-          console.log(`🧹 Fallback cleanup: Order ${order.id} is ${Math.floor(orderAge / 60000)}min old, marking as cancelled`);
-          try {
-            await storage.updateOrderStatus(order.id, 'cancelled', 'processing_error', 'expired');
-            syncedCount++;
-          } catch (cleanupError) {
-            console.error(`❌ Failed to cleanup order ${order.id}:`, cleanupError);
-          }
-        }
+        console.log(`⌛ Order ${order.id} remains pending after auto-sync processing error.`);
       }
     }
     
