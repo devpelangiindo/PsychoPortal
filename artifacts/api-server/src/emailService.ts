@@ -66,6 +66,10 @@ class EmailService {
       .replace(/'/g, '&#x27;');
   }
 
+  isContactEmailConfigured(): boolean {
+    return Boolean(this.transporter && (process.env.ADMIN_EMAIL || process.env.EMAIL_USER));
+  }
+
   async sendContactEmail({ name, email, phone, subject, message }: SendContactEmailParams): Promise<boolean> {
     const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
 

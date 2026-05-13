@@ -1203,9 +1203,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (sent) {
         return res.json({ success: true, message: 'Pesan berhasil dikirim' });
-      } else {
-        return res.status(500).json({ message: 'Gagal mengirim pesan. Silakan coba lagi.' });
       }
+
+      if (!emailService.isContactEmailConfigured()) {
+        return res.status(202).json({
+          success: true,
+          delivered: false,
+          message: 'Pesan diterima, tetapi pengiriman email belum dikonfigurasi.',
+        });
+      }
+
+      return res.status(500).json({ message: 'Gagal mengirim pesan. Silakan coba lagi.' });
     } catch (error) {
       console.error('Contact form error:', error);
       return res.status(500).json({ message: 'Terjadi kesalahan server' });
