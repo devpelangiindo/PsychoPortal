@@ -5,7 +5,7 @@ import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_17520378604
 
 export default function Footer() {
   return (
-    <footer className="bg-gradient-to-r from-green-600 to-green-700 text-white py-16">
+    <footer className="bg-gradient-to-r from-[#1B4332] via-[#2D6A4F] to-[#1B4332] text-white py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
           <div>

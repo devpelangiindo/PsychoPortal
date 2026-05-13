@@ -1,32 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: hsl(120, 30%, 98%);
-  --foreground: hsl(150, 40%, 25%);
-  --muted: hsl(120, 25%, 95%);
-  --muted-foreground: hsl(140, 20%, 45%);
-  --popover: hsl(120, 30%, 98%);
-  --popover-foreground: hsl(150, 40%, 25%);
+  --background: hsl(0, 0%, 98%);
+  --foreground: hsl(152, 40%, 12%);
+  --muted: hsl(152, 15%, 94%);
+  --muted-foreground: hsl(152, 20%, 45%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(152, 40%, 12%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(150, 40%, 25%);
-  --border: hsl(120, 20%, 85%);
-  --input: hsl(120, 20%, 90%);
-  --primary: hsl(150, 60%, 35%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(120, 50%, 60%);
-  --secondary-foreground: hsl(150, 40%, 25%);
-  --accent: hsl(90, 50%, 65%);
-  --accent-foreground: hsl(150, 40%, 25%);
+  --card-foreground: hsl(152, 40%, 12%);
+  --border: hsl(152, 20%, 85%);
+  --input: hsl(152, 20%, 88%);
+  --primary: hsl(152, 50%, 28%);
+  --primary-foreground: hsl(0, 0%, 98%);
+  --secondary: hsl(137, 44%, 88%);
+  --secondary-foreground: hsl(152, 50%, 20%);
+  --accent: hsl(10, 30%, 50%);
+  --accent-foreground: hsl(0, 0%, 98%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(150, 60%, 35%);
+  --ring: hsl(152, 50%, 35%);
   --radius: 0.5rem;
-  --neutral-50: hsl(120, 30%, 98%);
-  --neutral-100: hsl(120, 25%, 95%);
-  --neutral-500: hsl(140, 20%, 45%);
-  --neutral-900: hsl(150, 40%, 25%);
+  --neutral-50: hsl(0, 0%, 98%);
+  --neutral-100: hsl(152, 15%, 94%);
+  --neutral-500: hsl(152, 20%, 45%);
+  --neutral-900: hsl(152, 40%, 12%);
+  --green-dark: #1B4332;
+  --green-mid: #2D6A4F;
+  --green-light: #52B788;
+  --green-pale: #D8F3DC;
+  --terracotta: #9A6E5E;
 }
 
 .dark {
@@ -59,12 +66,18 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
   }
 }
 
 /* Custom styles for the professional design */
 .gradient-hero {
-  background: linear-gradient(135deg, rgba(34, 139, 34, 0.05) 0%, rgba(154, 205, 50, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(27, 67, 50, 0.96) 0%, rgba(45, 106, 79, 0.92) 55%, rgba(82, 183, 136, 0.76) 100%);
 }
 
 .assessment-card-hover {
@@ -87,19 +100,19 @@
 }
 
 .icon-secondary {
-  color: hsl(120, 50%, 60%);
+  color: var(--green-light);
 }
 
 .icon-accent {
-  color: hsl(90, 50%, 65%);
+  color: var(--terracotta);
 }
 
 .bg-secondary-light {
-  background: linear-gradient(135deg, rgba(34, 139, 34, 0.1) 0%, rgba(154, 205, 50, 0.12) 100%);
+  background: linear-gradient(135deg, rgba(216, 243, 220, 0.5) 0%, rgba(82, 183, 136, 0.14) 100%);
 }
 
 .bg-accent-light {
-  background: linear-gradient(135deg, rgba(154, 205, 50, 0.1) 0%, rgba(154, 205, 50, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(240, 224, 218, 0.7) 0%, rgba(154, 110, 94, 0.14) 100%);
 }
 
 /* Professional header styling */
@@ -112,8 +125,8 @@
   position: absolute;
   top: -8px;
   right: -8px;
-  background: hsl(90, 50%, 65%);
-  color: hsl(150, 40%, 25%);
+  background: var(--terracotta);
+  color: white;
   font-size: 0.75rem;
   width: 20px;
   height: 20px;
@@ -131,12 +144,12 @@
 }
 
 .payment-card:hover {
-  border-color: hsl(150, 60%, 35%);
+  border-color: hsl(152, 50%, 28%);
 }
 
 .payment-card.selected {
-  border-color: hsl(150, 60%, 35%);
-  background: rgba(34, 139, 34, 0.05);
+  border-color: hsl(152, 50%, 28%);
+  background: rgba(216, 243, 220, 0.35);
 }
 
 /* Trust indicators */
@@ -144,7 +157,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: hsl(150, 60%, 35%);
+  color: hsl(152, 50%, 28%);
   font-size: 0.875rem;
 }
 

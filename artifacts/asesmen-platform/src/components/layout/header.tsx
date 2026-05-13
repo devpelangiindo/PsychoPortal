@@ -19,7 +19,8 @@ export default function Header() {
   const [location, setLocation] = useLocation();
   const dashboardHref = user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard";
   const [pathname, queryString = ""] = location.split("?");
-  const redirectPath = new URLSearchParams(queryString).get("redirect") ?? "";
+  const browserQueryString = typeof window !== "undefined" ? window.location.search.replace(/^\?/, "") : "";
+  const redirectPath = new URLSearchParams(queryString || browserQueryString).get("redirect") ?? "";
   const isActive = (href: string) => {
     const activePath = redirectPath || pathname;
     return href === "/" ? activePath === "/" : activePath.startsWith(href);
@@ -27,14 +28,14 @@ export default function Header() {
   const navLinkClass = (href: string, withIcon = false) =>
     `${withIcon ? "inline-flex items-center gap-1.5" : ""} ${
       isActive(href)
-        ? "bg-green-600 text-white hover:bg-green-700 hover:text-white px-4 rounded-md font-semibold"
-        : "text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 font-medium"
+        ? "bg-[#2D6A4F] text-white hover:bg-[#1B4332] hover:text-white px-3 rounded-md font-semibold shadow-sm"
+        : "text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 px-3 rounded-md font-medium"
     } py-2 text-sm transition-colors`;
   const mobileNavLinkClass = (href: string, withIcon = false) =>
     `${withIcon ? "flex items-center gap-2" : "block"} ${
       isActive(href)
-        ? "mx-3 px-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold"
-        : "px-3 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium"
+        ? "mx-3 px-4 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-lg font-semibold"
+        : "px-4 text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 rounded-lg font-medium"
     } py-2 transition-colors`;
 
   const handleSignIn = () => {
@@ -57,27 +58,29 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-white dark:bg-background shadow-sm border-b border-gray-200 dark:border-border sticky top-0 z-40 backdrop-blur-sm">
+      <header className="bg-white/95 dark:bg-background/95 shadow-sm border-b border-gray-100 dark:border-border sticky top-0 z-40 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-20">
             {/* Logo */}
             <div className="flex items-center">
-              <a href={mainSiteHref} className="flex items-center space-x-3">
+              <a href={mainSiteHref} className="flex items-center gap-3 group">
                 <img 
                   src={logoPath} 
                   alt="Rumah Psikologi Pelangi Indonesia" 
-                  className="h-10 w-10 object-contain"
+                  className="h-16 w-16 object-contain shrink-0 transition-transform group-hover:scale-105"
                 />
                 <div className="hidden sm:block">
-                  <h1 className="font-bold text-primary cursor-pointer text-lg leading-tight">
-                    Rumah Psikologi<br />
-                    <span className="text-base">Pelangi Indonesia</span>
-                  </h1>
+                  <div className="text-base font-bold leading-tight text-[#1B4332] dark:text-foreground">
+                    Rumah Psikologi
+                  </div>
+                  <div className="text-sm leading-tight font-medium text-[#52B788]">
+                    Pelangi Indonesia
+                  </div>
                 </div>
               </a>
               
               {/* Desktop Navigation */}
-              <nav className="hidden md:ml-8 md:flex space-x-8 items-center">
+              <nav className="hidden lg:ml-8 lg:flex items-center gap-1">
                 <Link href="/" className={navLinkClass("/")}>
                   Beranda
                 </Link>
@@ -101,11 +104,11 @@ export default function Header() {
             </div>
 
             {/* Desktop Actions */}
-            <div className="hidden md:flex items-center space-x-4">
+            <div className="hidden lg:flex items-center space-x-4">
               {/* Shopping Cart */}
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2 text-neutral-500 dark:text-muted-foreground hover:text-primary transition-colors"
+                className="relative p-2 rounded-md text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 transition-colors"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {items.length > 0 && (
@@ -146,7 +149,7 @@ export default function Header() {
                     <LogIn className="w-4 h-4 mr-2" />
                     Masuk
                   </Button>
-                  <Button onClick={handleSignUp} size="sm" className="bg-green-600 hover:bg-green-700">
+                  <Button onClick={handleSignUp} size="sm" className="bg-[#2D6A4F] hover:bg-[#1B4332]">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Daftar
                   </Button>
@@ -155,10 +158,10 @@ export default function Header() {
             </div>
 
             {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center space-x-2">
+            <div className="lg:hidden flex items-center space-x-2">
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2 text-neutral-500 dark:text-muted-foreground hover:text-primary transition-colors"
+                className="relative p-2 rounded-md text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 transition-colors"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {items.length > 0 && (
@@ -170,7 +173,7 @@ export default function Header() {
               
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 text-neutral-500 dark:text-muted-foreground hover:text-primary transition-colors"
+                className="p-2 rounded-md text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 transition-colors"
               >
                 {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -179,7 +182,7 @@ export default function Header() {
 
           {/* Mobile Navigation */}
           {isMenuOpen && (
-            <div className="md:hidden border-t border-gray-200 dark:border-border">
+            <div className="lg:hidden border-t border-gray-100 dark:border-border bg-white dark:bg-background">
               <nav className="py-4 space-y-2">
                 <Link href="/" className={mobileNavLinkClass("/")}>
                   Beranda
@@ -234,7 +237,7 @@ export default function Header() {
                         <LogIn className="w-4 h-4 mr-2" />
                         Masuk
                       </Button>
-                      <Button onClick={handleSignUp} size="sm" className="w-full bg-green-600 hover:bg-green-700">
+                      <Button onClick={handleSignUp} size="sm" className="w-full bg-[#2D6A4F] hover:bg-[#1B4332]">
                         <UserPlus className="w-4 h-4 mr-2" />
                         Daftar
                       </Button>

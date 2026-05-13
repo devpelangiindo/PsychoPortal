@@ -36,23 +36,25 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-background">
+    <div className="min-h-screen bg-background">
       <Header />
       {/* Hero Section - Assessments as Primary Focus */}
-      <section className="gradient-hero py-20">
+      <section className="gradient-hero py-20 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <div className="flex justify-center mb-8">
-              <img 
-                src={logoPath} 
-                alt="Rumah Psikologi Pelangi Indonesia" 
-                className="h-24 w-24 object-contain"
-              />
+              <div className="rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-white/60">
+                <img 
+                  src={logoPath} 
+                  alt="Rumah Psikologi Pelangi Indonesia" 
+                  className="h-24 w-24 object-contain"
+                />
+              </div>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold dark:text-foreground mb-6 text-[#248f59]">
-              Platform <span className="text-primary">Asesmen</span> Psikologi Profesional
+            <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-6 tracking-normal">
+              Platform <span className="text-[#D8F3DC]">Asesmen</span> Psikologi Profesional
             </h1>
-            <p className="text-xl text-neutral-500 dark:text-muted-foreground mb-8 max-w-3xl mx-auto">
+            <p className="text-lg md:text-xl text-green-50/90 mb-8 max-w-3xl mx-auto leading-relaxed">
               Mulai perjalanan self-discovery Anda dengan asesmen psikologi teruji. Coba gratis beberapa pertanyaan sebelum mendaftar!
             </p>
             
@@ -60,7 +62,7 @@ export default function Landing() {
             <div className="mb-6">
               <Button
                 size="lg"
-                className="px-10 py-5 text-xl font-bold bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+                className="px-10 py-5 text-lg md:text-xl font-bold bg-white text-[#1B4332] hover:bg-green-50 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
                 onClick={handleStartAssessment}
               >
                 <Brain className="w-6 h-6 mr-2" />
@@ -74,14 +76,14 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 variant="outline"
-                className="px-8 py-4 text-lg font-semibold border-green-600 text-green-600 hover:bg-green-50"
+                className="px-8 py-4 text-lg font-semibold border-white/80 bg-transparent text-white hover:bg-white/10 hover:text-white"
                 onClick={handleGetStarted}
               >
                 <UserPlus className="w-5 h-5 mr-2" />
                 Daftar Sekarang
               </Button>
-              <span className="text-sm text-neutral-500 dark:text-muted-foreground">atau</span>
-              <Button variant="link" onClick={handleLogin} className="text-green-600 hover:text-green-700">
+              <span className="text-sm text-green-50/80">atau</span>
+              <Button variant="link" onClick={handleLogin} className="text-white hover:text-[#D8F3DC]">
                 <LogIn className="w-4 h-4 mr-2" />
                 Masuk jika sudah punya akun
               </Button>
@@ -90,10 +92,10 @@ export default function Landing() {
 
           {/* Featured Assessments as Hero */}
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
               Coba Asesmen Kami Sekarang!
             </h2>
-            <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg text-green-50/85 max-w-2xl mx-auto">
               Pilih asesmen di bawah dan coba beberapa pertanyaan sample untuk merasakan pengalaman sebelum mendaftar
             </p>
           </div>
