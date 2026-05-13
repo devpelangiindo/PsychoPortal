@@ -4,10 +4,10 @@ export function getAsesmenPlatformHref() {
   }
 
   if (window.location.hostname === "localhost") {
-    return "http://localhost:8084/asesmen/";
+    return "http://localhost:8084/";
   }
 
-  return "/asesmen/";
+  return "https://psychoportal-asesmen.onrender.com";
 }
 
 export function getBookingHref() {
@@ -16,8 +16,8 @@ export function getBookingHref() {
   }
 
   if (window.location.hostname === "localhost") {
-    return "http://localhost:8084/asesmen/booking";
+    return "http://localhost:8084/booking";
   }
 
-  return "/asesmen/booking";
+  return "https://psychoportal-asesmen.onrender.com/booking";
 }

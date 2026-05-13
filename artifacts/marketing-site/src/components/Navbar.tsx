@@ -8,9 +8,8 @@ const services: Array<{
   href: string;
   external?: boolean;
 }> = [
-  { label: "Asesmen", href: "/produk-layanan/asesmen" },
-  { label: "Booking Psikolog", href: "__BOOKING__" },
-  { label: "Konseling", href: "/produk-layanan/konseling" },
+  { label: "Asesmen", href: "__ASESMEN_PLATFORM__" },
+  { label: "Konseling", href: "__BOOKING__" },
   { label: "Terapi", href: "/produk-layanan/terapi" },
   { label: "Pelatihan", href: "/produk-layanan/pelatihan" },
   { label: "Produk Digital", href: "/produk-layanan/produk-digital" },
@@ -18,7 +17,6 @@ const services: Array<{
   { label: "Franchise", href: "/produk-layanan/franchise" },
   { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
   { label: "HORECAL", href: "/produk-layanan/horecal" },
-  { label: "Platform Asesmen", href: "__ASESMEN_PLATFORM__" },
 ];
 
 export default function Navbar() {

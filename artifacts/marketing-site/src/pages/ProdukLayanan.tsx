@@ -6,14 +6,13 @@ import { ArrowRight, ChevronRight, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { SiWhatsapp } from "react-icons/si";
 import { fetchServices, fetchServiceBySlug, type CMSService } from "@/lib/cms";
-import { getBookingHref } from "@/lib/platform-links";
+import { getAsesmenPlatformHref, getBookingHref } from "@/lib/platform-links";
 
 // ─── Fallback data ────────────────────────────────────────────────────────────
 
 const FALLBACK_SERVICES = [
-  { slug: "asesmen", name: "Asesmen", shortDescription: "Layanan psikotes dan asesmen berbasis kode etik dan metode ilmiah yang teruji.", longDesc: "Layanan asesmen psikologi komprehensif menggunakan instrumen terstandarisasi dan metode ilmiah. Mencakup asesmen tumbuh kembang anak, asesmen bakat dan minat, asesmen kecerdasan, serta profil kepribadian.", color: "#2D6A4F" },
-  { slug: "booking-psikolog", name: "Booking Psikolog", shortDescription: "Reservasi sesi konsultasi psikolog dengan pembayaran Midtrans.", longDesc: "Layanan booking psikolog untuk konsultasi individu, keluarga, pendidikan, atau tindak lanjut asesmen. Setelah pembayaran berhasil, tim akan menghubungi klien melalui WhatsApp untuk konfirmasi jadwal final.", color: "#9A6E5E", externalHref: "__BOOKING__" },
-  { slug: "konseling", name: "Konseling", shortDescription: "Konseling profesional untuk individu, keluarga, dan organisasi.", longDesc: "Layanan konseling psikologi oleh tenaga profesional bersertifikat. Tersedia untuk anak, remaja, dewasa, pasangan, dan keluarga.", color: "#3A7D58" },
+  { slug: "asesmen", name: "Asesmen", shortDescription: "Platform asesmen psikologi online dengan pembayaran Midtrans dan laporan digital.", longDesc: "Platform asesmen psikologi online Rumah Psikologi Pelangi Indonesia untuk memilih, membayar, dan mengerjakan asesmen secara digital.", color: "#2D6A4F", externalHref: "__ASESMEN_PLATFORM__" },
+  { slug: "konseling", name: "Konseling", shortDescription: "Reservasi sesi konseling dengan psikolog melalui layanan booking online.", longDesc: "Layanan booking psikolog untuk konsultasi individu, keluarga, pendidikan, atau tindak lanjut asesmen. Setelah pembayaran berhasil, jadwal sesi dikonfirmasi bersama psikolog.", color: "#9A6E5E", externalHref: "__BOOKING__" },
   { slug: "terapi", name: "Terapi", shortDescription: "Program terapi tumbuh kembang yang terstruktur dan tepat sasaran.", longDesc: "Program terapi tumbuh kembang untuk anak berkebutuhan khusus (ABK) dan anak dengan tantangan perkembangan. Meliputi terapi wicara, terapi perilaku, terapi sensori integrasi, dan terapi bermain.", color: "#52B788" },
   { slug: "pelatihan", name: "Pelatihan", shortDescription: "Pelatihan profesional untuk tenaga pendidik dan terapis.", longDesc: "Workshop dan pelatihan profesional untuk guru, konselor, orang tua, dan tenaga kesehatan. Mencakup pelatihan manajemen perilaku anak, teknik konseling, dan asesmen psikologi.", color: "#40916C" },
   { slug: "produk-digital", name: "Produk Digital", shortDescription: "Modul digital dan e-book berkualitas untuk pengembangan diri.", longDesc: "Berbagai modul pembelajaran digital, e-book, dan materi pelatihan yang dikembangkan oleh tim ahli Pelangi Indonesia.", color: "#1B4332" },
@@ -25,6 +24,12 @@ const FALLBACK_SERVICES = [
 
 function serviceColor(slug: string): string {
   return FALLBACK_SERVICES.find((s) => s.slug === slug)?.color ?? "#2D6A4F";
+}
+
+function resolveServiceHref(externalHref: string) {
+  if (externalHref === "__BOOKING__") return getBookingHref();
+  if (externalHref === "__ASESMEN_PLATFORM__") return getAsesmenPlatformHref();
+  return externalHref;
 }
 
 // ─── Service List Card ────────────────────────────────────────────────────────
@@ -44,8 +49,9 @@ function ServiceCard({ service }: { service: { slug: string; name: string; short
     </>
   );
   if (service.externalHref) {
-    const href = service.externalHref === "__BOOKING__" ? getBookingHref() : service.externalHref;
-    return <a href={href} target={service.externalHref === "__BOOKING__" ? undefined : "_blank"} rel={service.externalHref === "__BOOKING__" ? undefined : "noopener noreferrer"} className={cardClass}>{inner}</a>;
+    const href = resolveServiceHref(service.externalHref);
+    const isPlatformLink = service.externalHref === "__BOOKING__" || service.externalHref === "__ASESMEN_PLATFORM__";
+    return <a href={href} target={isPlatformLink ? undefined : "_blank"} rel={isPlatformLink ? undefined : "noopener noreferrer"} className={cardClass}>{inner}</a>;
   }
   return <Link href={`/produk-layanan/${service.slug}`} className={cardClass}>{inner}</Link>;
 }
@@ -184,7 +190,7 @@ export default function ProdukLayanan() {
     const slug = paramsDetail.slug;
     const external = FALLBACK_SERVICES.find((s) => s.slug === slug)?.externalHref;
     if (external) {
-      window.location.replace(external);
+      window.location.replace(resolveServiceHref(external));
       return null;
     }
     return <ServiceDetail slug={slug} />;
@@ -193,7 +199,7 @@ export default function ProdukLayanan() {
   // Use CMS data if available, otherwise fall back to hardcoded
   const services =
     (cmsServices?.docs?.length ?? 0) > 0
-      ? cmsServices!.docs.map((s: CMSService) => ({
+      ? cmsServices!.docs.filter((s: CMSService) => s.slug !== "booking-psikolog").map((s: CMSService) => ({
           slug: s.slug,
           name: s.title,
           shortDescription: s.shortDescription,
