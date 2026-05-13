@@ -56,6 +56,22 @@ const bookingRequestSchema = z.object({
       ctx.addIssue({ code: "custom", path: ["childBirthDate"], message: "Tanggal lahir anak wajib diisi" });
     }
   }
+
+  const today = getJakartaDateString();
+  const maxDate = addDaysToDateString(today, 14);
+  if (data.preferredDate < today || data.preferredDate > maxDate) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["preferredDate"],
+      message: "Tanggal booking hanya dapat dipilih sampai 14 hari ke depan",
+    });
+  }
+});
+
+const bookingReportSchema = z.object({
+  meetingUrl: z.string().url("Link meeting tidak valid").optional().or(z.literal("")),
+  sessionReport: z.string().max(5000).optional(),
+  reportRecommendations: z.string().max(5000).optional(),
 });
 
 // Custom authentication middleware for JWT tokens
@@ -86,6 +102,21 @@ function isAuthenticated(req: any, res: any, next: any) {
 
 function getDisplayName(user: { firstName?: string | null; lastName?: string | null }) {
   return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+}
+
+function getJakartaDateString(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function addDaysToDateString(dateString: string, days: number) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
 }
 
 // Result calculation functions
@@ -1167,6 +1198,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching psychologist bookings:", error);
       res.status(500).json({ message: "Failed to fetch psychologist bookings" });
+    }
+  });
+
+  app.patch('/api/psychologist/bookings/:id/report', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      }
+
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getPsychologistBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const providerName = user.psychologistProfileName || getDisplayName(user);
+      if (user.role !== 'admin' && booking.psychologistName !== providerName) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const data = bookingReportSchema.parse(req.body);
+      await storage.updatePsychologistBookingReport(booking.id, {
+        meetingUrl: data.meetingUrl || null,
+        sessionReport: data.sessionReport?.trim() || null,
+        reportRecommendations: data.reportRecommendations?.trim() || null,
+      });
+
+      const updatedBooking = await storage.getPsychologistBooking(booking.id);
+      res.json(updatedBooking);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data laporan tidak valid", errors: error.flatten() });
+      }
+      console.error("Error updating psychologist report:", error);
+      res.status(500).json({ message: "Failed to update psychologist report" });
     }
   });
 

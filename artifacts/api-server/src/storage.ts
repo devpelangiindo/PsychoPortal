@@ -62,6 +62,14 @@ export interface IStorage {
   getPsychologistBooking(id: number): Promise<PsychologistBookingWithDetails | undefined>;
   getPsychologistBookingByOrder(orderId: number): Promise<PsychologistBookingWithDetails | undefined>;
   updatePsychologistBookingStatus(id: number, status: string): Promise<void>;
+  updatePsychologistBookingReport(
+    id: number,
+    report: {
+      meetingUrl?: string | null;
+      sessionReport?: string | null;
+      reportRecommendations?: string | null;
+    },
+  ): Promise<void>;
 
   // Order operations
   createOrder(order: InsertOrder): Promise<Order>;
@@ -333,6 +341,26 @@ export class DatabaseStorage implements IStorage {
       .set({
         status,
         paidAt: status === "paid" ? new Date() : undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(psychologistBookings.id, id));
+  }
+
+  async updatePsychologistBookingReport(
+    id: number,
+    report: {
+      meetingUrl?: string | null;
+      sessionReport?: string | null;
+      reportRecommendations?: string | null;
+    },
+  ): Promise<void> {
+    await db
+      .update(psychologistBookings)
+      .set({
+        meetingUrl: report.meetingUrl || null,
+        sessionReport: report.sessionReport || null,
+        reportRecommendations: report.reportRecommendations || null,
+        reportSubmittedAt: report.sessionReport || report.reportRecommendations ? new Date() : null,
         updatedAt: new Date(),
       })
       .where(eq(psychologistBookings.id, id));

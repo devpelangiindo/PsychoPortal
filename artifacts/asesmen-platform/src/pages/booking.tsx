@@ -71,6 +71,13 @@ const formatCurrency = (value: string | number) =>
     minimumFractionDigits: 0,
   }).format(Number(value));
 
+const formatDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function Booking() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -115,6 +122,12 @@ export default function Booking() {
   }, [form.consultationType]);
 
   const selectedPsychologist = availablePsychologists.find((psychologist) => psychologist.name === form.psychologistName);
+  const today = useMemo(() => formatDateInput(new Date()), []);
+  const maxBookingDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 14);
+    return formatDateInput(date);
+  }, []);
 
   const updateField = (field: keyof BookingForm, value: string) => {
     setForm((current) => {
@@ -194,6 +207,9 @@ export default function Booking() {
     if (step === 2) {
       if (!form.preferredDate || !form.preferredTime || !form.psychologistName || !form.location) {
         return "Lengkapi tanggal, psikolog, waktu, dan lokasi.";
+      }
+      if (form.preferredDate < today || form.preferredDate > maxBookingDate) {
+        return "Tanggal booking hanya dapat dipilih sampai 14 hari dari hari ini.";
       }
     }
 
@@ -400,7 +416,13 @@ export default function Booking() {
                 <CardContent className="space-y-5">
                   <div className="grid md:grid-cols-2 gap-4">
                     <Field label="Pilihan tanggal">
-                      <Input type="date" value={form.preferredDate} onChange={(event) => updateField("preferredDate", event.target.value)} />
+                      <Input
+                        type="date"
+                        min={today}
+                        max={maxBookingDate}
+                        value={form.preferredDate}
+                        onChange={(event) => updateField("preferredDate", event.target.value)}
+                      />
                     </Field>
                     <Field label="Pilihan waktu">
                       <select
