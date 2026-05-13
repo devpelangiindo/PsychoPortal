@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,20 @@ import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
 import type { UserAssessmentWithDetails, OrderWithItems, Assessment } from "@shared/schema";
+
+type Booking = {
+  id: number;
+  clientName: string;
+  preferredDate: string;
+  preferredTime: string;
+  psychologistName: string | null;
+  location: string | null;
+  clientReportNotes: string | null;
+  reportRecommendations: string | null;
+  sessionReport: string | null;
+  reportSubmittedAt: string | null;
+  service: { name: string };
+};
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -49,6 +64,12 @@ export default function Dashboard() {
   const { data: assessments, isLoading: assessmentsForSaleLoading } = useQuery<Assessment[]>({
     queryKey: ["/api/assessments"],
     enabled: isAuthenticated,
+  });
+
+  const { data: bookings } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+    enabled: isAuthenticated,
+    refetchInterval: 5000,
   });
 
   useEffect(() => {
@@ -107,6 +128,7 @@ export default function Dashboard() {
   const availableAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'available') || [];
   const completedAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'completed') || [];
   const inProgressAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'in_progress') || [];
+  const clientReports = bookings?.filter((booking) => booking.reportSubmittedAt && getClientReportText(booking)) || [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -438,6 +460,45 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-green-700" />
+                Laporan Konseling
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Laporan hasil konseling yang sudah dikirim psikolog akan muncul di sini.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {clientReports.length > 0 ? (
+                <div className="space-y-4">
+                  {clientReports.map((booking) => (
+                    <div key={booking.id} className="rounded-lg border bg-white p-4">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-neutral-900">Laporan Hasil Konseling</h3>
+                          <p className="text-sm text-neutral-500 mt-1">
+                            {booking.preferredDate}, {booking.preferredTime} · {booking.psychologistName || "-"}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => downloadClientReportPdf(booking)}>
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PDF
+                        </Button>
+                      </div>
+                      <p className="text-sm text-neutral-700 whitespace-pre-wrap mt-4">{getClientReportText(booking)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center py-8 text-neutral-500">Belum ada laporan konseling dari psikolog.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Quick Actions */}
         <div className="mt-12 flex flex-wrap gap-4 justify-center">
           <Link href="/assessments">
@@ -456,4 +517,23 @@ export default function Dashboard() {
       <Footer />
     </div>
   );
+}
+
+function getClientReportText(booking: Booking) {
+  return booking.clientReportNotes || booking.reportRecommendations || booking.sessionReport || "";
+}
+
+async function downloadClientReportPdf(booking: Booking) {
+  const token = localStorage.getItem("accessToken");
+  const response = await fetch(`/api/bookings/${booking.id}/client-report.pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!response.ok) return;
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `laporan-konseling-${booking.clientName}-${booking.id}.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

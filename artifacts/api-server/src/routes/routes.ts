@@ -72,6 +72,26 @@ const bookingReportSchema = z.object({
   meetingUrl: z.string().url("Link meeting tidak valid").optional().or(z.literal("")),
   sessionReport: z.string().max(5000).optional(),
   reportRecommendations: z.string().max(5000).optional(),
+  clientReportNotes: z.string().max(5000).optional(),
+  counselingHistoryNotes: z.string().max(5000).optional(),
+  submit: z.boolean().optional(),
+});
+
+const bookingScheduleUpdateSchema = z.object({
+  preferredDate: z.string().min(4),
+  preferredTime: z.enum(["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"]),
+  location: z.enum(["online", "colombo", "bantul"]),
+  meetingUrl: z.string().url("Link meeting tidak valid").optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  const today = getJakartaDateString();
+  const maxDate = addDaysToDateString(today, 14);
+  if (data.preferredDate < today || data.preferredDate > maxDate) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["preferredDate"],
+      message: "Tanggal booking hanya dapat dipilih sampai 14 hari ke depan",
+    });
+  }
 });
 
 // Custom authentication middleware for JWT tokens
@@ -117,6 +137,54 @@ function addDaysToDateString(dateString: string, days: number) {
   const [year, month, day] = dateString.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day + days));
   return date.toISOString().slice(0, 10);
+}
+
+function getClientReportText(booking: any) {
+  return booking.clientReportNotes || booking.reportRecommendations || booking.sessionReport || "";
+}
+
+function getHistoryReportText(booking: any) {
+  return booking.counselingHistoryNotes || booking.sessionReport || "";
+}
+
+function streamClientCounselingReportPdf(res: any, booking: any) {
+  const reportText = getClientReportText(booking);
+  const fileName = `laporan-konseling-${booking.clientName || "klien"}-${booking.id}.pdf`
+    .replace(/[^a-z0-9.-]+/gi, "-")
+    .toLowerCase();
+  const doc = new PDFDocument({ size: "A4", margin: 56 });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+  doc.pipe(res);
+
+  doc.fontSize(16).text("LAPORAN HASIL KONSELING", { align: "center" });
+  doc.moveDown(1.5);
+  doc.fontSize(10).fillColor("#555").text("Rumah Psikologi Pelangi Indonesia", { align: "center" });
+  doc.moveDown(2);
+
+  doc.fillColor("#111").fontSize(11);
+  const rows = [
+    ["Hari/Tanggal", booking.preferredDate || "-"],
+    ["Nama Klien", booking.clientName || "-"],
+    ["Nama Psikolog", booking.psychologistName || "-"],
+  ];
+  rows.forEach(([label, value]) => {
+    doc.font("Helvetica-Bold").text(`${label}: `, { continued: true });
+    doc.font("Helvetica").text(value);
+    doc.moveDown(0.5);
+  });
+
+  doc.moveDown();
+  doc.font("Helvetica-Bold").text("Catatan Hasil Konseling");
+  doc.moveDown(0.5);
+  doc.font("Helvetica").text(reportText || "-", { align: "left", lineGap: 4 });
+
+  doc.moveDown(2);
+  doc.fontSize(9).fillColor("#666").text(
+    "Catatan: format final dan tanda tangan psikolog dapat disesuaikan setelah keputusan operasional ditetapkan.",
+  );
+  doc.end();
 }
 
 // Result calculation functions
@@ -1201,6 +1269,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/psychologist/reports', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      }
+
+      const search = typeof req.query.search === "string" ? req.query.search : undefined;
+      const reports = await storage.searchPsychologistBookingReports(search);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching psychologist reports:", error);
+      res.status(500).json({ message: "Failed to fetch psychologist reports" });
+    }
+  });
+
+  app.patch('/api/psychologist/bookings/:id/schedule', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      }
+
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getPsychologistBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const providerName = user.psychologistProfileName || getDisplayName(user);
+      if (user.role !== 'admin' && booking.psychologistName !== providerName) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const data = bookingScheduleUpdateSchema.parse(req.body);
+      await storage.updatePsychologistBookingSchedule(booking.id, {
+        preferredDate: data.preferredDate,
+        preferredTime: data.preferredTime,
+        location: data.location,
+        meetingUrl: data.meetingUrl || null,
+      });
+
+      const updatedBooking = await storage.getPsychologistBooking(booking.id);
+      res.json(updatedBooking);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data jadwal tidak valid", errors: error.flatten() });
+      }
+      console.error("Error updating psychologist schedule:", error);
+      res.status(500).json({ message: "Failed to update psychologist schedule" });
+    }
+  });
+
   app.patch('/api/psychologist/bookings/:id/report', isAuthenticated, async (req: any, res) => {
     try {
       if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
@@ -1228,6 +1352,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         meetingUrl: data.meetingUrl || null,
         sessionReport: data.sessionReport?.trim() || null,
         reportRecommendations: data.reportRecommendations?.trim() || null,
+        clientReportNotes: data.clientReportNotes?.trim() || null,
+        counselingHistoryNotes: data.counselingHistoryNotes?.trim() || null,
+        submit: data.submit,
       });
 
       const updatedBooking = await storage.getPsychologistBooking(booking.id);
@@ -1545,6 +1672,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching bookings:", error);
       res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  app.get('/api/bookings/:id/client-report.pdf', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getPsychologistBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const providerName = user.psychologistProfileName || getDisplayName(user);
+      const canAccess =
+        booking.userId === req.user.claims.sub ||
+        user.role === "admin" ||
+        (user.role === "psychologist" && booking.psychologistName === providerName);
+      if (!canAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (!booking.reportSubmittedAt || !getClientReportText(booking)) {
+        return res.status(404).json({ message: "Laporan untuk klien belum tersedia" });
+      }
+
+      streamClientCounselingReportPdf(res, booking);
+    } catch (error) {
+      console.error("Error generating client counseling report PDF:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
     }
   });
 

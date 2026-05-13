@@ -119,6 +119,8 @@ export const psychologistBookings = pgTable("psychologist_bookings", {
   meetingUrl: varchar("meeting_url", { length: 500 }),
   sessionReport: text("session_report"),
   reportRecommendations: text("report_recommendations"),
+  clientReportNotes: text("client_report_notes"),
+  counselingHistoryNotes: text("counseling_history_notes"),
   reportSubmittedAt: timestamp("report_submitted_at"),
   status: varchar("status", { length: 50 }).notNull().default("pending_payment"),
   paidAt: timestamp("paid_at"),

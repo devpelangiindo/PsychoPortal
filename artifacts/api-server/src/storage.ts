@@ -28,7 +28,7 @@ import {
   type InsertOtpVerification,
 } from "@workspace/db";
 import { db } from "./db";
-import { eq, and, or, sql } from "drizzle-orm";
+import { eq, and, or, sql, ilike, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -58,6 +58,7 @@ export interface IStorage {
   createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking>;
   getUserPsychologistBookings(userId: string): Promise<PsychologistBookingWithDetails[]>;
   getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]>;
+  searchPsychologistBookingReports(search?: string): Promise<PsychologistBookingWithDetails[]>;
   getPsychologistBookingsByProvider(psychologistName: string): Promise<PsychologistBookingWithDetails[]>;
   getPsychologistBooking(id: number): Promise<PsychologistBookingWithDetails | undefined>;
   getPsychologistBookingByOrder(orderId: number): Promise<PsychologistBookingWithDetails | undefined>;
@@ -68,6 +69,18 @@ export interface IStorage {
       meetingUrl?: string | null;
       sessionReport?: string | null;
       reportRecommendations?: string | null;
+      clientReportNotes?: string | null;
+      counselingHistoryNotes?: string | null;
+      submit?: boolean;
+    },
+  ): Promise<void>;
+  updatePsychologistBookingSchedule(
+    id: number,
+    schedule: {
+      preferredDate?: string;
+      preferredTime?: string;
+      location?: string;
+      meetingUrl?: string | null;
     },
   ): Promise<void>;
 
@@ -264,7 +277,36 @@ export class DatabaseStorage implements IStorage {
       .from(psychologistBookings)
       .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
       .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
-      .orderBy(psychologistBookings.createdAt);
+      .orderBy(desc(psychologistBookings.createdAt));
+
+    return results.map((row) => ({
+      ...row.booking,
+      service: row.service,
+      order: row.order,
+    }));
+  }
+
+  async searchPsychologistBookingReports(search?: string): Promise<PsychologistBookingWithDetails[]> {
+    const trimmedSearch = search?.trim();
+    const results = await db
+      .select({
+        booking: psychologistBookings,
+        service: bookingServices,
+        order: orders,
+      })
+      .from(psychologistBookings)
+      .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
+      .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
+      .where(
+        trimmedSearch
+          ? or(
+              ilike(psychologistBookings.clientName, `%${trimmedSearch}%`),
+              ilike(psychologistBookings.email, `%${trimmedSearch}%`),
+              ilike(psychologistBookings.psychologistName, `%${trimmedSearch}%`),
+            )
+          : undefined,
+      )
+      .orderBy(desc(psychologistBookings.preferredDate), desc(psychologistBookings.createdAt));
 
     return results.map((row) => ({
       ...row.booking,
@@ -352,15 +394,42 @@ export class DatabaseStorage implements IStorage {
       meetingUrl?: string | null;
       sessionReport?: string | null;
       reportRecommendations?: string | null;
+      clientReportNotes?: string | null;
+      counselingHistoryNotes?: string | null;
+      submit?: boolean;
     },
   ): Promise<void> {
+    const hasClientReport = Boolean(report.clientReportNotes || report.sessionReport || report.reportRecommendations);
     await db
       .update(psychologistBookings)
       .set({
         meetingUrl: report.meetingUrl || null,
         sessionReport: report.sessionReport || null,
         reportRecommendations: report.reportRecommendations || null,
-        reportSubmittedAt: report.sessionReport || report.reportRecommendations ? new Date() : null,
+        clientReportNotes: report.clientReportNotes || null,
+        counselingHistoryNotes: report.counselingHistoryNotes || null,
+        reportSubmittedAt: report.submit && hasClientReport ? new Date() : undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(psychologistBookings.id, id));
+  }
+
+  async updatePsychologistBookingSchedule(
+    id: number,
+    schedule: {
+      preferredDate?: string;
+      preferredTime?: string;
+      location?: string;
+      meetingUrl?: string | null;
+    },
+  ): Promise<void> {
+    await db
+      .update(psychologistBookings)
+      .set({
+        preferredDate: schedule.preferredDate,
+        preferredTime: schedule.preferredTime,
+        location: schedule.location,
+        meetingUrl: schedule.meetingUrl || null,
         updatedAt: new Date(),
       })
       .where(eq(psychologistBookings.id, id));
