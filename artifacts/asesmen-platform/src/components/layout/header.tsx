@@ -18,7 +18,12 @@ export default function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const dashboardHref = user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard";
-  const isActive = (href: string) => href === "/" ? location === "/" : location.startsWith(href);
+  const [pathname, queryString = ""] = location.split("?");
+  const redirectPath = new URLSearchParams(queryString).get("redirect") ?? "";
+  const isActive = (href: string) => {
+    const activePath = redirectPath || pathname;
+    return href === "/" ? activePath === "/" : activePath.startsWith(href);
+  };
   const navLinkClass = (href: string, withIcon = false) =>
     `${withIcon ? "inline-flex items-center gap-1.5" : ""} ${
       isActive(href)
