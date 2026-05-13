@@ -16,7 +16,21 @@ export default function Header() {
   const { items } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const dashboardHref = user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard";
+  const isActive = (href: string) => href === "/" ? location === "/" : location.startsWith(href);
+  const navLinkClass = (href: string, withIcon = false) =>
+    `${withIcon ? "inline-flex items-center gap-1.5" : ""} ${
+      isActive(href)
+        ? "bg-green-600 text-white hover:bg-green-700 hover:text-white px-4 rounded-md font-semibold"
+        : "text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 font-medium"
+    } py-2 text-sm transition-colors`;
+  const mobileNavLinkClass = (href: string, withIcon = false) =>
+    `${withIcon ? "flex items-center gap-2" : "block"} ${
+      isActive(href)
+        ? "mx-3 px-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold"
+        : "px-3 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium"
+    } py-2 transition-colors`;
 
   const handleSignIn = () => {
     setLocation("/login");
@@ -59,22 +73,22 @@ export default function Header() {
               
               {/* Desktop Navigation */}
               <nav className="hidden md:ml-8 md:flex space-x-8 items-center">
-                <Link href="/" className="text-neutral-900 dark:text-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                <Link href="/" className={navLinkClass("/")}>
                   Beranda
                 </Link>
-                <Link href="/assessments" className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-colors">
+                <Link href="/assessments" className={navLinkClass("/assessments", true)}>
                   <Brain className="w-4 h-4" />
                   Asesmen Online
                 </Link>
-                <Link href="/booking" className="inline-flex items-center gap-1.5 text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                <Link href="/booking" className={navLinkClass("/booking", true)}>
                   <CalendarCheck className="w-4 h-4" />
                   Booking Psikolog
                 </Link>
-                <Link href="/kontak" className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                <Link href="/kontak" className={navLinkClass("/kontak")}>
                   Kontak
                 </Link>
                 {isAuthenticated && (
-                  <Link href={user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard"} className="text-neutral-500 dark:text-muted-foreground hover:text-primary px-3 py-2 text-sm font-medium transition-colors">
+                  <Link href={dashboardHref} className={navLinkClass(dashboardHref)}>
                     {user?.role === "psychologist" ? "Dashboard Psikolog" : "Dashboard"}
                   </Link>
                 )}
@@ -162,22 +176,22 @@ export default function Header() {
           {isMenuOpen && (
             <div className="md:hidden border-t border-gray-200 dark:border-border">
               <nav className="py-4 space-y-2">
-                <Link href="/" className="block px-3 py-2 text-neutral-900 dark:text-foreground hover:text-primary font-medium transition-colors">
+                <Link href="/" className={mobileNavLinkClass("/")}>
                   Beranda
                 </Link>
-                <Link href="/assessments" className="flex items-center gap-2 mx-3 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold transition-colors">
+                <Link href="/assessments" className={mobileNavLinkClass("/assessments", true)}>
                   <Brain className="w-4 h-4" />
                   Asesmen Online
                 </Link>
-                <Link href="/booking" className="flex items-center gap-2 px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
+                <Link href="/booking" className={mobileNavLinkClass("/booking", true)}>
                   <CalendarCheck className="w-4 h-4" />
                   Booking Psikolog
                 </Link>
-                <Link href="/kontak" className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
+                <Link href="/kontak" className={mobileNavLinkClass("/kontak")}>
                   Kontak
                 </Link>
                 {isAuthenticated && (
-                  <Link href={user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard"} className="block px-3 py-2 text-neutral-500 dark:text-muted-foreground hover:text-primary font-medium transition-colors">
+                  <Link href={dashboardHref} className={mobileNavLinkClass(dashboardHref)}>
                     {user?.role === "psychologist" ? "Dashboard Psikolog" : "Dashboard"}
                   </Link>
                 )}
