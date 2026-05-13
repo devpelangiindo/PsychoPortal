@@ -103,31 +103,41 @@ export default function Kontak() {
                     Informasi Kontak
                   </h2>
                   <div className="space-y-5">
-                    <div className="flex items-start space-x-4">
+                    <a
+                      href="https://maps.app.goo.gl/USTLE9obhyvUK1NAA"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start space-x-4 group"
+                    >
                       <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                         <MapPin className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <p className="font-semibold text-neutral-900 dark:text-foreground">Cabang Sleman</p>
-                        <p className="text-neutral-600 dark:text-muted-foreground text-sm leading-relaxed">
+                        <p className="font-semibold text-neutral-900 dark:text-foreground group-hover:text-green-700 transition-colors">Cabang Colombo</p>
+                        <p className="text-neutral-600 dark:text-muted-foreground text-sm leading-relaxed group-hover:text-neutral-900 transition-colors">
                           Jl. Colombo No. 8, Samirono Baru, Caturtunggal,<br />
                           Depok, Sleman, Yogyakarta, 55281
                         </p>
                       </div>
-                    </div>
+                    </a>
 
-                    <div className="flex items-start space-x-4">
+                    <a
+                      href="https://maps.google.com/?q=Jl.+Mgr+Sugiyo+Pranoto+No.14,+Melikan+Kidul,+Bantul"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start space-x-4 group"
+                    >
                       <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                         <MapPin className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <p className="font-semibold text-neutral-900 dark:text-foreground">Cabang Bantul</p>
-                        <p className="text-neutral-600 dark:text-muted-foreground text-sm leading-relaxed">
+                        <p className="font-semibold text-neutral-900 dark:text-foreground group-hover:text-green-700 transition-colors">Cabang Bantul</p>
+                        <p className="text-neutral-600 dark:text-muted-foreground text-sm leading-relaxed group-hover:text-neutral-900 transition-colors">
                           Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul,<br />
                           Bantul, Bantul, Yogyakarta, 55711
                         </p>
                       </div>
-                    </div>
+                    </a>
 
                     <a
                       href="https://wa.me/6281991466546"

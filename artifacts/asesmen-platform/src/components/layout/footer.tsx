@@ -34,7 +34,7 @@ export default function Footer() {
             
             <div className="space-y-4">
               <div className="text-green-50">
-                <p className="font-medium mb-1">Cabang Sleman</p>
+                <p className="font-medium mb-1">Cabang Colombo</p>
                 <a
                   href="https://maps.app.goo.gl/USTLE9obhyvUK1NAA"
                   target="_blank"
@@ -76,11 +76,6 @@ export default function Footer() {
                 <Link href="/assessments" className="text-green-50 hover:text-white transition-colors">
                   Inventori Gaya Belajar
                 </Link>
-              </li>
-              <li>
-                <a href="#" className="text-green-50 hover:text-white transition-colors">
-                  Asesmen Kustom
-                </a>
               </li>
             </ul>
           </div>
