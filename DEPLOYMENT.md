@@ -6,7 +6,7 @@ This repo is prepared for Render Blueprint deploys with `render.yaml`.
 
 - `psychoportal-api`: Express API, Midtrans callbacks, booking/assessment auth
 - `psychoportal-marketing`: public marketing site
-- `psychoportal-asesmen`: asesmen and booking frontend under `/asesmen`
+- `psychoportal-asesmen`: asesmen and booking frontend
 - `psychoportal-db`: shared Postgres database
 
 ## Before First Deploy
@@ -39,6 +39,6 @@ This repo is prepared for Render Blueprint deploys with `render.yaml`.
 
 ```bash
 pnpm --filter @workspace/api-server run build
-PORT=8084 BASE_PATH=/asesmen/ VITE_API_BASE_URL=https://psychoportal-api.onrender.com VITE_MAIN_SITE_URL=https://psychoportal-marketing.onrender.com VITE_MIDTRANS_PRODUCTION_CLIENT_KEY=placeholder pnpm --filter @workspace/asesmen-platform run build
-PORT=8081 BASE_PATH=/ VITE_ASESMEN_PLATFORM_URL=https://psychoportal-asesmen.onrender.com/asesmen/ pnpm --filter @workspace/marketing-site run build
+PORT=8084 BASE_PATH=/ VITE_API_BASE_URL=https://psychoportal-api.onrender.com VITE_MAIN_SITE_URL=https://psychoportal-marketing.onrender.com VITE_MIDTRANS_PRODUCTION_CLIENT_KEY=placeholder pnpm --filter @workspace/asesmen-platform run build
+PORT=8081 BASE_PATH=/ VITE_ASESMEN_PLATFORM_URL=https://psychoportal-asesmen.onrender.com pnpm --filter @workspace/marketing-site run build
 ```

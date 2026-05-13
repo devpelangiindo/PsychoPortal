@@ -53,7 +53,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: VITE_ASESMEN_PLATFORM_URL
-        value: https://psychoportal-asesmen.onrender.com/asesmen/
+        value: https://psychoportal-asesmen.onrender.com
     routes:
       - type: rewrite
         source: /*
@@ -62,7 +62,7 @@ services:
   - type: web
     name: psychoportal-asesmen
     runtime: static
-    buildCommand: pnpm install --frozen-lockfile --prod=false && PORT=8084 BASE_PATH=/asesmen/ pnpm --filter @workspace/asesmen-platform run build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && PORT=8084 BASE_PATH=/ pnpm --filter @workspace/asesmen-platform run build
     staticPublishPath: artifacts/asesmen-platform/dist/public
     envVars:
       - key: NODE_ENV
