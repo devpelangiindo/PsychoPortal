@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, ArrowRight, Star, Users, Brain, BookOpen, Award } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { SiWhatsapp } from "react-icons/si";
+import WhatsAppBranchChooser from "@/components/WhatsAppBranchChooser";
 import {
   fetchTestimonials,
   fetchSiteStats,
@@ -150,16 +150,7 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <a
-              href="https://wa.me/62816669533"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all hover:scale-105 hover:shadow-xl"
-              style={{ background: "#25D366" }}
-            >
-              <SiWhatsapp size={18} />
-              Hubungi Kami
-            </a>
+            <WhatsAppBranchChooser label="Hubungi Kami" />
             <Link
               href="/produk-layanan"
               className="flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white border border-white/30 hover:bg-white/10 transition-all hover:scale-105"
@@ -470,16 +461,7 @@ export default function Home() {
             Konsultasikan kebutuhan Anda bersama tim profesional kami. Kami siap membantu menemukan layanan yang paling sesuai.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a
-              href="https://wa.me/62816669533"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all hover:scale-105 hover:shadow-xl"
-              style={{ background: "#25D366" }}
-            >
-              <SiWhatsapp size={18} />
-              Chat WhatsApp
-            </a>
+            <WhatsAppBranchChooser label="Chat WhatsApp" />
             <Link
               href="/kontak"
               className="flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white border border-white/30 hover:bg-white/10 transition-all"
