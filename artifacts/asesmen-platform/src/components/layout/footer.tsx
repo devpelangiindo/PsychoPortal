@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Instagram } from "lucide-react";
+import { Instagram, MapPin } from "lucide-react";
 import { FaWhatsapp, FaYoutube } from "react-icons/fa";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
@@ -35,15 +35,31 @@ export default function Footer() {
             <div className="space-y-4">
               <div className="text-green-50">
                 <p className="font-medium mb-1">Cabang Sleman</p>
-                <p className="text-sm leading-relaxed">
+                <a
+                  href="https://maps.app.goo.gl/USTLE9obhyvUK1NAA"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2 text-sm leading-relaxed text-green-50 hover:text-white transition-colors"
+                >
+                  <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-green-200" />
+                  <span>
                   Jl. Colombo No. 8, Samirono Baru, Caturtunggal, Depok, Sleman, Yogyakarta, 55281
-                </p>
+                  </span>
+                </a>
               </div>
               <div className="text-green-50">
                 <p className="font-medium mb-1">Cabang Bantul</p>
-                <p className="text-sm leading-relaxed">
+                <a
+                  href="https://maps.google.com/?q=Jl.+Mgr+Sugiyo+Pranoto+No.14,+Melikan+Kidul,+Bantul"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2 text-sm leading-relaxed text-green-50 hover:text-white transition-colors"
+                >
+                  <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-green-200" />
+                  <span>
                   Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul, Bantul, Bantul, Yogyakarta, 55711
-                </p>
+                  </span>
+                </a>
               </div>
             </div>
           </div>
