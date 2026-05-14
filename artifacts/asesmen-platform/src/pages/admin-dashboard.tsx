@@ -12,7 +12,6 @@ interface AdminStats {
   activeUsers: number;
   completedAssessments: number;
   inProgressAssessments: number;
-  totalRevenue: number;
   assessmentTypeStats: {
     type: string;
     name: string;
@@ -73,14 +72,6 @@ export default function AdminDashboard() {
     window.location.href = "/admin/login";
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -124,7 +115,7 @@ export default function AdminDashboard() {
       </header>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium opacity-90">
@@ -184,22 +175,6 @@ export default function AdminDashboard() {
                 <Settings className="w-8 h-8 opacity-80" />
                 <div className="ml-4">
                   <div className="text-2xl font-bold">{stats?.inProgressAssessments || 0}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium opacity-90">
-                Total Pendapatan
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center">
-                <TrendingUp className="w-8 h-8 opacity-80" />
-                <div className="ml-4">
-                  <div className="text-xl font-bold">{formatCurrency(stats?.totalRevenue || 0)}</div>
                 </div>
               </div>
             </CardContent>

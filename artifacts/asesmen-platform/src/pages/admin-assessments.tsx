@@ -293,7 +293,7 @@ export default function AdminAssessments() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
@@ -327,21 +327,6 @@ export default function AdminAssessments() {
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
                 {assessments?.filter(a => a.status === 'in_progress' || a.status === 'available').length || 0}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Total Pendapatan
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold text-blue-600">
-                {formatPrice(
-                  assessments?.reduce((sum, a) => sum + parseFloat(a.assessment.price), 0).toString() || '0'
-                )}
               </div>
             </CardContent>
           </Card>

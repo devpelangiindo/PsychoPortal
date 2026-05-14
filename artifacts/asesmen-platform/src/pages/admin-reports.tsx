@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Search, Download, BarChart3, Users, FileText, TrendingUp, Calendar } from "lucide-react";
+import { ArrowLeft, Download, BarChart3, Users, FileText, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ReportData {
@@ -15,18 +15,15 @@ interface ReportData {
   activeUsers: number;
   completedAssessments: number;
   inProgressAssessments: number;
-  totalRevenue: number;
   monthlyStats: {
     month: string;
     users: number;
     assessments: number;
-    revenue: number;
   }[];
   assessmentTypeStats: {
     type: string;
     name: string;
     count: number;
-    revenue: number;
   }[];
 }
 
@@ -80,7 +77,6 @@ export default function AdminReports() {
         ['Pengguna Aktif', stats.activeUsers.toString()],
         ['Asesmen Selesai', stats.completedAssessments.toString()],
         ['Asesmen Berlangsung', stats.inProgressAssessments.toString()],
-        ['Total Pendapatan', formatCurrency(stats.totalRevenue)],
         ['Tingkat Konversi', `${Math.round((stats.completedAssessments / stats.totalUsers) * 100)}%`],
         ['', ''],
         ['Analisis Jenis Asesmen', ''],
@@ -92,10 +88,6 @@ export default function AdminReports() {
           exportData.push([
             `${assessmentType.name} - Selesai`,
             assessmentType.count.toString()
-          ]);
-          exportData.push([
-            `${assessmentType.name} - Pendapatan`,
-            formatCurrency(assessmentType.revenue)
           ]);
         });
       } else {
@@ -135,14 +127,6 @@ export default function AdminReports() {
         variant: "destructive",
       });
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
   };
 
   if (isLoading) {
@@ -204,7 +188,6 @@ export default function AdminReports() {
                 <SelectItem value="overview">Ringkasan Umum</SelectItem>
                 <SelectItem value="users">Analisis Pengguna</SelectItem>
                 <SelectItem value="assessments">Analisis Asesmen</SelectItem>
-                <SelectItem value="revenue">Analisis Pendapatan</SelectItem>
               </SelectContent>
             </Select>
             
@@ -223,7 +206,7 @@ export default function AdminReports() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Pengguna</CardTitle>
@@ -246,19 +229,6 @@ export default function AdminReports() {
               <div className="text-2xl font-bold">{stats?.completedAssessments || 0}</div>
               <p className="text-xs text-muted-foreground">
                 {stats?.inProgressAssessments || 0} berlangsung
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats?.totalRevenue || 0)}</div>
-              <p className="text-xs text-muted-foreground">
-                Akumulasi seluruhnya
               </p>
             </CardContent>
           </Card>
@@ -315,11 +285,6 @@ export default function AdminReports() {
                         <span className="text-sm text-gray-600">Belum Selesai:</span>
                         <span className="font-medium text-orange-600">{assessmentType.inProgressCount || 0}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Pendapatan:</span>
-                        <span className="font-medium">{formatCurrency(assessmentType.revenue)}</span>
-                      </div>
-                      
                       {/* Progress bar showing completion status */}
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs text-gray-500">
