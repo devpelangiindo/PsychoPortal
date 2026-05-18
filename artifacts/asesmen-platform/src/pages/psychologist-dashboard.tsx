@@ -62,24 +62,34 @@ const locationLabels: Record<string, string> = {
   bantul: "Offline Bantul",
 };
 
-export default function PsychologistDashboard() {
+type DashboardMode = "psychologist" | "admin";
+
+export function AdminPsychologistBookings() {
+  return <PsychologistDashboard mode="admin" />;
+}
+
+export default function PsychologistDashboard({ mode = "psychologist" }: { mode?: DashboardMode }) {
   const { user, isLoading: authLoading, logout } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [reportSearch, setReportSearch] = useState("");
+  const isAdminMode = mode === "admin";
+  const requiredRole = isAdminMode ? "admin" : "psychologist";
+  const loginRedirect = isAdminMode ? "/admin/bookings" : "/psychologist/dashboard";
+  const hasAccess = !!user && user.role === requiredRole;
 
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
-    queryKey: ["/api/psychologist/bookings"],
-    enabled: !!user && (user.role === "psychologist" || user.role === "admin"),
+    queryKey: ["/api/psychologist/bookings", mode],
+    enabled: hasAccess,
   });
 
   const { data: reports = [], isLoading: reportsLoading } = useQuery<Booking[]>({
-    queryKey: ["/api/psychologist/reports", reportSearch],
+    queryKey: ["/api/psychologist/reports", mode, reportSearch],
     queryFn: async () => {
       const response = await apiRequest("GET", `/api/psychologist/reports${reportSearch.trim() ? `?search=${encodeURIComponent(reportSearch.trim())}` : ""}`);
       return response.json();
     },
-    enabled: !!user && (user.role === "psychologist" || user.role === "admin"),
+    enabled: hasAccess,
   });
 
   if (authLoading) {
@@ -87,22 +97,29 @@ export default function PsychologistDashboard() {
   }
 
   if (!user) {
-    setLocation("/login?redirect=/psychologist/dashboard");
+    setLocation(`/login?redirect=${loginRedirect}`);
     return <LoadingState label="Mengalihkan ke login..." />;
   }
 
-  if (user.role !== "psychologist" && user.role !== "admin") {
+  if (!isAdminMode && user.role === "admin") {
+    setLocation("/admin/bookings");
+    return <LoadingState label="Mengalihkan ke halaman booking admin..." />;
+  }
+
+  if (!hasAccess) {
     return (
       <div className="min-h-screen bg-neutral-50">
         <Header />
         <main className="max-w-2xl mx-auto px-4 py-16">
           <Card>
             <CardHeader>
-              <CardTitle>Akses khusus psikolog</CardTitle>
+              <CardTitle>{isAdminMode ? "Akses khusus admin" : "Akses khusus psikolog"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-neutral-500">Akun ini belum memiliki role psikolog.</p>
-              <Button onClick={() => setLocation("/dashboard")}>Kembali ke Dashboard</Button>
+              <p className="text-neutral-500">
+                {isAdminMode ? "Akun ini belum memiliki role admin." : "Akun ini belum memiliki role psikolog."}
+              </p>
+              <Button onClick={() => setLocation(user.role === "admin" ? "/admin/dashboard" : "/dashboard")}>Kembali ke Dashboard</Button>
             </CardContent>
           </Card>
         </main>
@@ -117,9 +134,13 @@ export default function PsychologistDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">Dashboard Psikolog</h1>
+            <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">
+              {isAdminMode ? "Booking Psikolog" : "Dashboard Psikolog"}
+            </h1>
             <p className="text-neutral-500 dark:text-muted-foreground mt-2">
-              {user.psychologistProfileName || `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()}
+              {isAdminMode
+                ? "Seluruh booking konseling psikolog"
+                : user.psychologistProfileName || `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()}
             </p>
           </div>
           <Button variant="outline" onClick={logout}>

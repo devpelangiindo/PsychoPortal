@@ -30,7 +30,7 @@ import PaymentReturn from "@/pages/payment-return";
 import AutoRedirect from "@/pages/auto-redirect";
 import Kontak from "@/pages/kontak";
 import Booking from "@/pages/booking";
-import PsychologistDashboard from "@/pages/psychologist-dashboard";
+import PsychologistDashboard, { AdminPsychologistBookings } from "@/pages/psychologist-dashboard";
 import Layanan from "@/pages/layanan";
 import LayananDetail from "@/pages/layanan-detail";
 import Artikel from "@/pages/artikel";
@@ -79,6 +79,7 @@ function Router() {
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
+      <Route path="/admin/bookings" component={AdminPsychologistBookings} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/assessments" component={AdminAssessments} />
       <Route path="/admin/reports" component={AdminReports} />

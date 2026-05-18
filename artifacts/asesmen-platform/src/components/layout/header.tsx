@@ -17,7 +17,11 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [location, setLocation] = useLocation();
-  const dashboardHref = user?.role === "psychologist" ? "/psychologist/dashboard" : "/dashboard";
+  const dashboardHref = user?.role === "admin"
+    ? "/admin/dashboard"
+    : user?.role === "psychologist"
+      ? "/psychologist/dashboard"
+      : "/dashboard";
   const [pathname, queryString = ""] = location.split("?");
   const browserQueryString = typeof window !== "undefined" ? window.location.search.replace(/^\?/, "") : "";
   const redirectPath = new URLSearchParams(queryString || browserQueryString).get("redirect") ?? "";
