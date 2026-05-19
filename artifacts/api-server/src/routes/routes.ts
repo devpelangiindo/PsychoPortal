@@ -28,7 +28,7 @@ const bookingRequestSchema = z.object({
   birthDate: z.string().min(8),
   email: z.string().email(),
   whatsappNumber: z.string().regex(/^[0-9]+$/, "Nomor WhatsApp hanya boleh angka").min(8),
-  mainConcern: z.string().min(10),
+  mainConcern: z.string().trim().min(1),
   concernHistory: z.string().optional(),
   consultationType: z.enum(["child", "adult", "family"]),
   childName: z.string().optional(),
