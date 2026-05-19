@@ -90,6 +90,12 @@ const LOCATIONS = [
   { value: "bantul", label: "Offline Bantul", detail: "Jalan Mgr. Sugiyo Pranoto No.14 Melikan Kidul, Bantul, Yogyakarta" },
 ] satisfies Array<{ value: LocationType; label: string; detail: string }>;
 
+const PROMOS = [
+  { title: "Konsultasi Awal Gratis", desc: "Jadwalkan sesi konsultasi pertama Anda tanpa biaya." },
+  { title: "Workshop Pelangi Indonesia", desc: "Pelatihan Manajemen Perilaku Anak — Daftar sekarang!" },
+  { title: "Paket Asesmen Lengkap", desc: "Dapatkan laporan komprehensif dengan rekomendasi terapi." },
+];
+
 const formatCurrency = (value: string | number) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -828,6 +834,8 @@ function BookingLanding({
           </div>
         </section>
 
+        <PromoInfoSection />
+
         <section className="py-20 bg-white dark:bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="rounded-2xl bg-[#1B4332] px-6 py-10 md:p-12 text-white grid lg:grid-cols-[1fr_auto] gap-8 items-center">
@@ -857,6 +865,43 @@ function BookingLanding({
       </main>
       <Footer />
     </div>
+  );
+}
+
+function PromoInfoSection() {
+  return (
+    <section className="py-20 bg-white dark:bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-8">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wider text-green-700">Promo & Info</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mt-2">
+              Informasi Layanan Pelangi Indonesia
+            </h2>
+          </div>
+          <p className="text-neutral-500 dark:text-muted-foreground md:max-w-md leading-relaxed">
+            Pilih informasi yang paling sesuai dengan kebutuhan Anda, lalu lanjutkan melalui WhatsApp.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-5">
+          {PROMOS.map((promo) => (
+            <div key={promo.title} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <h3 className="font-semibold text-base mb-2 text-[#2D6A4F]">{promo.title}</h3>
+              <p className="text-sm text-gray-500 mb-4 leading-relaxed">{promo.desc}</p>
+              <a
+                href="https://wa.me/62816669533"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-[#2D6A4F]"
+              >
+                Info lebih lanjut <ArrowRight size={13} />
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
