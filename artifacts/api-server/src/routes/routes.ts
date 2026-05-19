@@ -157,6 +157,24 @@ function getDayOfWeek(dateString: string) {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
+function formatDisplayDate(value?: string | Date | null) {
+  if (!value) return "-";
+  if (value instanceof Date) {
+    return formatDateParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
+  }
+  const isoDateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDateMatch) {
+    return `${isoDateMatch[3]}/${isoDateMatch[2]}/${isoDateMatch[1]}`;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return formatDateParts(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
+}
+
+function formatDateParts(year: number, month: number, day: number) {
+  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
 async function isPsychologistAvailable(psychologistName: string, preferredDate: string, preferredTime: string) {
   const availability = await storage.getPsychologistAvailability(psychologistName);
   if (availability.length === 0) return true;
@@ -191,7 +209,7 @@ function streamClientCounselingReportPdf(res: any, booking: any) {
 
   doc.fillColor("#111").fontSize(11);
   const rows = [
-    ["Hari/Tanggal", booking.preferredDate || "-"],
+    ["Hari/Tanggal", formatDisplayDate(booking.preferredDate)],
     ["Nama Klien", booking.clientName || "-"],
     ["Nama Psikolog", booking.psychologistName || "-"],
   ];
@@ -540,7 +558,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       
       doc.fontSize(12).font('Helvetica')
          .text(`Nama Asesmen: ${userAssessment.assessment.name}`)
-         .text(`Tanggal Selesai: ${new Date(userAssessment.completedAt!).toLocaleDateString('id-ID')}`)
+           .text(`Tanggal Selesai: ${formatDisplayDate(userAssessment.completedAt)}`)
          .text(`Durasi: ${userAssessment.assessment.duration}`)
          .text(`Rentang Usia: ${userAssessment.assessment.ageRange}`);
 
@@ -659,7 +677,7 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
           
           doc.fontSize(11).font('Helvetica')
              .text(`Nama Anak: ${participantInfo.childName || '-'}`)
-             .text(`Tanggal Lahir: ${participantInfo.childBirthDate || '-'}`)
+             .text(`Tanggal Lahir: ${formatDisplayDate(participantInfo.childBirthDate)}`)
              .text(`Nama Orang Tua: ${participantInfo.parentName || '-'}`)
              .text(`Hubungan: ${participantInfo.relationship || '-'}`)
              .text(`Tanggal Tes: ${participantInfo.testDate || '-'}`);

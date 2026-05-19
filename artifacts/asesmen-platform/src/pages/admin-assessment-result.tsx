@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserAssessmentWithDetails } from "@shared/schema";
+import { formatDisplayDate } from "@/lib/date-format";
 
 export default function AdminAssessmentResult() {
   const [, params] = useRoute("/admin/assessment-result/:userAssessmentId");
@@ -291,7 +292,7 @@ export default function AdminAssessmentResult() {
                 )}
               </p>
               <p className="text-gray-500 dark:text-gray-400">
-                Diselesaikan pada {new Date(userAssessment.completedAt!).toLocaleDateString('id-ID')}
+                Diselesaikan pada {formatDisplayDate(userAssessment.completedAt)}
               </p>
             </div>
             <Button onClick={downloadPDF} className="bg-green-600 hover:bg-green-700">

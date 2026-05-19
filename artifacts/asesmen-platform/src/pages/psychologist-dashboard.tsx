@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-format";
 
 type Booking = {
   id: number;
@@ -453,7 +454,7 @@ function BookingCard({ booking, onSaved }: { booking: Booking; onSaved: () => vo
               </div>
             </div>
             <div className="grid sm:grid-cols-2 gap-2 text-sm text-neutral-600">
-              <Info icon={<CalendarDays className="w-4 h-4" />} text={`${booking.preferredDate}, ${booking.preferredTime}`} />
+              <Info icon={<CalendarDays className="w-4 h-4" />} text={`${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`} />
               <Info icon={<MapPin className="w-4 h-4" />} text={locationLabels[booking.location ?? ""] ?? "-"} />
               <Info icon={<Mail className="w-4 h-4" />} text={booking.email} />
               <Info icon={<Phone className="w-4 h-4" />} text={booking.whatsappNumber} />
@@ -590,7 +591,7 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
             Laporan Hasil Konseling
           </h3>
           <p className="text-xs text-neutral-500 mt-1">
-            {booking.reportSubmittedAt ? `Terakhir disimpan ${new Date(booking.reportSubmittedAt).toLocaleString("id-ID")}` : "Belum ada laporan"}
+            {booking.reportSubmittedAt ? `Terakhir disimpan ${formatDisplayDateTime(booking.reportSubmittedAt)}` : "Belum ada laporan"}
           </p>
         </div>
         <Badge variant={booking.reportSubmittedAt ? "default" : "secondary"}>
@@ -701,7 +702,7 @@ function ReportList({ title, icon, reports, mode }: { title: string; icon: React
               <div>
                 <h3 className="font-semibold">{booking.clientName}</h3>
                 <p className="text-xs text-neutral-500 mt-1">
-                  {booking.preferredDate} · {booking.psychologistName || "-"}
+                  {formatDisplayDate(booking.preferredDate)} · {booking.psychologistName || "-"}
                 </p>
               </div>
               {mode === "client" && booking.reportSubmittedAt && (

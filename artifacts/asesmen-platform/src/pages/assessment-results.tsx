@@ -13,6 +13,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import type { UserAssessmentWithDetails } from "@shared/schema";
+import { formatDisplayDate } from "@/lib/date-format";
 
 export default function AssessmentResults() {
   const { isAuthenticated } = useAuth();
@@ -610,7 +611,7 @@ export default function AssessmentResults() {
               </div>
               <div>
                 <h4 className="font-semibold">Tanggal Lahir:</h4>
-                <p>{participantInfo?.childBirthDate || 'Tidak tersedia'}</p>
+                <p>{participantInfo?.childBirthDate ? formatDisplayDate(participantInfo.childBirthDate) : 'Tidak tersedia'}</p>
               </div>
               <div>
                 <h4 className="font-semibold">Pengisi Asesmen:</h4>
@@ -752,7 +753,7 @@ export default function AssessmentResults() {
             Hasil {userAssessment.assessment.name}
           </h1>
           <p className="text-neutral-500 dark:text-muted-foreground mt-2">
-            Diselesaikan pada {new Date(userAssessment.completedAt!).toLocaleDateString('id-ID')}
+            Diselesaikan pada {formatDisplayDate(userAssessment.completedAt)}
           </p>
         </div>
 

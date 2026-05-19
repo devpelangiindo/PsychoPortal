@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import type { UserAssessmentWithDetails } from "@shared/schema";
+import { formatDisplayDate } from "@/lib/date-format";
 
 export default function AssessmentDetail() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -391,7 +392,7 @@ export default function AssessmentDetail() {
                 </p>
                 <p className="text-sm text-neutral-400 dark:text-muted-foreground">
                   Completed on {userAssessment.completedAt 
-                    ? new Date(userAssessment.completedAt).toLocaleDateString()
+                    ? formatDisplayDate(userAssessment.completedAt)
                     : 'Recently'
                   }
                 </p>

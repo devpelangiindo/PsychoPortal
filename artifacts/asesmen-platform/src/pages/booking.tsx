@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatDisplayDate } from "@/lib/date-format";
 
 type BookingService = {
   id: number;
@@ -580,7 +581,7 @@ export default function Booking() {
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-neutral-500">Jadwal</span>
-                      <span className="font-semibold text-right">{form.preferredDate || "-"} · {form.preferredTime}</span>
+                      <span className="font-semibold text-right">{form.preferredDate ? formatDisplayDate(form.preferredDate) : "-"} · {form.preferredTime}</span>
                     </div>
                     <div className="border-t pt-3 flex justify-between items-center">
                       <span className="font-semibold">Total Transaksi</span>
@@ -636,7 +637,7 @@ export default function Booking() {
               <div className="space-y-2 text-sm">
                 <SummaryRow label="Jenis" value={CONSULTATION_TYPES.find((type) => type.value === form.consultationType)?.label ?? "-"} />
                 <SummaryRow label="Psikolog" value={selectedPsychologist?.name ?? "-"} />
-                <SummaryRow label="Waktu" value={form.preferredDate ? `${form.preferredDate}, ${form.preferredTime}` : "-"} />
+                <SummaryRow label="Waktu" value={form.preferredDate ? `${formatDisplayDate(form.preferredDate)}, ${form.preferredTime}` : "-"} />
                 <SummaryRow label="Lokasi" value={LOCATIONS.find((location) => location.value === form.location)?.label ?? "-"} />
               </div>
               <div className="border-t pt-4">

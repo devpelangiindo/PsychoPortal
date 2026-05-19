@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Download, Home, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { formatDisplayDateTime } from '@/lib/date-format';
 
 interface PaymentDetails {
   orderId: number;
@@ -71,13 +72,7 @@ export default function PaymentSuccess() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDisplayDateTime(dateString);
   };
 
   if (isLoading) {

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Search, Download, Filter, FileText, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatDisplayDateTime } from "@/lib/date-format";
 
 interface UserAssessment {
   id: number;
@@ -233,13 +234,7 @@ export default function AdminAssessments() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDisplayDateTime(dateString);
   };
 
   const formatPrice = (price: string) => {

@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userUpdateSchema, passwordResetSchema, type UserUpdateRequest, type PasswordResetRequest } from "@shared/schema";
 import { z } from "zod";
+import { formatDisplayDateTime } from "@/lib/date-format";
 
 interface User {
   id: string;
@@ -204,13 +205,7 @@ export default function AdminUsers() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Belum pernah";
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDisplayDateTime(dateString);
   };
 
   if (isLoading) {

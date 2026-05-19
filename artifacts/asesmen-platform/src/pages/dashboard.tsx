@@ -11,6 +11,7 @@ import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
 import type { UserAssessmentWithDetails, OrderWithItems, Assessment } from "@shared/schema";
+import { formatDisplayDate } from "@/lib/date-format";
 
 type Booking = {
   id: number;
@@ -211,7 +212,7 @@ export default function Dashboard() {
                   </h1>
                   <p className="opacity-90 mt-1">{user?.email}</p>
                   <p className="opacity-75 text-sm mt-2">
-                    Anggota sejak {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Baru-baru ini'}
+                    Anggota sejak {user?.createdAt ? formatDisplayDate(user.createdAt) : 'Baru-baru ini'}
                   </p>
                 </div>
               </div>
@@ -352,7 +353,7 @@ export default function Dashboard() {
                         </p>
                         {userAssessment.completedAt && (
                           <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
-                            Selesai {new Date(userAssessment.completedAt).toLocaleDateString('id-ID')}
+                            Selesai {formatDisplayDate(userAssessment.completedAt)}
                           </p>
                         )}
                       </div>
@@ -443,7 +444,7 @@ export default function Dashboard() {
                           Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
                         </p>
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
-                          {new Date(order.createdAt!).toLocaleDateString('id-ID')}
+                          {formatDisplayDate(order.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -480,7 +481,7 @@ export default function Dashboard() {
                         <div>
                           <h3 className="font-semibold text-neutral-900">Laporan Hasil Konseling</h3>
                           <p className="text-sm text-neutral-500 mt-1">
-                            {booking.preferredDate}, {booking.preferredTime} · {booking.psychologistName || "-"}
+                            {formatDisplayDate(booking.preferredDate)}, {booking.preferredTime} · {booking.psychologistName || "-"}
                           </p>
                         </div>
                         <Button size="sm" variant="outline" onClick={() => downloadClientReportPdf(booking)}>
