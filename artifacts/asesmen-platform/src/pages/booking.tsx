@@ -2,7 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { CalendarCheck, Check, CreditCard, Loader2, MessageCircle, UserRound } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarCheck,
+  Check,
+  ClipboardList,
+  CreditCard,
+  HeartHandshake,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  ShieldCheck,
+  UserRound,
+  Users,
+  Video,
+} from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -80,10 +94,11 @@ const formatDateInput = (date: Date) => {
 
 export default function Booking() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const [step, setStep] = useState(0);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
+  const isFormRoute = location.startsWith("/booking/form");
   const [form, setForm] = useState<BookingForm>({
     clientName: "",
     birthDate: "",
@@ -102,10 +117,10 @@ export default function Booking() {
   });
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      setLocation("/login?redirect=/booking");
+    if (isFormRoute && !authLoading && !isAuthenticated) {
+      setLocation("/login?redirect=/booking/form");
     }
-  }, [authLoading, isAuthenticated, setLocation]);
+  }, [authLoading, isAuthenticated, isFormRoute, setLocation]);
 
   const { data: services, isLoading: servicesLoading } = useQuery<BookingService[]>({
     queryKey: ["/api/booking-services"],
@@ -246,6 +261,16 @@ export default function Booking() {
 
   const steps = ["Form A", "Form B", "Penjadwalan", "Form C"];
 
+  if (!isFormRoute) {
+    return (
+      <BookingLanding
+        services={services}
+        servicesLoading={servicesLoading}
+        onStart={() => setLocation(isAuthenticated ? "/booking/form" : "/login?redirect=/booking/form")}
+      />
+    );
+  }
+
   if (authLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-background">
@@ -257,7 +282,7 @@ export default function Booking() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-neutral-500">Silakan masuk terlebih dahulu sebelum mengisi form booking psikolog.</p>
-              <Button onClick={() => setLocation("/login?redirect=/booking")} className="bg-green-700 hover:bg-green-800">
+              <Button onClick={() => setLocation("/login?redirect=/booking/form")} className="bg-green-700 hover:bg-green-800">
                 Masuk untuk Booking
               </Button>
             </CardContent>
@@ -273,7 +298,7 @@ export default function Booking() {
       <Header />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="mb-8">
-          <Link href="/">
+          <Link href="/booking">
             <Button variant="ghost" className="mb-4">Kembali</Button>
           </Link>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">
@@ -587,6 +612,235 @@ export default function Booking() {
         </div>
       </main>
       <Footer />
+    </div>
+  );
+}
+
+function BookingLanding({
+  services,
+  servicesLoading,
+  onStart,
+}: {
+  services?: BookingService[];
+  servicesLoading: boolean;
+  onStart: () => void;
+}) {
+  const service = services?.[0];
+  const startingFee = Math.min(...PSYCHOLOGISTS.map((psychologist) => psychologist.fee));
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main>
+        <section className="gradient-hero py-20 md:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-12 items-center">
+              <div className="text-white">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-green-50 mb-6">
+                  <HeartHandshake className="w-4 h-4" />
+                  Konseling bersama psikolog profesional
+                </div>
+                <h1 className="text-4xl md:text-6xl font-extrabold tracking-normal leading-tight">
+                  Booking Psikolog Pelangi Indonesia
+                </h1>
+                <p className="text-lg md:text-xl text-green-50/90 mt-6 max-w-2xl leading-relaxed">
+                  Pilih kebutuhan konseling, tentukan psikolog dan jadwal preferensi, lalu lanjutkan pembayaran aman melalui Midtrans.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 mt-8">
+                  <Button
+                    size="lg"
+                    onClick={onStart}
+                    className="px-8 py-5 text-base md:text-lg font-bold bg-white text-[#1B4332] hover:bg-green-50 shadow-lg"
+                  >
+                    <CalendarCheck className="w-5 h-5 mr-2" />
+                    Mulai Booking
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                  <a href="#alur-booking">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="px-8 py-5 text-base md:text-lg font-semibold border-white/80 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                    >
+                      Lihat Alur
+                    </Button>
+                  </a>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-4 mt-10 max-w-3xl">
+                  <HeroMetric label="Mulai dari" value={formatCurrency(startingFee)} />
+                  <HeroMetric label="Pilihan sesi" value="Online / Offline" />
+                  <HeroMetric label="Jadwal" value="Maks. 14 hari" />
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white/95 p-5 md:p-6 shadow-2xl ring-1 ring-white/60">
+                <div className="rounded-xl bg-green-50 p-5 border border-green-100">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full bg-green-700 text-white flex items-center justify-center shrink-0">
+                      <ClipboardList className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-neutral-900">
+                        {servicesLoading ? "Konsultasi Psikolog" : service?.name ?? "Konsultasi Psikolog"}
+                      </h2>
+                      <p className="text-neutral-600 mt-2 leading-relaxed">
+                        {service?.description ?? "Layanan konseling psikologi untuk anak, remaja, dewasa, dan keluarga."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 mt-5">
+                  {CONSULTATION_TYPES.map((type) => (
+                    <div key={type.value} className="rounded-lg border bg-white p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-neutral-900">{type.label}</p>
+                          <p className="text-sm text-neutral-500 mt-1">{type.hint}</p>
+                        </div>
+                        <Check className="w-5 h-5 text-green-700 shrink-0" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4 mt-5 text-sm text-green-900">
+                  Konfirmasi jadwal dilakukan oleh admin setelah pembayaran berhasil.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="alur-booking" className="py-20 bg-white dark:bg-background">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-14">
+              <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground">
+                Alur Booking
+              </h2>
+              <p className="text-lg text-neutral-500 dark:text-muted-foreground mt-3">
+                Proses dibuat ringkas agar klien bisa langsung sampai ke jadwal konseling.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-4 gap-6">
+              <ProcessStep
+                icon={<Users className="w-7 h-7" />}
+                title="1. Isi Data"
+                description="Lengkapi data diri, keluhan umum, dan riwayat keluhan."
+              />
+              <ProcessStep
+                icon={<HeartHandshake className="w-7 h-7" />}
+                title="2. Pilih Konseling"
+                description="Pilih konseling anak/remaja, dewasa, atau keluarga."
+              />
+              <ProcessStep
+                icon={<CalendarCheck className="w-7 h-7" />}
+                title="3. Tentukan Jadwal"
+                description="Pilih tanggal maksimal 14 hari dari hari booking, waktu, lokasi, dan psikolog."
+              />
+              <ProcessStep
+                icon={<CreditCard className="w-7 h-7" />}
+                title="4. Bayar Midtrans"
+                description="Lanjutkan ke pembayaran aman, lalu tunggu konfirmasi jadwal dari admin."
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="py-20 bg-neutral-50 dark:bg-muted/20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-10 items-start">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground">
+                  Pilihan Sesi
+                </h2>
+                <p className="text-lg text-neutral-500 dark:text-muted-foreground mt-4 leading-relaxed">
+                  Konseling tersedia secara online maupun tatap muka di cabang Colombo dan Bantul.
+                </p>
+              </div>
+              <div className="grid md:grid-cols-3 gap-4">
+                <SessionCard
+                  icon={<Video className="w-6 h-6" />}
+                  title="Online"
+                  description="Sesi daring dengan link meeting yang disiapkan oleh psikolog."
+                />
+                <SessionCard
+                  icon={<MapPin className="w-6 h-6" />}
+                  title="Offline Colombo"
+                  description="Konseling tatap muka di Jl. Colombo No.8, Yogyakarta."
+                />
+                <SessionCard
+                  icon={<MapPin className="w-6 h-6" />}
+                  title="Offline Bantul"
+                  description="Konseling tatap muka di Melikan Kidul, Bantul."
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-20 bg-white dark:bg-background">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="rounded-2xl bg-[#1B4332] px-6 py-10 md:p-12 text-white grid lg:grid-cols-[1fr_auto] gap-8 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-green-50 mb-5">
+                  <ShieldCheck className="w-4 h-4" />
+                  Pembayaran aman via Midtrans
+                </div>
+                <h2 className="text-3xl md:text-4xl font-bold tracking-normal">
+                  Siap membuat jadwal konseling?
+                </h2>
+                <p className="text-green-50/90 mt-4 max-w-2xl leading-relaxed">
+                  Anda perlu login sebelum mengisi form agar booking, pembayaran, dan laporan konseling tersimpan di dashboard klien.
+                </p>
+              </div>
+              <Button
+                size="lg"
+                onClick={onStart}
+                className="bg-white text-[#1B4332] hover:bg-green-50 px-8 py-5 font-bold"
+              >
+                Booking Sekarang
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+function HeroMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/20 bg-white/10 p-4">
+      <p className="text-sm text-green-50/80">{label}</p>
+      <p className="font-bold text-white mt-1">{value}</p>
+    </div>
+  );
+}
+
+function ProcessStep({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
+  return (
+    <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="w-14 h-14 rounded-full bg-green-100 text-green-800 flex items-center justify-center mb-5">
+        {icon}
+      </div>
+      <h3 className="text-lg font-bold text-neutral-900">{title}</h3>
+      <p className="text-sm text-neutral-500 leading-relaxed mt-3">{description}</p>
+    </div>
+  );
+}
+
+function SessionCard({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
+  return (
+    <div className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="w-12 h-12 rounded-full bg-green-100 text-green-800 flex items-center justify-center mb-4">
+        {icon}
+      </div>
+      <h3 className="font-bold text-neutral-900">{title}</h3>
+      <p className="text-sm text-neutral-500 leading-relaxed mt-2">{description}</p>
     </div>
   );
 }

@@ -56,6 +56,7 @@ function Router() {
       <Route path="/tim/:id" component={TimDetail} />
       <Route path="/kontak" component={Kontak} />
       <Route path="/booking" component={Booking} />
+      <Route path="/booking/form" component={Booking} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/forgot-password" component={ForgotPassword} />
