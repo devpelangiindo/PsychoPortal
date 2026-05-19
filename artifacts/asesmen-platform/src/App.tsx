@@ -36,6 +36,7 @@ import LayananDetail from "@/pages/layanan-detail";
 import Artikel from "@/pages/artikel";
 import ArtikelDetail from "@/pages/artikel-detail";
 import TimDetail from "@/pages/tim-detail";
+import WhatsAppBranchChooser from "@/components/WhatsAppBranchChooser";
 
 import NotFound from "@/pages/not-found";
 
@@ -102,6 +103,7 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={routerBase}>
           <Router />
+          <WhatsAppBranchChooser variant="floating" />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
