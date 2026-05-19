@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Download, FileText } from "lucide-react";
+import { CreditCard, Download, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
@@ -33,6 +34,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshCountdown, setRefreshCountdown] = useState(3);
+  const [settlingOrderId, setSettlingOrderId] = useState<number | null>(null);
 
   // Countdown timer for auto refresh
   useEffect(() => {
@@ -71,6 +73,41 @@ export default function Dashboard() {
     queryKey: ["/api/bookings"],
     enabled: isAuthenticated,
     refetchInterval: 5000,
+  });
+
+  const settlePaymentMutation = useMutation({
+    mutationFn: async (orderId: number) => {
+      const response = await apiRequest("POST", "/api/payments/create", {
+        orderId,
+        paymentMethod: "midtrans",
+      });
+      return response.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-assessments"] });
+
+      if (result.redirect_url) {
+        window.location.href = result.redirect_url;
+        return;
+      }
+
+      toast({
+        title: "Pembayaran dibuat",
+        description: "Silakan lanjutkan pembayaran pesanan Anda.",
+      });
+      refetchOrders();
+    },
+    onError: () => {
+      toast({
+        title: "Gagal membuat pembayaran",
+        description: "Silakan coba lagi atau hubungi admin.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setSettlingOrderId(null);
+    },
   });
 
   useEffect(() => {
@@ -155,6 +192,15 @@ export default function Dashboard() {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const isOrderUnpaid = (order: OrderWithItems) =>
+    order.status !== 'completed' && order.paymentStatus !== 'paid';
+
+  const handleSettleOrderPayment = (order: OrderWithItems) => {
+    if (!isOrderUnpaid(order) || settlePaymentMutation.isPending) return;
+    setSettlingOrderId(order.id);
+    settlePaymentMutation.mutate(order.id);
   };
 
   if (authLoading || assessmentsLoading) {
@@ -440,13 +486,31 @@ export default function Dashboard() {
                           {getOrderStatusBadge(order.status)}
                         </div>
                         <p className="text-sm text-neutral-500 dark:text-muted-foreground">
-                          {order.orderItems.length} item • 
+                          {order.orderItems.length > 0 ? `${order.orderItems.length} item` : 'Booking psikolog'} • 
                           Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
                         </p>
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
                           {formatDisplayDate(order.createdAt)}
                         </p>
                       </div>
+                      {isOrderUnpaid(order) && (
+                        <div className="ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSettleOrderPayment(order)}
+                            disabled={settlePaymentMutation.isPending}
+                            className="whitespace-nowrap"
+                          >
+                            {settlingOrderId === order.id ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <CreditCard className="w-4 h-4 mr-2" />
+                            )}
+                            Bayar
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

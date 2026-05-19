@@ -2037,6 +2037,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
+      if (order.status === 'completed' || order.paymentStatus === 'paid') {
+        return res.status(400).json({ message: "Order is already paid" });
+      }
+
       console.log(`🔄 Creating Midtrans payment for order ${orderId}`);
 
       // Get user details for customer info
