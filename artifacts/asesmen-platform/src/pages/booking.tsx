@@ -76,6 +76,18 @@ const PSYCHOLOGISTS = [
   { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", fee: 300000, types: ["adult"] as ConsultationType[] },
 ];
 
+const PSYCHOLOGIST_PROFILES = [
+  "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
+  "Retno Rahayu, M.Psi., Psikolog",
+  "Tria Khusni Barokah, M.Psi., Psikolog",
+  "Bagas Paramajana, M.Psi., Psikolog",
+  "Ridwan Rahmawan, S.Psi., M.H., Psikolog",
+].map((name) => ({
+  name,
+  sipp: "Nomor SIPP menyusul",
+  description: "Deskripsi singkat psikolog akan ditambahkan.",
+}));
+
 const CONSULTATION_TYPES = [
   { value: "child", label: "Perkembangan anak & remaja", hint: "Kurang dari 17 tahun" },
   { value: "adult", label: "Permasalahan pribadi", hint: "Dewasa" },
@@ -766,6 +778,8 @@ function BookingLanding({
           </div>
         </section>
 
+        <PsychologistProfilesSection />
+
         <section id="alur-booking" className="py-20 bg-white dark:bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-14">
@@ -865,6 +879,47 @@ function BookingLanding({
       </main>
       <Footer />
     </div>
+  );
+}
+
+function PsychologistProfilesSection() {
+  return (
+    <section className="py-20 bg-neutral-50 dark:bg-muted/20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wider text-green-700">Profil Psikolog</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground mt-2">
+              Pilih Psikolog Sesuai Kebutuhan
+            </h2>
+          </div>
+          <p className="text-neutral-500 dark:text-muted-foreground md:max-w-md leading-relaxed">
+            Foto, nomor SIPP, dan deskripsi singkat akan dilengkapi setelah informasi final tersedia.
+          </p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {PSYCHOLOGIST_PROFILES.map((psychologist) => (
+            <div key={psychologist.name} className="rounded-xl border bg-white p-5 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-800">
+                  <UserRound className="h-9 w-9" />
+                </div>
+                <div>
+                  <h3 className="font-bold leading-snug text-neutral-900">{psychologist.name}</h3>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-green-700">
+                    {psychologist.sipp}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-neutral-500">
+                {psychologist.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
