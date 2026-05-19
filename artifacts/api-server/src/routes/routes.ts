@@ -22,6 +22,8 @@ const PSYCHOLOGISTS = [
   { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", fee: "300000", types: ["adult"] },
 ];
 
+const TIME_SLOTS = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"] as const;
+
 const bookingRequestSchema = z.object({
   serviceId: z.number().int().positive(),
   clientName: z.string().min(2),
@@ -35,7 +37,7 @@ const bookingRequestSchema = z.object({
   childBirthDate: z.string().optional(),
   previousDiagnosis: z.string().optional(),
   preferredDate: z.string().min(4),
-  preferredTime: z.enum(["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"]),
+  preferredTime: z.enum(TIME_SLOTS),
   psychologistName: z.string().min(2),
   location: z.enum(["online", "colombo", "bantul"]),
 }).superRefine((data, ctx) => {
@@ -79,7 +81,7 @@ const bookingReportSchema = z.object({
 
 const bookingScheduleUpdateSchema = z.object({
   preferredDate: z.string().min(4),
-  preferredTime: z.enum(["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"]),
+  preferredTime: z.enum(TIME_SLOTS),
   location: z.enum(["online", "colombo", "bantul"]),
   meetingUrl: z.string().url("Link meeting tidak valid").optional().or(z.literal("")),
 }).superRefine((data, ctx) => {
@@ -92,6 +94,17 @@ const bookingScheduleUpdateSchema = z.object({
       message: "Tanggal booking hanya dapat dipilih sampai 14 hari ke depan",
     });
   }
+});
+
+const availabilitySlotSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  timeSlot: z.enum(TIME_SLOTS),
+  isAvailable: z.boolean(),
+});
+
+const psychologistAvailabilityUpdateSchema = z.object({
+  psychologistName: z.string().min(2).optional(),
+  availability: z.array(availabilitySlotSchema).max(21),
 });
 
 // Custom authentication middleware for JWT tokens
@@ -137,6 +150,19 @@ function addDaysToDateString(dateString: string, days: number) {
   const [year, month, day] = dateString.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day + days));
   return date.toISOString().slice(0, 10);
+}
+
+function getDayOfWeek(dateString: string) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+async function isPsychologistAvailable(psychologistName: string, preferredDate: string, preferredTime: string) {
+  const availability = await storage.getPsychologistAvailability(psychologistName);
+  if (availability.length === 0) return true;
+  const dayOfWeek = getDayOfWeek(preferredDate);
+  const slot = availability.find((item) => item.dayOfWeek === dayOfWeek && item.timeSlot === preferredTime);
+  return slot?.isAvailable !== false;
 }
 
 function getClientReportText(booking: any) {
@@ -1277,6 +1303,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/psychologist/availability', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const requestedName = typeof req.query.psychologistName === "string" ? req.query.psychologistName : undefined;
+      const providerName = user.role === 'admin'
+        ? requestedName
+        : user.psychologistProfileName || getDisplayName(user);
+
+      if (!providerName) {
+        return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
+      }
+
+      const availability = await storage.getPsychologistAvailability(providerName);
+      res.json({ psychologistName: providerName, availability });
+    } catch (error) {
+      console.error("Error fetching psychologist availability:", error);
+      res.status(500).json({ message: "Failed to fetch psychologist availability" });
+    }
+  });
+
+  app.put('/api/psychologist/availability', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const data = psychologistAvailabilityUpdateSchema.parse(req.body);
+      const providerName = user.role === 'admin'
+        ? data.psychologistName
+        : user.psychologistProfileName || getDisplayName(user);
+
+      if (!providerName) {
+        return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
+      }
+
+      const availability = await storage.setPsychologistAvailability(providerName, data.availability);
+      res.json({ psychologistName: providerName, availability });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data ketersediaan tidak valid", errors: error.flatten() });
+      }
+      console.error("Error updating psychologist availability:", error);
+      res.status(500).json({ message: "Failed to update psychologist availability" });
+    }
+  });
+
   app.get('/api/psychologist/reports', isAuthenticated, async (req: any, res) => {
     try {
       if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
@@ -1672,6 +1757,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/psychologist-availability', async (req, res) => {
+    try {
+      const psychologistName = typeof req.query.psychologistName === "string" ? req.query.psychologistName : "";
+      if (!psychologistName) {
+        return res.status(400).json({ message: "Nama psikolog wajib diisi" });
+      }
+      const availability = await storage.getPsychologistAvailability(psychologistName);
+      res.json({ psychologistName, availability });
+    } catch (error) {
+      console.error("Error fetching public psychologist availability:", error);
+      res.status(500).json({ message: "Failed to fetch psychologist availability" });
+    }
+  });
+
   app.get('/api/bookings', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1727,6 +1826,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const psychologist = PSYCHOLOGISTS.find((item) => item.name === data.psychologistName)!;
+      if (!(await isPsychologistAvailable(data.psychologistName, data.preferredDate, data.preferredTime))) {
+        return res.status(400).json({ message: "Psikolog tidak tersedia pada hari dan jam yang dipilih." });
+      }
 
       const order = await storage.createOrder({
         userId,

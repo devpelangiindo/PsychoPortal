@@ -9,6 +9,7 @@ import {
   decimal,
   integer,
   boolean,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -78,6 +79,19 @@ export const bookingServices = pgTable("booking_services", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Psychologist weekly availability by day and time slot
+export const psychologistAvailabilities = pgTable("psychologist_availabilities", {
+  id: serial("id").primaryKey(),
+  psychologistName: varchar("psychologist_name", { length: 255 }).notNull(),
+  dayOfWeek: integer("day_of_week").notNull(), // 0 Sunday, 6 Saturday
+  timeSlot: varchar("time_slot", { length: 20 }).notNull(),
+  isAvailable: boolean("is_available").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("psychologist_availability_unique").on(table.psychologistName, table.dayOfWeek, table.timeSlot),
+]);
 
 // User orders
 export const orders = pgTable("orders", {
@@ -220,6 +234,7 @@ export const userAssessmentsRelations = relations(userAssessments, ({ one }) => 
 export const insertUserSchema = createInsertSchema(users);
 export const insertAssessmentSchema = createInsertSchema(assessments);
 export const insertBookingServiceSchema = createInsertSchema(bookingServices);
+export const insertPsychologistAvailabilitySchema = createInsertSchema(psychologistAvailabilities);
 export const insertPsychologistBookingSchema = createInsertSchema(psychologistBookings);
 export const insertOrderSchema = createInsertSchema(orders);
 export const insertOrderItemSchema = createInsertSchema(orderItems);
@@ -281,6 +296,8 @@ export type Assessment = typeof assessments.$inferSelect;
 export type InsertAssessment = z.infer<typeof insertAssessmentSchema>;
 export type BookingService = typeof bookingServices.$inferSelect;
 export type InsertBookingService = z.infer<typeof insertBookingServiceSchema>;
+export type PsychologistAvailability = typeof psychologistAvailabilities.$inferSelect;
+export type InsertPsychologistAvailability = z.infer<typeof insertPsychologistAvailabilitySchema>;
 export type PsychologistBooking = typeof psychologistBookings.$inferSelect;
 export type InsertPsychologistBooking = z.infer<typeof insertPsychologistBookingSchema>;
 export type Order = typeof orders.$inferSelect;

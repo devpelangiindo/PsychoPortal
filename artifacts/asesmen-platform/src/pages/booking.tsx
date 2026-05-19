@@ -36,6 +36,17 @@ type BookingService = {
   duration: string;
 };
 
+type AvailabilitySlot = {
+  dayOfWeek: number;
+  timeSlot: string;
+  isAvailable: boolean;
+};
+
+type AvailabilityResponse = {
+  psychologistName: string;
+  availability: AvailabilitySlot[];
+};
+
 type ConsultationType = "child" | "adult" | "family";
 type LocationType = "online" | "colombo" | "bantul";
 
@@ -92,6 +103,11 @@ const formatDateInput = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getDayOfWeek = (dateString: string) => {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+};
+
 export default function Booking() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [location, setLocation] = useLocation();
@@ -137,6 +153,22 @@ export default function Booking() {
   }, [form.consultationType]);
 
   const selectedPsychologist = availablePsychologists.find((psychologist) => psychologist.name === form.psychologistName);
+  const { data: availabilityData } = useQuery<AvailabilityResponse>({
+    queryKey: ["/api/psychologist-availability", form.psychologistName],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/psychologist-availability?psychologistName=${encodeURIComponent(form.psychologistName)}`);
+      return response.json();
+    },
+    enabled: Boolean(form.psychologistName),
+  });
+  const availableTimeSlots = useMemo(() => {
+    if (!form.preferredDate || !availabilityData?.availability?.length) return TIME_SLOTS;
+    const dayOfWeek = getDayOfWeek(form.preferredDate);
+    return TIME_SLOTS.filter((slot) => {
+      const availability = availabilityData.availability.find((item) => item.dayOfWeek === dayOfWeek && item.timeSlot === slot);
+      return availability?.isAvailable !== false;
+    });
+  }, [availabilityData, form.preferredDate]);
   const today = useMemo(() => formatDateInput(new Date()), []);
   const maxBookingDate = useMemo(() => {
     const date = new Date();
@@ -158,6 +190,12 @@ export default function Booking() {
       return next;
     });
   };
+
+  useEffect(() => {
+    if (availableTimeSlots.length > 0 && !availableTimeSlots.includes(form.preferredTime)) {
+      updateField("preferredTime", availableTimeSlots[0]);
+    }
+  }, [availableTimeSlots, form.preferredTime]);
 
   const createBookingMutation = useMutation({
     mutationFn: async () => {
@@ -222,6 +260,9 @@ export default function Booking() {
     if (step === 2) {
       if (!form.preferredDate || !form.preferredTime || !form.psychologistName || !form.location) {
         return "Lengkapi tanggal, psikolog, waktu, dan lokasi.";
+      }
+      if (!availableTimeSlots.includes(form.preferredTime)) {
+        return "Psikolog tidak tersedia pada hari dan jam yang dipilih.";
       }
       if (form.preferredDate < today || form.preferredDate > maxBookingDate) {
         return "Tanggal booking hanya dapat dipilih sampai 14 hari dari hari ini.";
@@ -453,10 +494,16 @@ export default function Booking() {
                       <select
                         value={form.preferredTime}
                         onChange={(event) => updateField("preferredTime", event.target.value)}
+                        disabled={Boolean(form.psychologistName && form.preferredDate && availableTimeSlots.length === 0)}
                         className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       >
-                        {TIME_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+                        {availableTimeSlots.length === 0 ? (
+                          <option value="">Tidak ada jam tersedia</option>
+                        ) : availableTimeSlots.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
                       </select>
+                      {form.psychologistName && form.preferredDate && availableTimeSlots.length === 0 && (
+                        <p className="text-xs text-red-600 mt-2">Psikolog tidak tersedia pada tanggal ini.</p>
+                      )}
                     </Field>
                   </div>
 

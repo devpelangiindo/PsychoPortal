@@ -2,6 +2,7 @@ import {
   users,
   assessments,
   bookingServices,
+  psychologistAvailabilities,
   psychologistBookings,
   orders,
   orderItems,
@@ -13,6 +14,8 @@ import {
   type InsertAssessment,
   type BookingService,
   type InsertBookingService,
+  type PsychologistAvailability,
+  type InsertPsychologistAvailability,
   type PsychologistBooking,
   type InsertPsychologistBooking,
   type PsychologistBookingWithDetails,
@@ -55,6 +58,8 @@ export interface IStorage {
   getBookingServices(): Promise<BookingService[]>;
   getBookingService(id: number): Promise<BookingService | undefined>;
   createBookingService(service: InsertBookingService): Promise<BookingService>;
+  getPsychologistAvailability(psychologistName: string): Promise<PsychologistAvailability[]>;
+  setPsychologistAvailability(psychologistName: string, availability: Omit<InsertPsychologistAvailability, "psychologistName">[]): Promise<PsychologistAvailability[]>;
   createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking>;
   getUserPsychologistBookings(userId: string): Promise<PsychologistBookingWithDetails[]>;
   getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]>;
@@ -240,6 +245,48 @@ export class DatabaseStorage implements IStorage {
   async createBookingService(service: InsertBookingService): Promise<BookingService> {
     const [newService] = await db.insert(bookingServices).values(service).returning();
     return newService;
+  }
+
+  async getPsychologistAvailability(psychologistName: string): Promise<PsychologistAvailability[]> {
+    return await db
+      .select()
+      .from(psychologistAvailabilities)
+      .where(eq(psychologistAvailabilities.psychologistName, psychologistName))
+      .orderBy(psychologistAvailabilities.dayOfWeek, psychologistAvailabilities.timeSlot);
+  }
+
+  async setPsychologistAvailability(
+    psychologistName: string,
+    availability: Omit<InsertPsychologistAvailability, "psychologistName">[],
+  ): Promise<PsychologistAvailability[]> {
+    if (availability.length === 0) {
+      return this.getPsychologistAvailability(psychologistName);
+    }
+
+    await db
+      .insert(psychologistAvailabilities)
+      .values(
+        availability.map((slot) => ({
+          psychologistName,
+          dayOfWeek: slot.dayOfWeek,
+          timeSlot: slot.timeSlot,
+          isAvailable: slot.isAvailable,
+          updatedAt: new Date(),
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [
+          psychologistAvailabilities.psychologistName,
+          psychologistAvailabilities.dayOfWeek,
+          psychologistAvailabilities.timeSlot,
+        ],
+        set: {
+          isAvailable: sql`excluded.is_available`,
+          updatedAt: new Date(),
+        },
+      });
+
+    return this.getPsychologistAvailability(psychologistName);
   }
 
   async createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking> {

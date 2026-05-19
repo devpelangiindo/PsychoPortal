@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, ClipboardCheck, Download, ExternalLink, FileText, History, LogOut, Mail, MapPin, Phone, Save, Search, UserRound, Video } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, FileText, History, LogOut, Mail, MapPin, Phone, Save, Search, UserRound, Video } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +50,18 @@ type Booking = {
   };
 };
 
+type AvailabilitySlot = {
+  id?: number;
+  dayOfWeek: number;
+  timeSlot: string;
+  isAvailable: boolean;
+};
+
+type AvailabilityResponse = {
+  psychologistName: string;
+  availability: AvailabilitySlot[];
+};
+
 const consultationLabels = {
   child: "Anak/remaja",
   adult: "Pribadi dewasa",
@@ -61,6 +73,18 @@ const locationLabels: Record<string, string> = {
   colombo: "Offline Colombo",
   bantul: "Offline Bantul",
 };
+
+const dayLabels = [
+  "Minggu",
+  "Senin",
+  "Selasa",
+  "Rabu",
+  "Kamis",
+  "Jumat",
+  "Sabtu",
+];
+
+const timeSlots = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"];
 
 type DashboardMode = "psychologist" | "admin";
 
@@ -90,6 +114,11 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
       return response.json();
     },
     enabled: hasAccess,
+  });
+
+  const { data: availabilityData, isLoading: availabilityLoading } = useQuery<AvailabilityResponse>({
+    queryKey: ["/api/psychologist/availability", mode],
+    enabled: hasAccess && !isAdminMode,
   });
 
   if (authLoading) {
@@ -158,6 +187,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
         <Tabs defaultValue="konseling" className="space-y-6">
           <TabsList className="h-auto flex-wrap justify-start">
             <TabsTrigger value="konseling">Konseling</TabsTrigger>
+            {!isAdminMode && <TabsTrigger value="ketersediaan">Ketersediaan</TabsTrigger>}
             <TabsTrigger value="laporan">Laporan</TabsTrigger>
           </TabsList>
 
@@ -185,6 +215,21 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               </div>
             )}
           </TabsContent>
+
+          {!isAdminMode && (
+            <TabsContent value="ketersediaan" className="space-y-4">
+              <SectionTitle
+                icon={<Clock className="w-5 h-5" />}
+                title="Ketersediaan"
+                description="Atur hari dan jam yang dapat dipilih klien saat booking."
+              />
+              {availabilityLoading ? (
+                <LoadingState label="Memuat ketersediaan..." compact />
+              ) : (
+                <AvailabilityEditor availability={availabilityData?.availability ?? []} />
+              )}
+            </TabsContent>
+          )}
 
           <TabsContent value="laporan" className="space-y-6">
             <SectionTitle icon={<FileText className="w-5 h-5" />} title="Laporan" description="Seluruh psikolog dapat mencari laporan berdasarkan nama klien." />
@@ -252,6 +297,141 @@ function SectionTitle({ icon, title, description }: { icon: ReactNode; title: st
         <p className="text-sm text-neutral-500 mt-1">{description}</p>
       </div>
     </div>
+  );
+}
+
+function AvailabilityEditor({ availability }: { availability: AvailabilitySlot[] }) {
+  const { toast } = useToast();
+  const [slots, setSlots] = useState(() => buildAvailabilityState(availability));
+
+  useEffect(() => {
+    setSlots(buildAvailabilityState(availability));
+  }, [availability]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PUT", "/api/psychologist/availability", {
+        availability: flattenAvailability(slots),
+      });
+      return response.json();
+    },
+    onSuccess: (data: AvailabilityResponse) => {
+      setSlots(buildAvailabilityState(data.availability));
+      queryClient.invalidateQueries({ queryKey: ["/api/psychologist/availability"] });
+      toast({ title: "Ketersediaan disimpan", description: "Pilihan hari dan jam booking sudah diperbarui." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Gagal menyimpan",
+        description: error instanceof Error ? error.message : "Silakan coba lagi.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleSlot = (dayOfWeek: number, timeSlot: string) => {
+    setSlots((current) => ({
+      ...current,
+      [dayOfWeek]: {
+        ...current[dayOfWeek],
+        [timeSlot]: !current[dayOfWeek]?.[timeSlot],
+      },
+    }));
+  };
+
+  const setDayAvailability = (dayOfWeek: number, isAvailable: boolean) => {
+    setSlots((current) => ({
+      ...current,
+      [dayOfWeek]: Object.fromEntries(timeSlots.map((slot) => [slot, isAvailable])) as Record<string, boolean>,
+    }));
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-5">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+          Centang jam yang tersedia. Klien tidak dapat memilih slot yang tidak dicentang.
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] border-separate border-spacing-0">
+            <thead>
+              <tr>
+                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Hari</th>
+                {timeSlots.map((slot) => (
+                  <th key={slot} className="text-left text-sm font-semibold text-neutral-600 p-3">
+                    {slot}
+                  </th>
+                ))}
+                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dayLabels.map((day, dayOfWeek) => (
+                <tr key={day} className="border-t">
+                  <td className="p-3 font-medium text-neutral-900">{day}</td>
+                  {timeSlots.map((slot) => {
+                    const checked = slots[dayOfWeek]?.[slot] ?? true;
+                    return (
+                      <td key={slot} className="p-3">
+                        <label className="inline-flex items-center gap-2 text-sm text-neutral-700">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSlot(dayOfWeek, slot)}
+                            className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
+                          />
+                          Tersedia
+                        </label>
+                      </td>
+                    );
+                  })}
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setDayAvailability(dayOfWeek, true)}>
+                        Semua
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setDayAvailability(dayOfWeek, false)}>
+                        Libur
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end">
+          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="bg-green-700 hover:bg-green-800">
+            <Save className="w-4 h-4 mr-2" />
+            {mutation.isPending ? "Menyimpan..." : "Simpan Ketersediaan"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function buildAvailabilityState(availability: AvailabilitySlot[]) {
+  const state: Record<number, Record<string, boolean>> = {};
+  dayLabels.forEach((_, dayOfWeek) => {
+    state[dayOfWeek] = Object.fromEntries(timeSlots.map((slot) => [slot, true])) as Record<string, boolean>;
+  });
+  availability.forEach((slot) => {
+    if (!state[slot.dayOfWeek]) return;
+    state[slot.dayOfWeek][slot.timeSlot] = slot.isAvailable;
+  });
+  return state;
+}
+
+function flattenAvailability(slots: Record<number, Record<string, boolean>>) {
+  return dayLabels.flatMap((_, dayOfWeek) =>
+    timeSlots.map((timeSlot) => ({
+      dayOfWeek,
+      timeSlot,
+      isAvailable: slots[dayOfWeek]?.[timeSlot] ?? true,
+    })),
   );
 }
 
