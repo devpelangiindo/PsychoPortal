@@ -1,46 +1,55 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Menu, X, User, LogIn, UserPlus, Brain, CalendarCheck } from "lucide-react";
+import { ChevronDown, ShoppingCart, Menu, X, User, LogIn, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/lib/cart";
 import ShoppingCartSidebar from "@/components/shopping-cart";
-import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 const mainSiteHref = import.meta.env.VITE_MAIN_SITE_URL ||
   (window.location.hostname === "localhost" ? "http://localhost:8081/" : "/");
+
+const withMainSitePath = (path: string) => `${mainSiteHref.replace(/\/$/, "")}${path}`;
+
+const services: Array<{
+  label: string;
+  href: string;
+  external?: boolean;
+}> = [
+  { label: "Asesmen", href: "/" },
+  { label: "Konseling", href: "/booking" },
+  { label: "Terapi", href: withMainSitePath("/produk-layanan/terapi") },
+  { label: "Pelatihan", href: withMainSitePath("/produk-layanan/pelatihan") },
+  { label: "Produk Digital", href: withMainSitePath("/produk-layanan/produk-digital") },
+  { label: "Kursus", href: withMainSitePath("/produk-layanan/kursus") },
+  { label: "Franchise", href: withMainSitePath("/produk-layanan/franchise") },
+  { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
+  { label: "HORECAL", href: withMainSitePath("/produk-layanan/horecal") },
+];
+
+const marketingNavLinkClass = "px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
+const marketingMobileLinkClass = "block px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
+const marketingDropdownLinkClass = "block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
+const marketingMobileDropdownLinkClass = "block px-4 py-2 text-sm text-gray-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors";
 
 export default function Header() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { items } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const dashboardHref = user?.role === "admin"
     ? "/admin/dashboard"
     : user?.role === "psychologist"
       ? "/psychologist/dashboard"
       : "/dashboard";
-  const [pathname, queryString = ""] = location.split("?");
-  const browserQueryString = typeof window !== "undefined" ? window.location.search.replace(/^\?/, "") : "";
-  const redirectPath = new URLSearchParams(queryString || browserQueryString).get("redirect") ?? "";
-  const isActive = (href: string) => {
-    const activePath = redirectPath || pathname;
-    return href === "/" ? activePath === "/" : activePath.startsWith(href);
-  };
-  const navLinkClass = (href: string, withIcon = false) =>
-    `${withIcon ? "inline-flex items-center gap-1.5" : ""} ${
-      isActive(href)
-        ? "bg-[#2D6A4F] text-white hover:bg-[#1B4332] hover:text-white px-3 rounded-md font-semibold shadow-sm"
-        : "text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 px-3 rounded-md font-medium"
-    } py-2 text-sm transition-colors`;
-  const mobileNavLinkClass = (href: string, withIcon = false) =>
-    `${withIcon ? "flex items-center gap-2" : "block"} ${
-      isActive(href)
-        ? "mx-3 px-4 bg-[#2D6A4F] hover:bg-[#1B4332] text-white rounded-lg font-semibold"
-        : "px-4 text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 rounded-lg font-medium"
-    } py-2 transition-colors`;
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+    setDropdownOpen(false);
+  }, [location]);
 
   const handleSignIn = () => {
     setLocation("/login");
@@ -69,38 +78,85 @@ export default function Header() {
             <div className="flex items-center">
               <a href={mainSiteHref} className="flex items-center gap-3 group">
                 <img 
-                  src={logoPath} 
-                  alt="Rumah Psikologi Pelangi Indonesia" 
+                  src="/logo-pi-group.png" 
+                  alt="Pelangi Indonesia Group" 
                   className="h-16 w-16 object-contain shrink-0 transition-transform group-hover:scale-105"
                 />
                 <div className="hidden sm:block">
                   <div className="text-base font-bold leading-tight text-[#1B4332] dark:text-foreground">
-                    Rumah Psikologi
+                    Pelangi Indonesia
                   </div>
                   <div className="text-sm leading-tight font-medium text-[#52B788]">
-                    Pelangi Indonesia
+                    Group
                   </div>
                 </div>
               </a>
               
               {/* Desktop Navigation */}
               <nav className="hidden lg:ml-8 lg:flex items-center gap-1">
-                <Link href="/" className={navLinkClass("/")}>
-                  Beranda
-                </Link>
-                <Link href="/assessments" className={navLinkClass("/assessments", true)}>
-                  <Brain className="w-4 h-4" />
-                  Asesmen Online
-                </Link>
-                <Link href="/booking" className={navLinkClass("/booking", true)}>
-                  <CalendarCheck className="w-4 h-4" />
-                  Booking Psikolog
-                </Link>
-                <Link href="/kontak" className={navLinkClass("/kontak")}>
+                <a href={withMainSitePath("/tentang-kami")} className={marketingNavLinkClass}>
+                  Tentang Kami
+                </a>
+                <a href={withMainSitePath("/artikel")} className={marketingNavLinkClass}>
+                  Artikel
+                </a>
+
+                <div className="relative">
+                  <div
+                    onMouseEnter={() => setDropdownOpen(true)}
+                    onMouseLeave={() => setDropdownOpen(false)}
+                    className="flex items-center rounded-md text-gray-700 hover:text-green-800 transition-colors"
+                  >
+                    <a
+                      href={withMainSitePath("/produk-layanan")}
+                      className="px-3 py-2 text-sm font-medium hover:bg-green-50 rounded-l-md transition-colors"
+                    >
+                      Produk & Layanan
+                    </a>
+                    <button
+                      onClick={() => setDropdownOpen((open) => !open)}
+                      className="px-1 py-2 hover:bg-green-50 rounded-r-md transition-colors"
+                      aria-label="Buka menu layanan"
+                    >
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  </div>
+
+                  {dropdownOpen && (
+                    <div
+                      onMouseEnter={() => setDropdownOpen(true)}
+                      onMouseLeave={() => setDropdownOpen(false)}
+                      className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
+                    >
+                      {services.map((service) => (
+                        service.href.startsWith("/") && !service.external ? (
+                          <Link key={service.label} href={service.href} className={marketingDropdownLinkClass}>
+                            {service.label}
+                          </Link>
+                        ) : (
+                          <a
+                            key={service.label}
+                            href={service.href}
+                            target={service.external ? "_blank" : undefined}
+                            rel={service.external ? "noopener noreferrer" : undefined}
+                            className={marketingDropdownLinkClass}
+                          >
+                            {service.label}
+                          </a>
+                        )
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Link href="/kontak" className={marketingNavLinkClass}>
                   Kontak
                 </Link>
                 {isAuthenticated && (
-                  <Link href={dashboardHref} className={navLinkClass(dashboardHref)}>
+                  <Link href={dashboardHref} className={marketingNavLinkClass}>
                     {user?.role === "psychologist" ? "Dashboard Psikolog" : "Dashboard"}
                   </Link>
                 )}
@@ -113,6 +169,7 @@ export default function Header() {
               <button
                 onClick={() => setIsCartOpen(true)}
                 className="relative p-2 rounded-md text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 transition-colors"
+                aria-label="Buka keranjang"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {items.length > 0 && (
@@ -166,6 +223,7 @@ export default function Header() {
               <button
                 onClick={() => setIsCartOpen(true)}
                 className="relative p-2 rounded-md text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 transition-colors"
+                aria-label="Buka keranjang"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {items.length > 0 && (
@@ -178,6 +236,7 @@ export default function Header() {
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="p-2 rounded-md text-gray-700 dark:text-muted-foreground hover:text-green-800 hover:bg-green-50 transition-colors"
+                aria-label="Toggle menu"
               >
                 {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -188,22 +247,47 @@ export default function Header() {
           {isMenuOpen && (
             <div className="lg:hidden border-t border-gray-100 dark:border-border bg-white dark:bg-background">
               <nav className="py-4 space-y-2">
-                <Link href="/" className={mobileNavLinkClass("/")}>
-                  Beranda
-                </Link>
-                <Link href="/assessments" className={mobileNavLinkClass("/assessments", true)}>
-                  <Brain className="w-4 h-4" />
-                  Asesmen Online
-                </Link>
-                <Link href="/booking" className={mobileNavLinkClass("/booking", true)}>
-                  <CalendarCheck className="w-4 h-4" />
-                  Booking Psikolog
-                </Link>
-                <Link href="/kontak" className={mobileNavLinkClass("/kontak")}>
+                <a href={withMainSitePath("/tentang-kami")} className={marketingMobileLinkClass}>
+                  Tentang Kami
+                </a>
+                <a href={withMainSitePath("/artikel")} className={marketingMobileLinkClass}>
+                  Artikel
+                </a>
+                <div>
+                  <button
+                    className="flex items-center gap-2 w-full px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
+                    onClick={() => setDropdownOpen((open) => !open)}
+                  >
+                    Produk & Layanan
+                    <ChevronDown size={14} className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {dropdownOpen && (
+                    <div className="ml-4 space-y-1">
+                      {services.map((service) => (
+                        service.href.startsWith("/") && !service.external ? (
+                          <Link key={service.label} href={service.href} className={marketingMobileDropdownLinkClass}>
+                            {service.label}
+                          </Link>
+                        ) : (
+                          <a
+                            key={service.label}
+                            href={service.href}
+                            target={service.external ? "_blank" : undefined}
+                            rel={service.external ? "noopener noreferrer" : undefined}
+                            className={marketingMobileDropdownLinkClass}
+                          >
+                            {service.label}
+                          </a>
+                        )
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <Link href="/kontak" className={marketingMobileLinkClass}>
                   Kontak
                 </Link>
                 {isAuthenticated && (
-                  <Link href={dashboardHref} className={mobileNavLinkClass(dashboardHref)}>
+                  <Link href={dashboardHref} className={marketingMobileLinkClass}>
                     {user?.role === "psychologist" ? "Dashboard Psikolog" : "Dashboard"}
                   </Link>
                 )}
