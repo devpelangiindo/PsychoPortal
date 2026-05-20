@@ -102,6 +102,13 @@ const dayLabels = [
 ];
 
 const timeSlots = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"];
+const psychologistNames = [
+  "Tria Khusni Barokah, M.Psi., Psikolog",
+  "Bagas Paramajana, M.Psi., Psikolog",
+  "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
+  "Retno Rahayu, M.Psi., Psikolog",
+  "Ridwan Rahmawan, S.Psi., M.H., Psikolog",
+];
 
 type DashboardMode = "psychologist" | "admin";
 
@@ -114,10 +121,11 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [reportSearch, setReportSearch] = useState("");
+  const [selectedAdminPsychologist, setSelectedAdminPsychologist] = useState(psychologistNames[0]);
   const isAdminMode = mode === "admin";
-  const requiredRole = isAdminMode ? "admin" : "psychologist";
+  const isAdminOrCso = user?.role === "admin" || user?.role === "internal";
   const loginRedirect = isAdminMode ? "/admin/bookings" : "/psychologist/dashboard";
-  const hasAccess = !!user && user.role === requiredRole;
+  const hasAccess = !!user && (isAdminMode ? isAdminOrCso : user.role === "psychologist");
 
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/psychologist/bookings", mode],
@@ -134,12 +142,13 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   });
 
   const { data: scheduleData, isLoading: scheduleLoading } = useQuery<ScheduleResponse>({
-    queryKey: ["/api/psychologist/schedule-slots", mode],
+    queryKey: ["/api/psychologist/schedule-slots", mode, isAdminMode ? selectedAdminPsychologist : "self"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/psychologist/schedule-slots");
+      const query = isAdminMode ? `?psychologistName=${encodeURIComponent(selectedAdminPsychologist)}` : "";
+      const response = await apiRequest("GET", `/api/psychologist/schedule-slots${query}`);
       return response.json();
     },
-    enabled: hasAccess && !isAdminMode,
+    enabled: hasAccess && (!isAdminMode || Boolean(selectedAdminPsychologist)),
   });
 
   if (authLoading) {
@@ -151,7 +160,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
     return <LoadingState label="Mengalihkan ke login..." />;
   }
 
-  if (!isAdminMode && user.role === "admin") {
+  if (!isAdminMode && isAdminOrCso) {
     setLocation("/admin/bookings");
     return <LoadingState label="Mengalihkan ke halaman booking admin..." />;
   }
@@ -169,7 +178,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <p className="text-neutral-500">
                 {isAdminMode ? "Akun ini belum memiliki role admin." : "Akun ini belum memiliki role psikolog."}
               </p>
-              <Button onClick={() => setLocation(user.role === "admin" ? "/admin/dashboard" : "/dashboard")}>Kembali ke Dashboard</Button>
+              <Button onClick={() => setLocation(isAdminOrCso ? "/admin/dashboard" : "/dashboard")}>Kembali ke Dashboard</Button>
             </CardContent>
           </Card>
         </main>
@@ -209,6 +218,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
           <TabsList className="h-auto flex-wrap justify-start">
             {!isAdminMode && <TabsTrigger value="perubahan-jadwal">Perubahan Jadwal</TabsTrigger>}
             <TabsTrigger value="konseling">Konseling</TabsTrigger>
+            {isAdminMode && <TabsTrigger value="jadwal-psikolog">Perubahan Jadwal Psikolog</TabsTrigger>}
             <TabsTrigger value="laporan">Laporan</TabsTrigger>
           </TabsList>
 
@@ -241,6 +251,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                   <BookingCard
                     key={booking.id}
                     booking={booking}
+                    canEditClientSchedule={isAdminMode}
                     onSaved={() => {
                       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/bookings"] });
                       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/reports"] });
@@ -251,6 +262,39 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               </div>
             )}
           </TabsContent>
+
+          {isAdminMode && (
+            <TabsContent value="jadwal-psikolog" className="space-y-4">
+              <SectionTitle
+                icon={<Clock className="w-5 h-5" />}
+                title="Perubahan Jadwal Psikolog"
+                description="Admin/CSO dapat mengubah jadwal psikolog untuk klien yang sudah terjadwal."
+              />
+              <Card>
+                <CardContent className="p-5">
+                  <Label>Pilih psikolog</Label>
+                  <select
+                    value={selectedAdminPsychologist}
+                    onChange={(event) => setSelectedAdminPsychologist(event.target.value)}
+                    className="mt-2 h-10 w-full max-w-xl rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    {psychologistNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </CardContent>
+              </Card>
+              {scheduleLoading ? (
+                <LoadingState label="Memuat jadwal psikolog..." compact />
+              ) : (
+                <ScheduleUploadEditor
+                  scheduleSlots={scheduleData?.scheduleSlots ?? []}
+                  isAdmin
+                  psychologistName={selectedAdminPsychologist}
+                />
+              )}
+            </TabsContent>
+          )}
 
           <TabsContent value="laporan" className="space-y-6">
             <SectionTitle icon={<FileText className="w-5 h-5" />} title="Laporan" description="Seluruh psikolog dapat mencari laporan berdasarkan nama klien." />
@@ -330,7 +374,15 @@ type ScheduleDraftRow = {
   bantul: boolean;
 };
 
-function ScheduleUploadEditor({ scheduleSlots }: { scheduleSlots: ScheduleSlot[] }) {
+function ScheduleUploadEditor({
+  scheduleSlots,
+  isAdmin = false,
+  psychologistName,
+}: {
+  scheduleSlots: ScheduleSlot[];
+  isAdmin?: boolean;
+  psychologistName?: string;
+}) {
   const { toast } = useToast();
   const [rows, setRows] = useState<ScheduleDraftRow[]>(() => buildScheduleRows(scheduleSlots));
   const isLocked = scheduleSlots.some((slot) => slot.isLocked);
@@ -357,13 +409,19 @@ function ScheduleUploadEditor({ scheduleSlots }: { scheduleSlots: ScheduleSlot[]
           isAvailable: true,
         }));
       });
-      const response = await apiRequest("PUT", "/api/psychologist/schedule-slots", { slots });
+      const response = await apiRequest("PUT", "/api/psychologist/schedule-slots", {
+        slots,
+        ...(isAdmin && psychologistName ? { psychologistName } : {}),
+      });
       return response.json();
     },
     onSuccess: (data: ScheduleResponse) => {
       setRows(buildScheduleRows(data.scheduleSlots));
       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/schedule-slots"] });
-      toast({ title: "Jadwal disimpan", description: "Jadwal 2 minggu ke depan sudah dikunci." });
+      toast({
+        title: "Jadwal disimpan",
+        description: isAdmin ? "Jadwal psikolog berhasil diperbarui." : "Jadwal 2 minggu ke depan sudah dikunci.",
+      });
     },
     onError: (error) => {
       toast({
@@ -384,12 +442,12 @@ function ScheduleUploadEditor({ scheduleSlots }: { scheduleSlots: ScheduleSlot[]
         <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
           Online selalu tersedia untuk slot yang diaktifkan. Centang cabang offline hanya jika psikolog bersedia hadir di lokasi tersebut.
         </div>
-        {isLocked && (
+        {isLocked && !isAdmin && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             Jadwal sudah dikunci setelah disimpan. Perubahan lanjutan hanya dapat dilakukan admin.
           </div>
         )}
-        {!canUploadToday && !isLocked && (
+        {!canUploadToday && !isLocked && !isAdmin && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
             Upload jadwal psikolog hanya dapat dilakukan maksimal hari Jumat.
           </div>
@@ -413,27 +471,27 @@ function ScheduleUploadEditor({ scheduleSlots }: { scheduleSlots: ScheduleSlot[]
                     <input
                       type="checkbox"
                       checked={row.enabled}
-                      disabled={isLocked}
+                      disabled={isLocked && !isAdmin}
                       onChange={(event) => updateRow(index, { enabled: event.target.checked })}
                       className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
                     />
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <Input type="time" min="07:00" max="21:00" value={row.startTime} disabled={isLocked || !row.enabled} onChange={(event) => updateRow(index, { startTime: event.target.value })} />
+                      <Input type="time" min="07:00" max="21:00" value={row.startTime} disabled={(isLocked && !isAdmin) || !row.enabled} onChange={(event) => updateRow(index, { startTime: event.target.value })} />
                       <span className="text-neutral-400">-</span>
-                      <Input type="time" min="07:00" max="21:00" value={row.endTime} disabled={isLocked || !row.enabled} onChange={(event) => updateRow(index, { endTime: event.target.value })} />
+                      <Input type="time" min="07:00" max="21:00" value={row.endTime} disabled={(isLocked && !isAdmin) || !row.enabled} onChange={(event) => updateRow(index, { endTime: event.target.value })} />
                     </div>
                   </td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-4 text-sm text-neutral-700">
                       <span className="font-medium text-green-700">Online</span>
                       <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={row.colombo} disabled={isLocked || !row.enabled} onChange={(event) => updateRow(index, { colombo: event.target.checked })} />
+                        <input type="checkbox" checked={row.colombo} disabled={(isLocked && !isAdmin) || !row.enabled} onChange={(event) => updateRow(index, { colombo: event.target.checked })} />
                         Colombo
                       </label>
                       <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={row.bantul} disabled={isLocked || !row.enabled} onChange={(event) => updateRow(index, { bantul: event.target.checked })} />
+                        <input type="checkbox" checked={row.bantul} disabled={(isLocked && !isAdmin) || !row.enabled} onChange={(event) => updateRow(index, { bantul: event.target.checked })} />
                         Bantul
                       </label>
                     </div>
@@ -445,9 +503,9 @@ function ScheduleUploadEditor({ scheduleSlots }: { scheduleSlots: ScheduleSlot[]
         </div>
 
         <div className="flex justify-end">
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || isLocked || !canUploadToday} className="bg-green-700 hover:bg-green-800">
+          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || (!isAdmin && (isLocked || !canUploadToday))} className="bg-green-700 hover:bg-green-800">
             <Save className="w-4 h-4 mr-2" />
-            {mutation.isPending ? "Menyimpan..." : "Simpan & Kunci Jadwal"}
+            {mutation.isPending ? "Menyimpan..." : isAdmin ? "Simpan Jadwal Psikolog" : "Simpan & Kunci Jadwal"}
           </Button>
         </div>
       </CardContent>
@@ -484,6 +542,11 @@ function formatDateInput(date: Date) {
 
 function getLocalDayOfWeek() {
   return new Date().getDay();
+}
+
+function parseTimeRange(value?: string | null) {
+  const [start, end] = (value || "08.00 - 10.00").replace(/\./g, ":").split(" - ");
+  return [start || "08:00", end || "10:00"];
 }
 
 function AvailabilityEditor({ availability }: { availability: AvailabilitySlot[] }) {
@@ -621,7 +684,7 @@ function flattenAvailability(slots: Record<number, Record<string, boolean>>) {
   );
 }
 
-function BookingCard({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+function BookingCard({ booking, canEditClientSchedule, onSaved }: { booking: Booking; canEditClientSchedule: boolean; onSaved: () => void }) {
   return (
     <Card>
       <CardContent className="p-5">
@@ -675,7 +738,7 @@ function BookingCard({ booking, onSaved }: { booking: Booking; onSaved: () => vo
           )}
         </div>
 
-        <ScheduleEditor booking={booking} onSaved={onSaved} />
+        {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
         <ReportEditor booking={booking} onSaved={onSaved} />
       </CardContent>
     </Card>
@@ -683,8 +746,11 @@ function BookingCard({ booking, onSaved }: { booking: Booking; onSaved: () => vo
 }
 
 function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+  const { toast } = useToast();
+  const [initialStart, initialEnd] = parseTimeRange(booking.preferredTime);
   const [preferredDate, setPreferredDate] = useState(booking.preferredDate);
-  const [preferredTime, setPreferredTime] = useState(booking.preferredTime);
+  const [startTime, setStartTime] = useState(initialStart);
+  const [endTime, setEndTime] = useState(initialEnd);
   const [location, setLocation] = useState(booking.location ?? "online");
   const [meetingUrl, setMeetingUrl] = useState(booking.meetingUrl ?? "");
   const today = new Date().toISOString().slice(0, 10);
@@ -694,21 +760,39 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
     mutationFn: async () => {
       const response = await apiRequest("PATCH", `/api/psychologist/bookings/${booking.id}/schedule`, {
         preferredDate,
-        preferredTime,
+        preferredTime: `${startTime.replace(":", ".")} - ${endTime.replace(":", ".")}`,
         location,
         meetingUrl,
       });
       return response.json();
     },
-    onSuccess: onSaved,
+    onSuccess: (data) => {
+      onSaved();
+      if (data?.waSchedulePlaceholder) {
+        toast({
+          title: "Placeholder WA dibuat",
+          description: "Notifikasi WA klien belum dikirim sampai WhatsApp Business API aktif.",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Gagal menyimpan jadwal",
+        description: error instanceof Error ? error.message : "Silakan coba lagi.",
+        variant: "destructive",
+      });
+    },
   });
 
   return (
     <div className="mt-5 rounded-lg border bg-white p-4 space-y-4">
       <h3 className="font-semibold flex items-center gap-2">
         <CalendarDays className="w-4 h-4 text-green-700" />
-        Perubahan Jadwal
+        Perubahan Jadwal Klien
       </h3>
+      <p className="text-xs text-neutral-500">
+        Hanya admin/CSO yang berkomunikasi langsung dengan klien dapat mengubah jadwal ini. Placeholder notifikasi WA akan dibuat saat jadwal disimpan.
+      </p>
       <div className="grid md:grid-cols-4 gap-3">
         <div>
           <Label>Tanggal</Label>
@@ -716,11 +800,11 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
         </div>
         <div>
           <Label>Waktu</Label>
-          <select value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-            <option value="08.00 - 10.00">08.00 - 10.00</option>
-            <option value="10.30 - 12.30">10.30 - 12.30</option>
-            <option value="13.30 - 15.30">13.30 - 15.30</option>
-          </select>
+          <div className="mt-2 flex items-center gap-2">
+            <Input type="time" min="07:00" max="21:00" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+            <span className="text-neutral-400">-</span>
+            <Input type="time" min="07:00" max="21:00" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
+          </div>
         </div>
         <div>
           <Label>Lokasi</Label>

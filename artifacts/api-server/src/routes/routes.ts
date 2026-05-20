@@ -22,6 +22,14 @@ const PSYCHOLOGISTS = [
   { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", fee: "300000", types: ["adult"] },
 ];
 
+function canManageBookingsRole(role?: string | null) {
+  return role === "admin" || role === "internal";
+}
+
+function canAccessPsychologistAreaRole(role?: string | null) {
+  return role === "psychologist" || canManageBookingsRole(role);
+}
+
 const TIME_SLOTS = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"] as const;
 const TIME_SLOT_PATTERN = /^([01]\d|2[0-1])[.:][0-5]\d\s*-\s*([01]\d|2[0-1])[.:][0-5]\d$/;
 const TWO_WEEK_DAYS = 14;
@@ -1380,7 +1388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/psychologist/bookings', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+      if (!canAccessPsychologistAreaRole(req.user.role)) {
         return res.status(403).json({ message: "Access denied. Psychologist role required." });
       }
 
@@ -1389,7 +1397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      if (user.role === 'admin') {
+      if (canManageBookingsRole(user.role)) {
         return res.json(await storage.getAllPsychologistBookings());
       }
 
@@ -1408,7 +1416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/psychologist/availability', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+      if (!canAccessPsychologistAreaRole(req.user.role)) {
         return res.status(403).json({ message: "Access denied. Psychologist role required." });
       }
 
@@ -1418,7 +1426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const requestedName = typeof req.query.psychologistName === "string" ? req.query.psychologistName : undefined;
-      const providerName = user.role === 'admin'
+      const providerName = canManageBookingsRole(user.role)
         ? requestedName
         : user.psychologistProfileName || getDisplayName(user);
 
@@ -1436,7 +1444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/psychologist/availability', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+      if (!canAccessPsychologistAreaRole(req.user.role)) {
         return res.status(403).json({ message: "Access denied. Psychologist role required." });
       }
 
@@ -1446,7 +1454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = psychologistAvailabilityUpdateSchema.parse(req.body);
-      const providerName = user.role === 'admin'
+      const providerName = canManageBookingsRole(user.role)
         ? data.psychologistName
         : user.psychologistProfileName || getDisplayName(user);
 
@@ -1467,7 +1475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/psychologist/schedule-slots', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+      if (!canAccessPsychologistAreaRole(req.user.role)) {
         return res.status(403).json({ message: "Access denied. Psychologist role required." });
       }
 
@@ -1477,7 +1485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const requestedName = typeof req.query.psychologistName === "string" ? req.query.psychologistName : undefined;
-      const providerName = user.role === 'admin'
+      const providerName = canManageBookingsRole(user.role)
         ? requestedName
         : user.psychologistProfileName || getDisplayName(user);
 
@@ -1496,7 +1504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/psychologist/schedule-slots', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+      if (!canAccessPsychologistAreaRole(req.user.role)) {
         return res.status(403).json({ message: "Access denied. Psychologist role required." });
       }
 
@@ -1506,7 +1514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = psychologistScheduleUpdateSchema.parse(req.body);
-      const providerName = user.role === 'admin'
+      const providerName = canManageBookingsRole(user.role)
         ? data.psychologistName
         : user.psychologistProfileName || getDisplayName(user);
 
@@ -1515,12 +1523,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { startDate, endDate } = scheduleRange();
-      if (user.role !== "admin" && getJakartaDayOfWeek() > 5) {
+      if (!canManageBookingsRole(user.role) && getJakartaDayOfWeek() > 5) {
         return res.status(400).json({ message: "Upload jadwal hanya dapat dilakukan maksimal hari Jumat." });
       }
 
       const existingSlots = await storage.getPsychologistScheduleSlots(providerName, startDate, endDate);
-      if (user.role !== "admin" && existingSlots.some((slot) => slot.isLocked)) {
+      if (!canManageBookingsRole(user.role) && existingSlots.some((slot) => slot.isLocked)) {
         return res.status(400).json({ message: "Jadwal sudah dikunci. Hubungi admin untuk perubahan." });
       }
 
@@ -1555,7 +1563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/psychologist/reports', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+      if (!canAccessPsychologistAreaRole(req.user.role)) {
         return res.status(403).json({ message: "Access denied. Psychologist role required." });
       }
 
@@ -1570,8 +1578,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/psychologist/bookings/:id/schedule', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      if (!canManageBookingsRole(req.user.role)) {
+        return res.status(403).json({ message: "Perubahan jadwal klien hanya dapat dilakukan oleh admin/CSO." });
       }
 
       const bookingId = parseInt(req.params.id);
@@ -1585,11 +1593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const providerName = user.psychologistProfileName || getDisplayName(user);
-      if (user.role !== 'admin' && booking.psychologistName !== providerName) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      if (user.role !== 'admin' && booking.status !== "paid") {
+      if (booking.status !== "paid") {
         return res.status(400).json({ message: "Jadwal hanya dapat diubah untuk klien yang sudah membayar." });
       }
 
@@ -1602,7 +1606,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const updatedBooking = await storage.getPsychologistBooking(booking.id);
-      res.json(updatedBooking);
+      const waSchedulePlaceholder = createWaNotificationPlaceholder("client_counseling_schedule_notification", {
+        bookingId: booking.id,
+        orderId: booking.orderId,
+        clientName: booking.clientName,
+        clientWhatsapp: booking.whatsappNumber,
+        preferredDate: data.preferredDate,
+        preferredTime: normalizeTimeSlot(data.preferredTime),
+        location: data.location,
+        trigger: "admin_cso_schedule_saved_for_paid_booking",
+      });
+      res.json({ ...updatedBooking, waSchedulePlaceholder });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Data jadwal tidak valid", errors: error.flatten() });
@@ -1614,7 +1628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/psychologist/bookings/:id/report', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+      if (!canAccessPsychologistAreaRole(req.user.role)) {
         return res.status(403).json({ message: "Access denied. Psychologist role required." });
       }
 
@@ -1630,7 +1644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const providerName = user.psychologistProfileName || getDisplayName(user);
-      if (user.role !== 'admin' && booking.psychologistName !== providerName) {
+      if (!canManageBookingsRole(user.role) && booking.psychologistName !== providerName) {
         return res.status(403).json({ message: "Access denied" });
       }
 
@@ -2000,7 +2014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const providerName = user.psychologistProfileName || getDisplayName(user);
       const canAccess =
         booking.userId === req.user.claims.sub ||
-        user.role === "admin" ||
+        canManageBookingsRole(user.role) ||
         (user.role === "psychologist" && booking.psychologistName === providerName);
       if (!canAccess) {
         return res.status(403).json({ message: "Access denied" });
@@ -2030,7 +2044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      if (user.role !== "admin" && user.role !== "psychologist") {
+      if (!canManageBookingsRole(user.role) && user.role !== "psychologist") {
         return res.status(403).json({ message: "Access denied" });
       }
 
