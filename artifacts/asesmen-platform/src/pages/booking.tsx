@@ -43,9 +43,19 @@ type AvailabilitySlot = {
   isAvailable: boolean;
 };
 
+type ScheduleSlot = {
+  id: number;
+  scheduleDate: string;
+  timeSlot: string;
+  location: LocationType;
+  isAvailable: boolean;
+  isLocked: boolean;
+};
+
 type AvailabilityResponse = {
   psychologistName: string;
   availability: AvailabilitySlot[];
+  scheduleSlots?: ScheduleSlot[];
 };
 
 type ConsultationType = "child" | "adult" | "family";
@@ -180,14 +190,30 @@ export default function Booking() {
     },
     enabled: Boolean(form.psychologistName),
   });
+  const dateScheduleSlots = useMemo(() => {
+    if (!form.preferredDate || !availabilityData?.scheduleSlots?.length) return [];
+    return availabilityData.scheduleSlots.filter((slot) => slot.scheduleDate === form.preferredDate && slot.isAvailable);
+  }, [availabilityData, form.preferredDate]);
   const availableTimeSlots = useMemo(() => {
+    if (dateScheduleSlots.length > 0) {
+      return Array.from(new Set(dateScheduleSlots.map((slot) => slot.timeSlot))).sort();
+    }
     if (!form.preferredDate || !availabilityData?.availability?.length) return TIME_SLOTS;
     const dayOfWeek = getDayOfWeek(form.preferredDate);
     return TIME_SLOTS.filter((slot) => {
       const availability = availabilityData.availability.find((item) => item.dayOfWeek === dayOfWeek && item.timeSlot === slot);
       return availability?.isAvailable !== false;
     });
-  }, [availabilityData, form.preferredDate]);
+  }, [availabilityData, dateScheduleSlots, form.preferredDate]);
+  const availableLocations = useMemo(() => {
+    if (!form.preferredTime || dateScheduleSlots.length === 0) return LOCATIONS;
+    const offlineLocations = new Set(
+      dateScheduleSlots
+        .filter((slot) => slot.timeSlot === form.preferredTime && slot.location !== "online")
+        .map((slot) => slot.location),
+    );
+    return LOCATIONS.filter((location) => location.value === "online" || offlineLocations.has(location.value));
+  }, [dateScheduleSlots, form.preferredTime]);
   const today = useMemo(() => formatDateInput(new Date()), []);
   const maxBookingDate = useMemo(() => {
     const date = new Date();
@@ -215,6 +241,12 @@ export default function Booking() {
       updateField("preferredTime", availableTimeSlots[0]);
     }
   }, [availableTimeSlots, form.preferredTime]);
+
+  useEffect(() => {
+    if (!availableLocations.some((location) => location.value === form.location)) {
+      updateField("location", "online");
+    }
+  }, [availableLocations, form.location]);
 
   const createBookingMutation = useMutation({
     mutationFn: async () => {
@@ -560,7 +592,7 @@ export default function Booking() {
                   <div>
                     <Label>Pilihan lokasi</Label>
                     <div className="grid md:grid-cols-3 gap-4 mt-2">
-                      {LOCATIONS.map((location) => {
+                      {availableLocations.map((location) => {
                         const selected = form.location === location.value;
                         return (
                           <button

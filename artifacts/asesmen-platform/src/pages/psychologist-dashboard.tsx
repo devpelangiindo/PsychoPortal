@@ -63,6 +63,22 @@ type AvailabilityResponse = {
   availability: AvailabilitySlot[];
 };
 
+type ScheduleSlot = {
+  id: number;
+  scheduleDate: string;
+  timeSlot: string;
+  location: "online" | "colombo" | "bantul";
+  isAvailable: boolean;
+  isLocked: boolean;
+};
+
+type ScheduleResponse = {
+  psychologistName: string;
+  startDate: string;
+  endDate: string;
+  scheduleSlots: ScheduleSlot[];
+};
+
 const consultationLabels = {
   child: "Anak/remaja",
   adult: "Pribadi dewasa",
@@ -117,8 +133,12 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
     enabled: hasAccess,
   });
 
-  const { data: availabilityData, isLoading: availabilityLoading } = useQuery<AvailabilityResponse>({
-    queryKey: ["/api/psychologist/availability", mode],
+  const { data: scheduleData, isLoading: scheduleLoading } = useQuery<ScheduleResponse>({
+    queryKey: ["/api/psychologist/schedule-slots", mode],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/psychologist/schedule-slots");
+      return response.json();
+    },
     enabled: hasAccess && !isAdminMode,
   });
 
@@ -185,12 +205,27 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
           <Metric label="Menunggu bayar" value={bookings.filter((booking) => booking.status !== "paid").length} />
         </div>
 
-        <Tabs defaultValue="konseling" className="space-y-6">
+        <Tabs defaultValue={isAdminMode ? "konseling" : "perubahan-jadwal"} className="space-y-6">
           <TabsList className="h-auto flex-wrap justify-start">
+            {!isAdminMode && <TabsTrigger value="perubahan-jadwal">Perubahan Jadwal</TabsTrigger>}
             <TabsTrigger value="konseling">Konseling</TabsTrigger>
-            {!isAdminMode && <TabsTrigger value="ketersediaan">Ketersediaan</TabsTrigger>}
             <TabsTrigger value="laporan">Laporan</TabsTrigger>
           </TabsList>
+
+          {!isAdminMode && (
+            <TabsContent value="perubahan-jadwal" className="space-y-4">
+              <SectionTitle
+                icon={<Clock className="w-5 h-5" />}
+                title="Perubahan Jadwal"
+                description="Upload jadwal 2 minggu ke depan. Setelah disimpan, jadwal terkunci dan hanya admin yang dapat mengubahnya."
+              />
+              {scheduleLoading ? (
+                <LoadingState label="Memuat jadwal..." compact />
+              ) : (
+                <ScheduleUploadEditor scheduleSlots={scheduleData?.scheduleSlots ?? []} />
+              )}
+            </TabsContent>
+          )}
 
           <TabsContent value="konseling" className="space-y-4">
             <SectionTitle icon={<CalendarDays className="w-5 h-5" />} title="Klien Terjadwal" description="Kelola jadwal, link meeting, dan laporan setelah sesi konseling." />
@@ -216,21 +251,6 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               </div>
             )}
           </TabsContent>
-
-          {!isAdminMode && (
-            <TabsContent value="ketersediaan" className="space-y-4">
-              <SectionTitle
-                icon={<Clock className="w-5 h-5" />}
-                title="Ketersediaan"
-                description="Atur hari dan jam yang dapat dipilih klien saat booking."
-              />
-              {availabilityLoading ? (
-                <LoadingState label="Memuat ketersediaan..." compact />
-              ) : (
-                <AvailabilityEditor availability={availabilityData?.availability ?? []} />
-              )}
-            </TabsContent>
-          )}
 
           <TabsContent value="laporan" className="space-y-6">
             <SectionTitle icon={<FileText className="w-5 h-5" />} title="Laporan" description="Seluruh psikolog dapat mencari laporan berdasarkan nama klien." />
@@ -299,6 +319,171 @@ function SectionTitle({ icon, title, description }: { icon: ReactNode; title: st
       </div>
     </div>
   );
+}
+
+type ScheduleDraftRow = {
+  scheduleDate: string;
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+  colombo: boolean;
+  bantul: boolean;
+};
+
+function ScheduleUploadEditor({ scheduleSlots }: { scheduleSlots: ScheduleSlot[] }) {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<ScheduleDraftRow[]>(() => buildScheduleRows(scheduleSlots));
+  const isLocked = scheduleSlots.some((slot) => slot.isLocked);
+  const canUploadToday = getLocalDayOfWeek() <= 5;
+
+  useEffect(() => {
+    setRows(buildScheduleRows(scheduleSlots));
+  }, [scheduleSlots]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const slots = rows.flatMap((row) => {
+        if (!row.enabled) return [];
+        const timeSlot = `${row.startTime.replace(":", ".")} - ${row.endTime.replace(":", ".")}`;
+        const locations = [
+          "online",
+          ...(row.colombo ? ["colombo"] : []),
+          ...(row.bantul ? ["bantul"] : []),
+        ] as const;
+        return locations.map((location) => ({
+          scheduleDate: row.scheduleDate,
+          timeSlot,
+          location,
+          isAvailable: true,
+        }));
+      });
+      const response = await apiRequest("PUT", "/api/psychologist/schedule-slots", { slots });
+      return response.json();
+    },
+    onSuccess: (data: ScheduleResponse) => {
+      setRows(buildScheduleRows(data.scheduleSlots));
+      queryClient.invalidateQueries({ queryKey: ["/api/psychologist/schedule-slots"] });
+      toast({ title: "Jadwal disimpan", description: "Jadwal 2 minggu ke depan sudah dikunci." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Gagal menyimpan jadwal",
+        description: error instanceof Error ? error.message : "Silakan coba lagi.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateRow = (index: number, updates: Partial<ScheduleDraftRow>) => {
+    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...updates } : row));
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-5 space-y-5">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+          Online selalu tersedia untuk slot yang diaktifkan. Centang cabang offline hanya jika psikolog bersedia hadir di lokasi tersebut.
+        </div>
+        {isLocked && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Jadwal sudah dikunci setelah disimpan. Perubahan lanjutan hanya dapat dilakukan admin.
+          </div>
+        )}
+        {!canUploadToday && !isLocked && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+            Upload jadwal psikolog hanya dapat dilakukan maksimal hari Jumat.
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] border-separate border-spacing-0">
+            <thead>
+              <tr>
+                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Tanggal</th>
+                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Aktif</th>
+                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Waktu</th>
+                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Lokasi offline</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => (
+                <tr key={row.scheduleDate} className="border-t">
+                  <td className="p-3 font-medium text-neutral-900">{formatDisplayDate(row.scheduleDate)}</td>
+                  <td className="p-3">
+                    <input
+                      type="checkbox"
+                      checked={row.enabled}
+                      disabled={isLocked}
+                      onChange={(event) => updateRow(index, { enabled: event.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
+                    />
+                  </td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <Input type="time" min="07:00" max="21:00" value={row.startTime} disabled={isLocked || !row.enabled} onChange={(event) => updateRow(index, { startTime: event.target.value })} />
+                      <span className="text-neutral-400">-</span>
+                      <Input type="time" min="07:00" max="21:00" value={row.endTime} disabled={isLocked || !row.enabled} onChange={(event) => updateRow(index, { endTime: event.target.value })} />
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-4 text-sm text-neutral-700">
+                      <span className="font-medium text-green-700">Online</span>
+                      <label className="inline-flex items-center gap-2">
+                        <input type="checkbox" checked={row.colombo} disabled={isLocked || !row.enabled} onChange={(event) => updateRow(index, { colombo: event.target.checked })} />
+                        Colombo
+                      </label>
+                      <label className="inline-flex items-center gap-2">
+                        <input type="checkbox" checked={row.bantul} disabled={isLocked || !row.enabled} onChange={(event) => updateRow(index, { bantul: event.target.checked })} />
+                        Bantul
+                      </label>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end">
+          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || isLocked || !canUploadToday} className="bg-green-700 hover:bg-green-800">
+            <Save className="w-4 h-4 mr-2" />
+            {mutation.isPending ? "Menyimpan..." : "Simpan & Kunci Jadwal"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function buildScheduleRows(scheduleSlots: ScheduleSlot[]): ScheduleDraftRow[] {
+  const today = new Date();
+  return Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() + index);
+    const scheduleDate = formatDateInput(date);
+    const slotsForDate = scheduleSlots.filter((slot) => slot.scheduleDate === scheduleDate && slot.isAvailable);
+    const firstSlot = slotsForDate[0]?.timeSlot ?? "08.00 - 10.00";
+    const [startTime, endTime] = firstSlot.replace(/\./g, ":").split(" - ");
+    return {
+      scheduleDate,
+      enabled: slotsForDate.length > 0,
+      startTime: startTime || "08:00",
+      endTime: endTime || "10:00",
+      colombo: slotsForDate.some((slot) => slot.location === "colombo"),
+      bantul: slotsForDate.some((slot) => slot.location === "bantul"),
+    };
+  });
+}
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLocalDayOfWeek() {
+  return new Date().getDay();
 }
 
 function AvailabilityEditor({ availability }: { availability: AvailabilitySlot[] }) {

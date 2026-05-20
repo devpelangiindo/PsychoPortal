@@ -23,6 +23,8 @@ const PSYCHOLOGISTS = [
 ];
 
 const TIME_SLOTS = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"] as const;
+const TIME_SLOT_PATTERN = /^([01]\d|2[0-1])[.:][0-5]\d\s*-\s*([01]\d|2[0-1])[.:][0-5]\d$/;
+const TWO_WEEK_DAYS = 14;
 
 const bookingRequestSchema = z.object({
   serviceId: z.number().int().positive(),
@@ -37,7 +39,7 @@ const bookingRequestSchema = z.object({
   childBirthDate: z.string().optional(),
   previousDiagnosis: z.string().optional(),
   preferredDate: z.string().min(4),
-  preferredTime: z.enum(TIME_SLOTS),
+  preferredTime: z.string().regex(TIME_SLOT_PATTERN, "Format waktu harus HH.MM - HH.MM"),
   psychologistName: z.string().min(2),
   location: z.enum(["online", "colombo", "bantul"]),
 }).superRefine((data, ctx) => {
@@ -68,6 +70,13 @@ const bookingRequestSchema = z.object({
       message: "Tanggal booking hanya dapat dipilih sampai 14 hari ke depan",
     });
   }
+  if (!isValidTimeSlotRange(data.preferredTime)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["preferredTime"],
+      message: "Waktu konseling harus berada antara 07.00-21.00",
+    });
+  }
 });
 
 const bookingReportSchema = z.object({
@@ -81,7 +90,7 @@ const bookingReportSchema = z.object({
 
 const bookingScheduleUpdateSchema = z.object({
   preferredDate: z.string().min(4),
-  preferredTime: z.enum(TIME_SLOTS),
+  preferredTime: z.string().regex(TIME_SLOT_PATTERN, "Format waktu harus HH.MM - HH.MM"),
   location: z.enum(["online", "colombo", "bantul"]),
   meetingUrl: z.string().url("Link meeting tidak valid").optional().or(z.literal("")),
 }).superRefine((data, ctx) => {
@@ -92,6 +101,13 @@ const bookingScheduleUpdateSchema = z.object({
       code: "custom",
       path: ["preferredDate"],
       message: "Tanggal booking hanya dapat dipilih sampai 14 hari ke depan",
+    });
+  }
+  if (!isValidTimeSlotRange(data.preferredTime)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["preferredTime"],
+      message: "Waktu konseling harus berada antara 07.00-21.00",
     });
   }
 });
@@ -105,6 +121,18 @@ const availabilitySlotSchema = z.object({
 const psychologistAvailabilityUpdateSchema = z.object({
   psychologistName: z.string().min(2).optional(),
   availability: z.array(availabilitySlotSchema).max(21),
+});
+
+const scheduleSlotSchema = z.object({
+  scheduleDate: z.string().min(4),
+  timeSlot: z.string().regex(TIME_SLOT_PATTERN, "Format waktu harus HH.MM - HH.MM"),
+  location: z.enum(["online", "colombo", "bantul"]),
+  isAvailable: z.boolean().optional(),
+});
+
+const psychologistScheduleUpdateSchema = z.object({
+  psychologistName: z.string().min(2).optional(),
+  slots: z.array(scheduleSlotSchema).max(84),
 });
 
 // Custom authentication middleware for JWT tokens
@@ -152,9 +180,40 @@ function addDaysToDateString(dateString: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function getJakartaDayOfWeek(date = new Date()) {
+  const dateString = getJakartaDateString(date);
+  return getDayOfWeek(dateString);
+}
+
 function getDayOfWeek(dateString: string) {
   const [year, month, day] = dateString.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+function normalizeTimeSlot(slot: string) {
+  return slot.replace(/\./g, ":").replace(/\s*-\s*/, " - ");
+}
+
+function timeToMinutes(value: string) {
+  const [hour, minute] = value.replace(".", ":").split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function isValidTimeSlotRange(slot: string) {
+  const normalized = normalizeTimeSlot(slot);
+  const [start, end] = normalized.split(" - ");
+  if (!start || !end) return false;
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+  return startMinutes >= 7 * 60 && endMinutes <= 21 * 60 && startMinutes < endMinutes;
+}
+
+function scheduleRange() {
+  const today = getJakartaDateString();
+  return {
+    startDate: today,
+    endDate: addDaysToDateString(today, TWO_WEEK_DAYS),
+  };
 }
 
 function formatDisplayDate(value?: string | Date | null) {
@@ -175,7 +234,16 @@ function formatDateParts(year: number, month: number, day: number) {
   return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
 }
 
-async function isPsychologistAvailable(psychologistName: string, preferredDate: string, preferredTime: string) {
+async function isPsychologistAvailable(psychologistName: string, preferredDate: string, preferredTime: string, location = "online") {
+  const scheduleSlots = await storage.getPsychologistScheduleSlots(psychologistName, preferredDate, preferredDate);
+  if (scheduleSlots.length > 0) {
+    return scheduleSlots.some((item) => {
+      const matchesTime = item.scheduleDate === preferredDate && item.timeSlot === normalizeTimeSlot(preferredTime) && item.isAvailable;
+      if (!matchesTime) return false;
+      return location === "online" || item.location === location;
+    });
+  }
+
   const availability = await storage.getPsychologistAvailability(psychologistName);
   if (availability.length === 0) return true;
   const dayOfWeek = getDayOfWeek(preferredDate);
@@ -1330,7 +1398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
       }
 
-      const bookings = await storage.getPsychologistBookingsByProvider(providerName);
+      const bookings = (await storage.getPsychologistBookingsByProvider(providerName)).filter((booking) => booking.status === "paid");
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching psychologist bookings:", error);
@@ -1397,6 +1465,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/psychologist/schedule-slots', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const requestedName = typeof req.query.psychologistName === "string" ? req.query.psychologistName : undefined;
+      const providerName = user.role === 'admin'
+        ? requestedName
+        : user.psychologistProfileName || getDisplayName(user);
+
+      if (!providerName) {
+        return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
+      }
+
+      const { startDate, endDate } = scheduleRange();
+      const scheduleSlots = await storage.getPsychologistScheduleSlots(providerName, startDate, endDate);
+      res.json({ psychologistName: providerName, startDate, endDate, scheduleSlots });
+    } catch (error) {
+      console.error("Error fetching psychologist schedule slots:", error);
+      res.status(500).json({ message: "Failed to fetch psychologist schedule slots" });
+    }
+  });
+
+  app.put('/api/psychologist/schedule-slots', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Psychologist role required." });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const data = psychologistScheduleUpdateSchema.parse(req.body);
+      const providerName = user.role === 'admin'
+        ? data.psychologistName
+        : user.psychologistProfileName || getDisplayName(user);
+
+      if (!providerName) {
+        return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
+      }
+
+      const { startDate, endDate } = scheduleRange();
+      if (user.role !== "admin" && getJakartaDayOfWeek() > 5) {
+        return res.status(400).json({ message: "Upload jadwal hanya dapat dilakukan maksimal hari Jumat." });
+      }
+
+      const existingSlots = await storage.getPsychologistScheduleSlots(providerName, startDate, endDate);
+      if (user.role !== "admin" && existingSlots.some((slot) => slot.isLocked)) {
+        return res.status(400).json({ message: "Jadwal sudah dikunci. Hubungi admin untuk perubahan." });
+      }
+
+      const normalizedSlots = data.slots
+        .filter((slot) => slot.isAvailable !== false)
+        .map((slot) => ({
+          scheduleDate: slot.scheduleDate,
+          timeSlot: normalizeTimeSlot(slot.timeSlot),
+          location: slot.location,
+          isAvailable: true,
+        }));
+
+      const invalidSlot = normalizedSlots.find((slot) =>
+        slot.scheduleDate < startDate ||
+        slot.scheduleDate > endDate ||
+        !isValidTimeSlotRange(slot.timeSlot),
+      );
+      if (invalidSlot) {
+        return res.status(400).json({ message: "Jadwal hanya boleh untuk 14 hari ke depan dan jam 07.00-21.00." });
+      }
+
+      const scheduleSlots = await storage.setPsychologistScheduleSlots(providerName, normalizedSlots, user.id);
+      res.json({ psychologistName: providerName, startDate, endDate, scheduleSlots });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data jadwal tidak valid", errors: error.flatten() });
+      }
+      console.error("Error updating psychologist schedule slots:", error);
+      res.status(500).json({ message: "Failed to update psychologist schedule slots" });
+    }
+  });
+
   app.get('/api/psychologist/reports', isAuthenticated, async (req: any, res) => {
     try {
       if (req.user.role !== 'psychologist' && req.user.role !== 'admin') {
@@ -1433,11 +1589,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.role !== 'admin' && booking.psychologistName !== providerName) {
         return res.status(403).json({ message: "Access denied" });
       }
+      if (user.role !== 'admin' && booking.status !== "paid") {
+        return res.status(400).json({ message: "Jadwal hanya dapat diubah untuk klien yang sudah membayar." });
+      }
 
       const data = bookingScheduleUpdateSchema.parse(req.body);
       await storage.updatePsychologistBookingSchedule(booking.id, {
         preferredDate: data.preferredDate,
-        preferredTime: data.preferredTime,
+        preferredTime: normalizeTimeSlot(data.preferredTime),
         location: data.location,
         meetingUrl: data.meetingUrl || null,
       });
@@ -1804,8 +1963,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!psychologistName) {
         return res.status(400).json({ message: "Nama psikolog wajib diisi" });
       }
+      const { startDate, endDate } = scheduleRange();
       const availability = await storage.getPsychologistAvailability(psychologistName);
-      res.json({ psychologistName, availability });
+      const scheduleSlots = await storage.getPsychologistScheduleSlots(psychologistName, startDate, endDate);
+      res.json({ psychologistName, availability, scheduleSlots });
     } catch (error) {
       console.error("Error fetching public psychologist availability:", error);
       res.status(500).json({ message: "Failed to fetch psychologist availability" });
@@ -1895,7 +2056,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const psychologist = PSYCHOLOGISTS.find((item) => item.name === data.psychologistName)!;
-      if (!(await isPsychologistAvailable(data.psychologistName, data.preferredDate, data.preferredTime))) {
+      if (!(await isPsychologistAvailable(data.psychologistName, data.preferredDate, data.preferredTime, data.location))) {
         return res.status(400).json({ message: "Psikolog tidak tersedia pada hari dan jam yang dipilih." });
       }
 
@@ -1920,7 +2081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         childBirthDate: data.childBirthDate,
         previousDiagnosis: data.previousDiagnosis,
         preferredDate: data.preferredDate,
-        preferredTime: data.preferredTime,
+        preferredTime: normalizeTimeSlot(data.preferredTime),
         psychologistName: data.psychologistName,
         psychologistFee: psychologist.fee,
         location: data.location,

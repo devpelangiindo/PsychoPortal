@@ -3,6 +3,7 @@ import {
   assessments,
   bookingServices,
   psychologistAvailabilities,
+  psychologistScheduleSlots,
   psychologistBookings,
   orders,
   orderItems,
@@ -16,6 +17,8 @@ import {
   type InsertBookingService,
   type PsychologistAvailability,
   type InsertPsychologistAvailability,
+  type PsychologistScheduleSlot,
+  type InsertPsychologistScheduleSlot,
   type PsychologistBooking,
   type InsertPsychologistBooking,
   type PsychologistBookingWithDetails,
@@ -31,7 +34,7 @@ import {
   type InsertOtpVerification,
 } from "@workspace/db";
 import { db } from "./db";
-import { eq, and, or, sql, ilike, desc } from "drizzle-orm";
+import { eq, and, or, sql, ilike, desc, gte, lte, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -60,6 +63,8 @@ export interface IStorage {
   createBookingService(service: InsertBookingService): Promise<BookingService>;
   getPsychologistAvailability(psychologistName: string): Promise<PsychologistAvailability[]>;
   setPsychologistAvailability(psychologistName: string, availability: Omit<InsertPsychologistAvailability, "psychologistName">[]): Promise<PsychologistAvailability[]>;
+  getPsychologistScheduleSlots(psychologistName: string, startDate: string, endDate: string): Promise<PsychologistScheduleSlot[]>;
+  setPsychologistScheduleSlots(psychologistName: string, slots: Omit<InsertPsychologistScheduleSlot, "psychologistName">[], updatedBy?: string): Promise<PsychologistScheduleSlot[]>;
   createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking>;
   getUserPsychologistBookings(userId: string): Promise<PsychologistBookingWithDetails[]>;
   getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]>;
@@ -287,6 +292,75 @@ export class DatabaseStorage implements IStorage {
       });
 
     return this.getPsychologistAvailability(psychologistName);
+  }
+
+  async getPsychologistScheduleSlots(
+    psychologistName: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<PsychologistScheduleSlot[]> {
+    return await db
+      .select()
+      .from(psychologistScheduleSlots)
+      .where(and(
+        eq(psychologistScheduleSlots.psychologistName, psychologistName),
+        gte(psychologistScheduleSlots.scheduleDate, startDate),
+        lte(psychologistScheduleSlots.scheduleDate, endDate),
+      ))
+      .orderBy(psychologistScheduleSlots.scheduleDate, psychologistScheduleSlots.timeSlot);
+  }
+
+  async setPsychologistScheduleSlots(
+    psychologistName: string,
+    slots: Omit<InsertPsychologistScheduleSlot, "psychologistName">[],
+    updatedBy?: string,
+  ): Promise<PsychologistScheduleSlot[]> {
+    if (slots.length === 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const maxDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      return this.getPsychologistScheduleSlots(psychologistName, today, maxDate);
+    }
+
+    const dates = Array.from(new Set(slots.map((slot) => slot.scheduleDate))).sort();
+    await db
+      .delete(psychologistScheduleSlots)
+      .where(and(
+        eq(psychologistScheduleSlots.psychologistName, psychologistName),
+        inArray(psychologistScheduleSlots.scheduleDate, dates),
+      ));
+
+    await db
+      .insert(psychologistScheduleSlots)
+      .values(
+        slots.map((slot) => ({
+          psychologistName,
+          scheduleDate: slot.scheduleDate,
+          timeSlot: slot.timeSlot,
+          location: slot.location || "online",
+          isAvailable: slot.isAvailable ?? true,
+          isLocked: true,
+          lockedAt: new Date(),
+          updatedBy,
+          updatedAt: new Date(),
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [
+          psychologistScheduleSlots.psychologistName,
+          psychologistScheduleSlots.scheduleDate,
+          psychologistScheduleSlots.timeSlot,
+          psychologistScheduleSlots.location,
+        ],
+        set: {
+          isAvailable: sql`excluded.is_available`,
+          isLocked: true,
+          lockedAt: new Date(),
+          updatedBy,
+          updatedAt: new Date(),
+        },
+      });
+
+    return this.getPsychologistScheduleSlots(psychologistName, dates[0], dates[dates.length - 1]);
   }
 
   async createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking> {
