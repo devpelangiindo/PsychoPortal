@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { CreditCard, Download, FileText, Loader2 } from "lucide-react";
+import { CreditCard, Download, FileText, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -492,6 +492,12 @@ export default function Dashboard() {
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
                           {formatDisplayDate(order.createdAt)}
                         </p>
+                        {isOrderUnpaid(order) && (
+                          <p className="mt-2 inline-flex items-center gap-1 text-xs text-green-700">
+                            <MessageCircle className="w-3 h-3" />
+                            Placeholder pengingat WA pembayaran: menunggu setup WhatsApp Business API.
+                          </p>
+                        )}
                       </div>
                       {isOrderUnpaid(order) && (
                         <div className="ml-4">
@@ -585,7 +591,7 @@ export default function Dashboard() {
 }
 
 function getClientReportText(booking: Booking) {
-  return booking.clientReportNotes || booking.reportRecommendations || booking.sessionReport || "";
+  return booking.clientReportNotes || booking.reportRecommendations || "";
 }
 
 async function downloadClientReportPdf(booking: Booking) {

@@ -446,7 +446,7 @@ export class DatabaseStorage implements IStorage {
       submit?: boolean;
     },
   ): Promise<void> {
-    const hasClientReport = Boolean(report.clientReportNotes || report.sessionReport || report.reportRecommendations);
+    const hasClientReport = Boolean(report.clientReportNotes || report.reportRecommendations);
     await db
       .update(psychologistBookings)
       .set({

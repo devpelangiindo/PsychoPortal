@@ -184,25 +184,34 @@ async function isPsychologistAvailable(psychologistName: string, preferredDate: 
 }
 
 function getClientReportText(booking: any) {
-  return booking.clientReportNotes || booking.reportRecommendations || booking.sessionReport || "";
+  return booking.clientReportNotes || booking.reportRecommendations || "";
 }
 
 function getHistoryReportText(booking: any) {
   return booking.counselingHistoryNotes || booking.sessionReport || "";
 }
 
-function streamClientCounselingReportPdf(res: any, booking: any) {
-  const reportText = getClientReportText(booking);
-  const fileName = `laporan-konseling-${booking.clientName || "klien"}-${booking.id}.pdf`
+function createWaNotificationPlaceholder(event: string, details: Record<string, unknown>) {
+  console.log(`[WA PLACEHOLDER] ${event}`, details);
+  return {
+    status: "placeholder",
+    enabled: false,
+    message: "WhatsApp notification is not active yet. Waiting for WhatsApp Business API setup.",
+  };
+}
+
+function streamCounselingReportPdf(res: any, booking: any, mode: "client" | "history") {
+  const reportText = mode === "client" ? getClientReportText(booking) : getHistoryReportText(booking);
+  const fileName = `${mode === "client" ? "laporan-konseling" : "riwayat-konseling"}-${booking.clientName || "klien"}-${booking.id}.pdf`
     .replace(/[^a-z0-9.-]+/gi, "-")
     .toLowerCase();
   const doc = new PDFDocument({ size: "A4", margin: 56 });
 
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+  res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
   doc.pipe(res);
 
-  doc.fontSize(16).text("LAPORAN HASIL KONSELING", { align: "center" });
+  doc.fontSize(16).text(mode === "client" ? "LAPORAN HASIL KONSELING" : "RIWAYAT KONSELING", { align: "center" });
   doc.moveDown(1.5);
   doc.fontSize(10).fillColor("#555").text("Rumah Psikologi Pelangi Indonesia", { align: "center" });
   doc.moveDown(2);
@@ -220,7 +229,7 @@ function streamClientCounselingReportPdf(res: any, booking: any) {
   });
 
   doc.moveDown();
-  doc.font("Helvetica-Bold").text("Catatan Hasil Konseling");
+  doc.font("Helvetica-Bold").text(mode === "client" ? "Catatan Hasil Konseling" : "Catatan Internal Psikolog");
   doc.moveDown(0.5);
   doc.font("Helvetica").text(reportText || "-", { align: "left", lineGap: 4 });
 
@@ -229,6 +238,14 @@ function streamClientCounselingReportPdf(res: any, booking: any) {
     "Catatan: format final dan tanda tangan psikolog dapat disesuaikan setelah keputusan operasional ditetapkan.",
   );
   doc.end();
+}
+
+function streamClientCounselingReportPdf(res: any, booking: any) {
+  streamCounselingReportPdf(res, booking, "client");
+}
+
+function streamHistoryCounselingReportPdf(res: any, booking: any) {
+  streamCounselingReportPdf(res, booking, "history");
 }
 
 // Result calculation functions
@@ -1459,6 +1476,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = bookingReportSchema.parse(req.body);
+      if (data.submit && !data.counselingHistoryNotes?.trim()) {
+        return res.status(400).json({
+          message: "Riwayat konseling wajib diisi sebelum laporan diselesaikan.",
+        });
+      }
+
       await storage.updatePsychologistBookingReport(booking.id, {
         meetingUrl: data.meetingUrl || null,
         sessionReport: data.sessionReport?.trim() || null,
@@ -1833,6 +1856,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/bookings/:id/history-report.pdf', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getPsychologistBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.role !== "admin" && user.role !== "psychologist") {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (!getHistoryReportText(booking)) {
+        return res.status(404).json({ message: "Riwayat konseling belum tersedia" });
+      }
+
+      streamHistoryCounselingReportPdf(res, booking);
+    } catch (error) {
+      console.error("Error generating counseling history PDF:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
   app.post('/api/bookings', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1926,6 +1977,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.updateOrderStatus(booking.orderId, 'pending', midtransOrderId, 'pending');
 
+      const waReminderPlaceholder = createWaNotificationPlaceholder("booking_payment_reminder", {
+        bookingId: booking.id,
+        orderId: booking.orderId,
+        clientName: booking.clientName,
+        clientWhatsapp: booking.whatsappNumber,
+        paymentId: midtransOrderId,
+        trigger: "after_midtrans_payment_deadline_if_unpaid",
+      });
+
       res.json({
         ...transaction,
         paymentId: midtransOrderId,
@@ -1933,6 +1993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bookingId: booking.id,
         amount: bookingAmount,
         status: 'pending',
+        waReminderPlaceholder,
       });
     } catch (error) {
       console.error("Error creating booking payment:", error);
@@ -2093,6 +2154,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update order with Midtrans payment ID immediately
       await storage.updateOrderStatus(orderId, 'pending', midtransOrderId, 'pending');
+
+      const waReminderPlaceholder = createWaNotificationPlaceholder("order_payment_reminder", {
+        orderId,
+        clientName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        clientWhatsapp: user.whatsappNumber || '',
+        paymentId: midtransOrderId,
+        trigger: "after_midtrans_payment_deadline_if_unpaid",
+      });
       
       console.log(`✅ Midtrans transaction created successfully:`, {
         token: midtransResult.token?.substring(0, 20) + '...',
@@ -2106,7 +2175,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentId: midtransOrderId,
         status: 'pending',
         amount: order.totalAmount,
-        orderId: orderId
+        orderId: orderId,
+        waReminderPlaceholder,
       });
     } catch (error) {
       console.error("❌ Error creating Midtrans payment:", error);

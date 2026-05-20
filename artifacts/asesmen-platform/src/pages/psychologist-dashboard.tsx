@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, FileText, History, LogOut, Mail, MapPin, Phone, Save, Search, UserRound, Video } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Save, Search, UserRound, Video } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
@@ -250,7 +250,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                 <ReportList
                   title="Laporan untuk Klien"
                   icon={<ClipboardCheck className="w-5 h-5 text-green-700" />}
-                  reports={reports.filter((booking) => Boolean(getClientReportText(booking)))}
+                  reports={reports.filter((booking) => Boolean(booking.reportSubmittedAt && getClientReportText(booking)))}
                   mode="client"
                 />
                 <ReportList
@@ -561,14 +561,25 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
 }
 
 function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+  const { toast } = useToast();
   const [meetingUrl, setMeetingUrl] = useState(booking.meetingUrl ?? "");
   const [sessionReport, setSessionReport] = useState(booking.sessionReport ?? "");
   const [reportRecommendations, setReportRecommendations] = useState(booking.reportRecommendations ?? "");
   const [clientReportNotes, setClientReportNotes] = useState(booking.clientReportNotes ?? booking.reportRecommendations ?? "");
   const [counselingHistoryNotes, setCounselingHistoryNotes] = useState(booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
+  const hasSavedReport = Boolean(
+    booking.clientReportNotes ||
+    booking.reportRecommendations ||
+    booking.counselingHistoryNotes ||
+    booking.sessionReport,
+  );
 
   const mutation = useMutation({
     mutationFn: async (submit: boolean) => {
+      if (submit && !counselingHistoryNotes.trim()) {
+        throw new Error("Riwayat konseling wajib diisi.");
+      }
+
       const response = await apiRequest("PATCH", `/api/psychologist/bookings/${booking.id}/report`, {
         meetingUrl,
         sessionReport,
@@ -580,6 +591,12 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
       return response.json();
     },
     onSuccess: onSaved,
+    onError: (error) => {
+      toast({
+        title: error instanceof Error ? error.message : "Gagal menyimpan laporan",
+        variant: "destructive",
+      });
+    },
   });
 
   return (
@@ -591,11 +608,15 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
             Laporan Hasil Konseling
           </h3>
           <p className="text-xs text-neutral-500 mt-1">
-            {booking.reportSubmittedAt ? `Terakhir disimpan ${formatDisplayDateTime(booking.reportSubmittedAt)}` : "Belum ada laporan"}
+            {booking.reportSubmittedAt
+              ? `Laporan klien dikirim ${formatDisplayDateTime(booking.reportSubmittedAt)}`
+              : hasSavedReport
+                ? "Draft atau riwayat tersimpan"
+                : "Belum ada laporan"}
           </p>
         </div>
-        <Badge variant={booking.reportSubmittedAt ? "default" : "secondary"}>
-          {booking.reportSubmittedAt ? "Tersimpan" : "Draft"}
+        <Badge variant={hasSavedReport ? "default" : "secondary"}>
+          {hasSavedReport ? "Tersimpan" : "Draft"}
         </Badge>
       </div>
 
@@ -616,7 +637,7 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
       )}
 
       <div>
-        <Label>Laporan untuk Klien: Catatan Hasil Konseling / PR</Label>
+        <Label>Laporan untuk Klien: Catatan Hasil Konseling / PR <span className="text-neutral-400">(opsional)</span></Label>
         <Textarea
           value={clientReportNotes}
           onChange={(event) => {
@@ -630,7 +651,7 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
       </div>
 
       <div>
-        <Label>Riwayat Konseling: Catatan internal psikolog</Label>
+        <Label>Riwayat Konseling: Catatan internal psikolog <span className="text-red-600">*</span></Label>
         <Textarea
           value={counselingHistoryNotes}
           onChange={(event) => {
@@ -648,9 +669,9 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
           <Save className="w-4 h-4 mr-2" />
           {mutation.isPending ? "Menyimpan..." : "Simpan Draft"}
         </Button>
-        <Button onClick={() => mutation.mutate(true)} disabled={mutation.isPending || !clientReportNotes.trim()} className="bg-green-700 hover:bg-green-800">
+        <Button onClick={() => mutation.mutate(true)} disabled={mutation.isPending || !counselingHistoryNotes.trim()} className="bg-green-700 hover:bg-green-800">
           <ClipboardCheck className="w-4 h-4 mr-2" />
-          {mutation.isPending ? "Mengirim..." : "Selesai & Kirim ke Klien"}
+          {mutation.isPending ? "Menyelesaikan..." : "Selesai"}
         </Button>
       </div>
     </div>
@@ -658,26 +679,38 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
 }
 
 function getClientReportText(booking: Booking) {
-  return booking.clientReportNotes || booking.reportRecommendations || booking.sessionReport || "";
+  return booking.clientReportNotes || booking.reportRecommendations || "";
 }
 
 function getHistoryReportText(booking: Booking) {
   return booking.counselingHistoryNotes || booking.sessionReport || "";
 }
 
-async function downloadClientReportPdf(booking: Booking) {
+async function fetchReportPdf(booking: Booking, mode: "client" | "history") {
   const token = localStorage.getItem("accessToken");
-  const response = await fetch(`/api/bookings/${booking.id}/client-report.pdf`, {
+  const endpoint = mode === "client" ? "client-report" : "history-report";
+  const response = await fetch(`/api/bookings/${booking.id}/${endpoint}.pdf`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   if (!response.ok) {
     throw new Error("PDF belum tersedia");
   }
-  const blob = await response.blob();
+  return response.blob();
+}
+
+async function viewReportPdf(booking: Booking, mode: "client" | "history") {
+  const blob = await fetchReportPdf(booking, mode);
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function downloadReportPdf(booking: Booking, mode: "client" | "history") {
+  const blob = await fetchReportPdf(booking, mode);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `laporan-konseling-${booking.clientName}-${booking.id}.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
+  anchor.download = `${mode === "client" ? "laporan-konseling" : "riwayat-konseling"}-${booking.clientName}-${booking.id}.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -705,16 +738,24 @@ function ReportList({ title, icon, reports, mode }: { title: string; icon: React
                   {formatDisplayDate(booking.preferredDate)} · {booking.psychologistName || "-"}
                 </p>
               </div>
-              {mode === "client" && booking.reportSubmittedAt && (
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => downloadClientReportPdf(booking).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
+                  onClick={() => viewReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Lihat PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  PDF
+                  Download PDF
                 </Button>
-              )}
+              </div>
             </div>
             <p className="text-sm text-neutral-700 whitespace-pre-wrap mt-3">
               {mode === "client" ? getClientReportText(booking) : getHistoryReportText(booking)}
