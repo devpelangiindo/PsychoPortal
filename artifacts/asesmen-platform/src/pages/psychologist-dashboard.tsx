@@ -906,7 +906,10 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
       )}
 
       <div>
-        <Label>Laporan untuk Klien: Catatan Hasil Konseling / PR <span className="text-neutral-400">(opsional)</span></Label>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Label>Laporan untuk Klien: Catatan Hasil Konseling / PR <span className="text-neutral-400">(opsional)</span></Label>
+          <ReportPdfActions booking={booking} mode="client" />
+        </div>
         <Textarea
           value={clientReportNotes}
           onChange={(event) => {
@@ -920,7 +923,10 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
       </div>
 
       <div>
-        <Label>Riwayat Konseling: Catatan internal psikolog <span className="text-red-600">*</span></Label>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Label>Riwayat Konseling: Catatan internal psikolog <span className="text-red-600">*</span></Label>
+          <ReportPdfActions booking={booking} mode="history" />
+        </div>
         <Textarea
           value={counselingHistoryNotes}
           onChange={(event) => {
@@ -943,6 +949,39 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
           {mutation.isPending ? "Menyelesaikan..." : "Selesai"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function ReportPdfActions({ booking, mode }: { booking: Booking; mode: "client" | "history" }) {
+  const { toast } = useToast();
+  const isAvailable =
+    mode === "client"
+      ? Boolean(booking.reportSubmittedAt && getClientReportText(booking))
+      : Boolean(getHistoryReportText(booking));
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={!isAvailable}
+        onClick={() => viewReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
+      >
+        <Eye className="w-4 h-4 mr-2" />
+        Lihat PDF
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={!isAvailable}
+        onClick={() => downloadReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
+      >
+        <Download className="w-4 h-4 mr-2" />
+        Download PDF
+      </Button>
     </div>
   );
 }
