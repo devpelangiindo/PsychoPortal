@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 interface AdminStats {
@@ -20,8 +21,63 @@ interface AdminStats {
   }[];
 }
 
+const psychologists = [
+  { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] },
+  { name: "Bagas Paramajana, M.Psi., Psikolog", types: ["child"] },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["adult", "family"] },
+  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["adult", "family"] },
+  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] },
+];
+
+const consultationTypes = [
+  { value: "child", label: "Anak/remaja" },
+  { value: "adult", label: "Pribadi dewasa" },
+  { value: "family", label: "Keluarga" },
+];
+
+const adminInputClass = "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100";
+
+type ManualBookingForm = {
+  clientName: string;
+  birthDate: string;
+  email: string;
+  whatsappNumber: string;
+  mainConcern: string;
+  concernHistory: string;
+  consultationType: string;
+  childName: string;
+  childBirthDate: string;
+  previousDiagnosis: string;
+  preferredDate: string;
+  startTime: string;
+  endTime: string;
+  psychologistName: string;
+  location: string;
+  markAsPaid: boolean;
+};
+
+const defaultManualBookingForm: ManualBookingForm = {
+  clientName: "",
+  birthDate: "",
+  email: "",
+  whatsappNumber: "",
+  mainConcern: "",
+  concernHistory: "",
+  consultationType: "adult",
+  childName: "",
+  childBirthDate: "",
+  previousDiagnosis: "",
+  preferredDate: "",
+  startTime: "08:00",
+  endTime: "10:00",
+  psychologistName: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
+  location: "online",
+  markAsPaid: true,
+};
+
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const [manualForm, setManualForm] = useState<ManualBookingForm>(defaultManualBookingForm);
 
   const token = localStorage.getItem('adminToken');
   
@@ -71,6 +127,71 @@ export default function AdminDashboard() {
     });
     window.location.href = "/admin/login";
   };
+
+  const manualBookingMutation = useMutation({
+    mutationFn: async () => {
+      const adminToken = localStorage.getItem("adminToken");
+      if (!adminToken) throw new Error("Token admin tidak ditemukan. Silakan login ulang.");
+
+      const response = await fetch("/api/admin/manual-counseling-bookings", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clientName: manualForm.clientName,
+          birthDate: manualForm.birthDate,
+          email: manualForm.email,
+          whatsappNumber: manualForm.whatsappNumber.replace(/\D/g, ""),
+          mainConcern: manualForm.mainConcern,
+          concernHistory: manualForm.concernHistory,
+          consultationType: manualForm.consultationType,
+          childName: manualForm.childName,
+          childBirthDate: manualForm.childBirthDate,
+          previousDiagnosis: manualForm.previousDiagnosis,
+          preferredDate: manualForm.preferredDate,
+          preferredTime: `${manualForm.startTime.replace(":", ".")} - ${manualForm.endTime.replace(":", ".")}`,
+          psychologistName: manualForm.psychologistName,
+          location: manualForm.location,
+          markAsPaid: manualForm.markAsPaid,
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Gagal menambahkan booking manual.");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Booking manual tersimpan",
+        description: data?.message || "Data klien konseling berhasil ditambahkan.",
+      });
+      setManualForm(defaultManualBookingForm);
+    },
+    onError: (error) => {
+      toast({
+        title: "Gagal menyimpan booking manual",
+        description: error instanceof Error ? error.message : "Silakan cek data dan coba lagi.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateManualForm = (field: keyof ManualBookingForm, value: string | boolean) => {
+    setManualForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "consultationType" && typeof value === "string") {
+        const firstMatch = psychologists.find((psychologist) => psychologist.types.includes(value));
+        next.psychologistName = firstMatch?.name || "";
+      }
+      return next;
+    });
+  };
+
+  const manualPsychologistOptions = psychologists.filter((psychologist) => psychologist.types.includes(manualForm.consultationType));
 
   if (isLoading) {
     return (
@@ -182,7 +303,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -258,7 +379,129 @@ export default function AdminDashboard() {
               </Link>
             </CardContent>
           </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-teal-600" />
+                Klien Manual
+              </CardTitle>
+              <CardDescription>
+                Tambahkan klien konseling dari pendaftaran offline/CSO
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <a href="#manual-counseling-booking">
+                <Button className="w-full bg-teal-600 hover:bg-teal-700">
+                  Tambah Manual
+                </Button>
+              </a>
+            </CardContent>
+          </Card>
         </div>
+
+        <Card id="manual-counseling-booking" className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-teal-600" />
+              Tambah Klien Konseling Manual
+            </CardTitle>
+            <CardDescription>
+              Untuk booking yang tidak melalui website. Jika email sudah terdaftar, booking akan terhubung ke akun klien tersebut.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid md:grid-cols-2 gap-4">
+              <ManualField label="Nama klien">
+                <input className={adminInputClass} value={manualForm.clientName} onChange={(event) => updateManualForm("clientName", event.target.value)} />
+              </ManualField>
+              <ManualField label="Tanggal lahir">
+                <input type="date" className={adminInputClass} value={manualForm.birthDate} onChange={(event) => updateManualForm("birthDate", event.target.value)} />
+              </ManualField>
+              <ManualField label="Email">
+                <input type="email" className={adminInputClass} value={manualForm.email} onChange={(event) => updateManualForm("email", event.target.value)} />
+              </ManualField>
+              <ManualField label="Nomor WhatsApp">
+                <input className={adminInputClass} value={manualForm.whatsappNumber} onChange={(event) => updateManualForm("whatsappNumber", event.target.value.replace(/\D/g, ""))} placeholder="081234567890" />
+              </ManualField>
+              <ManualField label="Jenis konsultasi">
+                <select className={adminInputClass} value={manualForm.consultationType} onChange={(event) => updateManualForm("consultationType", event.target.value)}>
+                  {consultationTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                </select>
+              </ManualField>
+              <ManualField label="Psikolog">
+                <select className={adminInputClass} value={manualForm.psychologistName} onChange={(event) => updateManualForm("psychologistName", event.target.value)}>
+                  {manualPsychologistOptions.map((psychologist) => (
+                    <option key={psychologist.name} value={psychologist.name}>{psychologist.name}</option>
+                  ))}
+                </select>
+              </ManualField>
+            </div>
+
+            {manualForm.consultationType === "child" && (
+              <div className="grid md:grid-cols-3 gap-4">
+                <ManualField label="Nama anak/remaja">
+                  <input className={adminInputClass} value={manualForm.childName} onChange={(event) => updateManualForm("childName", event.target.value)} />
+                </ManualField>
+                <ManualField label="Tanggal lahir anak">
+                  <input type="date" className={adminInputClass} value={manualForm.childBirthDate} onChange={(event) => updateManualForm("childBirthDate", event.target.value)} />
+                </ManualField>
+                <ManualField label="Diagnosa sebelumnya">
+                  <input className={adminInputClass} value={manualForm.previousDiagnosis} onChange={(event) => updateManualForm("previousDiagnosis", event.target.value)} />
+                </ManualField>
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <ManualField label="Keluhan umum">
+                <textarea className={`${adminInputClass} min-h-24`} value={manualForm.mainConcern} onChange={(event) => updateManualForm("mainConcern", event.target.value)} />
+              </ManualField>
+              <ManualField label="Riwayat keluhan">
+                <textarea className={`${adminInputClass} min-h-24`} value={manualForm.concernHistory} onChange={(event) => updateManualForm("concernHistory", event.target.value)} />
+              </ManualField>
+            </div>
+
+            <div className="grid md:grid-cols-4 gap-4">
+              <ManualField label="Tanggal konseling">
+                <input type="date" className={adminInputClass} value={manualForm.preferredDate} onChange={(event) => updateManualForm("preferredDate", event.target.value)} />
+              </ManualField>
+              <ManualField label="Waktu">
+                <div className="flex items-center gap-2">
+                  <input type="time" min="07:00" max="21:00" className={adminInputClass} value={manualForm.startTime} onChange={(event) => updateManualForm("startTime", event.target.value)} />
+                  <span className="text-gray-400">-</span>
+                  <input type="time" min="07:00" max="21:00" className={adminInputClass} value={manualForm.endTime} onChange={(event) => updateManualForm("endTime", event.target.value)} />
+                </div>
+              </ManualField>
+              <ManualField label="Lokasi">
+                <select className={adminInputClass} value={manualForm.location} onChange={(event) => updateManualForm("location", event.target.value)}>
+                  <option value="online">Online</option>
+                  <option value="colombo">Offline Colombo</option>
+                  <option value="bantul">Offline Bantul</option>
+                </select>
+              </ManualField>
+              <ManualField label="Status pembayaran">
+                <label className="flex h-10 items-center gap-2 rounded-md border border-gray-300 px-3 text-sm">
+                  <input type="checkbox" checked={manualForm.markAsPaid} onChange={(event) => updateManualForm("markAsPaid", event.target.checked)} />
+                  Tandai sudah bayar
+                </label>
+              </ManualField>
+            </div>
+
+            <div className="rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
+              Data manual akan memakai email sebagai kunci integrasi. Jika klien sudah punya akun website, booking masuk ke dashboard klien tersebut.
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={() => manualBookingMutation.mutate()}
+                disabled={manualBookingMutation.isPending}
+                className="bg-teal-600 hover:bg-teal-700"
+              >
+                {manualBookingMutation.isPending ? "Menyimpan..." : "Simpan Klien Manual"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Recent Activity */}
         <Card className="mt-8">
@@ -292,5 +535,14 @@ export default function AdminDashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function ManualField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block space-y-2">
+      <span className="text-sm font-medium text-gray-700">{label}</span>
+      {children}
+    </label>
   );
 }

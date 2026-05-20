@@ -87,6 +87,11 @@ const bookingRequestSchema = z.object({
   }
 });
 
+const manualCounselingBookingSchema = bookingRequestSchema.extend({
+  serviceId: z.number().int().positive().optional(),
+  markAsPaid: z.boolean().optional(),
+});
+
 const bookingReportSchema = z.object({
   meetingUrl: z.string().url("Link meeting tidak valid").optional().or(z.literal("")),
   sessionReport: z.string().max(5000).optional(),
@@ -1687,7 +1692,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(userData.email);
-      if (existingUser) {
+      const canClaimManualUser = existingUser && existingUser.authProvider === "manual" && !existingUser.password;
+      if (existingUser && !canClaimManualUser) {
         return res.status(400).json({ message: "Email sudah terdaftar" });
       }
 
@@ -1705,17 +1711,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Normalize WhatsApp number
       const normalizedWhatsApp = AuthUtils.normalizeWhatsAppNumber(userData.whatsappNumber);
 
-      // Create user (automatically verified)
-      const newUser = await storage.createUser({
-        id: userId,
-        email: userData.email,
-        password: hashedPassword,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        whatsappNumber: normalizedWhatsApp,
-        authProvider: 'custom',
-        isEmailVerified: true
-      });
+      const newUser = canClaimManualUser
+        ? await storage.updateUser(existingUser.id, {
+            password: hashedPassword,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            whatsappNumber: normalizedWhatsApp,
+            authProvider: "custom",
+            isEmailVerified: true,
+            isActive: true,
+          })
+        : await storage.createUser({
+            id: userId,
+            email: userData.email,
+            password: hashedPassword,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            whatsappNumber: normalizedWhatsApp,
+            authProvider: 'custom',
+            isEmailVerified: true
+          });
 
       // Generate tokens for immediate login
       const accessToken = AuthUtils.generateAccessToken(newUser.id, newUser.email, newUser.role || 'user');
@@ -2173,6 +2188,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating booking payment:", error);
       res.status(500).json({ message: "Failed to create booking payment" });
+    }
+  });
+
+  app.post('/api/admin/manual-counseling-bookings', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!canManageBookingsRole(req.user.role)) {
+        return res.status(403).json({ message: "Akses hanya untuk admin/CSO." });
+      }
+
+      const data = manualCounselingBookingSchema.parse(req.body);
+      const psychologist = PSYCHOLOGISTS.find((item) => item.name === data.psychologistName);
+      if (!psychologist) {
+        return res.status(400).json({ message: "Psikolog tidak ditemukan." });
+      }
+
+      const services = await storage.getBookingServices();
+      const service = data.serviceId
+        ? await storage.getBookingService(data.serviceId)
+        : services.find((item) => item.isActive) || services[0];
+      if (!service) {
+        return res.status(404).json({ message: "Layanan booking belum tersedia." });
+      }
+
+      let user = await storage.getUserByEmail(data.email);
+      let integrationStatus: "linked_existing_user" | "created_manual_user" = "linked_existing_user";
+
+      if (!user) {
+        user = await storage.createUser({
+          id: AuthUtils.generateUserId(),
+          email: data.email,
+          firstName: data.clientName,
+          lastName: "",
+          whatsappNumber: AuthUtils.normalizeWhatsAppNumber(data.whatsappNumber),
+          authProvider: "manual",
+          role: "user",
+          isActive: true,
+          isEmailVerified: false,
+        });
+        integrationStatus = "created_manual_user";
+      }
+
+      const timestamp = Date.now();
+      const manualPaymentId = `manual_counseling_${timestamp}`;
+      const amount = psychologist.fee;
+
+      const order = await storage.createOrder({
+        userId: user.id,
+        totalAmount: amount,
+        status: data.markAsPaid === false ? "pending" : "completed",
+        paymentStatus: data.markAsPaid === false ? "pending" : "paid",
+        paymentId: manualPaymentId,
+        paymentMethod: "manual_offline",
+        paidAt: data.markAsPaid === false ? undefined : new Date(),
+        paidAmount: data.markAsPaid === false ? undefined : amount,
+      });
+
+      const booking = await storage.createPsychologistBooking({
+        userId: user.id,
+        serviceId: service.id,
+        orderId: order.id,
+        clientName: data.clientName,
+        birthDate: data.birthDate,
+        email: data.email,
+        whatsappNumber: data.whatsappNumber,
+        mainConcern: data.mainConcern,
+        concernHistory: data.concernHistory,
+        consultationType: data.consultationType,
+        childName: data.childName,
+        childBirthDate: data.childBirthDate,
+        previousDiagnosis: data.previousDiagnosis,
+        preferredDate: data.preferredDate,
+        preferredTime: normalizeTimeSlot(data.preferredTime),
+        psychologistName: data.psychologistName,
+        psychologistFee: amount,
+        location: data.location,
+        status: data.markAsPaid === false ? "pending_payment" : "paid",
+        paidAt: data.markAsPaid === false ? undefined : new Date(),
+      });
+
+      const bookingWithDetails = await storage.getPsychologistBooking(booking.id);
+      res.status(201).json({
+        booking: bookingWithDetails,
+        integrationStatus,
+        message: integrationStatus === "linked_existing_user"
+          ? "Booking manual terhubung dengan akun klien yang sudah terdaftar."
+          : "Booking manual dibuat dengan akun klien manual. Klien dapat diintegrasikan saat mendaftar dengan email yang sama.",
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data booking manual tidak valid", errors: error.flatten() });
+      }
+      console.error("Error creating manual counseling booking:", error);
+      res.status(500).json({ message: "Failed to create manual counseling booking" });
     }
   });
 
