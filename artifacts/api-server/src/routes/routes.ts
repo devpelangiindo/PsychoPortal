@@ -255,10 +255,19 @@ function formatDateParts(year: number, month: number, day: number) {
 }
 
 async function isPsychologistAvailable(psychologistName: string, preferredDate: string, preferredTime: string, location = "online") {
+  const normalizedTime = normalizeTimeSlot(preferredTime);
+  const bookings = await storage.getPsychologistBookingsByProvider(psychologistName);
+  const alreadyPaid = bookings.some((booking) =>
+    booking.status === "paid" &&
+    booking.preferredDate === preferredDate &&
+    normalizeTimeSlot(booking.preferredTime) === normalizedTime
+  );
+  if (alreadyPaid) return false;
+
   const scheduleSlots = await storage.getPsychologistScheduleSlots(psychologistName, preferredDate, preferredDate);
   if (scheduleSlots.length > 0) {
     return scheduleSlots.some((item) => {
-      const matchesTime = item.scheduleDate === preferredDate && item.timeSlot === normalizeTimeSlot(preferredTime) && item.isAvailable;
+      const matchesTime = item.scheduleDate === preferredDate && item.timeSlot === normalizedTime && item.isAvailable;
       if (!matchesTime) return false;
       return location === "online" || item.location === location;
     });
@@ -2083,7 +2092,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { startDate, endDate } = scheduleRange();
       const availability = await storage.getPsychologistAvailability(psychologistName);
       const scheduleSlots = await storage.getPsychologistScheduleSlots(psychologistName, startDate, endDate);
-      res.json({ psychologistName, availability, scheduleSlots });
+      const paidBookings = (await storage.getPsychologistBookingsByProvider(psychologistName))
+        .filter((booking) => booking.status === "paid")
+        .map((booking) => `${booking.preferredDate}|${normalizeTimeSlot(booking.preferredTime)}`);
+      const paidSlotKeys = new Set(paidBookings);
+      const publicScheduleSlots = scheduleSlots.map((slot) => ({
+        ...slot,
+        isAvailable: slot.isAvailable && !paidSlotKeys.has(`${slot.scheduleDate}|${slot.timeSlot}`),
+      }));
+      res.json({ psychologistName, availability, scheduleSlots: publicScheduleSlots });
     } catch (error) {
       console.error("Error fetching public psychologist availability:", error);
       res.status(500).json({ message: "Failed to fetch psychologist availability" });

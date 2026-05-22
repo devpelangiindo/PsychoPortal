@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent, ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
@@ -63,8 +63,12 @@ type LocationType = "online" | "colombo" | "bantul";
 type BookingForm = {
   clientName: string;
   birthDate: string;
+  gender: string;
+  address: string;
   email: string;
   whatsappNumber: string;
+  occupation: string;
+  religion: string;
   mainConcern: string;
   concernHistory: string;
   consultationType: ConsultationType | "";
@@ -85,6 +89,16 @@ type BookingForm = {
   birthWeightKg: string;
   birthLengthCm: string;
   previousDiagnosis: string;
+  consentName: string;
+  consentAddress: string;
+  consentPhone: string;
+  consentAge: string;
+  consentRole: string;
+  consentMedicalInfo: string;
+  consentMedicalStatus: string;
+  consentCity: string;
+  consentDate: string;
+  consentSignature: string;
   preferredDate: string;
   preferredTime: string;
   psychologistName: string;
@@ -156,6 +170,18 @@ const formatScheduleOption = (dateString: string, timeSlot: string) => {
   return `${formattedDate}, Pukul ${timeSlot}`;
 };
 
+const formatScheduleDate = (dateString: string) => {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+};
+
 export default function Booking() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [location, setLocation] = useLocation();
@@ -166,8 +192,12 @@ export default function Booking() {
   const [form, setForm] = useState<BookingForm>({
     clientName: "",
     birthDate: "",
+    gender: "",
+    address: "",
     email: "",
     whatsappNumber: "",
+    occupation: "",
+    religion: "",
     mainConcern: "",
     concernHistory: "",
     consultationType: "",
@@ -188,6 +218,16 @@ export default function Booking() {
     birthWeightKg: "",
     birthLengthCm: "",
     previousDiagnosis: "",
+    consentName: "",
+    consentAddress: "",
+    consentPhone: "",
+    consentAge: "",
+    consentRole: "",
+    consentMedicalInfo: "",
+    consentMedicalStatus: "",
+    consentCity: "",
+    consentDate: formatDateInput(new Date()),
+    consentSignature: "",
     preferredDate: "",
     preferredTime: "",
     psychologistName: "",
@@ -233,25 +273,41 @@ export default function Booking() {
     if (!form.preferredDate || !availabilityData?.scheduleSlots?.length) return [];
     return availabilityData.scheduleSlots.filter((slot) => slot.scheduleDate === form.preferredDate && slot.isAvailable);
   }, [availabilityData, form.preferredDate]);
-  const availableScheduleOptions = useMemo(() => {
+  const scheduleDateOptions = useMemo(() => {
     if (!availabilityData?.scheduleSlots?.length) return [];
+    const dates = new Map<string, { date: string; label: string; hasAvailable: boolean }>();
+    availabilityData.scheduleSlots
+      .filter((slot) => slot.scheduleDate >= today && slot.scheduleDate <= maxBookingDate)
+      .forEach((slot) => {
+        const current = dates.get(slot.scheduleDate);
+        dates.set(slot.scheduleDate, {
+          date: slot.scheduleDate,
+          label: formatScheduleDate(slot.scheduleDate),
+          hasAvailable: Boolean(current?.hasAvailable || slot.isAvailable),
+        });
+      });
+    return Array.from(dates.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [availabilityData, maxBookingDate, today]);
+
+  const availableScheduleOptions = useMemo(() => {
+    if (!form.preferredDate || !availabilityData?.scheduleSlots?.length) return [];
     const unique = new Map<string, ScheduleSlot>();
     availabilityData.scheduleSlots
-      .filter((slot) => slot.isAvailable && slot.scheduleDate >= today && slot.scheduleDate <= maxBookingDate)
+      .filter((slot) => slot.isAvailable && slot.scheduleDate === form.preferredDate)
       .forEach((slot) => {
         const key = `${slot.scheduleDate}|${slot.timeSlot}`;
         if (!unique.has(key)) unique.set(key, slot);
       });
 
     return Array.from(unique.values())
-      .sort((a, b) => `${a.scheduleDate} ${a.timeSlot}`.localeCompare(`${b.scheduleDate} ${b.timeSlot}`))
+      .sort((a, b) => a.timeSlot.localeCompare(b.timeSlot))
       .map((slot) => ({
         value: `${slot.scheduleDate}|${slot.timeSlot}`,
         date: slot.scheduleDate,
         time: slot.timeSlot,
         label: formatScheduleOption(slot.scheduleDate, slot.timeSlot),
       }));
-  }, [availabilityData, maxBookingDate, today]);
+  }, [availabilityData, form.preferredDate]);
   const availableTimeSlots = useMemo(() => {
     return availableScheduleOptions
       .filter((option) => !form.preferredDate || option.date === form.preferredDate)
@@ -296,9 +352,23 @@ export default function Booking() {
           next.birthLengthCm = "";
           next.previousDiagnosis = "";
         }
+        next.consentName = "";
+        next.consentAddress = "";
+        next.consentPhone = "";
+        next.consentAge = "";
+        next.consentRole = "";
+        next.consentMedicalInfo = "";
+        next.consentMedicalStatus = "";
+        next.consentCity = "";
+        next.consentDate = formatDateInput(new Date());
+        next.consentSignature = "";
       }
       if (field === "psychologistName") {
         next.preferredDate = "";
+        next.preferredTime = "";
+        next.location = "online";
+      }
+      if (field === "preferredDate") {
         next.preferredTime = "";
         next.location = "online";
       }
@@ -381,8 +451,8 @@ export default function Booking() {
       const name = form.clientName || `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
       const email = form.email || user?.email;
       const whatsapp = form.whatsappNumber || user?.whatsappNumber;
-      if (!name || !form.birthDate || !email || !whatsapp || !form.mainConcern) {
-        return "Lengkapi nama, tanggal lahir, email, WhatsApp, dan keluhan umum.";
+      if (!name || !form.birthDate || !form.gender || !form.address || !email || !whatsapp || !form.occupation || !form.religion || !form.mainConcern) {
+        return "Lengkapi nama, tanggal lahir, jenis kelamin, alamat, email, WhatsApp, pekerjaan, agama, dan keluhan saat ini.";
       }
       if (!/^[0-9]+$/.test(whatsapp)) {
         return "Nomor WhatsApp hanya boleh angka.";
@@ -390,6 +460,15 @@ export default function Booking() {
     }
 
     if (step === 2) {
+      if (!form.consentName || !form.consentAddress || !form.consentPhone || !form.consentAge || !form.consentRole || !form.consentMedicalInfo || !form.consentMedicalStatus || !form.consentCity || !form.consentDate || !form.consentSignature) {
+        return "Lengkapi informed consent dan tanda tangan.";
+      }
+      if (!/^[0-9]+$/.test(form.consentPhone)) {
+        return "Nomor telepon/WA informed consent hanya boleh angka.";
+      }
+    }
+
+    if (step === 3) {
       if (!form.preferredDate || !form.preferredTime || !form.psychologistName || !form.location) {
         return "Lengkapi tanggal, psikolog, waktu, dan lokasi.";
       }
@@ -420,7 +499,7 @@ export default function Booking() {
       toast({ title: "Data belum lengkap", description: error, variant: "destructive" });
       return;
     }
-    setStep((current) => Math.min(current + 1, 3));
+    setStep((current) => Math.min(current + 1, 4));
   };
 
   const handleSubmit = () => {
@@ -432,7 +511,7 @@ export default function Booking() {
     createBookingMutation.mutate();
   };
 
-  const steps = ["Form A", "Form B", "Penjadwalan", "Form C"];
+  const steps = ["Form A", "Form B", "Consent", "Penjadwalan", "Form C"];
 
   if (!isFormRoute) {
     return (
@@ -484,7 +563,7 @@ export default function Booking() {
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-8">
           <div className="space-y-6">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               {steps.map((label, index) => (
                 <button
                   key={label}
@@ -552,6 +631,10 @@ export default function Booking() {
             )}
 
             {step === 2 && (
+              <ConsentForm form={form} updateField={updateField} />
+            )}
+
+            {step === 3 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Penjadwalan</CardTitle>
@@ -588,28 +671,55 @@ export default function Booking() {
                     </div>
                   </div>
 
-                  <Field label="Pilihan jadwal konseling">
+                  <div>
+                    <Label>Pilihan tanggal</Label>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                      {!form.psychologistName ? (
+                        <p className="text-sm text-neutral-500">Pilih psikolog terlebih dahulu.</p>
+                      ) : scheduleDateOptions.length === 0 ? (
+                      <p className="text-xs text-red-600 mt-2">
+                        Jadwal psikolog belum tersedia. Jadwal mengikuti upload ketersediaan pada dashboard psikolog.
+                      </p>
+                      ) : scheduleDateOptions.map((option) => (
+                        <button
+                          key={option.date}
+                          type="button"
+                          disabled={!option.hasAvailable}
+                          onClick={() => updateField("preferredDate", option.date)}
+                          className={`rounded-lg border p-3 text-left text-sm ${
+                            form.preferredDate === option.date
+                              ? "border-green-700 bg-green-50 text-green-900"
+                              : option.hasAvailable
+                                ? "border-gray-200 bg-white hover:border-green-500"
+                                : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Field label="Pilihan sesi tersedia">
                     <select
                       value={form.preferredDate && form.preferredTime ? `${form.preferredDate}|${form.preferredTime}` : ""}
                       onChange={(event) => updateScheduleChoice(event.target.value)}
-                      disabled={!form.psychologistName || availableScheduleOptions.length === 0}
+                      disabled={!form.preferredDate || availableScheduleOptions.length === 0}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
                       <option value="">
-                        {!form.psychologistName
-                          ? "Pilih psikolog terlebih dahulu"
+                        {!form.preferredDate
+                          ? "Pilih tanggal terlebih dahulu"
                           : availableScheduleOptions.length === 0
-                            ? "Belum ada jadwal tersedia untuk 14 hari ke depan"
-                            : "Pilih hari, tanggal, dan waktu"}
+                            ? "Tidak ada sesi tersedia pada tanggal ini"
+                            : "Pilih sesi konseling"}
                       </option>
                       {availableScheduleOptions.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select>
-                    {form.psychologistName && availableScheduleOptions.length === 0 && (
-                      <p className="text-xs text-red-600 mt-2">
-                        Jadwal psikolog belum tersedia. Jadwal mengikuti upload ketersediaan pada dashboard psikolog.
-                      </p>
+                    {form.preferredDate && availableScheduleOptions.length === 0 && (
+                      <p className="text-xs text-red-600 mt-2">Semua sesi pada tanggal ini sudah terisi atau belum tersedia.</p>
                     )}
                   </Field>
 
@@ -638,7 +748,7 @@ export default function Booking() {
               </Card>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Form C: Pembayaran</CardTitle>
@@ -673,7 +783,7 @@ export default function Booking() {
               <Button variant="outline" onClick={() => setStep((current) => Math.max(current - 1, 0))} disabled={step === 0}>
                 Sebelumnya
               </Button>
-              {step < 3 ? (
+              {step < 4 ? (
                 <Button onClick={nextStep} className="bg-green-700 hover:bg-green-800">
                   Berikutnya
                 </Button>
@@ -763,6 +873,16 @@ function GeneralClientForm({
           onChange={(event) => updateField("birthDate", event.target.value)}
         />
       </Field>
+      <Field label="Jenis kelamin">
+        <select value={form.gender} onChange={(event) => updateField("gender", event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <option value="">Pilih jenis kelamin</option>
+          <option value="Laki-laki">Laki-laki</option>
+          <option value="Perempuan">Perempuan</option>
+        </select>
+      </Field>
+      <Field label="Alamat" className="md:col-span-2">
+        <Textarea rows={3} value={form.address} onChange={(event) => updateField("address", event.target.value)} />
+      </Field>
       <Field label="Email">
         <Input
           type="email"
@@ -778,6 +898,12 @@ function GeneralClientForm({
           placeholder={user?.whatsappNumber ?? "081224248324"}
           onChange={(event) => updateField("whatsappNumber", event.target.value.replace(/\D/g, ""))}
         />
+      </Field>
+      <Field label="Pekerjaan saat ini">
+        <Input value={form.occupation} onChange={(event) => updateField("occupation", event.target.value)} />
+      </Field>
+      <Field label="Agama">
+        <Input value={form.religion} onChange={(event) => updateField("religion", event.target.value)} />
       </Field>
       <Field label="Keluhan umum" className="md:col-span-2">
         <Textarea
@@ -874,6 +1000,146 @@ function ChildClientForm({
   );
 }
 
+function ConsentForm({
+  form,
+  updateField,
+}: {
+  form: BookingForm;
+  updateField: (field: keyof BookingForm, value: string) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Informed Consent Psikologi</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="rounded-lg border bg-white p-4 text-sm leading-relaxed text-neutral-700 space-y-3">
+          <p>Saya bertanda tangan di bawah ini mewakili diri sendiri/sebagai orangtua wali.</p>
+          <p>Saya dalam hal ini bertindak sebagai saya sendiri/orangtua/wali/keluarga klien telah mendapatkan penjelasan dan informasi mengenai tindakan psikologi, dan saya secara sukarela bersedia sepenuhnya mendapatkan layanan/terapi psikologi klinis tersebut.</p>
+          <p>Saya memahami sepenuhnya dan saya tidak akan mengajukan komplain maupun tuntutan hukum sehubungan dengan hasil maupun tindakan tersebut.</p>
+          <p>Saya sepenuhnya setuju dengan layanan tindakan/terapi psikologi klinis, dan saya akan mematuhi segala hal yang sudah dijelaskan.</p>
+          <p>Saya mengijinkan psikolog klinis untuk menyentuh bagian tubuh tertentu (kepala, bahu, tangan) sebagai bagian dari tindakan/terapi psikologi klinis.</p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <Field label="Nama">
+            <Input value={form.consentName} onChange={(event) => updateField("consentName", event.target.value)} />
+          </Field>
+          <Field label="Alamat rumah">
+            <Input value={form.consentAddress} onChange={(event) => updateField("consentAddress", event.target.value)} />
+          </Field>
+          <Field label="No telp/WA">
+            <Input inputMode="numeric" value={form.consentPhone} onChange={(event) => updateField("consentPhone", event.target.value.replace(/\D/g, ""))} />
+          </Field>
+          <Field label="Usia">
+            <Input inputMode="numeric" value={form.consentAge} onChange={(event) => updateField("consentAge", event.target.value.replace(/\D/g, ""))} />
+          </Field>
+          <Field label="Bertindak sebagai">
+            <select value={form.consentRole} onChange={(event) => updateField("consentRole", event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+              <option value="">Pilih</option>
+              <option value="Diri sendiri">Diri sendiri</option>
+              <option value="Orangtua/wali">Orangtua/wali</option>
+              <option value="Keluarga klien">Keluarga klien</option>
+            </select>
+          </Field>
+          <Field label="Kota">
+            <Input value={form.consentCity} onChange={(event) => updateField("consentCity", event.target.value)} />
+          </Field>
+          <Field label="Tanggal">
+            <Input type="date" value={form.consentDate} onChange={(event) => updateField("consentDate", event.target.value)} />
+          </Field>
+        </div>
+
+        <Field label="Informasi diagnosa medis lain">
+          <Textarea
+            rows={3}
+            value={form.consentMedicalInfo}
+            onChange={(event) => updateField("consentMedicalInfo", event.target.value)}
+            placeholder="Saya memahami bahwa jika ada diagnosa medis yang lain, saya menginformasikan dengan jelas kepada psikolog klinis."
+          />
+        </Field>
+
+        <Field label="Status medis">
+          <select value={form.consentMedicalStatus} onChange={(event) => updateField("consentMedicalStatus", event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="">Pilih status medis</option>
+            <option value="Tidak memiliki penyakit medis yang gawat">Saya/yang saya wakili tidak memiliki penyakit medis yang gawat</option>
+            <option value="Sudah mendapatkan rujukan dokter">Saya/yang saya wakili telah mendapatkan rujukan dari dokter bahwa saya dapat menerima tindakan/terapi psikologi klinis</option>
+          </select>
+        </Field>
+
+        <SignaturePad value={form.consentSignature} onChange={(value) => updateField("consentSignature", value)} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function SignaturePad({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
+
+  const getPoint = (event: PointerEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+
+  const beginDrawing = (event: PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    drawingRef.current = true;
+    canvas.setPointerCapture(event.pointerId);
+    const point = getPoint(event);
+    context.beginPath();
+    context.moveTo(point.x, point.y);
+  };
+
+  const draw = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current) return;
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    const point = getPoint(event);
+    context.lineWidth = 2;
+    context.lineCap = "round";
+    context.strokeStyle = "#166534";
+    context.lineTo(point.x, point.y);
+    context.stroke();
+    onChange(canvas.toDataURL("image/png"));
+  };
+
+  const endDrawing = () => {
+    drawingRef.current = false;
+  };
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    onChange("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <Label>Tanda tangan</Label>
+        <Button type="button" variant="outline" size="sm" onClick={clear}>Hapus</Button>
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={640}
+        height={180}
+        onPointerDown={beginDrawing}
+        onPointerMove={draw}
+        onPointerUp={endDrawing}
+        onPointerLeave={endDrawing}
+        className="h-44 w-full rounded-lg border bg-white touch-none"
+      />
+      {!value && <p className="text-xs text-neutral-500">Gambar tanda tangan di area ini.</p>}
+    </div>
+  );
+}
+
 function buildBookingPayload(form: BookingForm, user: any) {
   if (form.consultationType === "child") {
     const parentWhatsapp = form.fatherWhatsapp || form.motherWhatsapp || form.guardianWhatsapp || user?.whatsappNumber || "";
@@ -884,7 +1150,7 @@ function buildBookingPayload(form: BookingForm, user: any) {
       email: form.email || user?.email,
       whatsappNumber: parentWhatsapp,
       childBirthDate: "",
-      concernHistory: formatChildConcernHistory(form),
+      concernHistory: [formatChildConcernHistory(form), formatConsentHistory(form)].join("\n\n"),
     };
   }
 
@@ -893,7 +1159,21 @@ function buildBookingPayload(form: BookingForm, user: any) {
     clientName: form.clientName || `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
     email: form.email || user?.email,
     whatsappNumber: form.whatsappNumber || user?.whatsappNumber,
+    concernHistory: [formatGeneralConcernHistory(form), formatConsentHistory(form)].filter(Boolean).join("\n\n"),
   };
+}
+
+function formatGeneralConcernHistory(form: BookingForm) {
+  return [
+    "Data Klien",
+    `Jenis kelamin: ${form.gender || "-"}`,
+    `Alamat: ${form.address || "-"}`,
+    `Pekerjaan saat ini: ${form.occupation || "-"}`,
+    `Agama: ${form.religion || "-"}`,
+    "",
+    "Riwayat keluhan",
+    form.concernHistory || "-",
+  ].join("\n");
 }
 
 function formatChildConcernHistory(form: BookingForm) {
@@ -916,6 +1196,21 @@ function formatChildConcernHistory(form: BookingForm) {
     `Umur kelahiran: ${form.birthAgeMonths || "-"} bulan`,
     `Berat badan lahir: ${form.birthWeightKg || "-"} kg`,
     `Panjang badan lahir: ${form.birthLengthCm || "-"} cm`,
+  ].join("\n");
+}
+
+function formatConsentHistory(form: BookingForm) {
+  return [
+    "Informed Consent Psikologi",
+    `Nama: ${form.consentName || "-"}`,
+    `Alamat rumah: ${form.consentAddress || "-"}`,
+    `No telp/WA: ${form.consentPhone || "-"}`,
+    `Usia: ${form.consentAge || "-"}`,
+    `Bertindak sebagai: ${form.consentRole || "-"}`,
+    `Informasi diagnosa medis lain: ${form.consentMedicalInfo || "-"}`,
+    `Status medis: ${form.consentMedicalStatus || "-"}`,
+    `Kota/Tanggal: ${form.consentCity || "-"}, ${form.consentDate || "-"}`,
+    `Tanda tangan digital: ${form.consentSignature || "-"}`,
   ].join("\n");
 }
 
