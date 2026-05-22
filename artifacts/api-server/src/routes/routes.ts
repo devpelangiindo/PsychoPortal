@@ -37,7 +37,7 @@ const TWO_WEEK_DAYS = 14;
 const bookingRequestSchema = z.object({
   serviceId: z.number().int().positive(),
   clientName: z.string().min(2),
-  birthDate: z.string().min(8),
+  birthDate: z.string().optional(),
   email: z.string().email(),
   whatsappNumber: z.string().regex(/^[0-9]+$/, "Nomor WhatsApp hanya boleh angka").min(8),
   mainConcern: z.string().trim().min(1),
@@ -64,9 +64,8 @@ const bookingRequestSchema = z.object({
     if (!data.childName?.trim()) {
       ctx.addIssue({ code: "custom", path: ["childName"], message: "Nama anak wajib diisi" });
     }
-    if (!data.childBirthDate?.trim()) {
-      ctx.addIssue({ code: "custom", path: ["childBirthDate"], message: "Tanggal lahir anak wajib diisi" });
-    }
+  } else if (!data.birthDate?.trim()) {
+    ctx.addIssue({ code: "custom", path: ["birthDate"], message: "Tanggal lahir wajib diisi" });
   }
 
   const today = getJakartaDateString();

@@ -68,8 +68,22 @@ type BookingForm = {
   mainConcern: string;
   concernHistory: string;
   consultationType: ConsultationType | "";
+  fatherName: string;
+  motherName: string;
+  fatherOccupation: string;
+  motherOccupation: string;
+  fatherWhatsapp: string;
+  motherWhatsapp: string;
+  guardianName: string;
+  guardianOccupation: string;
+  guardianWhatsapp: string;
+  guardianRelation: string;
   childName: string;
   childBirthDate: string;
+  pregnancyBirthNotes: string;
+  birthAgeMonths: string;
+  birthWeightKg: string;
+  birthLengthCm: string;
   previousDiagnosis: string;
   preferredDate: string;
   preferredTime: string;
@@ -157,8 +171,22 @@ export default function Booking() {
     mainConcern: "",
     concernHistory: "",
     consultationType: "",
+    fatherName: "",
+    motherName: "",
+    fatherOccupation: "",
+    motherOccupation: "",
+    fatherWhatsapp: "",
+    motherWhatsapp: "",
+    guardianName: "",
+    guardianOccupation: "",
+    guardianWhatsapp: "",
+    guardianRelation: "",
     childName: "",
     childBirthDate: "",
+    pregnancyBirthNotes: "",
+    birthAgeMonths: "",
+    birthWeightKg: "",
+    birthLengthCm: "",
     previousDiagnosis: "",
     preferredDate: "",
     preferredTime: "",
@@ -250,8 +278,22 @@ export default function Booking() {
         next.preferredTime = "";
         next.location = "online";
         if (value !== "child") {
+          next.fatherName = "";
+          next.motherName = "";
+          next.fatherOccupation = "";
+          next.motherOccupation = "";
+          next.fatherWhatsapp = "";
+          next.motherWhatsapp = "";
+          next.guardianName = "";
+          next.guardianOccupation = "";
+          next.guardianWhatsapp = "";
+          next.guardianRelation = "";
           next.childName = "";
           next.childBirthDate = "";
+          next.pregnancyBirthNotes = "";
+          next.birthAgeMonths = "";
+          next.birthWeightKg = "";
+          next.birthLengthCm = "";
           next.previousDiagnosis = "";
         }
       }
@@ -287,10 +329,7 @@ export default function Booking() {
 
       const bookingResponse = await apiRequest("POST", "/api/bookings", {
         serviceId: selectedService.id,
-        ...form,
-        clientName: form.clientName || `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
-        email: form.email || user?.email,
-        whatsappNumber: form.whatsappNumber || user?.whatsappNumber,
+        ...buildBookingPayload(form, user),
       });
       const booking = await bookingResponse.json();
 
@@ -322,6 +361,23 @@ export default function Booking() {
 
   const validateStep = () => {
     if (step === 0) {
+      if (!form.consultationType) return "Pilih jenis konsultasi.";
+    }
+
+    if (step === 1) {
+      if (form.consultationType === "child") {
+        if (!form.fatherName || !form.motherName || !form.fatherOccupation || !form.motherOccupation || !form.fatherWhatsapp || !form.motherWhatsapp) {
+          return "Lengkapi data ayah/wali, ibu, pekerjaan, dan nomor WhatsApp.";
+        }
+        if (!form.childName || !form.pregnancyBirthNotes || !form.birthAgeMonths || !form.birthWeightKg || !form.birthLengthCm || !form.mainConcern) {
+          return "Lengkapi data anak, proses kelahiran, ukuran lahir, dan keluhan awal.";
+        }
+        if (!/^[0-9]+$/.test(form.fatherWhatsapp) || !/^[0-9]+$/.test(form.motherWhatsapp) || (form.guardianWhatsapp && !/^[0-9]+$/.test(form.guardianWhatsapp))) {
+          return "Nomor WhatsApp hanya boleh angka.";
+        }
+        return "";
+      }
+
       const name = form.clientName || `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
       const email = form.email || user?.email;
       const whatsapp = form.whatsappNumber || user?.whatsappNumber;
@@ -330,13 +386,6 @@ export default function Booking() {
       }
       if (!/^[0-9]+$/.test(whatsapp)) {
         return "Nomor WhatsApp hanya boleh angka.";
-      }
-    }
-
-    if (step === 1) {
-      if (!form.consultationType) return "Pilih jenis konsultasi.";
-      if (form.consultationType === "child" && (!form.childName || !form.childBirthDate)) {
-        return "Lengkapi nama dan tanggal lahir anak.";
       }
     }
 
@@ -457,63 +506,7 @@ export default function Booking() {
             {step === 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Form A: Data Diri</CardTitle>
-                </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-4">
-                  <Field label="Nama lengkap">
-                    <Input
-                      value={form.clientName}
-                      placeholder={user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : "Nama lengkap"}
-                      onChange={(event) => updateField("clientName", event.target.value)}
-                    />
-                  </Field>
-                  <Field label="Tanggal lahir">
-                    <Input
-                      type="date"
-                      value={form.birthDate}
-                      onChange={(event) => updateField("birthDate", event.target.value)}
-                    />
-                  </Field>
-                  <Field label="Email">
-                    <Input
-                      type="email"
-                      value={form.email}
-                      placeholder={user?.email ?? "email@example.com"}
-                      onChange={(event) => updateField("email", event.target.value)}
-                    />
-                  </Field>
-                  <Field label="Nomor WhatsApp">
-                    <Input
-                      inputMode="numeric"
-                      value={form.whatsappNumber}
-                      placeholder={user?.whatsappNumber ?? "081224248324"}
-                      onChange={(event) => updateField("whatsappNumber", event.target.value.replace(/\D/g, ""))}
-                    />
-                  </Field>
-                  <Field label="Keluhan umum" className="md:col-span-2">
-                    <Textarea
-                      rows={5}
-                      value={form.mainConcern}
-                      placeholder="Ceritakan keluhan umum yang ingin dikonsultasikan."
-                      onChange={(event) => updateField("mainConcern", event.target.value)}
-                    />
-                  </Field>
-                  <Field label="Riwayat keluhan" className="md:col-span-2">
-                    <Textarea
-                      rows={4}
-                      value={form.concernHistory}
-                      placeholder="Opsional, isi jika ada riwayat keluhan sebelumnya."
-                      onChange={(event) => updateField("concernHistory", event.target.value)}
-                    />
-                  </Field>
-                </CardContent>
-              </Card>
-            )}
-
-            {step === 1 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Form B: Jenis Konsultasi</CardTitle>
+                  <CardTitle>Form A: Jenis Konsultasi</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
                   <div className="grid md:grid-cols-3 gap-4">
@@ -539,19 +532,20 @@ export default function Booking() {
                       );
                     })}
                   </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  {form.consultationType === "child" && (
-                    <div className="grid md:grid-cols-2 gap-4 rounded-lg border bg-white p-4">
-                      <Field label="Nama lengkap anak/remaja">
-                        <Input value={form.childName} onChange={(event) => updateField("childName", event.target.value)} />
-                      </Field>
-                      <Field label="Tanggal lahir anak/remaja">
-                        <Input type="date" value={form.childBirthDate} onChange={(event) => updateField("childBirthDate", event.target.value)} />
-                      </Field>
-                      <Field label="Diagnosa ahli sebelumnya" className="md:col-span-2">
-                        <Textarea rows={3} value={form.previousDiagnosis} placeholder="Opsional, isi jika ada." onChange={(event) => updateField("previousDiagnosis", event.target.value)} />
-                      </Field>
-                    </div>
+            {step === 1 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Form B: Data Diri</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {form.consultationType === "child" ? (
+                    <ChildClientForm form={form} updateField={updateField} />
+                  ) : (
+                    <GeneralClientForm form={form} user={user} updateField={updateField} />
                   )}
                 </CardContent>
               </Card>
@@ -567,7 +561,7 @@ export default function Booking() {
                     <Label>Pilihan psikolog</Label>
                     <div className="grid md:grid-cols-2 gap-4 mt-2">
                       {availablePsychologists.length === 0 ? (
-                        <p className="text-sm text-neutral-500">Pilih jenis konsultasi pada Form B terlebih dahulu.</p>
+                        <p className="text-sm text-neutral-500">Pilih jenis konsultasi pada Form A terlebih dahulu.</p>
                       ) : availablePsychologists.map((psychologist) => {
                         const selected = form.psychologistName === psychologist.name;
                         return (
@@ -742,6 +736,187 @@ export default function Booking() {
       <Footer />
     </div>
   );
+}
+
+function GeneralClientForm({
+  form,
+  user,
+  updateField,
+}: {
+  form: BookingForm;
+  user: any;
+  updateField: (field: keyof BookingForm, value: string) => void;
+}) {
+  return (
+    <div className="grid md:grid-cols-2 gap-4">
+      <Field label="Nama lengkap">
+        <Input
+          value={form.clientName}
+          placeholder={user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : "Nama lengkap"}
+          onChange={(event) => updateField("clientName", event.target.value)}
+        />
+      </Field>
+      <Field label="Tanggal lahir">
+        <Input
+          type="date"
+          value={form.birthDate}
+          onChange={(event) => updateField("birthDate", event.target.value)}
+        />
+      </Field>
+      <Field label="Email">
+        <Input
+          type="email"
+          value={form.email}
+          placeholder={user?.email ?? "email@example.com"}
+          onChange={(event) => updateField("email", event.target.value)}
+        />
+      </Field>
+      <Field label="Nomor WhatsApp">
+        <Input
+          inputMode="numeric"
+          value={form.whatsappNumber}
+          placeholder={user?.whatsappNumber ?? "081224248324"}
+          onChange={(event) => updateField("whatsappNumber", event.target.value.replace(/\D/g, ""))}
+        />
+      </Field>
+      <Field label="Keluhan umum" className="md:col-span-2">
+        <Textarea
+          rows={5}
+          value={form.mainConcern}
+          placeholder="Ceritakan keluhan umum yang ingin dikonsultasikan."
+          onChange={(event) => updateField("mainConcern", event.target.value)}
+        />
+      </Field>
+      <Field label="Riwayat keluhan" className="md:col-span-2">
+        <Textarea
+          rows={4}
+          value={form.concernHistory}
+          placeholder="Opsional, isi jika ada riwayat keluhan sebelumnya."
+          onChange={(event) => updateField("concernHistory", event.target.value)}
+        />
+      </Field>
+    </div>
+  );
+}
+
+function ChildClientForm({
+  form,
+  updateField,
+}: {
+  form: BookingForm;
+  updateField: (field: keyof BookingForm, value: string) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="font-semibold text-neutral-900">Data diri Orang tua/wali</h3>
+        <div className="grid md:grid-cols-2 gap-4 mt-4">
+          <Field label="Nama Ayah/wali">
+            <Input value={form.fatherName} onChange={(event) => updateField("fatherName", event.target.value)} />
+          </Field>
+          <Field label="Nama Ibu">
+            <Input value={form.motherName} onChange={(event) => updateField("motherName", event.target.value)} />
+          </Field>
+          <Field label="Pekerjaan Ayah">
+            <Input value={form.fatherOccupation} onChange={(event) => updateField("fatherOccupation", event.target.value)} />
+          </Field>
+          <Field label="Pekerjaan Ibu">
+            <Input value={form.motherOccupation} onChange={(event) => updateField("motherOccupation", event.target.value)} />
+          </Field>
+          <Field label="Nomor WA Ayah">
+            <Input inputMode="numeric" value={form.fatherWhatsapp} onChange={(event) => updateField("fatherWhatsapp", event.target.value.replace(/\D/g, ""))} />
+          </Field>
+          <Field label="Nomor WA Ibu">
+            <Input inputMode="numeric" value={form.motherWhatsapp} onChange={(event) => updateField("motherWhatsapp", event.target.value.replace(/\D/g, ""))} />
+          </Field>
+          <Field label="Nama Wali (bila tidak ada ayah/ibu)">
+            <Input value={form.guardianName} onChange={(event) => updateField("guardianName", event.target.value)} />
+          </Field>
+          <Field label="Pekerjaan Wali">
+            <Input value={form.guardianOccupation} onChange={(event) => updateField("guardianOccupation", event.target.value)} />
+          </Field>
+          <Field label="Nomor WA Wali">
+            <Input inputMode="numeric" value={form.guardianWhatsapp} onChange={(event) => updateField("guardianWhatsapp", event.target.value.replace(/\D/g, ""))} />
+          </Field>
+          <Field label="Relasi dengan client (wali)">
+            <Input value={form.guardianRelation} onChange={(event) => updateField("guardianRelation", event.target.value)} />
+          </Field>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-neutral-900">Data diri Anak</h3>
+        <div className="grid md:grid-cols-2 gap-4 mt-4">
+          <Field label="Nama anak">
+            <Input value={form.childName} onChange={(event) => updateField("childName", event.target.value)} />
+          </Field>
+          <Field label="Umur kelahiran (bulan)">
+            <Input inputMode="decimal" value={form.birthAgeMonths} onChange={(event) => updateField("birthAgeMonths", event.target.value)} />
+          </Field>
+          <Field label="Berat badan lahir (kilogram)">
+            <Input inputMode="decimal" value={form.birthWeightKg} onChange={(event) => updateField("birthWeightKg", event.target.value)} />
+          </Field>
+          <Field label="Panjang badan lahir (centimeter)">
+            <Input inputMode="decimal" value={form.birthLengthCm} onChange={(event) => updateField("birthLengthCm", event.target.value)} />
+          </Field>
+          <Field label="Proses kelahiran dan catatan khusus anak selama masa kandungan" className="md:col-span-2">
+            <Textarea rows={4} value={form.pregnancyBirthNotes} onChange={(event) => updateField("pregnancyBirthNotes", event.target.value)} />
+          </Field>
+          <Field label="Keluhan awal" className="md:col-span-2">
+            <Textarea rows={5} value={form.mainConcern} onChange={(event) => updateField("mainConcern", event.target.value)} />
+          </Field>
+          <Field label="Diagnosa anak dari ahli sebelumnya" className="md:col-span-2">
+            <Textarea rows={3} value={form.previousDiagnosis} placeholder="Opsional, isi jika ada." onChange={(event) => updateField("previousDiagnosis", event.target.value)} />
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function buildBookingPayload(form: BookingForm, user: any) {
+  if (form.consultationType === "child") {
+    const parentWhatsapp = form.fatherWhatsapp || form.motherWhatsapp || form.guardianWhatsapp || user?.whatsappNumber || "";
+    return {
+      ...form,
+      clientName: form.childName,
+      birthDate: "",
+      email: form.email || user?.email,
+      whatsappNumber: parentWhatsapp,
+      childBirthDate: "",
+      concernHistory: formatChildConcernHistory(form),
+    };
+  }
+
+  return {
+    ...form,
+    clientName: form.clientName || `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
+    email: form.email || user?.email,
+    whatsappNumber: form.whatsappNumber || user?.whatsappNumber,
+  };
+}
+
+function formatChildConcernHistory(form: BookingForm) {
+  return [
+    "Data Orang tua/wali",
+    `Nama Ayah/wali: ${form.fatherName || "-"}`,
+    `Nama Ibu: ${form.motherName || "-"}`,
+    `Pekerjaan Ayah: ${form.fatherOccupation || "-"}`,
+    `Pekerjaan Ibu: ${form.motherOccupation || "-"}`,
+    `Nomor WA Ayah: ${form.fatherWhatsapp || "-"}`,
+    `Nomor WA Ibu: ${form.motherWhatsapp || "-"}`,
+    `Nama Wali: ${form.guardianName || "-"}`,
+    `Pekerjaan Wali: ${form.guardianOccupation || "-"}`,
+    `Nomor WA Wali: ${form.guardianWhatsapp || "-"}`,
+    `Relasi dengan Client (wali): ${form.guardianRelation || "-"}`,
+    "",
+    "Data Anak",
+    `Nama anak: ${form.childName || "-"}`,
+    `Proses kelahiran/catatan kandungan: ${form.pregnancyBirthNotes || "-"}`,
+    `Umur kelahiran: ${form.birthAgeMonths || "-"} bulan`,
+    `Berat badan lahir: ${form.birthWeightKg || "-"} kg`,
+    `Panjang badan lahir: ${form.birthLengthCm || "-"} cm`,
+  ].join("\n");
 }
 
 function BookingLanding({
