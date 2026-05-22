@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Save, Search, UserRound, Video } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Save, Search, Trash2, UserRound, Video } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
@@ -252,6 +252,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                     key={booking.id}
                     booking={booking}
                     canEditClientSchedule={isAdminMode}
+                    canEditClientReport={isAdminMode}
                     onSaved={() => {
                       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/bookings"] });
                       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/reports"] });
@@ -367,6 +368,11 @@ function SectionTitle({ icon, title, description }: { icon: ReactNode; title: st
 
 type ScheduleDraftRow = {
   scheduleDate: string;
+  sessions: ScheduleDraftSession[];
+};
+
+type ScheduleDraftSession = {
+  key: string;
   enabled: boolean;
   startTime: string;
   endTime: string;
@@ -394,21 +400,23 @@ function ScheduleUploadEditor({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const slots = rows.flatMap((row) => {
-        if (!row.enabled) return [];
-        const timeSlot = `${row.startTime.replace(":", ".")} - ${row.endTime.replace(":", ".")}`;
-        const locations = [
-          "online",
-          ...(row.colombo ? ["colombo"] : []),
-          ...(row.bantul ? ["bantul"] : []),
-        ] as const;
-        return locations.map((location) => ({
-          scheduleDate: row.scheduleDate,
-          timeSlot,
-          location,
-          isAvailable: true,
-        }));
-      });
+      const slots = rows.flatMap((row) =>
+        row.sessions.flatMap((session) => {
+          if (!session.enabled) return [];
+          const timeSlot = `${session.startTime.replace(":", ".")} - ${session.endTime.replace(":", ".")}`;
+          const locations = [
+            "online",
+            ...(session.colombo ? ["colombo"] : []),
+            ...(session.bantul ? ["bantul"] : []),
+          ] as const;
+          return locations.map((location) => ({
+            scheduleDate: row.scheduleDate,
+            timeSlot,
+            location,
+            isAvailable: true,
+          }));
+        }),
+      );
       const response = await apiRequest("PUT", "/api/psychologist/schedule-slots", {
         slots,
         ...(isAdmin && psychologistName ? { psychologistName } : {}),
@@ -432,8 +440,42 @@ function ScheduleUploadEditor({
     },
   });
 
-  const updateRow = (index: number, updates: Partial<ScheduleDraftRow>) => {
-    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...updates } : row));
+  const updateSession = (rowIndex: number, sessionKey: string, updates: Partial<ScheduleDraftSession>) => {
+    setRows((current) => current.map((row, index) => {
+      if (index !== rowIndex) return row;
+      return {
+        ...row,
+        sessions: row.sessions.map((session) => session.key === sessionKey ? { ...session, ...updates } : session),
+      };
+    }));
+  };
+
+  const addSession = (rowIndex: number) => {
+    setRows((current) => current.map((row, index) => {
+      if (index !== rowIndex) return row;
+      const lastSession = row.sessions[row.sessions.length - 1];
+      return {
+        ...row,
+        sessions: [
+          ...row.sessions,
+          createDraftSession(
+            row.scheduleDate,
+            row.sessions.length,
+            true,
+            suggestNextStartTime(lastSession?.endTime ?? "08:00"),
+            suggestEndTime(suggestNextStartTime(lastSession?.endTime ?? "08:00")),
+          ),
+        ],
+      };
+    }));
+  };
+
+  const removeSession = (rowIndex: number, sessionKey: string) => {
+    setRows((current) => current.map((row, index) => {
+      if (index !== rowIndex) return row;
+      const sessions = row.sessions.filter((session) => session.key !== sessionKey);
+      return { ...row, sessions: sessions.length ? sessions : [createDraftSession(row.scheduleDate, 0, false)] };
+    }));
   };
 
   return (
@@ -454,50 +496,78 @@ function ScheduleUploadEditor({
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-separate border-spacing-0">
+          <table className="w-full min-w-[940px] border-separate border-spacing-0">
             <thead>
               <tr>
                 <th className="text-left text-sm font-semibold text-neutral-600 p-3">Tanggal</th>
                 <th className="text-left text-sm font-semibold text-neutral-600 p-3">Aktif</th>
                 <th className="text-left text-sm font-semibold text-neutral-600 p-3">Waktu</th>
                 <th className="text-left text-sm font-semibold text-neutral-600 p-3">Lokasi offline</th>
+                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, index) => (
-                <tr key={row.scheduleDate} className="border-t">
-                  <td className="p-3 font-medium text-neutral-900">{formatDisplayDate(row.scheduleDate)}</td>
+              {rows.map((row, rowIndex) => row.sessions.map((session, sessionIndex) => (
+                <tr key={`${row.scheduleDate}-${session.key}`} className="border-t">
+                  {sessionIndex === 0 && (
+                    <td className="p-3 font-medium text-neutral-900 align-top" rowSpan={row.sessions.length}>
+                      <div>{formatDisplayDate(row.scheduleDate)}</div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isLocked && !isAdmin}
+                        onClick={() => addSession(rowIndex)}
+                        className="mt-3"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Tambah sesi
+                      </Button>
+                    </td>
+                  )}
                   <td className="p-3">
                     <input
                       type="checkbox"
-                      checked={row.enabled}
+                      checked={session.enabled}
                       disabled={isLocked && !isAdmin}
-                      onChange={(event) => updateRow(index, { enabled: event.target.checked })}
+                      onChange={(event) => updateSession(rowIndex, session.key, { enabled: event.target.checked })}
                       className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
                     />
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <Input type="time" min="07:00" max="21:00" value={row.startTime} disabled={(isLocked && !isAdmin) || !row.enabled} onChange={(event) => updateRow(index, { startTime: event.target.value })} />
+                      <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={(isLocked && !isAdmin) || !session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { startTime: event.target.value })} />
                       <span className="text-neutral-400">-</span>
-                      <Input type="time" min="07:00" max="21:00" value={row.endTime} disabled={(isLocked && !isAdmin) || !row.enabled} onChange={(event) => updateRow(index, { endTime: event.target.value })} />
+                      <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={(isLocked && !isAdmin) || !session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { endTime: event.target.value })} />
                     </div>
                   </td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-4 text-sm text-neutral-700">
                       <span className="font-medium text-green-700">Online</span>
                       <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={row.colombo} disabled={(isLocked && !isAdmin) || !row.enabled} onChange={(event) => updateRow(index, { colombo: event.target.checked })} />
+                        <input type="checkbox" checked={session.colombo} disabled={(isLocked && !isAdmin) || !session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { colombo: event.target.checked })} />
                         Colombo
                       </label>
                       <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={row.bantul} disabled={(isLocked && !isAdmin) || !row.enabled} onChange={(event) => updateRow(index, { bantul: event.target.checked })} />
+                        <input type="checkbox" checked={session.bantul} disabled={(isLocked && !isAdmin) || !session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { bantul: event.target.checked })} />
                         Bantul
                       </label>
                     </div>
                   </td>
+                  <td className="p-3">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      disabled={isLocked && !isAdmin}
+                      onClick={() => removeSession(rowIndex, session.key)}
+                      aria-label="Hapus sesi"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </Button>
+                  </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
@@ -520,17 +590,62 @@ function buildScheduleRows(scheduleSlots: ScheduleSlot[]): ScheduleDraftRow[] {
     date.setDate(today.getDate() + index);
     const scheduleDate = formatDateInput(date);
     const slotsForDate = scheduleSlots.filter((slot) => slot.scheduleDate === scheduleDate && slot.isAvailable);
-    const firstSlot = slotsForDate[0]?.timeSlot ?? "08.00 - 10.00";
-    const [startTime, endTime] = firstSlot.replace(/\./g, ":").split(" - ");
+    const slotsByTime = new Map<string, ScheduleSlot[]>();
+    slotsForDate.forEach((slot) => {
+      const slots = slotsByTime.get(slot.timeSlot) ?? [];
+      slots.push(slot);
+      slotsByTime.set(slot.timeSlot, slots);
+    });
+    const sessions = Array.from(slotsByTime.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([timeSlot, slots], sessionIndex) => {
+        const [startTime, endTime] = timeSlot.replace(/\./g, ":").split(" - ");
+        return createDraftSession(
+          scheduleDate,
+          sessionIndex,
+          true,
+          startTime || "08:00",
+          endTime || "10:00",
+          slots.some((slot) => slot.location === "colombo"),
+          slots.some((slot) => slot.location === "bantul"),
+        );
+      });
     return {
       scheduleDate,
-      enabled: slotsForDate.length > 0,
-      startTime: startTime || "08:00",
-      endTime: endTime || "10:00",
-      colombo: slotsForDate.some((slot) => slot.location === "colombo"),
-      bantul: slotsForDate.some((slot) => slot.location === "bantul"),
+      sessions: sessions.length ? sessions : [createDraftSession(scheduleDate, 0, false)],
     };
   });
+}
+
+function createDraftSession(
+  scheduleDate: string,
+  index: number,
+  enabled = false,
+  startTime = "08:00",
+  endTime = "10:00",
+  colombo = false,
+  bantul = false,
+): ScheduleDraftSession {
+  return {
+    key: `${scheduleDate}-${index}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    enabled,
+    startTime,
+    endTime,
+    colombo,
+    bantul,
+  };
+}
+
+function suggestEndTime(startTime: string) {
+  const [hour = "8", minute = "0"] = startTime.split(":");
+  const endHour = Math.min(Math.max(Number(hour) + 2, 8), 21);
+  return `${String(endHour).padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
+function suggestNextStartTime(value: string) {
+  const [hour = "8", minute = "0"] = value.split(":");
+  const startHour = Math.min(Number(hour), 19);
+  return `${String(startHour).padStart(2, "0")}:${minute.padStart(2, "0")}`;
 }
 
 function formatDateInput(date: Date) {
@@ -684,7 +799,17 @@ function flattenAvailability(slots: Record<number, Record<string, boolean>>) {
   );
 }
 
-function BookingCard({ booking, canEditClientSchedule, onSaved }: { booking: Booking; canEditClientSchedule: boolean; onSaved: () => void }) {
+function BookingCard({
+  booking,
+  canEditClientSchedule,
+  canEditClientReport,
+  onSaved,
+}: {
+  booking: Booking;
+  canEditClientSchedule: boolean;
+  canEditClientReport: boolean;
+  onSaved: () => void;
+}) {
   return (
     <Card>
       <CardContent className="p-5">
@@ -739,7 +864,7 @@ function BookingCard({ booking, canEditClientSchedule, onSaved }: { booking: Boo
         </div>
 
         {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
-        <ReportEditor booking={booking} onSaved={onSaved} />
+        <ReportEditor booking={booking} canEditClientReport={canEditClientReport} onSaved={onSaved} />
       </CardContent>
     </Card>
   );
@@ -829,13 +954,24 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
   );
 }
 
-function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+type ReportMutationPayload = {
+  clientReportNotes?: string;
+  reportRecommendations?: string;
+  counselingHistoryNotes?: string;
+  sessionReport?: string;
+  meetingUrl?: string;
+  submitClientReport?: boolean;
+  submitHistoryReport?: boolean;
+};
+
+function ReportEditor({ booking, canEditClientReport, onSaved }: { booking: Booking; canEditClientReport: boolean; onSaved: () => void }) {
   const { toast } = useToast();
   const [meetingUrl, setMeetingUrl] = useState(booking.meetingUrl ?? "");
   const [sessionReport, setSessionReport] = useState(booking.sessionReport ?? "");
   const [reportRecommendations, setReportRecommendations] = useState(booking.reportRecommendations ?? "");
   const [clientReportNotes, setClientReportNotes] = useState(booking.clientReportNotes ?? booking.reportRecommendations ?? "");
   const [counselingHistoryNotes, setCounselingHistoryNotes] = useState(booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
+  const clientReportLocked = Boolean(booking.reportSubmittedAt && !canEditClientReport);
   const hasSavedReport = Boolean(
     booking.clientReportNotes ||
     booking.reportRecommendations ||
@@ -843,20 +979,17 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
     booking.sessionReport,
   );
 
-  const mutation = useMutation({
-    mutationFn: async (submit: boolean) => {
-      if (submit && !counselingHistoryNotes.trim()) {
-        throw new Error("Riwayat konseling wajib diisi.");
-      }
+  useEffect(() => {
+    setMeetingUrl(booking.meetingUrl ?? "");
+    setSessionReport(booking.sessionReport ?? "");
+    setReportRecommendations(booking.reportRecommendations ?? "");
+    setClientReportNotes(booking.clientReportNotes ?? booking.reportRecommendations ?? "");
+    setCounselingHistoryNotes(booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
+  }, [booking]);
 
-      const response = await apiRequest("PATCH", `/api/psychologist/bookings/${booking.id}/report`, {
-        meetingUrl,
-        sessionReport,
-        reportRecommendations,
-        clientReportNotes,
-        counselingHistoryNotes,
-        submit,
-      });
+  const mutation = useMutation({
+    mutationFn: async (payload: ReportMutationPayload) => {
+      const response = await apiRequest("PATCH", `/api/psychologist/bookings/${booking.id}/report`, payload);
       return response.json();
     },
     onSuccess: onSaved,
@@ -867,6 +1000,31 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
       });
     },
   });
+
+  const saveClientDraft = () => {
+    mutation.mutate({ meetingUrl, clientReportNotes, reportRecommendations });
+  };
+
+  const finishClientReport = () => {
+    if (!clientReportNotes.trim()) {
+      toast({ title: "Laporan untuk klien wajib diisi.", variant: "destructive" });
+      return;
+    }
+    mutation.mutate({ meetingUrl, clientReportNotes, reportRecommendations, submitClientReport: true });
+  };
+
+  const finishHistoryReport = () => {
+    if (!counselingHistoryNotes.trim()) {
+      toast({ title: "Riwayat konseling wajib diisi.", variant: "destructive" });
+      return;
+    }
+    mutation.mutate({
+      meetingUrl,
+      sessionReport,
+      counselingHistoryNotes,
+      submitHistoryReport: true,
+    });
+  };
 
   return (
     <div className="mt-5 rounded-lg border bg-white p-4 space-y-4">
@@ -918,8 +1076,24 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
           }}
           placeholder="Isi catatan hasil konseling atau PR yang akan dikirim ke dashboard klien."
           rows={4}
+          disabled={clientReportLocked}
           className="mt-2"
         />
+        {clientReportLocked && (
+          <p className="text-xs text-amber-700 mt-2">
+            Laporan untuk klien sudah selesai. Edit lanjutan hanya dapat dilakukan admin super.
+          </p>
+        )}
+        <div className="flex flex-wrap justify-end gap-2 mt-3">
+          <Button variant="outline" onClick={saveClientDraft} disabled={mutation.isPending || clientReportLocked}>
+            <Save className="w-4 h-4 mr-2" />
+            {mutation.isPending ? "Menyimpan..." : "Simpan Draft Klien"}
+          </Button>
+          <Button onClick={finishClientReport} disabled={mutation.isPending || clientReportLocked} className="bg-green-700 hover:bg-green-800">
+            <ClipboardCheck className="w-4 h-4 mr-2" />
+            {mutation.isPending ? "Menyelesaikan..." : "Selesai Laporan Klien"}
+          </Button>
+        </div>
       </div>
 
       <div>
@@ -937,17 +1111,12 @@ function ReportEditor({ booking, onSaved }: { booking: Booking; onSaved: () => v
           rows={4}
           className="mt-2"
         />
-      </div>
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" onClick={() => mutation.mutate(false)} disabled={mutation.isPending}>
-          <Save className="w-4 h-4 mr-2" />
-          {mutation.isPending ? "Menyimpan..." : "Simpan Draft"}
-        </Button>
-        <Button onClick={() => mutation.mutate(true)} disabled={mutation.isPending || !counselingHistoryNotes.trim()} className="bg-green-700 hover:bg-green-800">
-          <ClipboardCheck className="w-4 h-4 mr-2" />
-          {mutation.isPending ? "Menyelesaikan..." : "Selesai"}
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2 mt-3">
+          <Button onClick={finishHistoryReport} disabled={mutation.isPending || !counselingHistoryNotes.trim()} className="bg-green-700 hover:bg-green-800">
+            <ClipboardCheck className="w-4 h-4 mr-2" />
+            {mutation.isPending ? "Menyimpan..." : "Selesai Riwayat Internal"}
+          </Button>
+        </div>
       </div>
     </div>
   );

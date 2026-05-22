@@ -99,6 +99,8 @@ const bookingReportSchema = z.object({
   clientReportNotes: z.string().max(5000).optional(),
   counselingHistoryNotes: z.string().max(5000).optional(),
   submit: z.boolean().optional(),
+  submitClientReport: z.boolean().optional(),
+  submitHistoryReport: z.boolean().optional(),
 });
 
 const bookingScheduleUpdateSchema = z.object({
@@ -145,7 +147,7 @@ const scheduleSlotSchema = z.object({
 
 const psychologistScheduleUpdateSchema = z.object({
   psychologistName: z.string().min(2).optional(),
-  slots: z.array(scheduleSlotSchema).max(84),
+  slots: z.array(scheduleSlotSchema).max(252),
 });
 
 const resetPasswordWithOtpSchema = z.object({
@@ -1660,19 +1662,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = bookingReportSchema.parse(req.body);
-      if (data.submit && !data.counselingHistoryNotes?.trim()) {
+      const isAdminOrCso = canManageBookingsRole(user.role);
+      const submitClientReport = Boolean(data.submitClientReport || data.submit);
+      const submitHistoryReport = Boolean(data.submitHistoryReport || data.submit);
+      const clientReportFieldsTouched = data.clientReportNotes !== undefined || data.reportRecommendations !== undefined;
+      if (booking.reportSubmittedAt && !isAdminOrCso && clientReportFieldsTouched) {
+        return res.status(403).json({
+          message: "Laporan untuk klien sudah selesai dan hanya admin super yang dapat mengeditnya.",
+        });
+      }
+
+      const nextClientReportText = data.clientReportNotes?.trim() || data.reportRecommendations?.trim() || "";
+      if (submitClientReport && !nextClientReportText && !getClientReportText(booking)) {
+        return res.status(400).json({
+          message: "Laporan untuk klien wajib diisi sebelum diselesaikan.",
+        });
+      }
+
+      if (submitHistoryReport && !data.counselingHistoryNotes?.trim() && !getHistoryReportText(booking)) {
         return res.status(400).json({
           message: "Riwayat konseling wajib diisi sebelum laporan diselesaikan.",
         });
       }
 
       await storage.updatePsychologistBookingReport(booking.id, {
-        meetingUrl: data.meetingUrl || null,
-        sessionReport: data.sessionReport?.trim() || null,
-        reportRecommendations: data.reportRecommendations?.trim() || null,
-        clientReportNotes: data.clientReportNotes?.trim() || null,
-        counselingHistoryNotes: data.counselingHistoryNotes?.trim() || null,
-        submit: data.submit,
+        meetingUrl: data.meetingUrl !== undefined ? data.meetingUrl || null : undefined,
+        sessionReport: data.sessionReport !== undefined ? data.sessionReport?.trim() || null : undefined,
+        reportRecommendations: data.reportRecommendations !== undefined ? data.reportRecommendations?.trim() || null : undefined,
+        clientReportNotes: data.clientReportNotes !== undefined ? data.clientReportNotes?.trim() || null : undefined,
+        counselingHistoryNotes: data.counselingHistoryNotes !== undefined ? data.counselingHistoryNotes?.trim() || null : undefined,
+        submit: submitClientReport,
       });
 
       const updatedBooking = await storage.getPsychologistBooking(booking.id);
@@ -2096,11 +2115,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const providerName = user.psychologistProfileName || getDisplayName(user);
       const canAccess =
         booking.userId === req.user.claims.sub ||
         canManageBookingsRole(user.role) ||
-        (user.role === "psychologist" && booking.psychologistName === providerName);
+        user.role === "psychologist";
       if (!canAccess) {
         return res.status(403).json({ message: "Access denied" });
       }

@@ -521,17 +521,19 @@ export class DatabaseStorage implements IStorage {
     },
   ): Promise<void> {
     const hasClientReport = Boolean(report.clientReportNotes || report.reportRecommendations);
+    const updates: Partial<typeof psychologistBookings.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (report.meetingUrl !== undefined) updates.meetingUrl = report.meetingUrl || null;
+    if (report.sessionReport !== undefined) updates.sessionReport = report.sessionReport || null;
+    if (report.reportRecommendations !== undefined) updates.reportRecommendations = report.reportRecommendations || null;
+    if (report.clientReportNotes !== undefined) updates.clientReportNotes = report.clientReportNotes || null;
+    if (report.counselingHistoryNotes !== undefined) updates.counselingHistoryNotes = report.counselingHistoryNotes || null;
+    if (report.submit && hasClientReport) updates.reportSubmittedAt = new Date();
+
     await db
       .update(psychologistBookings)
-      .set({
-        meetingUrl: report.meetingUrl || null,
-        sessionReport: report.sessionReport || null,
-        reportRecommendations: report.reportRecommendations || null,
-        clientReportNotes: report.clientReportNotes || null,
-        counselingHistoryNotes: report.counselingHistoryNotes || null,
-        reportSubmittedAt: report.submit && hasClientReport ? new Date() : undefined,
-        updatedAt: new Date(),
-      })
+      .set(updates)
       .where(eq(psychologistBookings.id, id));
   }
 
