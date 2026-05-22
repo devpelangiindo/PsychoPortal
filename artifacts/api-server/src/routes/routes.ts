@@ -148,6 +148,12 @@ const psychologistScheduleUpdateSchema = z.object({
   slots: z.array(scheduleSlotSchema).max(84),
 });
 
+const resetPasswordWithOtpSchema = z.object({
+  email: z.string().email("Email tidak valid"),
+  otp: z.string().length(6, "OTP harus 6 digit"),
+  newPassword: z.string().min(8, "Password minimal 8 karakter"),
+});
+
 // Custom authentication middleware for JWT tokens
 function isAuthenticated(req: any, res: any, next: any) {
   try {
@@ -1882,6 +1888,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Login error:", error);
       res.status(500).json({ message: "Gagal login" });
+    }
+  });
+
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+      const { email } = z.object({ email: z.string().email("Email tidak valid") }).parse(req.body);
+      const user = await storage.getUserByEmail(email);
+
+      if (!user || !user.password) {
+        return res.json({ message: "Jika email terdaftar, kode reset password akan dikirim." });
+      }
+
+      const otp = AuthUtils.generateOtp();
+      await storage.createOtpVerification({
+        email,
+        otp,
+        purpose: "password_reset",
+        expiresAt: AuthUtils.getOtpExpirationTime(),
+      });
+
+      const emailSent = await emailService.sendOtpEmail({
+        to: email,
+        otp,
+        purpose: "password_reset",
+        firstName: user.firstName || undefined,
+      });
+
+      if (!emailSent) {
+        return res.status(500).json({ message: "Gagal mengirim email reset password" });
+      }
+
+      res.json({ message: "Kode reset password telah dikirim ke email Anda." });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data tidak valid", errors: error.errors });
+      }
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Gagal memproses reset password" });
+    }
+  });
+
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const data = resetPasswordWithOtpSchema.parse(req.body);
+      const otpRecord = await storage.getValidOtp(data.email, data.otp, "password_reset");
+      if (!otpRecord) {
+        return res.status(400).json({ message: "Kode OTP tidak valid atau sudah kadaluarsa" });
+      }
+
+      const user = await storage.getUserByEmail(data.email);
+      if (!user) {
+        return res.status(404).json({ message: "User tidak ditemukan" });
+      }
+
+      await storage.resetUserPassword(user.id, data.newPassword);
+      await storage.markOtpAsUsed(otpRecord.id);
+
+      res.json({ message: "Password berhasil direset. Silakan login dengan password baru." });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data tidak valid", errors: error.errors });
+      }
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Gagal mereset password" });
     }
   });
 

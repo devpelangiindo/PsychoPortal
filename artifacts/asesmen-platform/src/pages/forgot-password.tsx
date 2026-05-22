@@ -8,16 +8,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Mail, CheckCircle } from "lucide-react";
+import { ArrowLeft, Mail, CheckCircle, KeyRound } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Format email tidak valid")
 });
 
+const resetPasswordSchema = z.object({
+  otp: z.string().length(6, "OTP harus 6 digit"),
+  newPassword: z.string().min(8, "Password minimal 8 karakter"),
+  confirmPassword: z.string().min(8, "Konfirmasi password minimal 8 karakter"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Konfirmasi password tidak sesuai",
+  path: ["confirmPassword"],
+});
+
 type ForgotPasswordRequest = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordRequest = z.infer<typeof resetPasswordSchema>;
 
 export default function ForgotPassword() {
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -27,18 +39,42 @@ export default function ForgotPassword() {
       email: ""
     }
   });
+  const resetForm = useForm<ResetPasswordRequest>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      otp: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
 
   const onSubmit = async (data: ForgotPasswordRequest) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // For now, we'll just simulate the functionality
-      // In a real implementation, this would send a password reset email
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await apiRequest("POST", "/api/auth/forgot-password", data);
+      setOtpSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat mengirim email reset password. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onResetPassword = async (data: ResetPasswordRequest) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await apiRequest("POST", "/api/auth/reset-password", {
+        email: form.getValues("email"),
+        otp: data.otp,
+        newPassword: data.newPassword,
+      });
       setIsSubmitted(true);
     } catch (err) {
-      setError("Terjadi kesalahan saat mengirim email reset password. Silakan coba lagi.");
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat mereset password. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }
@@ -53,16 +89,15 @@ export default function ForgotPassword() {
               <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
             <CardTitle className="text-2xl font-bold text-green-800 dark:text-green-200">
-              Email Terkirim
+              Password Diperbarui
             </CardTitle>
             <CardDescription className="text-green-600 dark:text-green-400">
-              Kami telah mengirim instruksi reset password ke email Anda
+              Password Anda berhasil diperbarui
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-center text-sm text-muted-foreground">
-              Periksa kotak masuk email Anda dan ikuti petunjuk untuk mengatur password baru.
-              Jika tidak ada email, periksa folder spam/junk.
+              Silakan kembali ke halaman login dan masuk menggunakan password baru.
             </div>
             
             <div className="flex flex-col gap-2">
@@ -76,11 +111,13 @@ export default function ForgotPassword() {
                 variant="outline"
                 onClick={() => {
                   setIsSubmitted(false);
+                  setOtpSent(false);
                   form.reset();
+                  resetForm.reset();
                 }}
                 className="w-full border-green-300 text-green-700 hover:bg-green-50 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900"
               >
-                Kirim Ulang Email
+                Reset Password Lain
               </Button>
             </div>
           </CardContent>
@@ -97,13 +134,16 @@ export default function ForgotPassword() {
             <Mail className="h-6 w-6 text-green-600 dark:text-green-400" />
           </div>
           <CardTitle className="text-2xl font-bold text-green-800 dark:text-green-200">
-            Lupa Password
+            {otpSent ? "Masukkan Kode Reset" : "Lupa Password"}
           </CardTitle>
           <CardDescription className="text-green-600 dark:text-green-400">
-            Masukkan email Anda untuk menerima instruksi reset password
+            {otpSent
+              ? "Masukkan OTP dari email dan password baru Anda"
+              : "Masukkan email Anda untuk menerima kode reset password"}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {!otpSent ? (
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -137,6 +177,96 @@ export default function ForgotPassword() {
               {isLoading ? "Mengirim..." : "Kirim Email Reset"}
             </Button>
           </form>
+          ) : (
+          <form onSubmit={resetForm.handleSubmit(onResetPassword)} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <Alert>
+              <Mail className="h-4 w-4" />
+              <AlertDescription>
+                Kode OTP telah dikirim ke {form.getValues("email")}. Periksa inbox atau folder spam/junk.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <Label htmlFor="otp" className="text-green-700 dark:text-green-300">
+                Kode OTP
+              </Label>
+              <Input
+                id="otp"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="123456"
+                {...resetForm.register("otp")}
+                className="border-green-300 focus:border-green-500 focus:ring-green-500"
+              />
+              {resetForm.formState.errors.otp && (
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {resetForm.formState.errors.otp.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newPassword" className="text-green-700 dark:text-green-300">
+                Password Baru
+              </Label>
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="Minimal 8 karakter"
+                {...resetForm.register("newPassword")}
+                className="border-green-300 focus:border-green-500 focus:ring-green-500"
+              />
+              {resetForm.formState.errors.newPassword && (
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {resetForm.formState.errors.newPassword.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-green-700 dark:text-green-300">
+                Konfirmasi Password Baru
+              </Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Ulangi password baru"
+                {...resetForm.register("confirmPassword")}
+                className="border-green-300 focus:border-green-500 focus:ring-green-500"
+              />
+              {resetForm.formState.errors.confirmPassword && (
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {resetForm.formState.errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+            >
+              <KeyRound className="h-4 w-4 mr-2" />
+              {isLoading ? "Menyimpan..." : "Reset Password"}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoading}
+              onClick={() => form.handleSubmit(onSubmit)()}
+              className="w-full border-green-300 text-green-700 hover:bg-green-50"
+            >
+              Kirim Ulang OTP
+            </Button>
+          </form>
+          )}
 
           <div className="mt-6 text-center">
             <Button

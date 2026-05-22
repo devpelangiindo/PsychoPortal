@@ -37,6 +37,7 @@ import Artikel from "@/pages/artikel";
 import ArtikelDetail from "@/pages/artikel-detail";
 import TimDetail from "@/pages/tim-detail";
 import WhatsAppBranchChooser from "@/components/WhatsAppBranchChooser";
+import { useIdleLogout } from "@/hooks/useIdleLogout";
 
 import NotFound from "@/pages/not-found";
 
@@ -94,6 +95,8 @@ function Router() {
 }
 
 function App() {
+  useIdleLogout();
+
   const routerBase = window.location.pathname.startsWith(import.meta.env.BASE_URL)
     ? import.meta.env.BASE_URL.replace(/\/$/, "")
     : "";

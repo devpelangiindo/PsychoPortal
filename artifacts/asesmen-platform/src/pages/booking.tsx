@@ -27,7 +27,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDisplayDate } from "@/lib/date-format";
 
 type BookingService = {
   id: number;
@@ -104,8 +103,6 @@ const CONSULTATION_TYPES = [
   { value: "family", label: "Permasalahan keluarga", hint: "Keluarga" },
 ] satisfies Array<{ value: ConsultationType; label: string; hint: string }>;
 
-const TIME_SLOTS = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"];
-
 const LOCATIONS = [
   { value: "online", label: "Online", detail: "Sesi dilakukan secara daring" },
   { value: "colombo", label: "Offline Colombo", detail: "Jl. Colombo No.8, Samirono, Caturtunggal, Sleman, DIY 55281" },
@@ -132,9 +129,17 @@ const formatDateInput = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-const getDayOfWeek = (dateString: string) => {
+const formatScheduleOption = (dateString: string, timeSlot: string) => {
   const [year, month, day] = dateString.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const formattedDate = new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+  return `${formattedDate}, Pukul ${timeSlot}`;
 };
 
 export default function Booking() {
@@ -156,7 +161,7 @@ export default function Booking() {
     childBirthDate: "",
     previousDiagnosis: "",
     preferredDate: "",
-    preferredTime: TIME_SLOTS[0],
+    preferredTime: "",
     psychologistName: "",
     location: "online",
   });
@@ -182,6 +187,12 @@ export default function Booking() {
   }, [form.consultationType]);
 
   const selectedPsychologist = availablePsychologists.find((psychologist) => psychologist.name === form.psychologistName);
+  const today = useMemo(() => formatDateInput(new Date()), []);
+  const maxBookingDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 14);
+    return formatDateInput(date);
+  }, []);
   const { data: availabilityData } = useQuery<AvailabilityResponse>({
     queryKey: ["/api/psychologist-availability", form.psychologistName],
     queryFn: async () => {
@@ -194,17 +205,30 @@ export default function Booking() {
     if (!form.preferredDate || !availabilityData?.scheduleSlots?.length) return [];
     return availabilityData.scheduleSlots.filter((slot) => slot.scheduleDate === form.preferredDate && slot.isAvailable);
   }, [availabilityData, form.preferredDate]);
+  const availableScheduleOptions = useMemo(() => {
+    if (!availabilityData?.scheduleSlots?.length) return [];
+    const unique = new Map<string, ScheduleSlot>();
+    availabilityData.scheduleSlots
+      .filter((slot) => slot.isAvailable && slot.scheduleDate >= today && slot.scheduleDate <= maxBookingDate)
+      .forEach((slot) => {
+        const key = `${slot.scheduleDate}|${slot.timeSlot}`;
+        if (!unique.has(key)) unique.set(key, slot);
+      });
+
+    return Array.from(unique.values())
+      .sort((a, b) => `${a.scheduleDate} ${a.timeSlot}`.localeCompare(`${b.scheduleDate} ${b.timeSlot}`))
+      .map((slot) => ({
+        value: `${slot.scheduleDate}|${slot.timeSlot}`,
+        date: slot.scheduleDate,
+        time: slot.timeSlot,
+        label: formatScheduleOption(slot.scheduleDate, slot.timeSlot),
+      }));
+  }, [availabilityData, maxBookingDate, today]);
   const availableTimeSlots = useMemo(() => {
-    if (dateScheduleSlots.length > 0) {
-      return Array.from(new Set(dateScheduleSlots.map((slot) => slot.timeSlot))).sort();
-    }
-    if (!form.preferredDate || !availabilityData?.availability?.length) return TIME_SLOTS;
-    const dayOfWeek = getDayOfWeek(form.preferredDate);
-    return TIME_SLOTS.filter((slot) => {
-      const availability = availabilityData.availability.find((item) => item.dayOfWeek === dayOfWeek && item.timeSlot === slot);
-      return availability?.isAvailable !== false;
-    });
-  }, [availabilityData, dateScheduleSlots, form.preferredDate]);
+    return availableScheduleOptions
+      .filter((option) => !form.preferredDate || option.date === form.preferredDate)
+      .map((option) => option.time);
+  }, [availableScheduleOptions, form.preferredDate]);
   const availableLocations = useMemo(() => {
     if (!form.preferredTime || dateScheduleSlots.length === 0) return LOCATIONS;
     const offlineLocations = new Set(
@@ -214,39 +238,47 @@ export default function Booking() {
     );
     return LOCATIONS.filter((location) => location.value === "online" || offlineLocations.has(location.value));
   }, [dateScheduleSlots, form.preferredTime]);
-  const today = useMemo(() => formatDateInput(new Date()), []);
-  const maxBookingDate = useMemo(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 14);
-    return formatDateInput(date);
-  }, []);
-
+  const selectedScheduleLabel = form.preferredDate && form.preferredTime
+    ? formatScheduleOption(form.preferredDate, form.preferredTime)
+    : "-";
   const updateField = (field: keyof BookingForm, value: string) => {
     setForm((current) => {
       const next = { ...current, [field]: value };
       if (field === "consultationType") {
         next.psychologistName = "";
+        next.preferredDate = "";
+        next.preferredTime = "";
+        next.location = "online";
         if (value !== "child") {
           next.childName = "";
           next.childBirthDate = "";
           next.previousDiagnosis = "";
         }
       }
+      if (field === "psychologistName") {
+        next.preferredDate = "";
+        next.preferredTime = "";
+        next.location = "online";
+      }
       return next;
     });
   };
-
-  useEffect(() => {
-    if (availableTimeSlots.length > 0 && !availableTimeSlots.includes(form.preferredTime)) {
-      updateField("preferredTime", availableTimeSlots[0]);
-    }
-  }, [availableTimeSlots, form.preferredTime]);
 
   useEffect(() => {
     if (!availableLocations.some((location) => location.value === form.location)) {
       updateField("location", "online");
     }
   }, [availableLocations, form.location]);
+
+  const updateScheduleChoice = (value: string) => {
+    const [preferredDate, preferredTime] = value.split("|");
+    setForm((current) => ({
+      ...current,
+      preferredDate: preferredDate || "",
+      preferredTime: preferredTime || "",
+      location: "online",
+    }));
+  };
 
   const createBookingMutation = useMutation({
     mutationFn: async () => {
@@ -531,33 +563,6 @@ export default function Booking() {
                   <CardTitle>Penjadwalan</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Field label="Pilihan tanggal">
-                      <Input
-                        type="date"
-                        min={today}
-                        max={maxBookingDate}
-                        value={form.preferredDate}
-                        onChange={(event) => updateField("preferredDate", event.target.value)}
-                      />
-                    </Field>
-                    <Field label="Pilihan waktu">
-                      <select
-                        value={form.preferredTime}
-                        onChange={(event) => updateField("preferredTime", event.target.value)}
-                        disabled={Boolean(form.psychologistName && form.preferredDate && availableTimeSlots.length === 0)}
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      >
-                        {availableTimeSlots.length === 0 ? (
-                          <option value="">Tidak ada jam tersedia</option>
-                        ) : availableTimeSlots.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
-                      </select>
-                      {form.psychologistName && form.preferredDate && availableTimeSlots.length === 0 && (
-                        <p className="text-xs text-red-600 mt-2">Psikolog tidak tersedia pada tanggal ini.</p>
-                      )}
-                    </Field>
-                  </div>
-
                   <div>
                     <Label>Pilihan psikolog</Label>
                     <div className="grid md:grid-cols-2 gap-4 mt-2">
@@ -588,6 +593,31 @@ export default function Booking() {
                       })}
                     </div>
                   </div>
+
+                  <Field label="Pilihan jadwal konseling">
+                    <select
+                      value={form.preferredDate && form.preferredTime ? `${form.preferredDate}|${form.preferredTime}` : ""}
+                      onChange={(event) => updateScheduleChoice(event.target.value)}
+                      disabled={!form.psychologistName || availableScheduleOptions.length === 0}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">
+                        {!form.psychologistName
+                          ? "Pilih psikolog terlebih dahulu"
+                          : availableScheduleOptions.length === 0
+                            ? "Belum ada jadwal tersedia untuk 14 hari ke depan"
+                            : "Pilih hari, tanggal, dan waktu"}
+                      </option>
+                      {availableScheduleOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                    {form.psychologistName && availableScheduleOptions.length === 0 && (
+                      <p className="text-xs text-red-600 mt-2">
+                        Jadwal psikolog belum tersedia. Jadwal mengikuti upload ketersediaan pada dashboard psikolog.
+                      </p>
+                    )}
+                  </Field>
 
                   <div>
                     <Label>Pilihan lokasi</Label>
@@ -631,7 +661,7 @@ export default function Booking() {
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-neutral-500">Jadwal</span>
-                      <span className="font-semibold text-right">{form.preferredDate ? formatDisplayDate(form.preferredDate) : "-"} · {form.preferredTime}</span>
+                      <span className="font-semibold text-right">{selectedScheduleLabel}</span>
                     </div>
                     <div className="border-t pt-3 flex justify-between items-center">
                       <span className="font-semibold">Total Transaksi</span>
@@ -687,7 +717,7 @@ export default function Booking() {
               <div className="space-y-2 text-sm">
                 <SummaryRow label="Jenis" value={CONSULTATION_TYPES.find((type) => type.value === form.consultationType)?.label ?? "-"} />
                 <SummaryRow label="Psikolog" value={selectedPsychologist?.name ?? "-"} />
-                <SummaryRow label="Waktu" value={form.preferredDate ? `${formatDisplayDate(form.preferredDate)}, ${form.preferredTime}` : "-"} />
+                <SummaryRow label="Waktu" value={selectedScheduleLabel} />
                 <SummaryRow label="Lokasi" value={LOCATIONS.find((location) => location.value === form.location)?.label ?? "-"} />
               </div>
               <div className="border-t pt-4">
