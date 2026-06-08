@@ -115,6 +115,7 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   updateUser(userId: string, updates: Partial<User>): Promise<User>;
   resetUserPassword(userId: string, newPassword: string): Promise<void>;
+  deleteUnusedUser(userId: string): Promise<boolean>;
   getAllUserAssessments(): Promise<UserAssessmentWithDetails[]>;
   getAssessmentStats(): Promise<{
     totalUsers: number;
@@ -781,6 +782,29 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ password: hashedPassword, updatedAt: new Date() })
       .where(eq(users.id, userId));
+  }
+
+  async deleteUnusedUser(userId: string): Promise<boolean> {
+    const [usage] = await db
+      .select({
+        orderCount: sql<number>`count(distinct ${orders.id})`,
+        bookingCount: sql<number>`count(distinct ${psychologistBookings.id})`,
+        assessmentCount: sql<number>`count(distinct ${userAssessments.id})`,
+      })
+      .from(users)
+      .leftJoin(orders, eq(orders.userId, users.id))
+      .leftJoin(psychologistBookings, eq(psychologistBookings.userId, users.id))
+      .leftJoin(userAssessments, eq(userAssessments.userId, users.id))
+      .where(eq(users.id, userId));
+
+    const hasLinkedData = Number(usage?.orderCount ?? 0) > 0
+      || Number(usage?.bookingCount ?? 0) > 0
+      || Number(usage?.assessmentCount ?? 0) > 0;
+
+    if (hasLinkedData) return false;
+
+    const deleted = await db.delete(users).where(eq(users.id, userId)).returning({ id: users.id });
+    return deleted.length > 0;
   }
 
   async getAllUserAssessments(): Promise<UserAssessmentWithDetails[]> {

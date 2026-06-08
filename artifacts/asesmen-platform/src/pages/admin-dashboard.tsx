@@ -23,9 +23,8 @@ interface AdminStats {
 
 const psychologists = [
   { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] },
-  { name: "Bagas Paramajana, M.Psi., Psikolog", types: ["child"] },
-  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["adult", "family"] },
-  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["adult", "family"] },
+  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"] },
   { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] },
 ];
 

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Search, Edit, Key, UserCheck, UserX } from "lucide-react";
+import { ArrowLeft, Search, Edit, Key, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -146,6 +146,43 @@ export default function AdminUsers() {
     },
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async (user: User) => {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+      }
+
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "Berhasil",
+        description: "User tidak terpakai berhasil dihapus.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Gagal menghapus user",
+        description: error.message || "User masih memiliki data terkait atau tidak dapat dihapus.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const editForm = useForm<UserUpdateRequest>({
     resolver: zodResolver(userUpdateSchema),
     defaultValues: {
@@ -201,6 +238,12 @@ export default function AdminUsers() {
     if (selectedUser) {
       resetPasswordMutation.mutate({ userId: selectedUser.id, newPassword: data.newPassword });
     }
+  };
+
+  const onDeleteUser = (user: User) => {
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+    if (!window.confirm(`Hapus user "${name}"? User hanya dapat dihapus jika belum memiliki order, booking, atau asesmen.`)) return;
+    deleteUserMutation.mutate(user);
   };
 
   const formatDate = (dateString: string | null) => {
@@ -325,6 +368,15 @@ export default function AdminUsers() {
                           >
                             <Key className="w-4 h-4" />
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onDeleteUser(user)}
+                            disabled={deleteUserMutation.isPending}
+                            aria-label="Hapus user"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -416,7 +468,6 @@ export default function AdminUsers() {
                         <select {...field} value={field.value ?? ""} className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-md px-3 py-2">
                           <option value="">Pilih nama di layanan booking</option>
                           <option value="Tria Khusni Barokah, M.Psi., Psikolog">Tria Khusni Barokah, M.Psi., Psikolog</option>
-                          <option value="Bagas Paramajana, M.Psi., Psikolog">Bagas Paramajana, M.Psi., Psikolog</option>
                           <option value="Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog">Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog</option>
                           <option value="Retno Rahayu, M.Psi., Psikolog">Retno Rahayu, M.Psi., Psikolog</option>
                           <option value="Ridwan Rahmawan, S.Psi., M.H., Psikolog">Ridwan Rahmawan, S.Psi., M.H., Psikolog</option>

@@ -1573,14 +1573,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Jadwal sudah dikunci. Hubungi admin untuk perubahan." });
       }
 
-      const normalizedSlots = data.slots
-        .filter((slot) => slot.isAvailable !== false)
-        .map((slot) => ({
-          scheduleDate: slot.scheduleDate,
-          timeSlot: normalizeTimeSlot(slot.timeSlot),
-          location: slot.location,
-          isAvailable: true,
-        }));
+      const normalizedSlots = data.slots.map((slot) => ({
+        scheduleDate: slot.scheduleDate,
+        timeSlot: normalizeTimeSlot(slot.timeSlot),
+        location: slot.location,
+        isAvailable: slot.isAvailable !== false,
+      }));
 
       const invalidSlot = normalizedSlots.find((slot) =>
         slot.scheduleDate < startDate ||
@@ -3057,6 +3055,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error resetting password:", error);
       res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  app.delete('/api/admin/users/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const userId = req.params.userId;
+      if (userId === req.user.claims.sub) {
+        return res.status(400).json({ message: "Admin tidak dapat menghapus akun sendiri." });
+      }
+
+      const deleted = await storage.deleteUnusedUser(userId);
+      if (!deleted) {
+        return res.status(409).json({ message: "User tidak dapat dihapus karena masih memiliki order, booking, atau asesmen. Nonaktifkan akun jika masih perlu menyimpan riwayatnya." });
+      }
+
+      res.json({ message: "User berhasil dihapus" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 

@@ -795,7 +795,7 @@ export default function Booking() {
                   ) : (
                     <>
                       <CreditCard className="w-4 h-4 mr-2" />
-                      Bayar dengan Midtrans
+                      Pembayaran
                     </>
                   )}
                 </Button>
@@ -1361,7 +1361,7 @@ function BookingLanding({
               />
               <ProcessStep
                 icon={<CreditCard className="w-7 h-7" />}
-                title="4. Bayar Midtrans"
+                title="4. Pembayaran"
                 description="Lanjutkan ke pembayaran aman, lalu tunggu konfirmasi jadwal dari admin."
               />
             </div>
