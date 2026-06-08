@@ -176,6 +176,11 @@ class EmailService {
 
     // If no transporter is configured, log to console for development
     if (!this.transporter) {
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('[WARN] Email transporter not configured in production. OTP email was NOT delivered.');
+        return false;
+      }
+
       console.log('\n=== EMAIL OTP (Development Mode) ===');
       console.log(`To: ${to}`);
       console.log(`Subject: ${subject}`);
