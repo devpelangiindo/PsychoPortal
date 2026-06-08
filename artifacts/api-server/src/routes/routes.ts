@@ -16,9 +16,8 @@ import { createMidtransTransaction, handleMidtransCallback, checkTransactionStat
 
 const PSYCHOLOGISTS = [
   { name: "Tria Khusni Barokah, M.Psi., Psikolog", fee: "300000", types: ["child"] },
-  { name: "Bagas Paramajana, M.Psi., Psikolog", fee: "300000", types: ["child"] },
-  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", fee: "400000", types: ["adult", "family"] },
-  { name: "Retno Rahayu, M.Psi., Psikolog", fee: "300000", types: ["adult", "family"] },
+  { name: "Retno Rahayu, M.Psi., Psikolog", fee: "300000", types: ["child", "adult", "family"] },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", fee: "400000", types: ["child", "adult", "family"] },
   { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", fee: "300000", types: ["adult"] },
 ];
 

@@ -107,9 +107,8 @@ type BookingForm = {
 
 const PSYCHOLOGISTS = [
   { name: "Tria Khusni Barokah, M.Psi., Psikolog", fee: 300000, types: ["child"] as ConsultationType[] },
-  { name: "Bagas Paramajana, M.Psi., Psikolog", fee: 300000, types: ["child"] as ConsultationType[] },
-  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", fee: 400000, types: ["adult", "family"] as ConsultationType[] },
-  { name: "Retno Rahayu, M.Psi., Psikolog", fee: 300000, types: ["adult", "family"] as ConsultationType[] },
+  { name: "Retno Rahayu, M.Psi., Psikolog", fee: 300000, types: ["child", "adult", "family"] as ConsultationType[] },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", fee: 400000, types: ["child", "adult", "family"] as ConsultationType[] },
   { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", fee: 300000, types: ["adult"] as ConsultationType[] },
 ];
 
@@ -117,7 +116,6 @@ const PSYCHOLOGIST_PROFILES = [
   "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
   "Retno Rahayu, M.Psi., Psikolog",
   "Tria Khusni Barokah, M.Psi., Psikolog",
-  "Bagas Paramajana, M.Psi., Psikolog",
   "Ridwan Rahmawan, S.Psi., M.H., Psikolog",
 ].map((name) => ({
   name,
@@ -511,7 +509,7 @@ export default function Booking() {
     createBookingMutation.mutate();
   };
 
-  const steps = ["Form A", "Form B", "Consent", "Penjadwalan", "Form C"];
+  const steps = ["Form A", "Form B", "Informed Consent Form", "Penjadwalan", "Form C"];
 
   if (!isFormRoute) {
     return (
@@ -899,7 +897,7 @@ function GeneralClientForm({
           onChange={(event) => updateField("whatsappNumber", event.target.value.replace(/\D/g, ""))}
         />
       </Field>
-      <Field label="Pekerjaan saat ini">
+      <Field label="Pekerjaan saat ini (untuk klien usia di atas 17 tahun)">
         <Input value={form.occupation} onChange={(event) => updateField("occupation", event.target.value)} />
       </Field>
       <Field label="Agama">
@@ -1010,7 +1008,7 @@ function ConsentForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Informed Consent Psikologi</CardTitle>
+        <CardTitle>Informed Consent Form</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="rounded-lg border bg-white p-4 text-sm leading-relaxed text-neutral-700 space-y-3">
@@ -1050,26 +1048,47 @@ function ConsentForm({
           </Field>
         </div>
 
-        <Field label="Informasi diagnosa medis lain">
-          <Textarea
-            rows={3}
-            value={form.consentMedicalInfo}
-            onChange={(event) => updateField("consentMedicalInfo", event.target.value)}
-            placeholder="Saya memahami bahwa jika ada diagnosa medis yang lain, saya menginformasikan dengan jelas kepada psikolog klinis."
+        <div className="space-y-3 rounded-lg border bg-white p-4">
+          <p className="text-sm font-medium text-neutral-900">
+            Saya memahami bahwa jika ada diagnosa medis yang lain, saya menginformasikan dengan jelas kepada psikolog klinis: <span className="text-red-600">*</span>
+          </p>
+          <ConsentCheckbox
+            checked={Boolean(form.consentMedicalInfo)}
+            label="Saya/yang saya wakili tidak memiliki penyakit medis yang gawat"
+            onChange={(checked) => updateField("consentMedicalInfo", checked ? "Saya/yang saya wakili tidak memiliki penyakit medis yang gawat" : "")}
           />
-        </Field>
-
-        <Field label="Status medis">
-          <select value={form.consentMedicalStatus} onChange={(event) => updateField("consentMedicalStatus", event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-            <option value="">Pilih status medis</option>
-            <option value="Tidak memiliki penyakit medis yang gawat">Saya/yang saya wakili tidak memiliki penyakit medis yang gawat</option>
-            <option value="Sudah mendapatkan rujukan dokter">Saya/yang saya wakili telah mendapatkan rujukan dari dokter bahwa saya dapat menerima tindakan/terapi psikologi klinis</option>
-          </select>
-        </Field>
+          <ConsentCheckbox
+            checked={Boolean(form.consentMedicalStatus)}
+            label="Saya/yang saya wakili telah mendapatkan rujukan dari dokter bahwa saya dapat menerima tindakan/terapi psikologi klinis"
+            onChange={(checked) => updateField("consentMedicalStatus", checked ? "Saya/yang saya wakili telah mendapatkan rujukan dari dokter bahwa saya dapat menerima tindakan/terapi psikologi klinis" : "")}
+          />
+        </div>
 
         <SignaturePad value={form.consentSignature} onChange={(value) => updateField("consentSignature", value)} />
       </CardContent>
     </Card>
+  );
+}
+
+function ConsentCheckbox({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-md border border-gray-200 p-3 text-sm leading-relaxed text-neutral-700 transition-colors hover:border-green-300 hover:bg-green-50/50">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 
@@ -1201,14 +1220,15 @@ function formatChildConcernHistory(form: BookingForm) {
 
 function formatConsentHistory(form: BookingForm) {
   return [
-    "Informed Consent Psikologi",
+    "Informed Consent Form",
     `Nama: ${form.consentName || "-"}`,
     `Alamat rumah: ${form.consentAddress || "-"}`,
     `No telp/WA: ${form.consentPhone || "-"}`,
     `Usia: ${form.consentAge || "-"}`,
     `Bertindak sebagai: ${form.consentRole || "-"}`,
-    `Informasi diagnosa medis lain: ${form.consentMedicalInfo || "-"}`,
-    `Status medis: ${form.consentMedicalStatus || "-"}`,
+    "Pernyataan diagnosa medis lain:",
+    `1. ${form.consentMedicalInfo || "-"}`,
+    `2. ${form.consentMedicalStatus || "-"}`,
     `Kota/Tanggal: ${form.consentCity || "-"}, ${form.consentDate || "-"}`,
     `Tanda tangan digital: ${form.consentSignature || "-"}`,
   ].join("\n");
