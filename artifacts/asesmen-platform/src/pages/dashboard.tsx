@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { CreditCard, Download, FileText, Loader2, MessageCircle } from "lucide-react";
+import { AlertCircle, Clock, CreditCard, Download, FileText, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
 import type { UserAssessmentWithDetails, OrderWithItems, Assessment } from "@shared/schema";
-import { formatDisplayDate } from "@/lib/date-format";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-format";
 
 type Booking = {
   id: number;
@@ -27,6 +27,30 @@ type Booking = {
   reportSubmittedAt: string | null;
   service: { name: string };
 };
+
+const PAYMENT_EXPIRY_MINUTES = 15;
+
+function isOrderPaid(order: OrderWithItems) {
+  return order.status === "completed" || order.paymentStatus === "paid";
+}
+
+function isOrderCancelled(order: OrderWithItems) {
+  return order.status === "cancelled" || ["expired", "cancelled", "failed"].includes(order.paymentStatus || "");
+}
+
+function getPaymentDeadline(order: OrderWithItems) {
+  if (!order.paymentId || isOrderPaid(order) || isOrderCancelled(order) || !order.updatedAt) return null;
+
+  const updatedAt = new Date(order.updatedAt).getTime();
+  if (Number.isNaN(updatedAt)) return null;
+
+  return new Date(updatedAt + PAYMENT_EXPIRY_MINUTES * 60 * 1000);
+}
+
+function isOrderPaymentExpired(order: OrderWithItems) {
+  const deadline = getPaymentDeadline(order);
+  return Boolean(deadline && Date.now() >= deadline.getTime());
+}
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -194,11 +218,11 @@ export default function Dashboard() {
     }
   };
 
-  const isOrderUnpaid = (order: OrderWithItems) =>
-    order.status !== 'completed' && order.paymentStatus !== 'paid';
+  const canSettleOrderPayment = (order: OrderWithItems) =>
+    !isOrderPaid(order) && !isOrderCancelled(order) && !isOrderPaymentExpired(order);
 
   const handleSettleOrderPayment = (order: OrderWithItems) => {
-    if (!isOrderUnpaid(order) || settlePaymentMutation.isPending) return;
+    if (!canSettleOrderPayment(order) || settlePaymentMutation.isPending) return;
     setSettlingOrderId(order.id);
     settlePaymentMutation.mutate(order.id);
   };
@@ -476,7 +500,12 @@ export default function Dashboard() {
                 </div>
               ) : orders && orders.length > 0 ? (
                 <div className="space-y-4">
-                  {orders.map((order) => (
+                  {orders.map((order) => {
+                    const paymentDeadline = getPaymentDeadline(order);
+                    const paymentExpired = isOrderPaymentExpired(order);
+                    const canPay = canSettleOrderPayment(order);
+
+                    return (
                     <div key={order.id} className="dashboard-item">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
@@ -492,14 +521,26 @@ export default function Dashboard() {
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
                           {formatDisplayDate(order.createdAt)}
                         </p>
-                        {isOrderUnpaid(order) && (
+                        {paymentDeadline && canPay && (
+                          <p className="mt-2 inline-flex items-center gap-1 text-xs text-amber-700">
+                            <Clock className="w-3 h-3" />
+                            Batas pembayaran: {formatDisplayDateTime(paymentDeadline)}. Kode pembayaran berlaku 15 menit.
+                          </p>
+                        )}
+                        {canPay && (
                           <p className="mt-2 inline-flex items-center gap-1 text-xs text-green-700">
                             <MessageCircle className="w-3 h-3" />
                             Placeholder pengingat WA pembayaran: menunggu setup WhatsApp Business API.
                           </p>
                         )}
+                        {(paymentExpired || isOrderCancelled(order)) && !isOrderPaid(order) && (
+                          <p className="mt-2 inline-flex items-center gap-1 text-xs text-red-700">
+                            <AlertCircle className="w-3 h-3" />
+                            Pesanan sudah kadaluwarsa/dibatalkan. Silakan isi booking atau buat pesanan ulang.
+                          </p>
+                        )}
                       </div>
-                      {isOrderUnpaid(order) && (
+                      {canPay && (
                         <div className="ml-4">
                           <Button
                             size="sm"
@@ -518,7 +559,8 @@ export default function Dashboard() {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">

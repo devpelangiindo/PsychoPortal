@@ -57,6 +57,7 @@ const coreApi = new midtransClient.CoreApi({
 export interface MidtransTransactionData {
   orderId: string;
   amount: number;
+  expiryMinutes?: number;
   customerDetails: {
     first_name: string;
     last_name?: string;
@@ -96,6 +97,14 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
       },
       customer_details: transactionData.customerDetails,
       item_details: itemDetails,
+      expiry: {
+        duration: transactionData.expiryMinutes ?? 15,
+        unit: 'minutes',
+      },
+      page_expiry: {
+        duration: transactionData.expiryMinutes ?? 15,
+        unit: 'minutes',
+      },
       // Add merchant configuration
       credit_card: {
         secure: true,

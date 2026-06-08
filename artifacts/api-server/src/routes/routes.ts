@@ -33,6 +33,27 @@ function canAccessPsychologistAreaRole(role?: string | null) {
 const TIME_SLOTS = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"] as const;
 const TIME_SLOT_PATTERN = /^([01]\d|2[0-1])[.:][0-5]\d\s*-\s*([01]\d|2[0-1])[.:][0-5]\d$/;
 const TWO_WEEK_DAYS = 14;
+const PAYMENT_EXPIRY_MINUTES = 15;
+
+function hasPaymentExpired(order: { status: string; paymentId?: string | null; paymentStatus?: string | null; updatedAt?: Date | string | null }) {
+  if (order.status !== "pending" || !order.paymentId || order.paymentStatus === "paid") return false;
+
+  const updatedAt = order.updatedAt ? new Date(order.updatedAt).getTime() : Number.NaN;
+  if (Number.isNaN(updatedAt)) return false;
+
+  return Date.now() - updatedAt >= PAYMENT_EXPIRY_MINUTES * 60 * 1000;
+}
+
+async function expireOrderIfNeeded<T extends { id: number; status: string; paymentId?: string | null; paymentStatus?: string | null; updatedAt?: Date | string | null }>(order: T) {
+  if (!hasPaymentExpired(order)) return order;
+
+  await storage.updateOrderStatus(order.id, "cancelled", order.paymentId || undefined, "expired");
+  return {
+    ...order,
+    status: "cancelled",
+    paymentStatus: "expired",
+  };
+}
 
 const bookingRequestSchema = z.object({
   serviceId: z.number().int().positive(),
@@ -2245,6 +2266,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
+      const order = await storage.getOrder(booking.orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      const normalizedOrder = await expireOrderIfNeeded(order);
+      if (normalizedOrder.status === "completed" || normalizedOrder.paymentStatus === "paid") {
+        return res.status(400).json({ message: "Order is already paid" });
+      }
+
+      if (normalizedOrder.status === "cancelled" || normalizedOrder.paymentStatus === "expired" || normalizedOrder.paymentStatus === "cancelled" || normalizedOrder.paymentStatus === "failed") {
+        return res.status(400).json({ message: "Pesanan sudah dibatalkan atau kadaluwarsa. Silakan isi booking ulang." });
+      }
+
       const timestamp = Date.now();
       const midtransOrderId = `order_${booking.orderId}_${timestamp}`;
       const user = await storage.getUser(booking.userId);
@@ -2253,6 +2288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transaction = await createMidtransTransaction({
         orderId: midtransOrderId,
         amount: parseInt(bookingAmount),
+        expiryMinutes: PAYMENT_EXPIRY_MINUTES,
         customerDetails: {
           first_name: booking.clientName || user?.firstName || 'Customer',
           last_name: user?.lastName || '',
@@ -2439,7 +2475,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const orders = await storage.getUserOrders(userId);
-      res.json(orders);
+      const normalizedOrders = await Promise.all(orders.map((order) => expireOrderIfNeeded(order)));
+      res.json(normalizedOrders);
     } catch (error) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
@@ -2449,7 +2486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/orders/:id', isAuthenticated, async (req: any, res) => {
     try {
       const orderId = parseInt(req.params.id);
-      const order = await storage.getOrder(orderId);
+      let order = await storage.getOrder(orderId);
       
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
@@ -2460,6 +2497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
+      order = await expireOrderIfNeeded(order);
       res.json(order);
     } catch (error) {
       console.error("Error fetching order:", error);
@@ -2476,7 +2514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Order ID is required" });
       }
 
-      const order = await storage.getOrder(orderId);
+      let order = await storage.getOrder(orderId);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
       }
@@ -2485,8 +2523,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
+      order = await expireOrderIfNeeded(order);
+
       if (order.status === 'completed' || order.paymentStatus === 'paid') {
         return res.status(400).json({ message: "Order is already paid" });
+      }
+
+      if (order.status === 'cancelled' || order.paymentStatus === 'expired' || order.paymentStatus === 'cancelled' || order.paymentStatus === 'failed') {
+        return res.status(400).json({ message: "Pesanan sudah dibatalkan atau kadaluwarsa. Silakan isi booking ulang." });
       }
 
       console.log(`🔄 Creating Midtrans payment for order ${orderId}`);
@@ -2525,6 +2569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transactionData = {
         orderId: midtransOrderId,
         amount: parseInt(order.totalAmount),
+        expiryMinutes: PAYMENT_EXPIRY_MINUTES,
         customerDetails: {
           first_name: user.firstName || 'Customer',
           last_name: user.lastName || '',
