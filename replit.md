@@ -15,7 +15,7 @@ React + Vite + Tailwind CSS marketing site for Pelangi Indonesia Group:
 - **Fonts**: Plus Jakarta Sans (headings + body), Lora (serif/blockquotes)
 - **Pages**: `/` (Homepage), `/tentang-kami`, `/produk-layanan`, `/produk-layanan/:slug`, `/artikel`, `/artikel/:slug`, `/kontak`
 - **All content is hardcoded** (no CMS integration yet)
-- Contact: WA Bantul +62 816-669-533, WA Colombo +62 811-256-238, email info@pi-education.com
+- Contact: WA Bantul +62 816-669-533, WA Colombo +62 811-256-238, email psikologi.pelangiindonesia@gmail.com
 - Social: @rumahpsikologi_pi (Instagram), @pelangi_indonesia (TikTok)
 
 ## CMS Admin (pi-psychology.com)

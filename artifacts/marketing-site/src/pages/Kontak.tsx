@@ -53,11 +53,11 @@ export default function Kontak() {
             <h2 className="text-2xl font-extrabold mb-8" style={{ color: "#1B4332" }}>Hubungi Kami</h2>
             <div className="flex flex-wrap justify-center gap-4 mb-8">
               <a
-                href="mailto:info@pi-education.com"
+                href="mailto:psikologi.pelangiindonesia@gmail.com"
                 className="flex items-center gap-3 px-6 py-3 rounded-xl border border-gray-200 bg-white hover:border-green-300 hover:shadow-md transition-all text-sm font-medium text-gray-700"
               >
                 <Mail size={18} style={{ color: "#2D6A4F" }} />
-                info@pi-education.com
+                psikologi.pelangiindonesia@gmail.com
               </a>
             </div>
 

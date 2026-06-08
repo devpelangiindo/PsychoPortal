@@ -155,7 +155,7 @@ function ServiceDetail({ slug }: { slug: string }) {
                   Chat WhatsApp
                 </a>
                 <a
-                  href="mailto:info@pi-education.com"
+                  href="mailto:psikologi.pelangiindonesia@gmail.com"
                   className="flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:border-green-300 hover:text-green-800 transition-all"
                 >
                   Kirim Email

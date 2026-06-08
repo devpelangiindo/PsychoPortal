@@ -174,7 +174,7 @@ export default function Kontak() {
                     </a>
 
                     <a
-                      href="mailto:info@pi-education.com"
+                      href="mailto:psikologi.pelangiindonesia@gmail.com"
                       className="flex items-center space-x-4 group"
                     >
                       <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -183,7 +183,7 @@ export default function Kontak() {
                       <div>
                         <p className="font-semibold text-neutral-900 dark:text-foreground group-hover:text-green-600 transition-colors">Email</p>
                         <p className="text-neutral-600 dark:text-muted-foreground text-sm group-hover:text-green-700 transition-colors">
-                          info@pi-education.com
+                          psikologi.pelangiindonesia@gmail.com
                         </p>
                       </div>
                     </a>

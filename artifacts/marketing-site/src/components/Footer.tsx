@@ -118,11 +118,11 @@ export default function Footer() {
                 <span>+62 811-256-238 (Colombo)</span>
               </a>
               <a
-                href="mailto:info@pi-education.com"
+                href="mailto:psikologi.pelangiindonesia@gmail.com"
                 className="flex items-center gap-2 text-green-100/80 hover:text-white transition-colors text-sm"
               >
                 <Mail size={14} className="text-green-400" />
-                <span>info@pi-education.com</span>
+                <span>psikologi.pelangiindonesia@gmail.com</span>
               </a>
             </div>
 
