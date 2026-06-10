@@ -372,11 +372,19 @@ type ScheduleDraftRow = {
 
 type ScheduleDraftSession = {
   key: string;
+  persisted: boolean;
   enabled: boolean;
   startTime: string;
   endTime: string;
   colombo: boolean;
   bantul: boolean;
+};
+
+type DeletedScheduleSlot = {
+  scheduleDate: string;
+  timeSlot: string;
+  location: "online";
+  isAvailable: false;
 };
 
 function ScheduleUploadEditor({
@@ -390,17 +398,20 @@ function ScheduleUploadEditor({
 }) {
   const { toast } = useToast();
   const [rows, setRows] = useState<ScheduleDraftRow[]>(() => buildScheduleRows(scheduleSlots));
+  const [deletedSlots, setDeletedSlots] = useState<DeletedScheduleSlot[]>([]);
   const isLocked = scheduleSlots.some((slot) => slot.isLocked);
   const canUploadToday = getLocalDayOfWeek() <= 5;
 
   useEffect(() => {
     setRows(buildScheduleRows(scheduleSlots));
+    setDeletedSlots([]);
   }, [scheduleSlots]);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const slots = rows.flatMap((row) =>
+      const activeSlots = rows.flatMap((row) =>
         row.sessions.flatMap((session) => {
+          if (!session.enabled && !session.persisted) return [];
           const timeSlot = `${session.startTime.replace(":", ".")} - ${session.endTime.replace(":", ".")}`;
           const locations = [
             "online",
@@ -415,6 +426,14 @@ function ScheduleUploadEditor({
           }));
         }),
       );
+      const activeSlotKeys = new Set(
+        activeSlots
+          .filter((slot) => slot.isAvailable)
+          .map((slot) => `${slot.scheduleDate}|${slot.timeSlot}`),
+      );
+      const slots = activeSlots.concat(
+        deletedSlots.filter((slot) => !activeSlotKeys.has(`${slot.scheduleDate}|${slot.timeSlot}`)),
+      );
       const response = await apiRequest("PUT", "/api/psychologist/schedule-slots", {
         slots,
         ...(isAdmin && psychologistName ? { psychologistName } : {}),
@@ -423,6 +442,7 @@ function ScheduleUploadEditor({
     },
     onSuccess: (data: ScheduleResponse) => {
       setRows(buildScheduleRows(data.scheduleSlots));
+      setDeletedSlots([]);
       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/schedule-slots"] });
       toast({
         title: "Jadwal disimpan",
@@ -469,15 +489,29 @@ function ScheduleUploadEditor({
   };
 
   const removeSession = (rowIndex: number, sessionKey: string) => {
-    setRows((current) => current.map((row, index) => {
-      if (index !== rowIndex) return row;
+    const row = rows[rowIndex];
+    const session = row?.sessions.find((item) => item.key === sessionKey);
+    if (!row || !session) return;
+
+    if (session.persisted) {
+      const timeSlot = `${session.startTime.replace(":", ".")} - ${session.endTime.replace(":", ".")}`;
+      setDeletedSlots((deleted) => [
+        ...deleted.filter((slot) => !(slot.scheduleDate === row.scheduleDate && slot.timeSlot === timeSlot)),
+        {
+          scheduleDate: row.scheduleDate,
+          timeSlot,
+          location: "online",
+          isAvailable: false,
+        },
+      ]);
+    }
+
+    setRows((current) => current.map((currentRow, index) => {
+      if (index !== rowIndex) return currentRow;
+      const sessions = currentRow.sessions.filter((item) => item.key !== sessionKey);
       return {
-        ...row,
-        sessions: row.sessions.map((session) =>
-          session.key === sessionKey
-            ? { ...session, enabled: false, colombo: false, bantul: false }
-            : session,
-        ),
+        ...currentRow,
+        sessions: sessions.length ? sessions : [createDraftSession(currentRow.scheduleDate, 0, false)],
       };
     }));
   };
@@ -593,7 +627,7 @@ function buildScheduleRows(scheduleSlots: ScheduleSlot[]): ScheduleDraftRow[] {
     const date = new Date(today);
     date.setDate(today.getDate() + index);
     const scheduleDate = formatDateInput(date);
-    const slotsForDate = scheduleSlots.filter((slot) => slot.scheduleDate === scheduleDate);
+    const slotsForDate = scheduleSlots.filter((slot) => slot.scheduleDate === scheduleDate && slot.isAvailable);
     const slotsByTime = new Map<string, ScheduleSlot[]>();
     slotsForDate.forEach((slot) => {
       const slots = slotsByTime.get(slot.timeSlot) ?? [];
@@ -614,6 +648,7 @@ function buildScheduleRows(scheduleSlots: ScheduleSlot[]): ScheduleDraftRow[] {
           endTime || "10:00",
           slots.some((slot) => slot.location === "colombo" && slot.isAvailable),
           slots.some((slot) => slot.location === "bantul" && slot.isAvailable),
+          true,
         );
       });
     return {
@@ -631,9 +666,11 @@ function createDraftSession(
   endTime = "10:00",
   colombo = false,
   bantul = false,
+  persisted = false,
 ): ScheduleDraftSession {
   return {
     key: `${scheduleDate}-${index}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    persisted,
     enabled,
     startTime,
     endTime,
