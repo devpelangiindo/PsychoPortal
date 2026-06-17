@@ -24,6 +24,7 @@ if (!merchantId && !allowMissingMidtrans) {
 
 // Enable production mode for Midtrans
 const isProduction = true; // Use production environment
+const asesmenSiteUrl = (process.env.ASESMEN_SITE_URL || 'https://asesmen.pi-psychology.com').replace(/\/$/, '');
 
 console.log(`Midtrans Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'}`);
 console.log(`Midtrans Server Key: ${serverKey?.substring(0, 10)}...`);
@@ -97,6 +98,11 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
       },
       customer_details: transactionData.customerDetails,
       item_details: itemDetails,
+      callbacks: {
+        finish: `${asesmenSiteUrl}/payment-return?order_id=${encodeURIComponent(transactionData.orderId)}`,
+        pending: `${asesmenSiteUrl}/payment-return?order_id=${encodeURIComponent(transactionData.orderId)}`,
+        error: `${asesmenSiteUrl}/payment-failed?order_id=${encodeURIComponent(transactionData.orderId)}`,
+      },
       expiry: {
         duration: transactionData.expiryMinutes ?? 15,
         unit: 'minutes',

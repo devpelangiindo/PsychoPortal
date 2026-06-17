@@ -24,13 +24,13 @@ export default function PaymentReturn() {
       try {
         // Get URL parameters first
         const urlParams = new URLSearchParams(window.location.search);
-        const externalId = urlParams.get('external_id');
+        const externalId = urlParams.get('external_id') || urlParams.get('order_id') || urlParams.get('transaction_order_id');
         const status = urlParams.get('status');
         
         console.log('URL parameters:', { externalId, status });
         
         // IMMEDIATE BYPASS: If user is authenticated - always check for available assessments first
-        if (user) {
+        if (import.meta.env.DEV && user) {
           console.log('✅ User authenticated, checking for available assessments...');
           
           try {
@@ -161,7 +161,7 @@ export default function PaymentReturn() {
         }
 
         // FALLBACK 2: Try to complete payment from URL parameters
-        if (user && externalId) {
+        if (import.meta.env.DEV && user && externalId) {
           const orderIdMatch = externalId.match(/order_(\d+)_/);
           if (orderIdMatch) {
             const orderId = parseInt(orderIdMatch[1]);
@@ -230,6 +230,11 @@ export default function PaymentReturn() {
           if (matches) {
             orderId = parseInt(matches[1]);
           }
+        } else {
+          const directOrderId = urlParams.get('orderId');
+          if (directOrderId && /^\d+$/.test(directOrderId)) {
+            orderId = parseInt(directOrderId);
+          }
         }
 
         // Try to get order ID from localStorage as fallback
@@ -277,6 +282,14 @@ export default function PaymentReturn() {
         }
 
         console.log('Found order ID:', orderId);
+
+        try {
+          const syncResponse = await apiRequest('POST', `/api/midtrans/sync-status/${orderId}`, {});
+          const syncData = await syncResponse.json();
+          console.log('Midtrans sync response:', syncData);
+        } catch (syncError) {
+          console.warn('Midtrans sync failed, continuing with local payment status:', syncError);
+        }
 
         // Check payment status via our backend
         const response = await apiRequest('GET', `/api/payment-status/${orderId}`);
