@@ -1,6 +1,13 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { apiUrl } from "./api-base";
 
+export function getAuthToken() {
+  const isAdminRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
+  const adminToken = localStorage.getItem("adminToken");
+  const accessToken = localStorage.getItem("accessToken");
+  return isAdminRoute ? adminToken || accessToken : accessToken || adminToken;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -13,7 +20,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const token = localStorage.getItem('accessToken');
+  const token = getAuthToken();
   const headers: Record<string, string> = {};
   
   if (data) {
@@ -40,7 +47,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const token = localStorage.getItem('accessToken');
+    const token = getAuthToken();
     const headers: Record<string, string> = {};
     
     if (token) {

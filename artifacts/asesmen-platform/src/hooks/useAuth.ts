@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
+import { getAuthToken } from "@/lib/queryClient";
 
 export function useAuth() {
   const { data: user, isLoading, error } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     retry: false,
-    enabled: !!localStorage.getItem('accessToken'), // Only run if we have a token
+    enabled: !!getAuthToken(), // Only run if we have a token
   });
 
   // Clear localStorage if we get an unauthorized error
@@ -13,6 +14,8 @@ export function useAuth() {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
   }
 
   return {
@@ -23,6 +26,8 @@ export function useAuth() {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
       window.location.href = '/login';
     }
   };

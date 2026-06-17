@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, getAuthToken, queryClient } from "@/lib/queryClient";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-format";
 
 type Booking = {
@@ -1207,7 +1207,7 @@ function getHistoryReportText(booking: Booking) {
 }
 
 async function fetchReportPdf(booking: Booking, mode: "client" | "history") {
-  const token = localStorage.getItem("accessToken");
+  const token = getAuthToken();
   const endpoint = mode === "client" ? "client-report" : "history-report";
   const response = await fetch(`/api/bookings/${booking.id}/${endpoint}.pdf`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
