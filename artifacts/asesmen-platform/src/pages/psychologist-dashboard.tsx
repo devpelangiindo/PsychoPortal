@@ -226,7 +226,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <SectionTitle
                 icon={<Clock className="w-5 h-5" />}
                 title="Perubahan Jadwal"
-                description="Upload jadwal 2 minggu ke depan. Setelah disimpan, jadwal terkunci dan hanya admin yang dapat mengubahnya."
+                description="Upload jadwal 30 hari ke depan. Setelah disimpan, jadwal terkunci dan hanya admin yang dapat mengubahnya."
               />
               {scheduleLoading ? (
                 <LoadingState label="Memuat jadwal..." compact />
@@ -446,7 +446,7 @@ function ScheduleUploadEditor({
       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/schedule-slots"] });
       toast({
         title: "Jadwal disimpan",
-        description: isAdmin ? "Jadwal psikolog berhasil diperbarui." : "Jadwal 2 minggu ke depan sudah dikunci.",
+        description: isAdmin ? "Jadwal psikolog berhasil diperbarui." : "Jadwal 30 hari ke depan sudah dikunci.",
       });
     },
     onError: (error) => {
@@ -623,7 +623,7 @@ function ScheduleUploadEditor({
 
 function buildScheduleRows(scheduleSlots: ScheduleSlot[]): ScheduleDraftRow[] {
   const today = new Date();
-  return Array.from({ length: 14 }, (_, index) => {
+  return Array.from({ length: 30 }, (_, index) => {
     const date = new Date(today);
     date.setDate(today.getDate() + index);
     const scheduleDate = formatDateInput(date);
@@ -922,7 +922,7 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
   const [location, setLocation] = useState(booking.location ?? "online");
   const [meetingUrl, setMeetingUrl] = useState(booking.meetingUrl ?? "");
   const today = new Date().toISOString().slice(0, 10);
-  const maxDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const maxDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const mutation = useMutation({
     mutationFn: async () => {

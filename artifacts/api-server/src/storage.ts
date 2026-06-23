@@ -334,7 +334,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<PsychologistScheduleSlot[]> {
     if (slots.length === 0) {
       const today = new Date().toISOString().slice(0, 10);
-      const maxDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const maxDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       return this.getPsychologistScheduleSlots(psychologistName, today, maxDate);
     }
 

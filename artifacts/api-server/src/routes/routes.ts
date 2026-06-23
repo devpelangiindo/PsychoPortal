@@ -31,7 +31,7 @@ function canAccessPsychologistAreaRole(role?: string | null) {
 
 const TIME_SLOTS = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"] as const;
 const TIME_SLOT_PATTERN = /^([01]\d|2[0-1])[.:][0-5]\d\s*-\s*([01]\d|2[0-1])[.:][0-5]\d$/;
-const TWO_WEEK_DAYS = 14;
+const SCHEDULE_WINDOW_DAYS = 30;
 const PAYMENT_EXPIRY_MINUTES = 15;
 
 function hasPaymentExpired(order: { status: string; paymentId?: string | null; paymentStatus?: string | null; updatedAt?: Date | string | null }) {
@@ -89,12 +89,12 @@ const bookingRequestSchema = z.object({
   }
 
   const today = getJakartaDateString();
-  const maxDate = addDaysToDateString(today, 14);
+  const maxDate = addDaysToDateString(today, SCHEDULE_WINDOW_DAYS);
   if (data.preferredDate < today || data.preferredDate > maxDate) {
     ctx.addIssue({
       code: "custom",
       path: ["preferredDate"],
-      message: "Tanggal booking hanya dapat dipilih sampai 14 hari ke depan",
+      message: "Tanggal booking hanya dapat dipilih sampai 30 hari ke depan",
     });
   }
   if (!isValidTimeSlotRange(data.preferredTime)) {
@@ -129,12 +129,12 @@ const bookingScheduleUpdateSchema = z.object({
   meetingUrl: z.string().url("Link meeting tidak valid").optional().or(z.literal("")),
 }).superRefine((data, ctx) => {
   const today = getJakartaDateString();
-  const maxDate = addDaysToDateString(today, 14);
+  const maxDate = addDaysToDateString(today, SCHEDULE_WINDOW_DAYS);
   if (data.preferredDate < today || data.preferredDate > maxDate) {
     ctx.addIssue({
       code: "custom",
       path: ["preferredDate"],
-      message: "Tanggal booking hanya dapat dipilih sampai 14 hari ke depan",
+      message: "Tanggal booking hanya dapat dipilih sampai 30 hari ke depan",
     });
   }
   if (!isValidTimeSlotRange(data.preferredTime)) {
@@ -1586,7 +1586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         !isValidTimeSlotRange(slot.timeSlot),
       );
       if (invalidSlot) {
-        return res.status(400).json({ message: "Jadwal hanya boleh untuk 14 hari ke depan dan jam 07.00-21.00." });
+        return res.status(400).json({ message: "Jadwal hanya boleh untuk 30 hari ke depan dan jam 07.00-21.00." });
       }
 
       const scheduleSlots = await storage.setPsychologistScheduleSlots(providerName, normalizedSlots, user.id);

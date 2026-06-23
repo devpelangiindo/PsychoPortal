@@ -256,7 +256,7 @@ export default function Booking() {
   const today = useMemo(() => formatDateInput(new Date()), []);
   const maxBookingDate = useMemo(() => {
     const date = new Date();
-    date.setDate(date.getDate() + 14);
+    date.setDate(date.getDate() + 30);
     return formatDateInput(date);
   }, []);
   const { data: availabilityData } = useQuery<AvailabilityResponse>({
@@ -474,7 +474,7 @@ export default function Booking() {
         return "Psikolog tidak tersedia pada hari dan jam yang dipilih.";
       }
       if (form.preferredDate < today || form.preferredDate > maxBookingDate) {
-        return "Tanggal booking hanya dapat dipilih sampai 14 hari dari hari ini.";
+        return "Tanggal booking hanya dapat dipilih sampai 30 hari dari hari ini.";
       }
     }
 
@@ -1287,7 +1287,7 @@ function BookingLanding({
                 <div className="grid sm:grid-cols-3 gap-4 mt-10 max-w-3xl">
                   <HeroMetric label="Mulai dari" value={formatCurrency(startingFee)} />
                   <HeroMetric label="Pilihan sesi" value="Online / Offline" />
-                  <HeroMetric label="Jadwal" value="Maks. 14 hari" />
+                  <HeroMetric label="Jadwal" value="Maks. 30 hari" />
                 </div>
               </div>
 
@@ -1357,7 +1357,7 @@ function BookingLanding({
               <ProcessStep
                 icon={<CalendarCheck className="w-7 h-7" />}
                 title="3. Tentukan Jadwal"
-                description="Pilih tanggal maksimal 14 hari dari hari booking, waktu, lokasi, dan psikolog."
+                description="Pilih tanggal maksimal 30 hari dari hari booking, waktu, lokasi, dan psikolog."
               />
               <ProcessStep
                 icon={<CreditCard className="w-7 h-7" />}
