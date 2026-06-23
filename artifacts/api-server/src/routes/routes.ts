@@ -166,7 +166,7 @@ const scheduleSlotSchema = z.object({
 
 const psychologistScheduleUpdateSchema = z.object({
   psychologistName: z.string().min(2).optional(),
-  slots: z.array(scheduleSlotSchema).max(252),
+  slots: z.array(scheduleSlotSchema).max(900),
 });
 
 const resetPasswordWithOtpSchema = z.object({
@@ -252,7 +252,7 @@ function scheduleRange() {
   const today = getJakartaDateString();
   return {
     startDate: today,
-    endDate: addDaysToDateString(today, TWO_WEEK_DAYS),
+    endDate: addDaysToDateString(today, SCHEDULE_WINDOW_DAYS),
   };
 }
 
