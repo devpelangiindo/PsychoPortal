@@ -111,6 +111,7 @@ function escapeHtml(value: unknown) {
 
 function printBookingReceipt(booking: Booking) {
   if (booking.status !== "paid" && booking.order.paymentStatus !== "paid" && booking.order.status !== "completed") return;
+  const paidAt = booking.order.paidAt ?? booking.paidAt ?? booking.createdAt;
 
   const receiptWindow = window.open("", "_blank", "width=720,height=900");
   if (!receiptWindow) return;
@@ -147,7 +148,7 @@ function printBookingReceipt(booking: Booking) {
             <h2>Detail Pembayaran</h2>
             <div class="row"><span>No. Order</span><strong>#${escapeHtml(booking.order.id)}</strong></div>
             <div class="row"><span>Payment ID</span><strong>${escapeHtml(booking.order.paymentId)}</strong></div>
-            <div class="row"><span>Tanggal Bayar</span><strong>${escapeHtml(booking.order.paidAt ? formatDisplayDateTime(booking.order.paidAt) : booking.paidAt ? formatDisplayDateTime(booking.paidAt) : "-")}</strong></div>
+            <div class="row"><span>Tanggal/Jam Bayar</span><strong>${escapeHtml(paidAt ? formatDisplayDateTime(paidAt) : "-")}</strong></div>
             <div class="row"><span>Status</span><strong>${escapeHtml(booking.order.paymentStatus ?? booking.order.status)}</strong></div>
           </div>
 

@@ -631,6 +631,7 @@ export class DatabaseStorage implements IStorage {
     const updateData: any = { status, updatedAt: new Date() };
     if (paymentId) updateData.paymentId = paymentId;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    if (status === "completed" || paymentStatus === "paid") updateData.paidAt = new Date();
 
     await db
       .update(orders)

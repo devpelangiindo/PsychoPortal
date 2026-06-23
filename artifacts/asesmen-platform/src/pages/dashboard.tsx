@@ -68,6 +68,7 @@ function escapeHtml(value: unknown) {
 
 function printReceipt(order: OrderWithItems, booking?: Booking) {
   if (!isOrderPaid(order)) return;
+  const paidAt = order.paidAt ?? order.updatedAt ?? order.createdAt;
 
   const items = order.orderItems.length > 0
     ? order.orderItems.map((item) => `
@@ -128,7 +129,7 @@ function printReceipt(order: OrderWithItems, booking?: Booking) {
             <h2>Detail Pembayaran</h2>
             <div class="row"><span>No. Order</span><strong>#${escapeHtml(order.id)}</strong></div>
             <div class="row"><span>Payment ID</span><strong>${escapeHtml(order.paymentId)}</strong></div>
-            <div class="row"><span>Tanggal Bayar</span><strong>${escapeHtml(order.paidAt ? formatDisplayDateTime(order.paidAt) : "-")}</strong></div>
+            <div class="row"><span>Tanggal/Jam Bayar</span><strong>${escapeHtml(paidAt ? formatDisplayDateTime(paidAt) : "-")}</strong></div>
             <div class="row"><span>Status</span><strong>${escapeHtml(order.paymentStatus ?? order.status)}</strong></div>
           </div>
 
