@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Save, Search, Trash2, UserRound, Video } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Printer, Save, Search, Trash2, UserRound, Video } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
@@ -46,8 +46,13 @@ type Booking = {
     name: string;
   };
   order: {
+    id: number;
+    status: string;
+    paymentId: string | null;
     paymentStatus: string | null;
+    paymentMethod: string | null;
     totalAmount: string;
+    paidAt: string | null;
   };
 };
 
@@ -90,6 +95,90 @@ const locationLabels: Record<string, string> = {
   colombo: "Offline Colombo",
   bantul: "Offline Bantul",
 };
+
+function formatCurrency(value: string | number) {
+  return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "-")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function printBookingReceipt(booking: Booking) {
+  if (booking.status !== "paid" && booking.order.paymentStatus !== "paid" && booking.order.status !== "completed") return;
+
+  const receiptWindow = window.open("", "_blank", "width=720,height=900");
+  if (!receiptWindow) return;
+
+  receiptWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <title>Resi Transaksi #${escapeHtml(booking.order.id)}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #1f2937; margin: 32px; }
+          .receipt { max-width: 680px; margin: 0 auto; }
+          h1 { margin: 0 0 6px; font-size: 24px; }
+          h2 { font-size: 15px; margin: 0 0 12px; color: #166534; }
+          .muted { color: #6b7280; font-size: 13px; }
+          .section { border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 18px; }
+          .row { display: flex; justify-content: space-between; gap: 24px; margin: 8px 0; font-size: 14px; }
+          .row span { color: #6b7280; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+          th, td { padding: 10px 0; border-bottom: 1px solid #e5e7eb; text-align: left; }
+          .right { text-align: right; }
+          .total { font-size: 18px; font-weight: 700; }
+          .paid { display: inline-block; margin-top: 10px; padding: 5px 10px; border-radius: 999px; background: #dcfce7; color: #166534; font-weight: 700; font-size: 12px; }
+          @media print { body { margin: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <h1>Resi Transaksi</h1>
+          <div class="muted">Rumah Psikologi Pelangi Indonesia</div>
+          <span class="paid">LUNAS</span>
+
+          <div class="section">
+            <h2>Detail Pembayaran</h2>
+            <div class="row"><span>No. Order</span><strong>#${escapeHtml(booking.order.id)}</strong></div>
+            <div class="row"><span>Payment ID</span><strong>${escapeHtml(booking.order.paymentId)}</strong></div>
+            <div class="row"><span>Tanggal Bayar</span><strong>${escapeHtml(booking.order.paidAt ? formatDisplayDateTime(booking.order.paidAt) : booking.paidAt ? formatDisplayDateTime(booking.paidAt) : "-")}</strong></div>
+            <div class="row"><span>Status</span><strong>${escapeHtml(booking.order.paymentStatus ?? booking.order.status)}</strong></div>
+          </div>
+
+          <div class="section">
+            <h2>Detail Konseling</h2>
+            <div class="row"><span>Nama Klien</span><strong>${escapeHtml(booking.clientName)}</strong></div>
+            <div class="row"><span>Psikolog</span><strong>${escapeHtml(booking.psychologistName)}</strong></div>
+            <div class="row"><span>Jadwal</span><strong>${escapeHtml(`${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`)}</strong></div>
+            <div class="row"><span>Lokasi</span><strong>${escapeHtml(locationLabels[booking.location ?? ""] ?? booking.location ?? "-")}</strong></div>
+          </div>
+
+          <div class="section">
+            <h2>Rincian</h2>
+            <table>
+              <thead><tr><th>Item</th><th class="right">Nominal</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>${escapeHtml(booking.service.name)}</td>
+                  <td class="right">${escapeHtml(formatCurrency(booking.order.totalAmount))}</td>
+                </tr>
+              </tbody>
+              <tfoot><tr><td class="total">Total</td><td class="right total">${escapeHtml(formatCurrency(booking.order.totalAmount))}</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <script>window.onload = () => { window.print(); };</script>
+      </body>
+    </html>
+  `);
+  receiptWindow.document.close();
+}
 
 const dayLabels = [
   "Minggu",
@@ -881,6 +970,12 @@ function BookingCard({
               {booking.status === "paid" ? "Sudah bayar" : "Menunggu bayar"}
             </Badge>
             <span className="text-sm text-neutral-500">{booking.service.name}</span>
+            {(booking.status === "paid" || booking.order.paymentStatus === "paid" || booking.order.status === "completed") && (
+              <Button size="sm" variant="outline" onClick={() => printBookingReceipt(booking)}>
+                <Printer className="w-4 h-4 mr-2" />
+                Cetak Resi
+              </Button>
+            )}
           </div>
         </div>
 

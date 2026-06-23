@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { AlertCircle, Clock, CreditCard, Download, FileText, Loader2, MessageCircle } from "lucide-react";
+import { AlertCircle, Clock, CreditCard, Download, FileText, Loader2, MessageCircle, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-format";
 
 type Booking = {
   id: number;
+  orderId: number;
   clientName: string;
   preferredDate: string;
   preferredTime: string;
@@ -50,6 +51,103 @@ function getPaymentDeadline(order: OrderWithItems) {
 function isOrderPaymentExpired(order: OrderWithItems) {
   const deadline = getPaymentDeadline(order);
   return Boolean(deadline && Date.now() >= deadline.getTime());
+}
+
+function formatCurrency(value: string | number) {
+  return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "-")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function printReceipt(order: OrderWithItems, booking?: Booking) {
+  if (!isOrderPaid(order)) return;
+
+  const items = order.orderItems.length > 0
+    ? order.orderItems.map((item) => `
+        <tr>
+          <td>${escapeHtml(item.assessment.name)}</td>
+          <td class="right">${escapeHtml(formatCurrency(item.price))}</td>
+        </tr>
+      `).join("")
+    : `
+        <tr>
+          <td>${escapeHtml(booking?.service.name ?? "Booking Psikolog")}</td>
+          <td class="right">${escapeHtml(formatCurrency(order.totalAmount))}</td>
+        </tr>
+      `;
+
+  const details = booking ? `
+    <div class="section">
+      <h2>Detail Konseling</h2>
+      <div class="row"><span>Nama Klien</span><strong>${escapeHtml(booking.clientName)}</strong></div>
+      <div class="row"><span>Psikolog</span><strong>${escapeHtml(booking.psychologistName)}</strong></div>
+      <div class="row"><span>Jadwal</span><strong>${escapeHtml(`${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`)}</strong></div>
+      <div class="row"><span>Lokasi</span><strong>${escapeHtml(booking.location ?? "-")}</strong></div>
+    </div>
+  ` : "";
+
+  const receiptWindow = window.open("", "_blank", "width=720,height=900");
+  if (!receiptWindow) return;
+
+  receiptWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <title>Resi Transaksi #${escapeHtml(order.id)}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #1f2937; margin: 32px; }
+          .receipt { max-width: 680px; margin: 0 auto; }
+          h1 { margin: 0 0 6px; font-size: 24px; }
+          h2 { font-size: 15px; margin: 0 0 12px; color: #166534; }
+          .muted { color: #6b7280; font-size: 13px; }
+          .section { border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 18px; }
+          .row { display: flex; justify-content: space-between; gap: 24px; margin: 8px 0; font-size: 14px; }
+          .row span { color: #6b7280; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+          th, td { padding: 10px 0; border-bottom: 1px solid #e5e7eb; text-align: left; }
+          .right { text-align: right; }
+          .total { font-size: 18px; font-weight: 700; }
+          .paid { display: inline-block; margin-top: 10px; padding: 5px 10px; border-radius: 999px; background: #dcfce7; color: #166534; font-weight: 700; font-size: 12px; }
+          @media print { body { margin: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <h1>Resi Transaksi</h1>
+          <div class="muted">Rumah Psikologi Pelangi Indonesia</div>
+          <span class="paid">LUNAS</span>
+
+          <div class="section">
+            <h2>Detail Pembayaran</h2>
+            <div class="row"><span>No. Order</span><strong>#${escapeHtml(order.id)}</strong></div>
+            <div class="row"><span>Payment ID</span><strong>${escapeHtml(order.paymentId)}</strong></div>
+            <div class="row"><span>Tanggal Bayar</span><strong>${escapeHtml(order.paidAt ? formatDisplayDateTime(order.paidAt) : "-")}</strong></div>
+            <div class="row"><span>Status</span><strong>${escapeHtml(order.paymentStatus ?? order.status)}</strong></div>
+          </div>
+
+          ${details}
+
+          <div class="section">
+            <h2>Rincian</h2>
+            <table>
+              <thead><tr><th>Item</th><th class="right">Nominal</th></tr></thead>
+              <tbody>${items}</tbody>
+              <tfoot><tr><td class="total">Total</td><td class="right total">${escapeHtml(formatCurrency(order.totalAmount))}</td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <script>window.onload = () => { window.print(); };</script>
+      </body>
+    </html>
+  `);
+  receiptWindow.document.close();
 }
 
 export default function Dashboard() {
@@ -504,6 +602,7 @@ export default function Dashboard() {
                     const paymentDeadline = getPaymentDeadline(order);
                     const paymentExpired = isOrderPaymentExpired(order);
                     const canPay = canSettleOrderPayment(order);
+                    const booking = bookings?.find((item) => item.orderId === order.id);
 
                     return (
                     <div key={order.id} className="dashboard-item">
@@ -555,6 +654,19 @@ export default function Dashboard() {
                               <CreditCard className="w-4 h-4 mr-2" />
                             )}
                             Bayar
+                          </Button>
+                        </div>
+                      )}
+                      {isOrderPaid(order) && (
+                        <div className="ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => printReceipt(order, booking)}
+                            className="whitespace-nowrap"
+                          >
+                            <Printer className="w-4 h-4 mr-2" />
+                            Cetak Resi
                           </Button>
                         </div>
                       )}
