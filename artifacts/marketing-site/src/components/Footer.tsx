@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { MapPin, Mail, Phone } from "lucide-react";
+import { MapPin, Mail } from "lucide-react";
 import { SiInstagram, SiTiktok, SiFacebook, SiYoutube, SiWhatsapp } from "react-icons/si";
 import { getAsesmenPlatformHref, getBookingHref } from "@/lib/platform-links";
 
@@ -100,22 +100,13 @@ export default function Footer() {
             <h4 className="font-semibold text-white text-sm uppercase tracking-wider mb-4 opacity-60">Kontak</h4>
             <div className="space-y-3">
               <a
-                href="https://wa.me/62816669533"
+                href="https://wa.me/6285117658242"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-green-100/80 hover:text-white transition-colors text-sm"
               >
                 <SiWhatsapp size={14} className="text-green-400" />
-                <span>+62 816-669-533 (Bantul)</span>
-              </a>
-              <a
-                href="https://wa.me/62811256238"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-green-100/80 hover:text-white transition-colors text-sm"
-              >
-                <SiWhatsapp size={14} className="text-green-400" />
-                <span>+62 811-256-238 (Colombo)</span>
+                <span>Hotline: 085117658242</span>
               </a>
               <a
                 href="mailto:psikologi.pelangiindonesia@gmail.com"

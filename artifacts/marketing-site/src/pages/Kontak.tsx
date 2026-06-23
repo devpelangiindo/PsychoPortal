@@ -8,17 +8,17 @@ const offices = [
     type: "Kantor Pusat",
     address: "Jl. Colombo No.8, Samirono, Caturtunggal, Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281",
     mapsUrl: "https://maps.app.goo.gl/USTLE9obhyvUK1NAA",
-    wa: "+62 811-256-238",
-    waUrl: "https://wa.me/62811256238",
-    label: "CSO Colombo",
+    wa: "085117658242",
+    waUrl: "https://wa.me/6285117658242",
+    label: "Hotline",
   },
   {
     type: "Kantor Cabang",
     address: "Jl. Mgr. Sugiyo Pranoto No.14, Melikan Kidul, Bantul, Kec. Bantul, Kabupaten Bantul, Daerah Istimewa Yogyakarta 55711",
     mapsUrl: "https://maps.google.com/?q=Jl+Mgr+Sugiyo+Pranoto+No.14,+Melikan+Kidul,+Bantul",
-    wa: "+62 816-669-533",
-    waUrl: "https://wa.me/62816669533",
-    label: "CSO Bantul",
+    wa: "085117658242",
+    waUrl: "https://wa.me/6285117658242",
+    label: "Hotline",
   },
 ];
 

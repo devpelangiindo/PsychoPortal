@@ -207,7 +207,7 @@ export default function PaymentFailed() {
           {/* Support Information */}
           <div className="text-xs text-center text-gray-500 dark:text-gray-400 pt-4 border-t">
             <p>Jika masalah berlanjut, silakan hubungi customer support:</p>
-            <p className="font-medium mt-1">WhatsApp: +6281991466546</p>
+            <p className="font-medium mt-1">Hotline: 085117658242</p>
           </div>
         </CardContent>
       </Card>

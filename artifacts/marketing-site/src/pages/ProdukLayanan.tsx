@@ -145,7 +145,7 @@ function ServiceDetail({ slug }: { slug: string }) {
                   Konsultasikan kebutuhan Anda bersama tim profesional kami.
                 </p>
                 <a
-                  href="https://wa.me/62816669533"
+                  href="https://wa.me/6285117658242"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-md mb-3"

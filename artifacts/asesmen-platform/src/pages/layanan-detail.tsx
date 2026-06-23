@@ -26,7 +26,7 @@ interface CmsService {
   orderIndex?: number;
 }
 
-const WA_NUMBER = "6281991466546";
+const WA_NUMBER = "6285117658242";
 
 export default function LayananDetail() {
   const params = useParams<{ slug: string }>();

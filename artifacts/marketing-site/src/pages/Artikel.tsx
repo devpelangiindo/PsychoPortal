@@ -95,7 +95,7 @@ function PromoSidebar() {
           <h4 className="font-semibold text-sm mb-1" style={{ color: "#2D6A4F" }}>{p.title}</h4>
           <p className="text-xs text-gray-500 mb-2">{p.desc}</p>
           <a
-            href="https://wa.me/62816669533"
+            href="https://wa.me/6285117658242"
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs font-semibold flex items-center gap-1"

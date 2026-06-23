@@ -1497,7 +1497,7 @@ function PromoInfoSection() {
               <h3 className="font-semibold text-base mb-2 text-[#2D6A4F]">{promo.title}</h3>
               <p className="text-sm text-gray-500 mb-4 leading-relaxed">{promo.desc}</p>
               <a
-                href="https://wa.me/62816669533"
+                href="https://wa.me/6285117658242"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-sm font-semibold text-[#2D6A4F]"

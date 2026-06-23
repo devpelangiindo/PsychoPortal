@@ -102,23 +102,12 @@ export default function Footer() {
             <h4 className="text-lg font-semibold mb-4">Bantuan</h4>
             <ul className="space-y-3">
               <li>
-                <a href="https://wa.me/6281991466546" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors">
+                <a href="https://wa.me/6285117658242" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors">
                   <div className="flex items-center">
                     <FaWhatsapp className="w-5 h-5 mr-3" />
                     <div>
-                      <div className="text-base font-medium">Penjadwalan Konsultasi Online</div>
-                      <div className="text-sm text-green-100 font-medium">081991466546</div>
-                    </div>
-                  </div>
-                </a>
-              </li>
-              <li>
-                <a href="https://wa.me/628816502701" target="_blank" rel="noopener noreferrer" className="text-green-50 hover:text-white transition-colors">
-                  <div className="flex items-center">
-                    <FaWhatsapp className="w-5 h-5 mr-3" />
-                    <div>
-                      <div className="text-base font-medium">Dukungan Teknis</div>
-                      <div className="text-sm text-green-100 font-medium">08816502701</div>
+                      <div className="text-base font-medium">Hotline</div>
+                      <div className="text-sm text-green-100 font-medium">085117658242</div>
                     </div>
                   </div>
                 </a>

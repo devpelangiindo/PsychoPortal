@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Phone, Mail, CheckCircle } from "lucide-react";
+import { MapPin, Mail, CheckCircle } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 
 const contactSchema = z.object({
@@ -140,7 +140,7 @@ export default function Kontak() {
                     </a>
 
                     <a
-                      href="https://wa.me/6281991466546"
+                      href="https://wa.me/6285117658242"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center space-x-4 group"
@@ -150,26 +150,9 @@ export default function Kontak() {
                       </div>
                       <div>
                         <p className="font-semibold text-neutral-900 dark:text-foreground group-hover:text-green-600 transition-colors">
-                          WhatsApp – Konsultasi Online
+                          Hotline
                         </p>
-                        <p className="text-neutral-600 dark:text-muted-foreground text-sm">081991466546</p>
-                      </div>
-                    </a>
-
-                    <a
-                      href="https://wa.me/628816502701"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center space-x-4 group"
-                    >
-                      <div className="w-10 h-10 bg-green-100 group-hover:bg-green-200 rounded-full flex items-center justify-center flex-shrink-0 transition-colors">
-                        <Phone className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-neutral-900 dark:text-foreground group-hover:text-green-600 transition-colors">
-                          WhatsApp – Dukungan Teknis
-                        </p>
-                        <p className="text-neutral-600 dark:text-muted-foreground text-sm">08816502701</p>
+                        <p className="text-neutral-600 dark:text-muted-foreground text-sm">085117658242</p>
                       </div>
                     </a>
 
@@ -203,7 +186,7 @@ export default function Kontak() {
                       Hubungi kami langsung via WhatsApp untuk mendapatkan respons dalam hitungan menit.
                     </p>
                     <a
-                      href="https://wa.me/6281991466546?text=Halo%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20Rumah%20Psikologi%20Pelangi%20Indonesia."
+                      href="https://wa.me/6285117658242?text=Halo%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20Rumah%20Psikologi%20Pelangi%20Indonesia."
                       target="_blank"
                       rel="noopener noreferrer"
                     >
