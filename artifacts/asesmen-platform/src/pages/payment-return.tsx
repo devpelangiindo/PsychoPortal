@@ -87,8 +87,8 @@ export default function PaymentReturn() {
           }
         }
         
-        // FALLBACK 1: Try to auto-complete payment using order detection from recent orders
-        if (user) {
+        // Local development fallback: simulate completion when testing without real Midtrans callbacks.
+        if (import.meta.env.DEV && user) {
           console.log('🔄 Checking recent orders for auto-completion...');
           
           try {

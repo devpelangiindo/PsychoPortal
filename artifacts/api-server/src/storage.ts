@@ -36,6 +36,22 @@ import {
 import { db } from "./db";
 import { eq, and, or, sql, ilike, desc, gte, lte, inArray } from "drizzle-orm";
 
+function bookingWithPaymentStatus(row: {
+  booking: PsychologistBooking;
+  service: BookingService;
+  order: Order;
+}): PsychologistBookingWithDetails {
+  const orderIsPaid = row.order.status === "completed" || row.order.paymentStatus === "paid";
+
+  return {
+    ...row.booking,
+    status: orderIsPaid ? "paid" : row.booking.status,
+    paidAt: row.booking.paidAt ?? (orderIsPaid ? row.order.paidAt : null),
+    service: row.service,
+    order: row.order,
+  };
+}
+
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
@@ -382,11 +398,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(psychologistBookings.userId, userId))
       .orderBy(psychologistBookings.createdAt);
 
-    return results.map((row) => ({
-      ...row.booking,
-      service: row.service,
-      order: row.order,
-    }));
+    return results.map(bookingWithPaymentStatus);
   }
 
   async getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]> {
@@ -401,11 +413,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
       .orderBy(desc(psychologistBookings.createdAt));
 
-    return results.map((row) => ({
-      ...row.booking,
-      service: row.service,
-      order: row.order,
-    }));
+    return results.map(bookingWithPaymentStatus);
   }
 
   async searchPsychologistBookingReports(search?: string): Promise<PsychologistBookingWithDetails[]> {
@@ -430,11 +438,7 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(psychologistBookings.preferredDate), desc(psychologistBookings.createdAt));
 
-    return results.map((row) => ({
-      ...row.booking,
-      service: row.service,
-      order: row.order,
-    }));
+    return results.map(bookingWithPaymentStatus);
   }
 
   async getPsychologistBookingsByProvider(psychologistName: string): Promise<PsychologistBookingWithDetails[]> {
@@ -450,11 +454,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(psychologistBookings.psychologistName, psychologistName))
       .orderBy(psychologistBookings.createdAt);
 
-    return results.map((row) => ({
-      ...row.booking,
-      service: row.service,
-      order: row.order,
-    }));
+    return results.map(bookingWithPaymentStatus);
   }
 
   async getPsychologistBooking(id: number): Promise<PsychologistBookingWithDetails | undefined> {
@@ -471,11 +471,7 @@ export class DatabaseStorage implements IStorage {
 
     if (!result) return undefined;
 
-    return {
-      ...result.booking,
-      service: result.service,
-      order: result.order,
-    };
+    return bookingWithPaymentStatus(result);
   }
 
   async getPsychologistBookingByOrder(orderId: number): Promise<PsychologistBookingWithDetails | undefined> {
@@ -492,11 +488,7 @@ export class DatabaseStorage implements IStorage {
 
     if (!result) return undefined;
 
-    return {
-      ...result.booking,
-      service: result.service,
-      order: result.order,
-    };
+    return bookingWithPaymentStatus(result);
   }
 
   async updatePsychologistBookingStatus(id: number, status: string): Promise<void> {
