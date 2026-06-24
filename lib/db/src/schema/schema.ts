@@ -93,7 +93,7 @@ export const psychologistAvailabilities = pgTable("psychologist_availabilities",
   uniqueIndex("psychologist_availability_unique").on(table.psychologistName, table.dayOfWeek, table.timeSlot),
 ]);
 
-// Psychologist date-specific schedule slots for the next two weeks
+// Psychologist date-specific schedule slots for the active booking window
 export const psychologistScheduleSlots = pgTable("psychologist_schedule_slots", {
   id: serial("id").primaryKey(),
   psychologistName: varchar("psychologist_name", { length: 255 }).notNull(),

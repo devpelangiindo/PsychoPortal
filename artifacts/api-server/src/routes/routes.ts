@@ -220,11 +220,6 @@ function addDaysToDateString(dateString: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function getJakartaDayOfWeek(date = new Date()) {
-  const dateString = getJakartaDateString(date);
-  return getDayOfWeek(dateString);
-}
-
 function getDayOfWeek(dateString: string) {
   const [year, month, day] = dateString.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
@@ -239,13 +234,55 @@ function timeToMinutes(value: string) {
   return hour * 60 + minute;
 }
 
-function isValidTimeSlotRange(slot: string) {
+function parseTimeSlotRange(slot: string) {
   const normalized = normalizeTimeSlot(slot);
   const [start, end] = normalized.split(" - ");
-  if (!start || !end) return false;
-  const startMinutes = timeToMinutes(start);
-  const endMinutes = timeToMinutes(end);
-  return startMinutes >= 7 * 60 && endMinutes <= 21 * 60 && startMinutes < endMinutes;
+  if (!start || !end) return null;
+  return {
+    start,
+    end,
+    startMinutes: timeToMinutes(start),
+    endMinutes: timeToMinutes(end),
+  };
+}
+
+function isValidTimeSlotRange(slot: string) {
+  const range = parseTimeSlotRange(slot);
+  if (!range) return false;
+  return range.startMinutes >= 7 * 60 && range.endMinutes <= 21 * 60 && range.startMinutes < range.endMinutes;
+}
+
+function findOverlappingScheduleSlot(slots: { scheduleDate: string; timeSlot: string; isAvailable?: boolean }[]) {
+  const slotsByDate = new Map<string, { timeSlot: string; startMinutes: number; endMinutes: number }[]>();
+
+  for (const slot of slots) {
+    if (slot.isAvailable === false) continue;
+    const range = parseTimeSlotRange(slot.timeSlot);
+    if (!range) continue;
+    const dateSlots = slotsByDate.get(slot.scheduleDate) ?? [];
+    if (!dateSlots.some((item) => item.timeSlot === slot.timeSlot)) {
+      dateSlots.push({
+        timeSlot: slot.timeSlot,
+        startMinutes: range.startMinutes,
+        endMinutes: range.endMinutes,
+      });
+    }
+    slotsByDate.set(slot.scheduleDate, dateSlots);
+  }
+
+  for (const [scheduleDate, dateSlots] of slotsByDate.entries()) {
+    const sortedSlots = dateSlots.sort((a, b) => a.startMinutes - b.startMinutes);
+    for (let index = 1; index < sortedSlots.length; index += 1) {
+      const previous = sortedSlots[index - 1];
+      const current = sortedSlots[index];
+      if (!previous || !current) continue;
+      if (current.startMinutes < previous.endMinutes) {
+        return { scheduleDate, previous: previous.timeSlot, current: current.timeSlot };
+      }
+    }
+  }
+
+  return null;
 }
 
 function scheduleRange() {
@@ -274,13 +311,19 @@ function formatDateParts(year: number, month: number, day: number) {
   return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
 }
 
-async function isPsychologistAvailable(psychologistName: string, preferredDate: string, preferredTime: string, location = "online") {
+async function isPsychologistAvailable(psychologistName: string, preferredDate: string, preferredTime: string, location = "online", excludeBookingId?: number) {
   const normalizedTime = normalizeTimeSlot(preferredTime);
+  const requestedRange = parseTimeSlotRange(normalizedTime);
   const bookings = await storage.getPsychologistBookingsByProvider(psychologistName);
   const alreadyPaid = bookings.some((booking) =>
+    booking.id !== excludeBookingId &&
     booking.status === "paid" &&
     booking.preferredDate === preferredDate &&
-    normalizeTimeSlot(booking.preferredTime) === normalizedTime
+    (() => {
+      const bookingRange = parseTimeSlotRange(booking.preferredTime);
+      if (!requestedRange || !bookingRange) return normalizeTimeSlot(booking.preferredTime) === normalizedTime;
+      return requestedRange.startMinutes < bookingRange.endMinutes && bookingRange.startMinutes < requestedRange.endMinutes;
+    })()
   );
   if (alreadyPaid) return false;
 
@@ -1564,15 +1607,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { startDate, endDate } = scheduleRange();
-      if (!canManageBookingsRole(user.role) && getJakartaDayOfWeek() > 5) {
-        return res.status(400).json({ message: "Upload jadwal hanya dapat dilakukan maksimal hari Jumat." });
-      }
-
-      const existingSlots = await storage.getPsychologistScheduleSlots(providerName, startDate, endDate);
-      if (!canManageBookingsRole(user.role) && existingSlots.some((slot) => slot.isLocked)) {
-        return res.status(400).json({ message: "Jadwal sudah dikunci. Hubungi admin untuk perubahan." });
-      }
-
       const normalizedSlots = data.slots.map((slot) => ({
         scheduleDate: slot.scheduleDate,
         timeSlot: normalizeTimeSlot(slot.timeSlot),
@@ -1587,6 +1621,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       if (invalidSlot) {
         return res.status(400).json({ message: "Jadwal hanya boleh untuk 30 hari ke depan dan jam 07.00-21.00." });
+      }
+
+      const overlappingSlot = findOverlappingScheduleSlot(normalizedSlots);
+      if (overlappingSlot) {
+        return res.status(400).json({
+          message: `Jadwal konflik pada ${formatDisplayDate(overlappingSlot.scheduleDate)}: ${overlappingSlot.previous} bertabrakan dengan ${overlappingSlot.current}.`,
+        });
       }
 
       const scheduleSlots = await storage.setPsychologistScheduleSlots(providerName, normalizedSlots, user.id);
@@ -1637,6 +1678,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = bookingScheduleUpdateSchema.parse(req.body);
+      if (!(await isPsychologistAvailable(booking.psychologistName, data.preferredDate, data.preferredTime, data.location, booking.id))) {
+        return res.status(400).json({ message: "Psikolog tidak tersedia pada hari dan jam yang dipilih, atau jadwal bertabrakan dengan booking lain yang sudah dibayar." });
+      }
+
       await storage.updatePsychologistBookingSchedule(booking.id, {
         preferredDate: data.preferredDate,
         preferredTime: normalizeTimeSlot(data.preferredTime),
@@ -2112,11 +2157,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const scheduleSlots = await storage.getPsychologistScheduleSlots(psychologistName, startDate, endDate);
       const paidBookings = (await storage.getPsychologistBookingsByProvider(psychologistName))
         .filter((booking) => booking.status === "paid")
-        .map((booking) => `${booking.preferredDate}|${normalizeTimeSlot(booking.preferredTime)}`);
-      const paidSlotKeys = new Set(paidBookings);
+        .map((booking) => ({
+          preferredDate: booking.preferredDate,
+          preferredTime: normalizeTimeSlot(booking.preferredTime),
+          range: parseTimeSlotRange(booking.preferredTime),
+        }));
       const publicScheduleSlots = scheduleSlots.map((slot) => ({
         ...slot,
-        isAvailable: slot.isAvailable && !paidSlotKeys.has(`${slot.scheduleDate}|${slot.timeSlot}`),
+        isAvailable: slot.isAvailable && !paidBookings.some((booking) => {
+          if (booking.preferredDate !== slot.scheduleDate) return false;
+          const slotRange = parseTimeSlotRange(slot.timeSlot);
+          if (!slotRange || !booking.range) return booking.preferredTime === slot.timeSlot;
+          return slotRange.startMinutes < booking.range.endMinutes && booking.range.startMinutes < slotRange.endMinutes;
+        }),
       }));
       res.json({ psychologistName, availability, scheduleSlots: publicScheduleSlots });
     } catch (error) {
@@ -2346,6 +2399,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : services.find((item) => item.isActive) || services[0];
       if (!service) {
         return res.status(404).json({ message: "Layanan booking belum tersedia." });
+      }
+
+      if (!(await isPsychologistAvailable(data.psychologistName, data.preferredDate, data.preferredTime, data.location))) {
+        return res.status(400).json({ message: "Psikolog tidak tersedia pada hari dan jam yang dipilih, atau jadwal bertabrakan dengan booking lain yang sudah dibayar." });
       }
 
       let user = await storage.getUserByEmail(data.email);

@@ -316,7 +316,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <SectionTitle
                 icon={<Clock className="w-5 h-5" />}
                 title="Perubahan Jadwal"
-                description="Upload jadwal 30 hari ke depan. Setelah disimpan, jadwal terkunci dan hanya admin yang dapat mengubahnya."
+                description="Atur jadwal 30 hari ke depan. Jadwal dapat diperbarui kembali selama jam sesi tidak saling bertabrakan."
               />
               {scheduleLoading ? (
                 <LoadingState label="Memuat jadwal..." compact />
@@ -489,8 +489,6 @@ function ScheduleUploadEditor({
   const { toast } = useToast();
   const [rows, setRows] = useState<ScheduleDraftRow[]>(() => buildScheduleRows(scheduleSlots));
   const [deletedSlots, setDeletedSlots] = useState<DeletedScheduleSlot[]>([]);
-  const isLocked = scheduleSlots.some((slot) => slot.isLocked);
-  const canUploadToday = getLocalDayOfWeek() <= 5;
 
   useEffect(() => {
     setRows(buildScheduleRows(scheduleSlots));
@@ -524,6 +522,10 @@ function ScheduleUploadEditor({
       const slots = activeSlots.concat(
         deletedSlots.filter((slot) => !activeSlotKeys.has(`${slot.scheduleDate}|${slot.timeSlot}`)),
       );
+      const conflict = findScheduleDraftConflict(rows);
+      if (conflict) {
+        throw new Error(`Jadwal konflik pada ${formatDisplayDate(conflict.scheduleDate)}: ${conflict.previous} bertabrakan dengan ${conflict.current}.`);
+      }
       const response = await apiRequest("PUT", "/api/psychologist/schedule-slots", {
         slots,
         ...(isAdmin && psychologistName ? { psychologistName } : {}),
@@ -536,7 +538,7 @@ function ScheduleUploadEditor({
       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/schedule-slots"] });
       toast({
         title: "Jadwal disimpan",
-        description: isAdmin ? "Jadwal psikolog berhasil diperbarui." : "Jadwal 30 hari ke depan sudah dikunci.",
+        description: isAdmin ? "Jadwal psikolog berhasil diperbarui." : "Jadwal 30 hari ke depan berhasil diperbarui.",
       });
     },
     onError: (error) => {
@@ -612,16 +614,9 @@ function ScheduleUploadEditor({
         <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
           Online selalu tersedia untuk slot yang diaktifkan. Centang cabang offline hanya jika psikolog bersedia hadir di lokasi tersebut.
         </div>
-        {isLocked && !isAdmin && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            Jadwal sudah dikunci setelah disimpan. Perubahan lanjutan hanya dapat dilakukan admin.
-          </div>
-        )}
-        {!canUploadToday && !isLocked && !isAdmin && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-            Upload jadwal psikolog hanya dapat dilakukan maksimal hari Jumat.
-          </div>
-        )}
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          Sesi dapat diedit kapan saja selama masih berada dalam rentang 30 hari. Pastikan jam sesi tidak saling bertabrakan.
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[940px] border-separate border-spacing-0">
@@ -644,7 +639,6 @@ function ScheduleUploadEditor({
                         type="button"
                         size="sm"
                         variant="outline"
-                        disabled={isLocked && !isAdmin}
                         onClick={() => addSession(rowIndex)}
                         className="mt-3"
                       >
@@ -657,27 +651,26 @@ function ScheduleUploadEditor({
                     <input
                       type="checkbox"
                       checked={session.enabled}
-                      disabled={isLocked && !isAdmin}
                       onChange={(event) => updateSession(rowIndex, session.key, { enabled: event.target.checked })}
                       className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
                     />
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={(isLocked && !isAdmin) || !session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { startTime: event.target.value })} />
+                      <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={!session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { startTime: event.target.value })} />
                       <span className="text-neutral-400">-</span>
-                      <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={(isLocked && !isAdmin) || !session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { endTime: event.target.value })} />
+                      <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={!session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { endTime: event.target.value })} />
                     </div>
                   </td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-4 text-sm text-neutral-700">
                       <span className="font-medium text-green-700">Online</span>
                       <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={session.colombo} disabled={(isLocked && !isAdmin) || !session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { colombo: event.target.checked })} />
+                        <input type="checkbox" checked={session.colombo} disabled={!session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { colombo: event.target.checked })} />
                         Colombo
                       </label>
                       <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={session.bantul} disabled={(isLocked && !isAdmin) || !session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { bantul: event.target.checked })} />
+                        <input type="checkbox" checked={session.bantul} disabled={!session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { bantul: event.target.checked })} />
                         Bantul
                       </label>
                     </div>
@@ -687,7 +680,6 @@ function ScheduleUploadEditor({
                       type="button"
                       size="icon"
                       variant="ghost"
-                      disabled={isLocked && !isAdmin}
                       onClick={() => removeSession(rowIndex, session.key)}
                       aria-label="Hapus sesi"
                     >
@@ -701,9 +693,9 @@ function ScheduleUploadEditor({
         </div>
 
         <div className="flex justify-end">
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || (!isAdmin && (isLocked || !canUploadToday))} className="bg-green-700 hover:bg-green-800">
+          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="bg-green-700 hover:bg-green-800">
             <Save className="w-4 h-4 mr-2" />
-            {mutation.isPending ? "Menyimpan..." : isAdmin ? "Simpan Jadwal Psikolog" : "Simpan & Kunci Jadwal"}
+            {mutation.isPending ? "Menyimpan..." : isAdmin ? "Simpan Jadwal Psikolog" : "Simpan Jadwal"}
           </Button>
         </div>
       </CardContent>
@@ -788,8 +780,33 @@ function formatDateInput(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getLocalDayOfWeek() {
-  return new Date().getDay();
+function timeInputToMinutes(value: string) {
+  const [hour = "0", minute = "0"] = value.split(":");
+  return Number(hour) * 60 + Number(minute);
+}
+
+function findScheduleDraftConflict(rows: ScheduleDraftRow[]) {
+  for (const row of rows) {
+    const activeSessions = row.sessions
+      .filter((session) => session.enabled)
+      .map((session) => ({
+        label: `${session.startTime.replace(":", ".")} - ${session.endTime.replace(":", ".")}`,
+        startMinutes: timeInputToMinutes(session.startTime),
+        endMinutes: timeInputToMinutes(session.endTime),
+      }))
+      .sort((a, b) => a.startMinutes - b.startMinutes);
+
+    for (let index = 1; index < activeSessions.length; index += 1) {
+      const previous = activeSessions[index - 1];
+      const current = activeSessions[index];
+      if (!previous || !current) continue;
+      if (current.startMinutes < previous.endMinutes) {
+        return { scheduleDate: row.scheduleDate, previous: previous.label, current: current.label };
+      }
+    }
+  }
+
+  return null;
 }
 
 function parseTimeRange(value?: string | null) {
