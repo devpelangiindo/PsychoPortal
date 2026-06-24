@@ -124,10 +124,15 @@ const PSYCHOLOGIST_PROFILES = [
 }));
 
 const CONSULTATION_TYPES = [
-  { value: "child", label: "Perkembangan anak & remaja", hint: "Kurang dari 17 tahun" },
+  {
+    value: "child",
+    label: "Perkembangan anak & remaja",
+    hint: "Kurang dari 17 tahun",
+    note: "Sudah termasuk skrining, rujukan intervensi, dan surat keterangan (jika diperlukan)*",
+  },
   { value: "adult", label: "Permasalahan pribadi", hint: "Dewasa" },
   { value: "family", label: "Permasalahan keluarga", hint: "Keluarga" },
-] satisfies Array<{ value: ConsultationType; label: string; hint: string }>;
+] satisfies Array<{ value: ConsultationType; label: string; hint: string; note?: string }>;
 
 const LOCATIONS = [
   { value: "online", label: "Online", detail: "Sesi dilakukan secara daring" },
@@ -625,6 +630,7 @@ export default function Booking() {
                             <span className="font-semibold">{type.label}</span>
                           </div>
                           <p className="text-sm text-neutral-500 mt-2">{type.hint}</p>
+                          {type.note && <p className="text-xs leading-relaxed text-green-700 mt-3">{type.note}</p>}
                         </button>
                       );
                     })}
