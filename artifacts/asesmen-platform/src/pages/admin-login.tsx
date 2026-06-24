@@ -43,12 +43,12 @@ export default function AdminLogin() {
       
       toast({
         title: "Berhasil!",
-        description: "Login admin berhasil.",
+        description: "Login admin/CSO berhasil.",
       });
       
       // Add a small delay to ensure token is stored before navigation
       setTimeout(() => {
-        setLocation("/admin/dashboard");
+        setLocation(data.user?.role === "cso" || data.user?.role === "internal" ? "/cso/dashboard" : "/admin/dashboard");
       }, 100);
     },
     onError: (error: any) => {
@@ -77,10 +77,10 @@ export default function AdminLogin() {
               />
             </div>
             <CardTitle className="text-2xl font-bold text-green-800 dark:text-green-200">
-              Admin Login
+              Admin / CSO Login
             </CardTitle>
             <CardDescription className="text-green-600 dark:text-green-400">
-              Masuk ke panel administrator
+              Masuk ke panel administrator atau CSO
             </CardDescription>
           </CardHeader>
           <CardContent>

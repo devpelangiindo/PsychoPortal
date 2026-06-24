@@ -38,7 +38,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),
   authProvider: varchar("auth_provider").default("custom"), // 'replit' or 'custom'
-  role: varchar("role").default("user"), // 'user', 'admin', 'internal', 'psychologist'
+  role: varchar("role").default("user"), // 'user', 'admin', 'internal', 'cso', 'psychologist'
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -296,7 +296,7 @@ export const userUpdateSchema = z.object({
   lastName: z.string().optional(),
   whatsappNumber: z.string().optional(),
   isActive: z.boolean().optional(),
-  role: z.enum(["user", "admin", "internal", "psychologist"]).optional(),
+  role: z.enum(["user", "admin", "internal", "cso", "psychologist"]).optional(),
   psychologistProfileName: z.string().optional().nullable(),
 });
 

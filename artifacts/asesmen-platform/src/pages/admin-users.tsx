@@ -217,7 +217,7 @@ export default function AdminUsers() {
       whatsappNumber: user.whatsappNumber || "",
       psychologistProfileName: user.psychologistProfileName || "",
       isActive: user.isActive,
-      role: user.role as "user" | "admin" | "internal" | "psychologist",
+      role: user.role as "user" | "admin" | "internal" | "cso" | "psychologist",
     });
     setIsEditDialogOpen(true);
   };
@@ -333,15 +333,15 @@ export default function AdminUsers() {
                           variant={
                             user.role === 'admin' 
                               ? 'destructive' 
-                              : user.role === 'internal'
+                              : user.role === 'internal' || user.role === 'cso'
                                 ? 'default'
                                 : user.role === 'psychologist'
                                   ? 'outline'
                                 : 'secondary'
                           }
-                          className={user.role === 'internal' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                          className={user.role === 'internal' || user.role === 'cso' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
                         >
-                          {user.role === 'admin' ? 'Admin' : user.role === 'internal' ? 'Internal' : user.role === 'psychologist' ? 'Psikolog' : 'Pengguna'}
+                          {user.role === 'admin' ? 'Admin' : user.role === 'internal' ? 'Internal' : user.role === 'cso' ? 'CSO' : user.role === 'psychologist' ? 'Psikolog' : 'Pengguna'}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -449,6 +449,7 @@ export default function AdminUsers() {
                         <option value="user">Pengguna</option>
                         <option value="admin">Admin</option>
                         <option value="internal">Internal</option>
+                        <option value="cso">CSO</option>
                         <option value="psychologist">Psikolog</option>
                       </select>
                     </FormControl>

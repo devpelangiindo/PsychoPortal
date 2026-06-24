@@ -22,7 +22,7 @@ const PSYCHOLOGISTS = [
 ];
 
 function canManageBookingsRole(role?: string | null) {
-  return role === "admin" || role === "internal";
+  return role === "admin" || role === "internal" || role === "cso";
 }
 
 function canAccessPsychologistAreaRole(role?: string | null) {
@@ -1688,11 +1688,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = bookingReportSchema.parse(req.body);
-      const isAdminOrCso = canManageBookingsRole(user.role);
+      const isAdminSuper = user.role === "admin";
       const submitClientReport = Boolean(data.submitClientReport || data.submit);
       const submitHistoryReport = Boolean(data.submitHistoryReport || data.submit);
       const clientReportFieldsTouched = data.clientReportNotes !== undefined || data.reportRecommendations !== undefined;
-      if (booking.reportSubmittedAt && !isAdminOrCso && clientReportFieldsTouched) {
+      if (booking.reportSubmittedAt && !isAdminSuper && clientReportFieldsTouched) {
         return res.status(403).json({
           message: "Laporan untuk klien sudah selesai dan hanya admin super yang dapat mengeditnya.",
         });
@@ -2932,14 +2932,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get user by email
       const user = await storage.getUserByEmail(validatedData.email);
-      if (!user || user.role !== 'admin') {
-        return res.status(401).json({ message: "Kredensial admin tidak valid" });
+      if (!user || (user.role !== 'admin' && user.role !== 'internal' && user.role !== 'cso')) {
+        return res.status(401).json({ message: "Kredensial admin/CSO tidak valid" });
       }
 
       // Verify password
       const isValidPassword = await AuthUtils.comparePassword(validatedData.password, user.password || '');
       if (!isValidPassword) {
-        return res.status(401).json({ message: "Kredensial admin tidak valid" });
+        return res.status(401).json({ message: "Kredensial admin/CSO tidak valid" });
       }
 
       if (!user.isActive) {

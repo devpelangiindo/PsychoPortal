@@ -42,6 +42,8 @@ export default function Header() {
   const [location, setLocation] = useLocation();
   const dashboardHref = user?.role === "admin"
     ? "/admin/dashboard"
+    : user?.role === "cso" || user?.role === "internal"
+      ? "/cso/dashboard"
     : user?.role === "psychologist"
       ? "/psychologist/dashboard"
       : "/dashboard";

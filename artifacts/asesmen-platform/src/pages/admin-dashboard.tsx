@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,16 +74,31 @@ const defaultManualBookingForm: ManualBookingForm = {
   markAsPaid: true,
 };
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "cso" }) {
   const { toast } = useToast();
   const [manualForm, setManualForm] = useState<ManualBookingForm>(defaultManualBookingForm);
+  const isCsoMode = mode === "cso";
 
   const token = localStorage.getItem('adminToken');
+  const storedAdminUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("adminUser") || "null") as { role?: string } | null;
+    } catch {
+      return null;
+    }
+  })();
+  const storedRole = storedAdminUser?.role;
+
+  useEffect(() => {
+    if (!isCsoMode && (storedRole === "cso" || storedRole === "internal")) {
+      window.location.href = "/cso/dashboard";
+    }
+  }, [isCsoMode, storedRole]);
   
   const { data: stats, isLoading, error } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     retry: false,
-    enabled: !!token, // Only run query if token exists
+    enabled: !!token && !isCsoMode && storedRole !== "cso" && storedRole !== "internal", // CSO does not access admin-super stats
     queryFn: async ({ queryKey }) => {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
@@ -217,9 +232,11 @@ export default function AdminDashboard() {
               />
               <div>
                 <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Admin Dashboard
+                  {isCsoMode ? "CSO Dashboard" : "Admin Dashboard"}
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Panel Administrasi Rumah Psikologi Pelangi Indonesia</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {isCsoMode ? "Panel input klien offline/manual" : "Panel Administrasi Rumah Psikologi Pelangi Indonesia"}
+                </p>
               </div>
             </div>
             <Button 
@@ -235,7 +252,7 @@ export default function AdminDashboard() {
       </header>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {!isCsoMode && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium opacity-90">
@@ -299,10 +316,11 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div>}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div className={`grid grid-cols-1 ${isCsoMode ? "md:grid-cols-2" : "md:grid-cols-5"} gap-6`}>
+          {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -321,7 +339,9 @@ export default function AdminDashboard() {
               </Link>
             </CardContent>
           </Card>
+          )}
 
+          {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -340,7 +360,9 @@ export default function AdminDashboard() {
               </Link>
             </CardContent>
           </Card>
+          )}
 
+          {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -359,6 +381,7 @@ export default function AdminDashboard() {
               </Link>
             </CardContent>
           </Card>
+          )}
 
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
@@ -371,7 +394,7 @@ export default function AdminDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href="/admin/bookings">
+              <Link href={isCsoMode ? "/cso/bookings" : "/admin/bookings"}>
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
                   Lihat Booking
                 </Button>

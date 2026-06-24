@@ -212,8 +212,8 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   const [reportSearch, setReportSearch] = useState("");
   const [selectedAdminPsychologist, setSelectedAdminPsychologist] = useState(psychologistNames[0]);
   const isAdminMode = mode === "admin";
-  const isAdminOrCso = user?.role === "admin" || user?.role === "internal";
-  const loginRedirect = isAdminMode ? "/admin/bookings" : "/psychologist/dashboard";
+  const isAdminOrCso = user?.role === "admin" || user?.role === "internal" || user?.role === "cso";
+  const loginRedirect = isAdminMode ? (user?.role === "cso" || user?.role === "internal" ? "/cso/bookings" : "/admin/bookings") : "/psychologist/dashboard";
   const hasAccess = !!user && (isAdminMode ? isAdminOrCso : user.role === "psychologist");
 
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
@@ -250,7 +250,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   }
 
   if (!isAdminMode && isAdminOrCso) {
-    setLocation("/admin/bookings");
+    setLocation(user?.role === "cso" || user?.role === "internal" ? "/cso/bookings" : "/admin/bookings");
     return <LoadingState label="Mengalihkan ke halaman booking admin..." />;
   }
 
@@ -267,7 +267,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <p className="text-neutral-500">
                 {isAdminMode ? "Akun ini belum memiliki role admin." : "Akun ini belum memiliki role psikolog."}
               </p>
-              <Button onClick={() => setLocation(isAdminOrCso ? "/admin/dashboard" : "/dashboard")}>Kembali ke Dashboard</Button>
+              <Button onClick={() => setLocation(user?.role === "cso" || user?.role === "internal" ? "/cso/dashboard" : isAdminOrCso ? "/admin/dashboard" : "/dashboard")}>Kembali ke Dashboard</Button>
             </CardContent>
           </Card>
         </main>
