@@ -799,6 +799,16 @@ export default function Booking() {
                   <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
                     Setelah pembayaran, Admin Pelangi Indonesia akan menghubungi Anda maksimal 1x24 jam kerja. Wajib hadir paling lambat 30 menit sebelum jadwal.
                   </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                    <p className="font-semibold">Ketentuan pembatalan</p>
+                    <p className="mt-2">Jika melakukan pembatalan maka akan dikenakan biaya cancellation, dengan perhitungan sebagai berikut:</p>
+                    <ul className="mt-3 space-y-2 list-disc pl-5">
+                      <li>Pembatalan H-2 atau sebelumnya: Cancellation Fee 30%.</li>
+                      <li>Pembatalan H-1: Cancellation Fee 50%.</li>
+                      <li>Pembatalan 12 jam sebelum Sesi 1: Tidak ada pengembalian dana.</li>
+                    </ul>
+                    <p className="mt-3">Transfer pengembalian dana kepada klien dilakukan dalam kurun waktu maksimal 6 hari kerja.</p>
+                  </div>
                 </CardContent>
               </Card>
             )}
