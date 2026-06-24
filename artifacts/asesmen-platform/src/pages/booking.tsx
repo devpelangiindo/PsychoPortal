@@ -427,12 +427,12 @@ export default function Booking() {
     },
   });
 
-  const validateStep = () => {
-    if (step === 0) {
+  const validateStep = (stepToValidate = step) => {
+    if (stepToValidate === 0) {
       if (!form.consultationType) return "Pilih jenis konsultasi.";
     }
 
-    if (step === 1) {
+    if (stepToValidate === 1) {
       if (form.consultationType === "child") {
         if (!form.fatherName || !form.motherName || !form.fatherOccupation || !form.motherOccupation || !form.fatherWhatsapp || !form.motherWhatsapp) {
           return "Lengkapi data ayah/wali, ibu, pekerjaan, dan nomor WhatsApp.";
@@ -457,7 +457,7 @@ export default function Booking() {
       }
     }
 
-    if (step === 2) {
+    if (stepToValidate === 2) {
       if (!form.consentName || !form.consentAddress || !form.consentPhone || !form.consentAge || !form.consentRole || !form.consentMedicalInfo || !form.consentMedicalStatus || !form.consentCity || !form.consentDate || !form.consentSignature) {
         return "Lengkapi informed consent dan tanda tangan.";
       }
@@ -466,7 +466,7 @@ export default function Booking() {
       }
     }
 
-    if (step === 3) {
+    if (stepToValidate === 3) {
       if (!form.preferredDate || !form.preferredTime || !form.psychologistName || !form.location) {
         return "Lengkapi tanggal, psikolog, waktu, dan lokasi.";
       }
@@ -481,6 +481,19 @@ export default function Booking() {
     return "";
   };
 
+  const firstIncompleteStepBefore = (targetStep: number) => {
+    for (let index = 0; index < targetStep; index += 1) {
+      if (validateStep(index)) return index;
+    }
+    return -1;
+  };
+
+  const canMoveToStep = (targetStep: number) => targetStep <= step || firstIncompleteStepBefore(targetStep) === -1;
+  const currentStepError = validateStep();
+  const canGoNext = isAuthenticated && !currentStepError;
+  const firstIncompleteSubmitStep = firstIncompleteStepBefore(4);
+  const canSubmitBooking = isAuthenticated && firstIncompleteSubmitStep === -1 && Boolean(selectedPsychologist);
+
   const nextStep = () => {
     if (!isAuthenticated) {
       toast({
@@ -492,7 +505,7 @@ export default function Booking() {
       return;
     }
 
-    const error = validateStep();
+    const error = currentStepError;
     if (error) {
       toast({ title: "Data belum lengkap", description: error, variant: "destructive" });
       return;
@@ -501,9 +514,11 @@ export default function Booking() {
   };
 
   const handleSubmit = () => {
-    const error = validateStep();
+    const incompleteStep = firstIncompleteStepBefore(4);
+    const error = incompleteStep === -1 ? currentStepError : validateStep(incompleteStep);
     if (error) {
       toast({ title: "Data belum lengkap", description: error, variant: "destructive" });
+      if (incompleteStep !== -1) setStep(incompleteStep);
       return;
     }
     createBookingMutation.mutate();
@@ -566,13 +581,18 @@ export default function Booking() {
                 <button
                   key={label}
                   type="button"
-                  onClick={() => setStep(index)}
+                  disabled={!canMoveToStep(index)}
+                  onClick={() => {
+                    if (canMoveToStep(index)) setStep(index);
+                  }}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium ${
                     step === index
                       ? "border-green-700 bg-green-700 text-white"
                       : index < step
                         ? "border-green-200 bg-green-50 text-green-800"
-                        : "border-gray-200 bg-white text-gray-500"
+                        : canMoveToStep(index)
+                          ? "border-gray-200 bg-white text-gray-500"
+                          : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
                   }`}
                 >
                   {label}
@@ -782,11 +802,11 @@ export default function Booking() {
                 Sebelumnya
               </Button>
               {step < 4 ? (
-                <Button onClick={nextStep} className="bg-green-700 hover:bg-green-800">
+                <Button onClick={nextStep} className="bg-green-700 hover:bg-green-800" disabled={!canGoNext}>
                   Berikutnya
                 </Button>
               ) : (
-                <Button onClick={handleSubmit} className="bg-green-700 hover:bg-green-800" disabled={authLoading || createBookingMutation.isPending || !selectedPsychologist}>
+                <Button onClick={handleSubmit} className="bg-green-700 hover:bg-green-800" disabled={authLoading || createBookingMutation.isPending || !canSubmitBooking}>
                   {createBookingMutation.isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
