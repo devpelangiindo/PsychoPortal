@@ -2,7 +2,9 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { apiUrl } from "./api-base";
 
 export function getAuthToken() {
-  const isAdminRoute = typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
+  const isAdminRoute =
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/admin") || window.location.pathname.startsWith("/cso"));
   const adminToken = localStorage.getItem("adminToken");
   const accessToken = localStorage.getItem("accessToken");
   return isAdminRoute ? adminToken || accessToken : accessToken || adminToken;

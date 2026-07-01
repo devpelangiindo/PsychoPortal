@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 interface AdminStats {
@@ -144,38 +145,25 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
 
   const manualBookingMutation = useMutation({
     mutationFn: async () => {
-      const adminToken = localStorage.getItem("adminToken");
-      if (!adminToken) throw new Error("Token admin tidak ditemukan. Silakan login ulang.");
+      if (!getAuthToken()) throw new Error("Token login tidak ditemukan. Silakan login ulang.");
 
-      const response = await fetch("/api/admin/manual-counseling-bookings", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${adminToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          clientName: manualForm.clientName,
-          birthDate: manualForm.birthDate,
-          email: manualForm.email,
-          whatsappNumber: manualForm.whatsappNumber.replace(/\D/g, ""),
-          mainConcern: manualForm.mainConcern,
-          concernHistory: manualForm.concernHistory,
-          consultationType: manualForm.consultationType,
-          childName: manualForm.childName,
-          childBirthDate: manualForm.childBirthDate,
-          previousDiagnosis: manualForm.previousDiagnosis,
-          preferredDate: manualForm.preferredDate,
-          preferredTime: `${manualForm.startTime.replace(":", ".")} - ${manualForm.endTime.replace(":", ".")}`,
-          psychologistName: manualForm.psychologistName,
-          location: manualForm.location,
-          markAsPaid: manualForm.markAsPaid,
-        }),
+      const response = await apiRequest("POST", "/api/admin/manual-counseling-bookings", {
+        clientName: manualForm.clientName,
+        birthDate: manualForm.birthDate,
+        email: manualForm.email,
+        whatsappNumber: manualForm.whatsappNumber.replace(/\D/g, ""),
+        mainConcern: manualForm.mainConcern,
+        concernHistory: manualForm.concernHistory,
+        consultationType: manualForm.consultationType,
+        childName: manualForm.childName,
+        childBirthDate: manualForm.childBirthDate,
+        previousDiagnosis: manualForm.previousDiagnosis,
+        preferredDate: manualForm.preferredDate,
+        preferredTime: `${manualForm.startTime.replace(":", ".")} - ${manualForm.endTime.replace(":", ".")}`,
+        psychologistName: manualForm.psychologistName,
+        location: manualForm.location,
+        markAsPaid: manualForm.markAsPaid,
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Gagal menambahkan booking manual.");
-      }
       return response.json();
     },
     onSuccess: (data) => {
