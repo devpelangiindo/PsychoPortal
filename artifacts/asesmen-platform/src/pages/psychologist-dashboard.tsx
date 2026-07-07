@@ -8,6 +8,7 @@ import Footer from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1164,8 +1165,7 @@ function BookingCard({
         </div>
 
         <div className="mt-5 grid md:grid-cols-2 gap-4">
-          <Detail label="Keluhan umum" value={booking.mainConcern} />
-          <Detail label="Riwayat keluhan" value={booking.concernHistory} />
+          <BookingDataDialogActions booking={booking} />
           {booking.location === "online" && (
             <Detail
               label="Link meeting online"
@@ -1177,12 +1177,6 @@ function BookingCard({
               ) : "-"}
             />
           )}
-          {booking.consultationType === "child" && (
-            <>
-              <Detail label="Nama anak/remaja" value={booking.childName} />
-              <Detail label="Diagnosa sebelumnya" value={booking.previousDiagnosis} />
-            </>
-          )}
         </div>
 
         {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
@@ -1190,6 +1184,93 @@ function BookingCard({
       </CardContent>
     </Card>
   );
+}
+
+function BookingDataDialogActions({ booking }: { booking: Booking }) {
+  const personalData = formatBookingPersonalData(booking);
+  const consentData = extractInformedConsentText(booking.concernHistory);
+
+  return (
+    <div className="rounded-lg border bg-white p-4">
+      <p className="text-xs uppercase text-neutral-400">Data formulir</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline" size="sm">
+              <UserRound className="w-4 h-4 mr-2" />
+              Detail Data Diri
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[82vh] max-w-3xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Detail Data Diri</DialogTitle>
+              <DialogDescription>
+                Data Form B untuk gambaran awal psikolog.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="rounded-lg border bg-neutral-50 p-4 text-sm leading-relaxed text-neutral-800 whitespace-pre-wrap">
+              {renderDetailValue(personalData)}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline" size="sm">
+              <FileText className="w-4 h-4 mr-2" />
+              Informed Consent
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[82vh] max-w-3xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Informed Consent</DialogTitle>
+              <DialogDescription>
+                Pernyataan persetujuan dan tanda tangan klien.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="rounded-lg border bg-neutral-50 p-4 text-sm leading-relaxed text-neutral-800 whitespace-pre-wrap">
+              {renderDetailValue(consentData)}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
+
+function formatBookingPersonalData(booking: Booking) {
+  return [
+    "Identitas Klien",
+    `Nama klien: ${booking.clientName || "-"}`,
+    `Tanggal lahir: ${booking.birthDate ? formatDisplayDate(booking.birthDate) : "-"}`,
+    `Email: ${booking.email || "-"}`,
+    `No WA: ${booking.whatsappNumber || "-"}`,
+    `Jenis konsultasi: ${booking.consultationType ? consultationLabels[booking.consultationType] : "-"}`,
+    `Nama anak/remaja: ${booking.childName || "-"}`,
+    `Diagnosa sebelumnya: ${booking.previousDiagnosis || "-"}`,
+    "",
+    "Data Konseling",
+    `Nama psikolog: ${booking.psychologistName || "-"}`,
+    `Jadwal: ${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`,
+    `Lokasi: ${locationLabels[booking.location ?? ""] ?? "-"}`,
+    `Keluhan saat ini/awal: ${booking.mainConcern || "-"}`,
+    "",
+    extractPersonalFormText(booking.concernHistory),
+  ]
+    .filter((line) => line !== undefined)
+    .join("\n");
+}
+
+function extractPersonalFormText(value?: string | null) {
+  if (!value) return "Detail Form B belum tersedia.";
+  const [personalData] = value.split(/\n\s*\nInformed Consent Form/);
+  return personalData?.trim() || "Detail Form B belum tersedia.";
+}
+
+function extractInformedConsentText(value?: string | null) {
+  if (!value) return "Informed Consent belum tersedia.";
+  const match = value.match(/Informed Consent Form[\s\S]*$/);
+  return match?.[0]?.trim() || "Informed Consent belum tersedia.";
 }
 
 function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
