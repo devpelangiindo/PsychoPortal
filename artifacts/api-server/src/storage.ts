@@ -548,15 +548,17 @@ export class DatabaseStorage implements IStorage {
       meetingUrl?: string | null;
     },
   ): Promise<void> {
+    const updates: Partial<typeof psychologistBookings.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (schedule.preferredDate !== undefined) updates.preferredDate = schedule.preferredDate;
+    if (schedule.preferredTime !== undefined) updates.preferredTime = schedule.preferredTime;
+    if (schedule.location !== undefined) updates.location = schedule.location;
+    if (schedule.meetingUrl !== undefined) updates.meetingUrl = schedule.meetingUrl || null;
+
     await db
       .update(psychologistBookings)
-      .set({
-        preferredDate: schedule.preferredDate,
-        preferredTime: schedule.preferredTime,
-        location: schedule.location,
-        meetingUrl: schedule.meetingUrl || null,
-        updatedAt: new Date(),
-      })
+      .set(updates)
       .where(eq(psychologistBookings.id, id));
   }
 

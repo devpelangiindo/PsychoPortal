@@ -160,6 +160,10 @@ const bookingScheduleUpdateSchema = z.object({
   }
 });
 
+const meetingLinkUpdateSchema = z.object({
+  meetingUrl: z.string().url("Link meeting tidak valid").or(z.literal("")),
+});
+
 const availabilitySlotSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
   timeSlot: z.enum(TIME_SLOTS),
@@ -1708,7 +1712,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredDate: data.preferredDate,
         preferredTime: normalizeTimeSlot(data.preferredTime),
         location: data.location,
-        meetingUrl: data.meetingUrl || null,
       });
 
       const updatedBooking = await storage.getPsychologistBooking(booking.id);
@@ -1729,6 +1732,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating psychologist schedule:", error);
       res.status(500).json({ message: "Failed to update psychologist schedule" });
+    }
+  });
+
+  app.patch('/api/psychologist/bookings/:id/meeting-link', isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user.role !== "admin") {
+        return res.status(403).json({ message: "Input link meeting hanya dapat dilakukan oleh admin super." });
+      }
+
+      const bookingId = parseInt(req.params.id);
+      const booking = await storage.getPsychologistBooking(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.location !== "online") {
+        return res.status(400).json({ message: "Link meeting hanya untuk konseling online." });
+      }
+
+      if (booking.status !== "paid") {
+        return res.status(400).json({ message: "Link meeting hanya dapat disimpan untuk klien yang sudah membayar." });
+      }
+
+      const data = meetingLinkUpdateSchema.parse(req.body);
+      await storage.updatePsychologistBookingSchedule(booking.id, {
+        meetingUrl: data.meetingUrl || null,
+      });
+
+      const updatedBooking = await storage.getPsychologistBooking(booking.id);
+      res.json(updatedBooking);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data link meeting tidak valid", errors: error.flatten() });
+      }
+      console.error("Error updating meeting link:", error);
+      res.status(500).json({ message: "Failed to update meeting link" });
     }
   });
 

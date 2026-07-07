@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { AlertCircle, Clock, CreditCard, Download, FileText, Loader2, MessageCircle, Printer, Search } from "lucide-react";
+import { AlertCircle, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Printer, Search, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ type Booking = {
   preferredTime: string;
   psychologistName: string | null;
   location: string | null;
+  meetingUrl: string | null;
   clientReportNotes: string | null;
   reportRecommendations: string | null;
   sessionReport: string | null;
@@ -663,6 +664,18 @@ export default function Dashboard() {
                           <p className="mt-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
                             Psikolog: {booking.psychologistName}
                           </p>
+                        )}
+                        {booking?.location === "online" && booking.meetingUrl && (
+                          <a
+                            href={booking.meetingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:underline"
+                          >
+                            <Video className="w-4 h-4" />
+                            Buka link meeting online
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
                         )}
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
                           {formatDisplayDate(order.createdAt)}

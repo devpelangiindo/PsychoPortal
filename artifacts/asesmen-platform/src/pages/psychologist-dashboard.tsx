@@ -362,12 +362,13 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                     key={booking.id}
                     booking={booking}
                     canEditClientSchedule={isAdminMode}
+                    canEditMeetingLink={user?.role === "admin"}
                     canEditReports={canEditReports}
                     canEditClientReport={user?.role === "admin"}
                     onSaved={() => {
                       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/bookings"] });
                       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/reports"] });
-                      toast({ title: "Data disimpan", description: "Perubahan jadwal atau laporan berhasil diperbarui." });
+                      toast({ title: "Data disimpan", description: "Data booking berhasil diperbarui." });
                     }}
                   />
                 ))}
@@ -1114,12 +1115,14 @@ function flattenAvailability(slots: Record<number, Record<string, boolean>>) {
 function BookingCard({
   booking,
   canEditClientSchedule,
+  canEditMeetingLink,
   canEditReports,
   canEditClientReport,
   onSaved,
 }: {
   booking: Booking;
   canEditClientSchedule: boolean;
+  canEditMeetingLink: boolean;
   canEditReports: boolean;
   canEditClientReport: boolean;
   onSaved: () => void;
@@ -1179,6 +1182,7 @@ function BookingCard({
           )}
         </div>
 
+        {canEditMeetingLink && booking.location === "online" && <MeetingLinkEditor booking={booking} onSaved={onSaved} />}
         {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
         <ReportEditor booking={booking} canEditReports={canEditReports} canEditClientReport={canEditClientReport} onSaved={onSaved} />
       </CardContent>
@@ -1273,6 +1277,64 @@ function extractInformedConsentText(value?: string | null) {
   return match?.[0]?.trim() || "Informed Consent belum tersedia.";
 }
 
+function MeetingLinkEditor({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+  const { toast } = useToast();
+  const [meetingUrl, setMeetingUrl] = useState(booking.meetingUrl ?? "");
+
+  useEffect(() => {
+    setMeetingUrl(booking.meetingUrl ?? "");
+  }, [booking.meetingUrl]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PATCH", `/api/psychologist/bookings/${booking.id}/meeting-link`, {
+        meetingUrl,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      onSaved();
+    },
+    onError: (error) => {
+      toast({
+        title: "Gagal menyimpan link meeting",
+        description: error instanceof Error ? error.message : "Silakan cek link dan coba lagi.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <div className="mt-5 rounded-lg border bg-white p-4 space-y-4">
+      <div>
+        <h3 className="font-semibold flex items-center gap-2">
+          <Video className="w-4 h-4 text-green-700" />
+          Link Meeting Online
+        </h3>
+        <p className="text-xs text-neutral-500 mt-1">
+          Simpan link meeting untuk konseling online. Setelah disimpan, link otomatis muncul di dashboard klien dan psikolog.
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+        <div>
+          <Label>Link meeting</Label>
+          <Input
+            type="url"
+            value={meetingUrl}
+            onChange={(event) => setMeetingUrl(event.target.value)}
+            placeholder="https://meet.google.com/... atau link Zoom"
+            className="mt-2"
+          />
+        </div>
+        <Button variant="outline" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+          <Save className="w-4 h-4 mr-2" />
+          {mutation.isPending ? "Menyimpan..." : "Simpan"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
   const { toast } = useToast();
   const [initialStart, initialEnd] = parseTimeRange(booking.preferredTime);
@@ -1280,7 +1342,6 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
   const [startTime, setStartTime] = useState(initialStart);
   const [endTime, setEndTime] = useState(initialEnd);
   const [location, setLocation] = useState(booking.location ?? "online");
-  const [meetingUrl, setMeetingUrl] = useState(booking.meetingUrl ?? "");
   const today = new Date().toISOString().slice(0, 10);
   const maxDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -1290,7 +1351,6 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
         preferredDate,
         preferredTime: `${startTime.replace(":", ".")} - ${endTime.replace(":", ".")}`,
         location,
-        meetingUrl,
       });
       return response.json();
     },
@@ -1321,7 +1381,7 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
       <p className="text-xs text-neutral-500">
         Hanya admin/CSO yang berkomunikasi langsung dengan klien dapat mengubah jadwal ini. Placeholder notifikasi WA akan dibuat saat jadwal disimpan.
       </p>
-      <div className="grid md:grid-cols-4 gap-3">
+      <div className="grid md:grid-cols-3 gap-3">
         <div>
           <Label>Tanggal</Label>
           <Input type="date" min={today} max={maxDate} value={preferredDate} onChange={(event) => setPreferredDate(event.target.value)} className="mt-2" />
@@ -1342,10 +1402,6 @@ function ScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () =>
             <option value="bantul">Offline Bantul</option>
           </select>
         </div>
-        <div>
-          <Label>Link meeting</Label>
-          <Input type="url" value={meetingUrl} onChange={(event) => setMeetingUrl(event.target.value)} placeholder="https://meet.google.com/..." className="mt-2" />
-        </div>
       </div>
       <div className="flex justify-end">
         <Button variant="outline" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
@@ -1362,7 +1418,6 @@ type ReportMutationPayload = {
   reportRecommendations?: string;
   counselingHistoryNotes?: string;
   sessionReport?: string;
-  meetingUrl?: string;
   submitClientReport?: boolean;
   submitHistoryReport?: boolean;
 };
@@ -1379,7 +1434,6 @@ function ReportEditor({
   onSaved: () => void;
 }) {
   const { toast } = useToast();
-  const [meetingUrl, setMeetingUrl] = useState(booking.meetingUrl ?? "");
   const [sessionReport, setSessionReport] = useState(booking.sessionReport ?? "");
   const [reportRecommendations, setReportRecommendations] = useState(booking.reportRecommendations ?? "");
   const [clientReportNotes, setClientReportNotes] = useState(booking.clientReportNotes ?? booking.reportRecommendations ?? "");
@@ -1393,7 +1447,6 @@ function ReportEditor({
   );
 
   useEffect(() => {
-    setMeetingUrl(booking.meetingUrl ?? "");
     setSessionReport(booking.sessionReport ?? "");
     setReportRecommendations(booking.reportRecommendations ?? "");
     setClientReportNotes(booking.clientReportNotes ?? booking.reportRecommendations ?? "");
@@ -1416,7 +1469,7 @@ function ReportEditor({
 
   const saveClientDraft = () => {
     if (!canEditReports) return;
-    mutation.mutate({ meetingUrl, clientReportNotes, reportRecommendations });
+    mutation.mutate({ clientReportNotes, reportRecommendations });
   };
 
   const finishClientReport = () => {
@@ -1425,7 +1478,7 @@ function ReportEditor({
       toast({ title: "Laporan untuk klien wajib diisi.", variant: "destructive" });
       return;
     }
-    mutation.mutate({ meetingUrl, clientReportNotes, reportRecommendations, submitClientReport: true });
+    mutation.mutate({ clientReportNotes, reportRecommendations, submitClientReport: true });
   };
 
   const finishHistoryReport = () => {
@@ -1435,7 +1488,6 @@ function ReportEditor({
       return;
     }
     mutation.mutate({
-      meetingUrl,
       sessionReport,
       counselingHistoryNotes,
       submitHistoryReport: true,
@@ -1464,23 +1516,6 @@ function ReportEditor({
           {hasSavedReport ? "Tersimpan" : "Draft"}
         </Badge>
       </div>
-
-      {booking.location === "online" && (
-        <div>
-          <Label className="flex items-center gap-2">
-            <Video className="w-4 h-4" />
-            Link meeting online
-          </Label>
-          <Input
-            type="url"
-            value={meetingUrl}
-            onChange={(event) => setMeetingUrl(event.target.value)}
-            placeholder="https://meet.google.com/... atau link Zoom"
-            disabled={!canEditReports}
-            className="mt-2"
-          />
-        </div>
-      )}
 
       <div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
