@@ -15,11 +15,21 @@ import fs from "fs";
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "../midtrans";
 
 const PSYCHOLOGISTS = [
-  { name: "Tria Khusni Barokah, M.Psi., Psikolog", fee: "300000", types: ["child"] },
-  { name: "Retno Rahayu, M.Psi., Psikolog", fee: "300000", types: ["child", "adult", "family"] },
-  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", fee: "400000", types: ["child", "adult", "family"] },
-  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", fee: "300000", types: ["adult"] },
+  { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] },
+  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"] },
+  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] },
 ];
+
+type ConsultationType = "child" | "adult" | "family";
+
+const YENI_NAME = "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog";
+
+function getPsychologistFee(psychologistName: string, consultationType: ConsultationType) {
+  if (consultationType === "child") return "300000";
+  if (consultationType === "adult") return psychologistName === YENI_NAME ? "300000" : "200000";
+  return "200000";
+}
 
 function canManageBookingsRole(role?: string | null) {
   return role === "admin" || role === "internal" || role === "cso";
@@ -2280,9 +2290,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Psikolog tidak tersedia pada hari dan jam yang dipilih." });
       }
 
+      const amount = getPsychologistFee(data.psychologistName, data.consultationType);
       const order = await storage.createOrder({
         userId,
-        totalAmount: psychologist.fee,
+        totalAmount: amount,
         status: 'pending',
       });
 
@@ -2303,7 +2314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredDate: data.preferredDate,
         preferredTime: normalizeTimeSlot(data.preferredTime),
         psychologistName: data.psychologistName,
-        psychologistFee: psychologist.fee,
+        psychologistFee: amount,
         location: data.location,
         status: 'pending_payment',
       });
@@ -2441,7 +2452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const timestamp = Date.now();
       const manualPaymentId = `manual_counseling_${timestamp}`;
-      const amount = psychologist.fee;
+      const amount = getPsychologistFee(data.psychologistName, data.consultationType);
 
       const order = await storage.createOrder({
         userId: user.id,

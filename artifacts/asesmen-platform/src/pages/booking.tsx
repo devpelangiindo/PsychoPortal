@@ -110,11 +110,20 @@ type BookingForm = {
 };
 
 const PSYCHOLOGISTS = [
-  { name: "Tria Khusni Barokah, M.Psi., Psikolog", fee: 300000, types: ["child"] as ConsultationType[] },
-  { name: "Retno Rahayu, M.Psi., Psikolog", fee: 300000, types: ["child", "adult", "family"] as ConsultationType[] },
-  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", fee: 400000, types: ["child", "adult", "family"] as ConsultationType[] },
-  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", fee: 300000, types: ["adult"] as ConsultationType[] },
+  { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] as ConsultationType[] },
+  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] as ConsultationType[] },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"] as ConsultationType[] },
+  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] as ConsultationType[] },
 ];
+
+const YENI_NAME = "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog";
+
+const getPsychologistFee = (psychologistName: string | undefined, consultationType: ConsultationType | "") => {
+  if (!psychologistName || !consultationType) return 0;
+  if (consultationType === "child") return 300000;
+  if (consultationType === "adult") return psychologistName === YENI_NAME ? 300000 : 200000;
+  return 200000;
+};
 
 const PSYCHOLOGIST_PROFILES = [
   {
@@ -352,6 +361,7 @@ export default function Booking() {
 
   const selectedPsychologist = availablePsychologists.find((psychologist) => psychologist.name === form.psychologistName);
   const selectedPsychologistProfile = selectedPsychologist ? getPsychologistProfile(selectedPsychologist.name) : undefined;
+  const selectedPsychologistFee = getPsychologistFee(selectedPsychologist?.name, form.consultationType);
   const today = useMemo(() => formatDateInput(new Date()), []);
   const maxBookingDate = useMemo(() => {
     const date = new Date();
@@ -812,7 +822,7 @@ export default function Booking() {
                               )}
                               <div>
                                 <p className="font-semibold text-sm">{psychologist.name}</p>
-                                <p className="text-sm text-green-700 mt-1">{formatCurrency(psychologist.fee)} / sesi</p>
+                                <p className="text-sm text-green-700 mt-1">{formatCurrency(getPsychologistFee(psychologist.name, form.consultationType))} / sesi</p>
                                 {profile && <p className="text-xs text-neutral-500 mt-1">SIPP: {profile.sipp}</p>}
                               </div>
                             </div>
@@ -930,7 +940,7 @@ export default function Booking() {
                     </div>
                     <div className="border-t pt-3 flex justify-between items-center">
                       <span className="font-semibold">Total Transaksi</span>
-                      <span className="text-2xl font-bold text-green-700">{formatCurrency(selectedPsychologist?.fee ?? 0)}</span>
+                      <span className="text-2xl font-bold text-green-700">{formatCurrency(selectedPsychologistFee)}</span>
                     </div>
                   </div>
                   <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
@@ -1010,7 +1020,7 @@ export default function Booking() {
               </div>
               <div className="border-t pt-4">
                 <p className="text-sm text-neutral-500">Total</p>
-                <p className="text-2xl font-bold text-green-700">{formatCurrency(selectedPsychologist?.fee ?? 0)}</p>
+                <p className="text-2xl font-bold text-green-700">{formatCurrency(selectedPsychologistFee)}</p>
               </div>
               <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
                 <div className="flex gap-2">
@@ -1430,7 +1440,7 @@ function BookingLanding({
   onStart: () => void;
 }) {
   const service = services?.[0];
-  const startingFee = Math.min(...PSYCHOLOGISTS.map((psychologist) => psychologist.fee));
+  const startingFee = 200000;
 
   return (
     <div className="min-h-screen bg-background">
