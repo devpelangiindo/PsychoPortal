@@ -321,7 +321,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               {scheduleLoading ? (
                 <LoadingState label="Memuat jadwal..." compact />
               ) : (
-                <ScheduleUploadEditor scheduleSlots={scheduleData?.scheduleSlots ?? []} />
+                <ScheduleUploadEditor scheduleSlots={scheduleData?.scheduleSlots ?? []} bookings={bookings} />
               )}
             </TabsContent>
           )}
@@ -379,6 +379,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               ) : (
                 <ScheduleUploadEditor
                   scheduleSlots={scheduleData?.scheduleSlots ?? []}
+                  bookings={bookings.filter((booking) => booking.psychologistName === selectedAdminPsychologist)}
                   isAdmin
                   psychologistName={selectedAdminPsychologist}
                 />
@@ -479,10 +480,12 @@ type DeletedScheduleSlot = {
 
 function ScheduleUploadEditor({
   scheduleSlots,
+  bookings,
   isAdmin = false,
   psychologistName,
 }: {
   scheduleSlots: ScheduleSlot[];
+  bookings: Booking[];
   isAdmin?: boolean;
   psychologistName?: string;
 }) {
@@ -502,6 +505,7 @@ function ScheduleUploadEditor({
       ...rows.map((row, rowIndex) => ({ row, rowIndex })),
     ];
   }, [rows]);
+  const paidBookingsByDate = useMemo(() => groupPaidBookingsByDate(bookings), [bookings]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -645,12 +649,19 @@ function ScheduleUploadEditor({
                   return <div key={`blank-${cellIndex}`} className="min-h-[220px] border-b border-r bg-neutral-50/60" />;
                 }
 
+                const paidBookingsForDate = paidBookingsByDate.get(cell.row.scheduleDate) ?? [];
+
                 return (
                   <div key={cell.row.scheduleDate} className="min-h-[220px] border-b border-r bg-white p-3">
                     <div className="mb-3 flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-neutral-900">{formatCalendarDayNumber(cell.row.scheduleDate)}</p>
                         <p className="text-xs text-neutral-500">{formatDisplayDate(cell.row.scheduleDate)}</p>
+                        {paidBookingsForDate.length > 0 && (
+                          <span className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                            {paidBookingsForDate.length} booked
+                          </span>
+                        )}
                       </div>
                       <Button type="button" size="sm" variant="outline" onClick={() => addSession(cell.rowIndex)} className="h-8 px-2">
                         <Plus className="h-3.5 w-3.5" />
@@ -658,9 +669,12 @@ function ScheduleUploadEditor({
                     </div>
 
                     <div className="space-y-3">
-                      {cell.row.sessions.map((session) => (
-                        <div key={session.key} className={`rounded-md border p-3 ${session.enabled ? "border-green-200 bg-green-50/50" : "border-neutral-200 bg-neutral-50"}`}>
-                          <div className="mb-2 flex items-center justify-between gap-2">
+                      {cell.row.sessions.map((session) => {
+                        const bookedSessions = findBookingsForSession(paidBookingsForDate, session);
+
+                        return (
+                        <div key={session.key} className={`rounded-md border p-3 ${bookedSessions.length > 0 ? "border-emerald-300 bg-emerald-50" : session.enabled ? "border-green-200 bg-green-50/50" : "border-neutral-200 bg-neutral-50"}`}>
+                          <div className="mb-2 flex items-start justify-between gap-2">
                             <label className="inline-flex items-center gap-2 text-xs font-medium text-neutral-700">
                               <input
                                 type="checkbox"
@@ -670,6 +684,11 @@ function ScheduleUploadEditor({
                               />
                               Aktif
                             </label>
+                            {bookedSessions.length > 0 && (
+                              <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                                Booked
+                              </span>
+                            )}
                             <Button
                               type="button"
                               size="icon"
@@ -704,8 +723,14 @@ function ScheduleUploadEditor({
                               Bantul
                             </label>
                           </div>
+                          {bookedSessions.length > 0 && (
+                            <div className="mt-2 rounded border border-emerald-200 bg-white/80 px-2 py-1.5 text-[11px] leading-relaxed text-emerald-900">
+                              {bookedSessions.map((booking) => booking.clientName).join(", ")}
+                            </div>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -826,6 +851,32 @@ function formatCalendarMonthRange(rows: ScheduleDraftRow[]) {
 function parseLocalDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function groupPaidBookingsByDate(bookings: Booking[]) {
+  return bookings.reduce((groups, booking) => {
+    if (!isPaidBooking(booking)) return groups;
+    const dateBookings = groups.get(booking.preferredDate) ?? [];
+    dateBookings.push(booking);
+    groups.set(booking.preferredDate, dateBookings);
+    return groups;
+  }, new Map<string, Booking[]>());
+}
+
+function isPaidBooking(booking: Booking) {
+  return booking.status === "paid" || booking.order.paymentStatus === "paid" || booking.order.status === "completed";
+}
+
+function findBookingsForSession(bookings: Booking[], session: ScheduleDraftSession) {
+  const sessionStart = timeInputToMinutes(session.startTime);
+  const sessionEnd = timeInputToMinutes(session.endTime);
+
+  return bookings.filter((booking) => {
+    const [bookingStart, bookingEnd] = parseTimeRange(booking.preferredTime);
+    const bookingStartMinutes = timeInputToMinutes(bookingStart);
+    const bookingEndMinutes = timeInputToMinutes(bookingEnd);
+    return sessionStart < bookingEndMinutes && bookingStartMinutes < sessionEnd;
+  });
 }
 
 function timeInputToMinutes(value: string) {
