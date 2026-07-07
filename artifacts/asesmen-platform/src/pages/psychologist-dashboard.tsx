@@ -209,6 +209,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   const { user, isLoading: authLoading, logout } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [bookingSearch, setBookingSearch] = useState("");
   const [reportSearch, setReportSearch] = useState("");
   const [selectedAdminPsychologist, setSelectedAdminPsychologist] = useState(psychologistNames[0]);
   const isAdminMode = mode === "admin";
@@ -242,6 +243,11 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
     },
     enabled: hasAccess && (!isAdminMode || Boolean(selectedAdminPsychologist)),
   });
+  const filteredBookings = useMemo(() => {
+    const query = bookingSearch.trim().toLowerCase();
+    if (!query) return bookings;
+    return bookings.filter((booking) => matchesBookingSearch(booking, query));
+  }, [bookingSearch, bookings]);
 
   if (authLoading) {
     return <LoadingState label="Memuat akun..." />;
@@ -331,15 +337,26 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
 
           <TabsContent value="konseling" className="space-y-4">
             <SectionTitle icon={<CalendarDays className="w-5 h-5" />} title="Klien Terjadwal" description="Kelola jadwal, link meeting, dan laporan setelah sesi konseling." />
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <Input
+                value={bookingSearch}
+                onChange={(event) => setBookingSearch(event.target.value)}
+                placeholder="Cari klien, psikolog, email, WA, jadwal, status, atau lokasi"
+                className="pl-9"
+              />
+            </div>
             {isLoading ? (
               <LoadingState label="Memuat booking..." compact />
-            ) : bookings.length === 0 ? (
+            ) : filteredBookings.length === 0 ? (
               <Card>
-                <CardContent className="py-12 text-center text-neutral-500">Belum ada booking untuk akun psikolog ini.</CardContent>
+                <CardContent className="py-12 text-center text-neutral-500">
+                  {bookingSearch.trim() ? "Tidak ada booking yang cocok." : "Belum ada booking untuk akun psikolog ini."}
+                </CardContent>
               </Card>
             ) : (
               <div className="space-y-4">
-                {bookings.map((booking) => (
+                {filteredBookings.map((booking) => (
                   <BookingCard
                     key={booking.id}
                     booking={booking}
@@ -438,6 +455,33 @@ function Metric({ label, value }: { label: string; value: number }) {
       </CardContent>
     </Card>
   );
+}
+
+function matchesBookingSearch(booking: Booking, query: string) {
+  const haystack = [
+    String(booking.id),
+    booking.clientName,
+    booking.email,
+    booking.whatsappNumber,
+    booking.psychologistName,
+    booking.preferredDate,
+    formatDisplayDate(booking.preferredDate),
+    booking.preferredTime,
+    booking.status,
+    booking.order.status,
+    booking.order.paymentStatus,
+    booking.location,
+    locationLabels[booking.location ?? ""],
+    booking.service.name,
+    booking.consultationType ? consultationLabels[booking.consultationType] : "",
+    booking.childName,
+    booking.previousDiagnosis,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(query);
 }
 
 function Info({ icon, text }: { icon: ReactNode; text: string }) {

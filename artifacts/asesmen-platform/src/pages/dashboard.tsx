@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { AlertCircle, Clock, CreditCard, Download, FileText, Loader2, MessageCircle, Printer } from "lucide-react";
+import { AlertCircle, Clock, CreditCard, Download, FileText, Loader2, MessageCircle, Printer, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -55,6 +56,31 @@ function isOrderPaymentExpired(order: OrderWithItems) {
 
 function formatCurrency(value: string | number) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
+}
+
+function matchesClientDashboardOrder(order: OrderWithItems, bookings: Booking[], query: string) {
+  const booking = bookings.find((item) => item.orderId === order.id);
+  const haystack = [
+    `pesanan ${order.id}`,
+    String(order.id),
+    order.status,
+    order.paymentStatus,
+    order.paymentMethod,
+    order.totalAmount,
+    order.createdAt,
+    booking?.clientName,
+    booking?.psychologistName,
+    booking?.service.name,
+    booking?.preferredDate,
+    booking?.preferredTime,
+    booking?.location,
+    ...order.orderItems.map((item) => item.assessment.name),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(query);
 }
 
 function escapeHtml(value: unknown) {
@@ -158,6 +184,7 @@ export default function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshCountdown, setRefreshCountdown] = useState(3);
   const [settlingOrderId, setSettlingOrderId] = useState<number | null>(null);
+  const [orderSearch, setOrderSearch] = useState("");
 
   // Countdown timer for auto refresh
   useEffect(() => {
@@ -290,6 +317,11 @@ export default function Dashboard() {
   const completedAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'completed') || [];
   const inProgressAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'in_progress') || [];
   const clientReports = bookings?.filter((booking) => booking.reportSubmittedAt && getClientReportText(booking)) || [];
+  const filteredOrders = useMemo(() => {
+    const query = orderSearch.trim().toLowerCase();
+    if (!query) return orders || [];
+    return (orders || []).filter((order) => matchesClientDashboardOrder(order, bookings || [], query));
+  }, [bookings, orderSearch, orders]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -591,15 +623,24 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
+              <div className="relative mb-4">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  value={orderSearch}
+                  onChange={(event) => setOrderSearch(event.target.value)}
+                  placeholder="Cari pesanan, psikolog, layanan, status, atau jadwal"
+                  className="pl-9"
+                />
+              </div>
               {ordersLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="h-16 bg-muted rounded animate-pulse" />
                   ))}
                 </div>
-              ) : orders && orders.length > 0 ? (
+              ) : filteredOrders.length > 0 ? (
                 <div className="space-y-4">
-                  {orders.map((order) => {
+                  {filteredOrders.map((order) => {
                     const paymentDeadline = getPaymentDeadline(order);
                     const paymentExpired = isOrderPaymentExpired(order);
                     const canPay = canSettleOrderPayment(order);
@@ -683,7 +724,7 @@ export default function Dashboard() {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-neutral-500 dark:text-muted-foreground">
-                    Belum ada pesanan
+                    {orderSearch.trim() ? "Tidak ada pesanan yang cocok." : "Belum ada pesanan"}
                   </p>
                 </div>
               )}
