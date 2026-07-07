@@ -27,6 +27,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import retnoPhoto from "@/assets/psychologists/retno-rahayu.jpg";
+import ridwanPhoto from "@/assets/psychologists/ridwan-rahmawan.jpg";
+import triaPhoto from "@/assets/psychologists/tria-khusni-barokah.jpg";
+import yeniPhoto from "@/assets/psychologists/yeni-triwahyuningsih.jpg";
 
 type BookingService = {
   id: number;
@@ -113,15 +117,35 @@ const PSYCHOLOGISTS = [
 ];
 
 const PSYCHOLOGIST_PROFILES = [
-  "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
-  "Retno Rahayu, M.Psi., Psikolog",
-  "Tria Khusni Barokah, M.Psi., Psikolog",
-  "Ridwan Rahmawan, S.Psi., M.H., Psikolog",
-].map((name) => ({
-  name,
-  sipp: "Nomor SIPP menyusul",
-  description: "Deskripsi singkat psikolog akan ditambahkan.",
-}));
+  {
+    name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
+    sipp: "19930009-2025-03-1359",
+    photo: yeniPhoto,
+    description:
+      "Saya merupakan Psikolog Klinis dan Neuropsikolog yang berpengalaman dalam menangani kasus perkembangan anak (ADHD, autisme, dan gangguan belajar), serta berbagai permasalahan pada dewasa dan keluarga, seperti konflik pengasuhan, trauma, adiksi, dan masalah relasi. Bersertifikat ABA, TEACCH, Brain training, CBT, DBT, Mindfulness, Clinical Hypnotherapy, Brainspotting, PoV, Braingym, dan Touch for Health dll untuk mendukung layanan psikologis yang komprehensif dan berpusat pada kebutuhan klien.",
+  },
+  {
+    name: "Retno Rahayu, M.Psi., Psikolog",
+    sipp: "20191360-2022-01-2917",
+    photo: retnoPhoto,
+    description:
+      "Saya psikolog yang berpengalaman dalam menangani problem seputar perkembangan anak (autisme, ADHD, gangguan belajar, bullying) serta isu kesehatan mental remaja dan dewasa (kecemasan, depresi, stres, trauma), adiksi, masalah relasi, keluarga/parenting.",
+  },
+  {
+    name: "Tria Khusni Barokah, M.Psi., Psikolog",
+    sipp: "20230079-2023-01-2583",
+    photo: triaPhoto,
+    description:
+      "Saya psikolog yang berpengalaman dalam mendampingi tumbuh kembang anak, penanganan Anak Berkebutuhan Khusus (ABK), serta manajemen emosi dan perilaku. Berpengalaman dalam menangani kasus kecemasan, dampak bullying, serta menyediakan ruang konsultasi parenting yang suportif untuk membantu orang tua mendampingi setiap fase perkembangan anak secara optimal.",
+  },
+  {
+    name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog",
+    sipp: "397259DD89DA",
+    photo: ridwanPhoto,
+    description:
+      "Saya psikolog yang berpengalaman dalam mendampingi berbagai permasalahan psikologis pada rentang usia remaja hingga lansia, mulai dari kecemasan, stres, masalah emosi, kepercayaan diri, relasi keluarga, hubungan sosial, penyesuaian diri, kebingungan arah hidup, masalah akademik atau pekerjaan, hingga perasaan kesepian dan perubahan hidup pada usia lanjut.",
+  },
+];
 
 const CONSULTATION_TYPES = [
   {
@@ -1570,27 +1594,30 @@ function PsychologistProfilesSection() {
             </h2>
           </div>
           <p className="text-neutral-500 dark:text-muted-foreground md:max-w-md leading-relaxed">
-            Foto, nomor SIPP, dan deskripsi singkat akan dilengkapi setelah informasi final tersedia.
+            Kenali psikolog yang tersedia sebelum memilih jadwal konseling yang paling sesuai.
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
           {PSYCHOLOGIST_PROFILES.map((psychologist) => (
-            <div key={psychologist.name} className="rounded-xl border bg-white p-5 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-800">
-                  <UserRound className="h-9 w-9" />
-                </div>
-                <div>
-                  <h3 className="font-bold leading-snug text-neutral-900">{psychologist.name}</h3>
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-green-700">
-                    {psychologist.sipp}
-                  </p>
-                </div>
+            <div key={psychologist.name} className="overflow-hidden rounded-xl border bg-white shadow-sm">
+              <div className="aspect-[4/5] bg-green-50">
+                <img
+                  src={psychologist.photo}
+                  alt={psychologist.name}
+                  className="h-full w-full object-cover object-top"
+                  loading="lazy"
+                />
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-neutral-500">
-                {psychologist.description}
-              </p>
+              <div className="p-5">
+                <h3 className="font-bold leading-snug text-neutral-900">{psychologist.name}</h3>
+                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-green-700">
+                  SIPP: {psychologist.sipp}
+                </p>
+                <p className="mt-4 text-sm leading-relaxed text-neutral-500">
+                  {psychologist.description}
+                </p>
+              </div>
             </div>
           ))}
         </div>
