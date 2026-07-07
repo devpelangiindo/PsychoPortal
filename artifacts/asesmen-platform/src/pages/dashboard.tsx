@@ -618,6 +618,11 @@ export default function Dashboard() {
                           {order.orderItems.length > 0 ? `${order.orderItems.length} item` : 'Booking psikolog'} • 
                           Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
                         </p>
+                        {booking?.psychologistName && (
+                          <p className="mt-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                            Psikolog: {booking.psychologistName}
+                          </p>
+                        )}
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
                           {formatDisplayDate(order.createdAt)}
                         </p>

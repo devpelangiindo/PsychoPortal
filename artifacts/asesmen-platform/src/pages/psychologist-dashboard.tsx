@@ -1093,6 +1093,9 @@ function BookingCard({
                 <p className="text-sm text-neutral-500">
                   {booking.consultationType ? consultationLabels[booking.consultationType] : "-"}
                 </p>
+                <p className="text-sm font-medium text-green-800 mt-1">
+                  Psikolog: {booking.psychologistName || "-"}
+                </p>
               </div>
             </div>
             <div className="grid sm:grid-cols-2 gap-2 text-sm text-neutral-600">
