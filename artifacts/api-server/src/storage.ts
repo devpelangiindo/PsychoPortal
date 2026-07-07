@@ -52,6 +52,15 @@ function bookingWithPaymentStatus(row: {
   };
 }
 
+function operationalPsychologistBookingOrder() {
+  return [
+    sql<number>`case when ${psychologistBookings.status} = 'paid' or ${orders.status} = 'completed' or ${orders.paymentStatus} = 'paid' then 0 else 1 end`,
+    psychologistBookings.preferredDate,
+    psychologistBookings.preferredTime,
+    desc(psychologistBookings.createdAt),
+  ];
+}
+
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
@@ -396,7 +405,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
       .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
       .where(eq(psychologistBookings.userId, userId))
-      .orderBy(psychologistBookings.createdAt);
+      .orderBy(...operationalPsychologistBookingOrder());
 
     return results.map(bookingWithPaymentStatus);
   }
@@ -411,7 +420,7 @@ export class DatabaseStorage implements IStorage {
       .from(psychologistBookings)
       .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
       .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
-      .orderBy(desc(psychologistBookings.createdAt));
+      .orderBy(...operationalPsychologistBookingOrder());
 
     return results.map(bookingWithPaymentStatus);
   }
@@ -452,7 +461,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
       .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
       .where(eq(psychologistBookings.psychologistName, psychologistName))
-      .orderBy(psychologistBookings.createdAt);
+      .orderBy(...operationalPsychologistBookingOrder());
 
     return results.map(bookingWithPaymentStatus);
   }
