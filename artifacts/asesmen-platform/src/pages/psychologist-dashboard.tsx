@@ -627,7 +627,11 @@ function ScheduleUploadEditor({
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[980px]">
+          <div className="min-w-[1260px]">
+            <div className="rounded-t-lg border border-b-0 bg-white px-4 py-3">
+              <p className="text-base font-semibold text-neutral-900">{formatCalendarMonthRange(rows)}</p>
+              <p className="text-xs text-neutral-500">Rentang jadwal 30 hari ke depan</p>
+            </div>
             <div className="grid grid-cols-7 rounded-t-lg border border-b-0 bg-neutral-50">
               {dayLabels.map((day) => (
                 <div key={day} className="border-r p-3 text-center text-xs font-semibold uppercase text-neutral-500 last:border-r-0">
@@ -678,10 +682,15 @@ function ScheduleUploadEditor({
                             </Button>
                           </div>
 
-                          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
-                            <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { startTime: event.target.value })} className="h-8 px-2 text-xs" />
-                            <span className="text-xs text-neutral-400">-</span>
-                            <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { endTime: event.target.value })} className="h-8 px-2 text-xs" />
+                          <div className="grid grid-cols-2 gap-2">
+                            <label className="min-w-0 text-[11px] font-medium text-neutral-500">
+                              Mulai
+                              <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { startTime: event.target.value })} className="mt-1 h-8 w-full min-w-0 px-2 text-xs" />
+                            </label>
+                            <label className="min-w-0 text-[11px] font-medium text-neutral-500">
+                              Selesai
+                              <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { endTime: event.target.value })} className="mt-1 h-8 w-full min-w-0 px-2 text-xs" />
+                            </label>
                           </div>
 
                           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-700">
@@ -794,13 +803,29 @@ function formatDateInput(date: Date) {
 }
 
 function getDayOfWeekFromDateString(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, (month || 1) - 1, day || 1).getDay();
+  return parseLocalDate(value).getDay();
 }
 
 function formatCalendarDayNumber(value: string) {
   const day = value.split("-")[2];
   return day ? String(Number(day)) : value;
+}
+
+function formatCalendarMonthRange(rows: ScheduleDraftRow[]) {
+  if (rows.length === 0) return "Kalender jadwal";
+  const firstRow = rows[0];
+  if (!firstRow) return "Kalender jadwal";
+  const start = parseLocalDate(firstRow.scheduleDate);
+  const end = parseLocalDate(rows[rows.length - 1]?.scheduleDate ?? firstRow.scheduleDate);
+  const formatter = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" });
+  const startLabel = formatter.format(start);
+  const endLabel = formatter.format(end);
+  return startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+}
+
+function parseLocalDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
 }
 
 function timeInputToMinutes(value: string) {
