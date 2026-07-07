@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Printer, Save, Search, Trash2, UserRound, Video } from "lucide-react";
 import Header from "@/components/layout/header";
@@ -495,6 +495,14 @@ function ScheduleUploadEditor({
     setDeletedSlots([]);
   }, [scheduleSlots]);
 
+  const calendarCells = useMemo(() => {
+    const firstDayOffset = rows[0] ? getDayOfWeekFromDateString(rows[0].scheduleDate) : 0;
+    return [
+      ...Array.from({ length: firstDayOffset }, () => null),
+      ...rows.map((row, rowIndex) => ({ row, rowIndex })),
+    ];
+  }, [rows]);
+
   const mutation = useMutation({
     mutationFn: async () => {
       const activeSlots = rows.flatMap((row) =>
@@ -619,77 +627,82 @@ function ScheduleUploadEditor({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[940px] border-separate border-spacing-0">
-            <thead>
-              <tr>
-                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Tanggal</th>
-                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Aktif</th>
-                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Waktu</th>
-                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Lokasi offline</th>
-                <th className="text-left text-sm font-semibold text-neutral-600 p-3">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => row.sessions.map((session, sessionIndex) => (
-                <tr key={`${row.scheduleDate}-${session.key}`} className="border-t">
-                  {sessionIndex === 0 && (
-                    <td className="p-3 font-medium text-neutral-900 align-top" rowSpan={row.sessions.length}>
-                      <div>{formatDisplayDate(row.scheduleDate)}</div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => addSession(rowIndex)}
-                        className="mt-3"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Tambah sesi
+          <div className="min-w-[980px]">
+            <div className="grid grid-cols-7 rounded-t-lg border border-b-0 bg-neutral-50">
+              {dayLabels.map((day) => (
+                <div key={day} className="border-r p-3 text-center text-xs font-semibold uppercase text-neutral-500 last:border-r-0">
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 border-l border-t">
+              {calendarCells.map((cell, cellIndex) => {
+                if (!cell) {
+                  return <div key={`blank-${cellIndex}`} className="min-h-[220px] border-b border-r bg-neutral-50/60" />;
+                }
+
+                return (
+                  <div key={cell.row.scheduleDate} className="min-h-[220px] border-b border-r bg-white p-3">
+                    <div className="mb-3 flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-900">{formatCalendarDayNumber(cell.row.scheduleDate)}</p>
+                        <p className="text-xs text-neutral-500">{formatDisplayDate(cell.row.scheduleDate)}</p>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" onClick={() => addSession(cell.rowIndex)} className="h-8 px-2">
+                        <Plus className="h-3.5 w-3.5" />
                       </Button>
-                    </td>
-                  )}
-                  <td className="p-3">
-                    <input
-                      type="checkbox"
-                      checked={session.enabled}
-                      onChange={(event) => updateSession(rowIndex, session.key, { enabled: event.target.checked })}
-                      className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
-                    />
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={!session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { startTime: event.target.value })} />
-                      <span className="text-neutral-400">-</span>
-                      <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={!session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { endTime: event.target.value })} />
                     </div>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex flex-wrap gap-4 text-sm text-neutral-700">
-                      <span className="font-medium text-green-700">Online</span>
-                      <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={session.colombo} disabled={!session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { colombo: event.target.checked })} />
-                        Colombo
-                      </label>
-                      <label className="inline-flex items-center gap-2">
-                        <input type="checkbox" checked={session.bantul} disabled={!session.enabled} onChange={(event) => updateSession(rowIndex, session.key, { bantul: event.target.checked })} />
-                        Bantul
-                      </label>
+
+                    <div className="space-y-3">
+                      {cell.row.sessions.map((session) => (
+                        <div key={session.key} className={`rounded-md border p-3 ${session.enabled ? "border-green-200 bg-green-50/50" : "border-neutral-200 bg-neutral-50"}`}>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <label className="inline-flex items-center gap-2 text-xs font-medium text-neutral-700">
+                              <input
+                                type="checkbox"
+                                checked={session.enabled}
+                                onChange={(event) => updateSession(cell.rowIndex, session.key, { enabled: event.target.checked })}
+                                className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
+                              />
+                              Aktif
+                            </label>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => removeSession(cell.rowIndex, session.key)}
+                              aria-label="Hapus sesi"
+                              className="h-7 w-7"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
+                            <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { startTime: event.target.value })} className="h-8 px-2 text-xs" />
+                            <span className="text-xs text-neutral-400">-</span>
+                            <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { endTime: event.target.value })} className="h-8 px-2 text-xs" />
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-700">
+                            <span className="font-medium text-green-700">Online</span>
+                            <label className="inline-flex items-center gap-1.5">
+                              <input type="checkbox" checked={session.colombo} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { colombo: event.target.checked })} />
+                              Colombo
+                            </label>
+                            <label className="inline-flex items-center gap-1.5">
+                              <input type="checkbox" checked={session.bantul} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { bantul: event.target.checked })} />
+                              Bantul
+                            </label>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </td>
-                  <td className="p-3">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => removeSession(rowIndex, session.key)}
-                      aria-label="Hapus sesi"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                  </td>
-                </tr>
-              )))}
-            </tbody>
-          </table>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end">
@@ -778,6 +791,16 @@ function formatDateInput(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function getDayOfWeekFromDateString(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1).getDay();
+}
+
+function formatCalendarDayNumber(value: string) {
+  const day = value.split("-")[2];
+  return day ? String(Number(day)) : value;
 }
 
 function timeInputToMinutes(value: string) {
