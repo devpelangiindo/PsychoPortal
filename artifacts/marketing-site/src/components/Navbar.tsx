@@ -14,7 +14,6 @@ const services: Array<{
   { label: "Pelatihan", href: "/produk-layanan/pelatihan" },
   { label: "Produk Digital", href: "/produk-layanan/produk-digital" },
   { label: "Kursus", href: "/produk-layanan/kursus" },
-  { label: "Franchise", href: "/produk-layanan/franchise" },
   { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
   { label: "HORECAL", href: "/produk-layanan/horecal" },
 ];
@@ -73,7 +72,7 @@ export default function Navbar() {
               href="/artikel"
               className="px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
             >
-              Artikel
+              Berita
             </Link>
 
             {/* Dropdown */}
@@ -168,7 +167,7 @@ export default function Navbar() {
               href="/artikel"
               className="block px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors"
             >
-              Artikel
+              Berita
             </Link>
             <div>
               <button

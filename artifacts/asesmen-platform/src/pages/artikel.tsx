@@ -45,7 +45,7 @@ export default function Artikel() {
     queryKey: ["/api/cms/posts"],
     queryFn: async () => {
       const res = await fetch("/api/cms/posts");
-      if (!res.ok) throw new Error("Gagal memuat artikel");
+      if (!res.ok) throw new Error("Gagal memuat berita");
       return res.json();
     },
   });
@@ -61,10 +61,10 @@ export default function Artikel() {
           <nav className="flex items-center gap-2 text-sm text-neutral-500 dark:text-muted-foreground mb-4">
             <Link href="/" className="hover:text-primary transition-colors">Beranda</Link>
             <ChevronRight className="w-4 h-4" />
-            <span className="text-neutral-900 dark:text-foreground font-medium">Artikel</span>
+            <span className="text-neutral-900 dark:text-foreground font-medium">Berita</span>
           </nav>
           <h1 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-foreground">
-            Artikel & Blog
+            Berita
           </h1>
           <p className="mt-3 text-neutral-500 dark:text-muted-foreground text-lg">
             Wawasan, tips, dan informasi seputar psikologi dan kesehatan mental.
@@ -89,7 +89,7 @@ export default function Artikel() {
 
         {!isLoading && posts.length === 0 && (
           <div className="text-center py-20 text-neutral-400 dark:text-muted-foreground">
-            <p className="text-lg">Belum ada artikel yang dipublikasikan.</p>
+            <p className="text-lg">Belum ada berita yang dipublikasikan.</p>
           </div>
         )}
 

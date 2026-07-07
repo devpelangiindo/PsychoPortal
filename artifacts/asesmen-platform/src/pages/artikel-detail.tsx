@@ -70,7 +70,7 @@ export default function ArtikelDetail() {
         <nav className="flex items-center gap-2 text-sm text-neutral-500 dark:text-muted-foreground mb-8 flex-wrap">
           <Link href="/" className="hover:text-primary transition-colors">Beranda</Link>
           <ChevronRight className="w-4 h-4" />
-          <Link href="/artikel" className="hover:text-primary transition-colors">Artikel</Link>
+          <Link href="/artikel" className="hover:text-primary transition-colors">Berita</Link>
           {post && (
             <>
               <ChevronRight className="w-4 h-4" />
@@ -99,14 +99,14 @@ export default function ArtikelDetail() {
 
         {error && (
           <div className="text-center py-16">
-            <p className="text-red-500 mb-4 text-lg font-medium">Artikel tidak ditemukan</p>
+            <p className="text-red-500 mb-4 text-lg font-medium">Berita tidak ditemukan</p>
             <p className="text-neutral-500 dark:text-muted-foreground mb-6">
               Halaman yang Anda cari tidak tersedia atau telah dihapus.
             </p>
             <Link href="/artikel">
               <Button variant="outline">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Kembali ke Daftar Artikel
+                Kembali ke Daftar Berita
               </Button>
             </Link>
           </div>
@@ -176,7 +176,7 @@ export default function ArtikelDetail() {
               />
             ) : (
               <p className="text-neutral-400 dark:text-muted-foreground italic">
-                Konten artikel belum tersedia.
+                Konten berita belum tersedia.
               </p>
             )}
 
@@ -199,7 +199,7 @@ export default function ArtikelDetail() {
               <Link href="/artikel">
                 <Button variant="ghost" className="text-neutral-500 hover:text-neutral-700 dark:text-muted-foreground dark:hover:text-foreground pl-0">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Kembali ke Daftar Artikel
+                  Kembali ke Daftar Berita
                 </Button>
               </Link>
             </div>

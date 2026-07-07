@@ -34,7 +34,7 @@ const businessUnits = [
   { label: "Klinik Psikologi & Terapi", icon: Brain },
   { label: "Pendidikan & Akademi", icon: BookOpen },
   { label: "Pelatihan & Produk Digital", icon: Award },
-  { label: "Penjualan & Franchise", icon: Users },
+  { label: "Kemitraan & Pengembangan", icon: Users },
   { label: "HORECAL Services", icon: Star },
 ];
 
@@ -45,7 +45,6 @@ const services = [
   { slug: "pelatihan", name: "Pelatihan", desc: "Pelatihan profesional untuk tenaga pendidik dan terapis.", color: "#40916C" },
   { slug: "produk-digital", name: "Produk Digital", desc: "Modul digital dan e-book berkualitas untuk pengembangan diri.", color: "#1B4332" },
   { slug: "kursus", name: "Kursus", desc: "Kursus pengembangan minat bakat: musik, tari, olahraga, akademik.", color: "#2D6A4F" },
-  { slug: "franchise", name: "Franchise", desc: "Peluang kemitraan dan franchise untuk memperluas jangkauan.", color: "#9A6E5E" },
   { slug: "sekolah", name: "Sekolah Pelangi Indonesia", desc: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", color: "#3A7D58", externalHref: "https://www.pi-education.com/" },
   { slug: "horecal", name: "HORECAL", desc: "Layanan bisnis operasional untuk fasilitas edukasi dan kelembagaan.", color: "#1B4332" },
 ];
@@ -250,7 +249,7 @@ export default function Home() {
                   "Menyediakan layanan pendidikan dengan metode pembelajaran aktif, inovatif, dan inklusif.",
                   "Menyelenggarakan program terapi tumbuh kembang dan kursus pengembangan minat bakat yang terstruktur.",
                   "Memfasilitasi edukasi masyarakat melalui pelatihan profesional dan produk digital berkualitas.",
-                  "Membangun jaringan kemitraan strategis (franchise) untuk memperluas jangkauan layanan secara nasional.",
+                  "Membangun jaringan kemitraan strategis untuk memperluas jangkauan layanan secara nasional.",
                   "Menghadirkan layanan bisnis operasional yang unggul guna menunjang kelancaran fasilitas edukasi.",
                 ].map((m, i) => (
                   <li key={i} className="flex gap-3 text-sm text-gray-600">

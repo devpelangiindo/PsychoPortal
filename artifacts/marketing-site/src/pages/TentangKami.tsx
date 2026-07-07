@@ -52,7 +52,7 @@ const missions = [
   "Menyediakan layanan pendidikan dengan metode pembelajaran aktif, inovatif, dan inklusif.",
   "Menyelenggarakan program terapi tumbuh kembang dan kursus pengembangan minat bakat yang terstruktur, tepat sasaran, aplikatif, dan adaptif.",
   "Memfasilitasi edukasi masyarakat melalui pelatihan profesional dan penyediaan produk digital berkualitas.",
-  "Membangun jaringan kemitraan strategis (franchise) untuk memperluas jangkauan layanan secara nasional.",
+  "Membangun jaringan kemitraan strategis untuk memperluas jangkauan layanan secara nasional.",
   "Menghadirkan layanan bisnis operasional yang unggul guna menunjang kelancaran fasilitas edukasi dan kegiatan kelembagaan.",
 ];
 

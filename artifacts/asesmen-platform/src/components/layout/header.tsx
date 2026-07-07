@@ -23,7 +23,6 @@ const services: Array<{
   { label: "Pelatihan", href: withMainSitePath("/produk-layanan/pelatihan") },
   { label: "Produk Digital", href: withMainSitePath("/produk-layanan/produk-digital") },
   { label: "Kursus", href: withMainSitePath("/produk-layanan/kursus") },
-  { label: "Franchise", href: withMainSitePath("/produk-layanan/franchise") },
   { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
   { label: "HORECAL", href: withMainSitePath("/produk-layanan/horecal") },
 ];
@@ -100,7 +99,7 @@ export default function Header() {
                   Tentang Kami
                 </a>
                 <a href={withMainSitePath("/artikel")} className={marketingNavLinkClass}>
-                  Artikel
+                  Berita
                 </a>
 
                 <div className="relative">
@@ -253,7 +252,7 @@ export default function Header() {
                   Tentang Kami
                 </a>
                 <a href={withMainSitePath("/artikel")} className={marketingMobileLinkClass}>
-                  Artikel
+                  Berita
                 </a>
                 <div>
                   <button

@@ -18,7 +18,7 @@ const FALLBACK_ARTICLES = [
   {
     slug: "memahami-asesmen-psikologi-anak",
     title: "Memahami Asesmen Psikologi pada Anak: Panduan untuk Orang Tua",
-    excerpt: "Asesmen psikologi anak adalah proses evaluasi komprehensif yang bertujuan untuk memahami potensi, kebutuhan, dan tantangan yang dihadapi anak. Artikel ini memandu orang tua memahami prosesnya.",
+    excerpt: "Asesmen psikologi anak adalah proses evaluasi komprehensif yang bertujuan untuk memahami potensi, kebutuhan, dan tantangan yang dihadapi anak. Berita ini memandu orang tua memahami prosesnya.",
     publishedAt: "2026-04-15T00:00:00.000Z",
     category: "psikologi",
     color: "#2D6A4F",
@@ -121,7 +121,7 @@ function ArticleDetail({ slug }: { slug: string }) {
 
   const fallback = FALLBACK_ARTICLES.find((a) => a.slug === slug);
   const color = cmsPost ? articleColor(cmsPost.category) : (fallback?.color ?? "#2D6A4F");
-  const title = cmsPost?.title ?? fallback?.title ?? "Artikel";
+  const title = cmsPost?.title ?? fallback?.title ?? "Berita";
   const excerpt = cmsPost?.excerpt ?? fallback?.excerpt ?? "";
   const category = cmsPost?.category ?? fallback?.category;
   const categoryLabel = category ? (CATEGORY_LABELS[category] ?? category) : "";
@@ -137,7 +137,7 @@ function ArticleDetail({ slug }: { slug: string }) {
           <nav className="flex items-center gap-2 text-sm text-white/70 mb-6">
             <Link href="/" className="hover:text-white transition-colors">Beranda</Link>
             <ChevronRight size={14} />
-            <Link href="/artikel" className="hover:text-white transition-colors">Artikel</Link>
+            <Link href="/artikel" className="hover:text-white transition-colors">Berita</Link>
             <ChevronRight size={14} />
             <span className="text-white line-clamp-1">{title}</span>
           </nav>
@@ -167,7 +167,7 @@ function ArticleDetail({ slug }: { slug: string }) {
                 <img src={imageUrl} alt={title} className="w-full h-64 object-cover rounded-2xl mb-8" />
               ) : (
                 <div className="w-full h-64 rounded-2xl mb-8 flex items-center justify-center" style={{ background: `${color}22` }}>
-                  <span className="text-sm font-medium" style={{ color }}>Foto Artikel</span>
+                  <span className="text-sm font-medium" style={{ color }}>Foto Berita</span>
                 </div>
               )}
 
@@ -187,7 +187,7 @@ function ArticleDetail({ slug }: { slug: string }) {
                   </p>
                   <div className="p-4 rounded-xl border-l-4" style={{ background: "#D8F3DC", borderColor: "#2D6A4F" }}>
                     <p className="text-sm text-green-900 font-medium">
-                      Artikel ini akan segera diperbarui dengan konten lengkap dari tim redaksi kami. Untuk informasi lebih lanjut, silakan hubungi kami melalui WhatsApp.
+                      Berita ini akan segera diperbarui dengan konten lengkap dari tim redaksi kami. Untuk informasi lebih lanjut, silakan hubungi kami melalui WhatsApp.
                     </p>
                   </div>
                 </div>
@@ -258,7 +258,7 @@ export default function Artikel() {
       <Navbar />
 
       <div className="pt-32 pb-16 text-center" style={{ background: "linear-gradient(135deg, #1B4332, #2D6A4F)" }}>
-        <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-4">Artikel</h1>
+        <h1 className="text-4xl lg:text-5xl font-extrabold text-white mb-4">Berita</h1>
         <p className="text-green-100/80 text-lg max-w-2xl mx-auto px-4 mb-8">
           Wawasan, tips, dan panduan dari para profesional Pelangi Indonesia Group.
         </p>
@@ -268,7 +268,7 @@ export default function Artikel() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari artikel..."
+            placeholder="Cari berita..."
             className="w-full pl-10 pr-4 py-3 rounded-xl bg-white text-gray-900 text-sm shadow-sm outline-none focus:ring-2 focus:ring-green-400"
           />
         </div>
@@ -283,7 +283,7 @@ export default function Artikel() {
                   <Loader2 size={32} className="animate-spin text-green-700" />
                 </div>
               ) : filtered.length === 0 ? (
-                <p className="text-gray-500 py-10 text-center">Tidak ada artikel yang ditemukan.</p>
+                <p className="text-gray-500 py-10 text-center">Tidak ada berita yang ditemukan.</p>
               ) : (
                 <div className="space-y-6">
                   {filtered.map((a) => {
