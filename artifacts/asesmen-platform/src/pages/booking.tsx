@@ -147,6 +147,9 @@ const PSYCHOLOGIST_PROFILES = [
   },
 ];
 
+const getPsychologistProfile = (name: string) =>
+  PSYCHOLOGIST_PROFILES.find((profile) => profile.name === name);
+
 const CONSULTATION_TYPES = [
   {
     value: "child",
@@ -348,6 +351,7 @@ export default function Booking() {
   }, [form.consultationType]);
 
   const selectedPsychologist = availablePsychologists.find((psychologist) => psychologist.name === form.psychologistName);
+  const selectedPsychologistProfile = selectedPsychologist ? getPsychologistProfile(selectedPsychologist.name) : undefined;
   const today = useMemo(() => formatDateInput(new Date()), []);
   const maxBookingDate = useMemo(() => {
     const date = new Date();
@@ -783,6 +787,7 @@ export default function Booking() {
                         <p className="text-sm text-neutral-500">Pilih jenis konsultasi pada Form A terlebih dahulu.</p>
                       ) : availablePsychologists.map((psychologist) => {
                         const selected = form.psychologistName === psychologist.name;
+                        const profile = getPsychologistProfile(psychologist.name);
                         return (
                           <button
                             key={psychologist.name}
@@ -793,12 +798,22 @@ export default function Booking() {
                             }`}
                           >
                             <div className="flex gap-3">
-                              <div className="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                                <UserRound className="w-5 h-5 text-green-800" />
-                              </div>
+                              {profile ? (
+                                <img
+                                  src={profile.photo}
+                                  alt={psychologist.name}
+                                  className="h-14 w-14 shrink-0 rounded-full object-cover object-top"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                  <UserRound className="w-5 h-5 text-green-800" />
+                                </div>
+                              )}
                               <div>
                                 <p className="font-semibold text-sm">{psychologist.name}</p>
                                 <p className="text-sm text-green-700 mt-1">{formatCurrency(psychologist.fee)} / sesi</p>
+                                {profile && <p className="text-xs text-neutral-500 mt-1">SIPP: {profile.sipp}</p>}
                               </div>
                             </div>
                           </button>
@@ -897,7 +912,17 @@ export default function Booking() {
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-neutral-500">Psikolog</span>
-                      <span className="font-semibold text-right">{selectedPsychologist?.name ?? "-"}</span>
+                      <span className="flex max-w-[70%] items-center justify-end gap-3 text-right font-semibold">
+                        {selectedPsychologistProfile && (
+                          <img
+                            src={selectedPsychologistProfile.photo}
+                            alt={selectedPsychologistProfile.name}
+                            className="h-10 w-10 shrink-0 rounded-full object-cover object-top"
+                            loading="lazy"
+                          />
+                        )}
+                        {selectedPsychologist?.name ?? "-"}
+                      </span>
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-neutral-500">Jadwal</span>
@@ -966,7 +991,20 @@ export default function Booking() {
               )}
               <div className="space-y-2 text-sm">
                 <SummaryRow label="Jenis" value={CONSULTATION_TYPES.find((type) => type.value === form.consultationType)?.label ?? "-"} />
-                <SummaryRow label="Psikolog" value={selectedPsychologist?.name ?? "-"} />
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-neutral-500">Psikolog</span>
+                  <span className="flex max-w-[70%] items-center justify-end gap-2 text-right font-medium">
+                    {selectedPsychologistProfile && (
+                      <img
+                        src={selectedPsychologistProfile.photo}
+                        alt={selectedPsychologistProfile.name}
+                        className="h-8 w-8 shrink-0 rounded-full object-cover object-top"
+                        loading="lazy"
+                      />
+                    )}
+                    {selectedPsychologist?.name ?? "-"}
+                  </span>
+                </div>
                 <SummaryRow label="Waktu" value={selectedScheduleLabel} />
                 <SummaryRow label="Lokasi" value={LOCATIONS.find((location) => location.value === form.location)?.label ?? "-"} />
               </div>
