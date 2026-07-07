@@ -1404,9 +1404,39 @@ function Detail({ label, value }: { label: string; value?: string | ReactNode | 
   return (
     <div className="rounded-lg border bg-white p-4">
       <p className="text-xs uppercase text-neutral-400">{label}</p>
-      <div className="text-sm mt-2 whitespace-pre-wrap">{value || "-"}</div>
+      <div className="text-sm mt-2 whitespace-pre-wrap">{renderDetailValue(value)}</div>
     </div>
   );
+}
+
+function renderDetailValue(value?: string | ReactNode | null) {
+  if (!value) return "-";
+  if (typeof value !== "string") return value;
+
+  const lines = value.split("\n");
+  return lines.map((line, index) => {
+    const match = line.match(/^Tanda tangan digital:\s*(data:image\/(?:png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+)$/);
+    if (!match) {
+      return (
+        <span key={`${index}-${line}`}>
+          {line}
+          {index < lines.length - 1 ? "\n" : null}
+        </span>
+      );
+    }
+
+    return (
+      <span key={`${index}-signature`} className="block whitespace-normal">
+        <span className="block mb-2">Tanda tangan digital:</span>
+        <img
+          src={match[1]}
+          alt="Tanda tangan digital klien"
+          className="max-h-36 max-w-full rounded-md border bg-white object-contain p-2"
+        />
+        {index < lines.length - 1 ? "\n" : null}
+      </span>
+    );
+  });
 }
 
 function LoadingState({ label, compact = false }: { label: string; compact?: boolean }) {
