@@ -213,6 +213,9 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   const [selectedAdminPsychologist, setSelectedAdminPsychologist] = useState(psychologistNames[0]);
   const isAdminMode = mode === "admin";
   const isAdminOrCso = user?.role === "admin" || user?.role === "internal" || user?.role === "cso";
+  const isCsoRole = user?.role === "cso" || user?.role === "internal";
+  const canManagePsychologistSchedules = !isAdminMode || user?.role === "admin";
+  const canEditReports = !isAdminMode || user?.role === "admin";
   const loginRedirect = isAdminMode ? (user?.role === "cso" || user?.role === "internal" ? "/cso/bookings" : "/admin/bookings") : "/psychologist/dashboard";
   const hasAccess = !!user && (isAdminMode ? isAdminOrCso : user.role === "psychologist");
 
@@ -341,7 +344,8 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                     key={booking.id}
                     booking={booking}
                     canEditClientSchedule={isAdminMode}
-                    canEditClientReport={isAdminMode}
+                    canEditReports={canEditReports}
+                    canEditClientReport={user?.role === "admin"}
                     onSaved={() => {
                       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/bookings"] });
                       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/reports"] });
@@ -358,7 +362,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <SectionTitle
                 icon={<Clock className="w-5 h-5" />}
                 title="Perubahan Jadwal Psikolog"
-                description="Admin/CSO dapat mengubah jadwal psikolog untuk klien yang sudah terjadwal."
+                description={isCsoRole ? "CSO dapat melihat jadwal psikolog. Perubahan jadwal psikolog hanya dapat dilakukan admin." : "Admin dapat mengubah jadwal psikolog untuk klien yang sudah terjadwal."}
               />
               <Card>
                 <CardContent className="p-5">
@@ -382,6 +386,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                   bookings={bookings.filter((booking) => booking.psychologistName === selectedAdminPsychologist)}
                   isAdmin
                   psychologistName={selectedAdminPsychologist}
+                  readOnly={!canManagePsychologistSchedules}
                 />
               )}
             </TabsContent>
@@ -483,11 +488,13 @@ function ScheduleUploadEditor({
   bookings,
   isAdmin = false,
   psychologistName,
+  readOnly = false,
 }: {
   scheduleSlots: ScheduleSlot[];
   bookings: Booking[];
   isAdmin?: boolean;
   psychologistName?: string;
+  readOnly?: boolean;
 }) {
   const { toast } = useToast();
   const [rows, setRows] = useState<ScheduleDraftRow[]>(() => buildScheduleRows(scheduleSlots));
@@ -509,6 +516,7 @@ function ScheduleUploadEditor({
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) throw new Error("Akses hanya lihat. Perubahan jadwal psikolog hanya dapat dilakukan admin.");
       const activeSlots = rows.flatMap((row) =>
         row.sessions.flatMap((session) => {
           if (!session.enabled && !session.persisted) return [];
@@ -626,9 +634,15 @@ function ScheduleUploadEditor({
         <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
           Online selalu tersedia untuk slot yang diaktifkan. Centang cabang offline hanya jika psikolog bersedia hadir di lokasi tersebut.
         </div>
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-          Sesi dapat diedit kapan saja selama masih berada dalam rentang 30 hari. Pastikan jam sesi tidak saling bertabrakan.
-        </div>
+        {readOnly ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Mode lihat saja untuk CSO. CSO dapat mengubah jadwal klien pada kartu booking, tetapi tidak dapat mengubah jadwal psikolog.
+          </div>
+        ) : (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            Sesi dapat diedit kapan saja selama masih berada dalam rentang 30 hari. Pastikan jam sesi tidak saling bertabrakan.
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <div className="min-w-[1260px]">
@@ -663,7 +677,7 @@ function ScheduleUploadEditor({
                           </span>
                         )}
                       </div>
-                      <Button type="button" size="sm" variant="outline" onClick={() => addSession(cell.rowIndex)} className="h-8 px-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => addSession(cell.rowIndex)} disabled={readOnly} className="h-8 px-2">
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -679,6 +693,7 @@ function ScheduleUploadEditor({
                               <input
                                 type="checkbox"
                                 checked={session.enabled}
+                                disabled={readOnly}
                                 onChange={(event) => updateSession(cell.rowIndex, session.key, { enabled: event.target.checked })}
                                 className="h-4 w-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
                               />
@@ -693,6 +708,7 @@ function ScheduleUploadEditor({
                               type="button"
                               size="icon"
                               variant="ghost"
+                              disabled={readOnly}
                               onClick={() => removeSession(cell.rowIndex, session.key)}
                               aria-label="Hapus sesi"
                               className="h-7 w-7"
@@ -704,22 +720,22 @@ function ScheduleUploadEditor({
                           <div className="grid grid-cols-2 gap-2">
                             <label className="min-w-0 text-[11px] font-medium text-neutral-500">
                               Mulai
-                              <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { startTime: event.target.value })} className="mt-1 h-8 w-full min-w-0 px-2 text-xs" />
+                              <Input type="time" min="07:00" max="21:00" value={session.startTime} disabled={readOnly || !session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { startTime: event.target.value })} className="mt-1 h-8 w-full min-w-0 px-2 text-xs" />
                             </label>
                             <label className="min-w-0 text-[11px] font-medium text-neutral-500">
                               Selesai
-                              <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { endTime: event.target.value })} className="mt-1 h-8 w-full min-w-0 px-2 text-xs" />
+                              <Input type="time" min="07:00" max="21:00" value={session.endTime} disabled={readOnly || !session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { endTime: event.target.value })} className="mt-1 h-8 w-full min-w-0 px-2 text-xs" />
                             </label>
                           </div>
 
                           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-700">
                             <span className="font-medium text-green-700">Online</span>
                             <label className="inline-flex items-center gap-1.5">
-                              <input type="checkbox" checked={session.colombo} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { colombo: event.target.checked })} />
+                              <input type="checkbox" checked={session.colombo} disabled={readOnly || !session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { colombo: event.target.checked })} />
                               Colombo
                             </label>
                             <label className="inline-flex items-center gap-1.5">
-                              <input type="checkbox" checked={session.bantul} disabled={!session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { bantul: event.target.checked })} />
+                              <input type="checkbox" checked={session.bantul} disabled={readOnly || !session.enabled} onChange={(event) => updateSession(cell.rowIndex, session.key, { bantul: event.target.checked })} />
                               Bantul
                             </label>
                           </div>
@@ -739,12 +755,14 @@ function ScheduleUploadEditor({
           </div>
         </div>
 
-        <div className="flex justify-end">
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="bg-green-700 hover:bg-green-800">
-            <Save className="w-4 h-4 mr-2" />
-            {mutation.isPending ? "Menyimpan..." : isAdmin ? "Simpan Jadwal Psikolog" : "Simpan Jadwal"}
-          </Button>
-        </div>
+        {!readOnly && (
+          <div className="flex justify-end">
+            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="bg-green-700 hover:bg-green-800">
+              <Save className="w-4 h-4 mr-2" />
+              {mutation.isPending ? "Menyimpan..." : isAdmin ? "Simpan Jadwal Psikolog" : "Simpan Jadwal"}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -1051,11 +1069,13 @@ function flattenAvailability(slots: Record<number, Record<string, boolean>>) {
 function BookingCard({
   booking,
   canEditClientSchedule,
+  canEditReports,
   canEditClientReport,
   onSaved,
 }: {
   booking: Booking;
   canEditClientSchedule: boolean;
+  canEditReports: boolean;
   canEditClientReport: boolean;
   onSaved: () => void;
 }) {
@@ -1119,7 +1139,7 @@ function BookingCard({
         </div>
 
         {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
-        <ReportEditor booking={booking} canEditClientReport={canEditClientReport} onSaved={onSaved} />
+        <ReportEditor booking={booking} canEditReports={canEditReports} canEditClientReport={canEditClientReport} onSaved={onSaved} />
       </CardContent>
     </Card>
   );
@@ -1219,14 +1239,24 @@ type ReportMutationPayload = {
   submitHistoryReport?: boolean;
 };
 
-function ReportEditor({ booking, canEditClientReport, onSaved }: { booking: Booking; canEditClientReport: boolean; onSaved: () => void }) {
+function ReportEditor({
+  booking,
+  canEditReports,
+  canEditClientReport,
+  onSaved,
+}: {
+  booking: Booking;
+  canEditReports: boolean;
+  canEditClientReport: boolean;
+  onSaved: () => void;
+}) {
   const { toast } = useToast();
   const [meetingUrl, setMeetingUrl] = useState(booking.meetingUrl ?? "");
   const [sessionReport, setSessionReport] = useState(booking.sessionReport ?? "");
   const [reportRecommendations, setReportRecommendations] = useState(booking.reportRecommendations ?? "");
   const [clientReportNotes, setClientReportNotes] = useState(booking.clientReportNotes ?? booking.reportRecommendations ?? "");
   const [counselingHistoryNotes, setCounselingHistoryNotes] = useState(booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
-  const clientReportLocked = Boolean(booking.reportSubmittedAt && !canEditClientReport);
+  const clientReportLocked = !canEditReports || Boolean(booking.reportSubmittedAt && !canEditClientReport);
   const hasSavedReport = Boolean(
     booking.clientReportNotes ||
     booking.reportRecommendations ||
@@ -1257,10 +1287,12 @@ function ReportEditor({ booking, canEditClientReport, onSaved }: { booking: Book
   });
 
   const saveClientDraft = () => {
+    if (!canEditReports) return;
     mutation.mutate({ meetingUrl, clientReportNotes, reportRecommendations });
   };
 
   const finishClientReport = () => {
+    if (!canEditReports) return;
     if (!clientReportNotes.trim()) {
       toast({ title: "Laporan untuk klien wajib diisi.", variant: "destructive" });
       return;
@@ -1269,6 +1301,7 @@ function ReportEditor({ booking, canEditClientReport, onSaved }: { booking: Book
   };
 
   const finishHistoryReport = () => {
+    if (!canEditReports) return;
     if (!counselingHistoryNotes.trim()) {
       toast({ title: "Riwayat konseling wajib diisi.", variant: "destructive" });
       return;
@@ -1290,7 +1323,9 @@ function ReportEditor({ booking, canEditClientReport, onSaved }: { booking: Book
             Laporan Hasil Konseling
           </h3>
           <p className="text-xs text-neutral-500 mt-1">
-            {booking.reportSubmittedAt
+            {!canEditReports
+              ? "Mode lihat saja untuk CSO"
+              : booking.reportSubmittedAt
               ? `Laporan klien dikirim ${formatDisplayDateTime(booking.reportSubmittedAt)}`
               : hasSavedReport
                 ? "Draft atau riwayat tersimpan"
@@ -1313,6 +1348,7 @@ function ReportEditor({ booking, canEditClientReport, onSaved }: { booking: Book
             value={meetingUrl}
             onChange={(event) => setMeetingUrl(event.target.value)}
             placeholder="https://meet.google.com/... atau link Zoom"
+            disabled={!canEditReports}
             className="mt-2"
           />
         </div>
@@ -1336,19 +1372,21 @@ function ReportEditor({ booking, canEditClientReport, onSaved }: { booking: Book
         />
         {clientReportLocked && (
           <p className="text-xs text-amber-700 mt-2">
-            Laporan untuk klien sudah selesai. Edit lanjutan hanya dapat dilakukan admin super.
+            {!canEditReports ? "CSO hanya dapat melihat laporan." : "Laporan untuk klien sudah selesai. Edit lanjutan hanya dapat dilakukan admin super."}
           </p>
         )}
-        <div className="flex flex-wrap justify-end gap-2 mt-3">
-          <Button variant="outline" onClick={saveClientDraft} disabled={mutation.isPending || clientReportLocked}>
-            <Save className="w-4 h-4 mr-2" />
-            {mutation.isPending ? "Menyimpan..." : "Simpan Draft Klien"}
-          </Button>
-          <Button onClick={finishClientReport} disabled={mutation.isPending || clientReportLocked} className="bg-green-700 hover:bg-green-800">
-            <ClipboardCheck className="w-4 h-4 mr-2" />
-            {mutation.isPending ? "Menyelesaikan..." : "Selesai Laporan Klien"}
-          </Button>
-        </div>
+        {canEditReports && (
+          <div className="flex flex-wrap justify-end gap-2 mt-3">
+            <Button variant="outline" onClick={saveClientDraft} disabled={mutation.isPending || clientReportLocked}>
+              <Save className="w-4 h-4 mr-2" />
+              {mutation.isPending ? "Menyimpan..." : "Simpan Draft Klien"}
+            </Button>
+            <Button onClick={finishClientReport} disabled={mutation.isPending || clientReportLocked} className="bg-green-700 hover:bg-green-800">
+              <ClipboardCheck className="w-4 h-4 mr-2" />
+              {mutation.isPending ? "Menyelesaikan..." : "Selesai Laporan Klien"}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div>
@@ -1364,14 +1402,17 @@ function ReportEditor({ booking, canEditClientReport, onSaved }: { booking: Book
           }}
           placeholder="Isi catatan internal yang akan menjadi track record konseling klien."
           rows={4}
+          disabled={!canEditReports}
           className="mt-2"
         />
-        <div className="flex flex-wrap justify-end gap-2 mt-3">
-          <Button onClick={finishHistoryReport} disabled={mutation.isPending || !counselingHistoryNotes.trim()} className="bg-green-700 hover:bg-green-800">
-            <ClipboardCheck className="w-4 h-4 mr-2" />
-            {mutation.isPending ? "Menyimpan..." : "Selesai Riwayat Internal"}
-          </Button>
-        </div>
+        {canEditReports && (
+          <div className="flex flex-wrap justify-end gap-2 mt-3">
+            <Button onClick={finishHistoryReport} disabled={mutation.isPending || !counselingHistoryNotes.trim()} className="bg-green-700 hover:bg-green-800">
+              <ClipboardCheck className="w-4 h-4 mr-2" />
+              {mutation.isPending ? "Menyimpan..." : "Selesai Riwayat Internal"}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -25,6 +25,10 @@ function canManageBookingsRole(role?: string | null) {
   return role === "admin" || role === "internal" || role === "cso";
 }
 
+function canManagePsychologistSchedulesRole(role?: string | null) {
+  return role === "admin";
+}
+
 function canAccessPsychologistAreaRole(role?: string | null) {
   return role === "psychologist" || canManageBookingsRole(role);
 }
@@ -1537,8 +1541,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      if (canManageBookingsRole(user.role) && !canManagePsychologistSchedulesRole(user.role)) {
+        return res.status(403).json({ message: "CSO hanya dapat melihat jadwal psikolog. Perubahan jadwal psikolog hanya dapat dilakukan admin." });
+      }
+
       const data = psychologistAvailabilityUpdateSchema.parse(req.body);
-      const providerName = canManageBookingsRole(user.role)
+      const providerName = canManagePsychologistSchedulesRole(user.role)
         ? data.psychologistName
         : user.psychologistProfileName || getDisplayName(user);
 
@@ -1597,8 +1605,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
+      if (canManageBookingsRole(user.role) && !canManagePsychologistSchedulesRole(user.role)) {
+        return res.status(403).json({ message: "CSO hanya dapat melihat jadwal psikolog. Perubahan jadwal psikolog hanya dapat dilakukan admin." });
+      }
+
       const data = psychologistScheduleUpdateSchema.parse(req.body);
-      const providerName = canManageBookingsRole(user.role)
+      const providerName = canManagePsychologistSchedulesRole(user.role)
         ? data.psychologistName
         : user.psychologistProfileName || getDisplayName(user);
 
@@ -1725,6 +1737,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(req.user.claims.sub);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
+      }
+
+      if (canManageBookingsRole(user.role) && user.role !== "admin") {
+        return res.status(403).json({ message: "CSO hanya dapat melihat laporan. Perubahan laporan hanya dapat dilakukan psikolog atau admin." });
       }
 
       const providerName = user.psychologistProfileName || getDisplayName(user);
