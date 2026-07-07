@@ -185,6 +185,72 @@ const formatScheduleDate = (dateString: string) => {
   }).format(date);
 };
 
+function calculateAgeFromBirthDate(value: string) {
+  if (!value) return "";
+  const birthDate = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(birthDate.getTime())) return "";
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+  return age >= 0 ? String(age) : "";
+}
+
+function getUserDisplayName(user: any) {
+  return `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
+}
+
+function getConsentPrefill(form: BookingForm, user: any) {
+  if (form.consultationType === "child") {
+    return {
+      consentName: form.guardianName || form.fatherName || form.motherName,
+      consentAddress: "",
+      consentPhone: form.guardianWhatsapp || form.fatherWhatsapp || form.motherWhatsapp,
+      consentAge: "",
+      consentRole: "Orangtua/wali",
+    };
+  }
+
+  return {
+    consentName: form.clientName || getUserDisplayName(user),
+    consentAddress: form.address,
+    consentPhone: form.whatsappNumber || user?.whatsappNumber || "",
+    consentAge: calculateAgeFromBirthDate(form.birthDate),
+    consentRole: form.consultationType === "family" ? "Keluarga klien" : "Diri sendiri",
+  };
+}
+
+function applyConsentPrefill(form: BookingForm, user: any) {
+  const prefill = getConsentPrefill(form, user);
+  const next = { ...form };
+  let changed = false;
+
+  if (!next.consentName && prefill.consentName) {
+    next.consentName = prefill.consentName;
+    changed = true;
+  }
+  if (!next.consentAddress && prefill.consentAddress) {
+    next.consentAddress = prefill.consentAddress;
+    changed = true;
+  }
+  if (!next.consentPhone && prefill.consentPhone) {
+    next.consentPhone = prefill.consentPhone;
+    changed = true;
+  }
+  if (!next.consentAge && prefill.consentAge) {
+    next.consentAge = prefill.consentAge;
+    changed = true;
+  }
+  if (!next.consentRole && prefill.consentRole) {
+    next.consentRole = prefill.consentRole;
+    changed = true;
+  }
+
+  return changed ? next : form;
+}
+
 export default function Booking() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [location, setLocation] = useLocation();
@@ -385,6 +451,25 @@ export default function Booking() {
     }
   }, [availableLocations, form.location]);
 
+  useEffect(() => {
+    if (step < 2) return;
+    setForm((current) => applyConsentPrefill(current, user));
+  }, [
+    step,
+    user,
+    form.consultationType,
+    form.clientName,
+    form.birthDate,
+    form.address,
+    form.whatsappNumber,
+    form.fatherName,
+    form.motherName,
+    form.fatherWhatsapp,
+    form.motherWhatsapp,
+    form.guardianName,
+    form.guardianWhatsapp,
+  ]);
+
   const updateScheduleChoice = (value: string) => {
     const [preferredDate, preferredTime] = value.split("|");
     setForm((current) => ({
@@ -514,6 +599,9 @@ export default function Booking() {
     if (error) {
       toast({ title: "Data belum lengkap", description: error, variant: "destructive" });
       return;
+    }
+    if (step === 1) {
+      setForm((current) => applyConsentPrefill(current, user));
     }
     setStep((current) => Math.min(current + 1, 4));
   };
