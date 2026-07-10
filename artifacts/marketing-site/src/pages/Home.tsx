@@ -221,14 +221,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="relative">
-              <div
-                className="rounded-2xl overflow-hidden aspect-video flex items-center justify-center text-white text-sm font-medium"
-                style={{ background: "linear-gradient(135deg, #2D6A4F, #52B788)" }}
-              >
-                <div className="text-center opacity-80">
-                  <BookOpen size={48} className="mx-auto mb-3 opacity-60" />
-                  <p className="text-sm">Perjalanan Kami</p>
-                </div>
+              <div className="rounded-2xl overflow-hidden aspect-video bg-green-50 shadow-sm">
+                <img
+                  src="/homepage/pig-building-1.jpg"
+                  alt="Gedung Pelangi Indonesia"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
               </div>
               <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-2xl -z-10" style={{ background: "#D8F3DC" }} />
             </div>
