@@ -30,6 +30,12 @@ const FALLBACK_STATS: CMSStat[] = [
   { value: "5+", label: "Kemitraan" },
 ];
 
+const heroImages = [
+  { src: "/homepage/pig-building-1.jpg", alt: "Gedung Pelangi Indonesia" },
+  { src: "/homepage/pig-building-2.jpg", alt: "Kampus Pelangi Indonesia" },
+  { src: "/homepage/pig-building-3.jpg", alt: "Convention Hall Pelangi Indonesia" },
+];
+
 const businessUnits = [
   { label: "Klinik Psikologi & Terapi", icon: Brain },
   { label: "Pendidikan & Akademi", icon: BookOpen },
@@ -67,6 +73,7 @@ function useIntersectionObserver(threshold = 0.1) {
 
 export default function Home() {
   const [testimonialIdx, setTestimonialIdx] = useState(0);
+  const [heroImageIdx, setHeroImageIdx] = useState(0);
   const statsSection = useIntersectionObserver(0.2);
 
   // Fetch testimonials from CMS
@@ -109,6 +116,13 @@ export default function Home() {
     return () => clearInterval(t);
   }, [testimonials.length]);
 
+  useEffect(() => {
+    const t = setInterval(() => {
+      setHeroImageIdx((i) => (i + 1) % heroImages.length);
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
+
   // Keep index in bounds if testimonials list changes
   useEffect(() => {
     setTestimonialIdx(0);
@@ -123,13 +137,22 @@ export default function Home() {
 
       {/* Hero */}
       <section
-        className="relative min-h-screen flex items-center justify-center overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #1B4332 0%, #2D6A4F 50%, #52B788 100%)" }}
+        className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#1B4332]"
       >
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10 bg-white" />
-          <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full opacity-10 bg-white" />
-          <div className="absolute top-1/3 right-1/4 w-48 h-48 rounded-full opacity-5 bg-white" />
+        <div className="absolute inset-0">
+          {heroImages.map((image, index) => (
+            <img
+              key={image.src}
+              src={image.src}
+              alt={image.alt}
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+                index === heroImageIdx ? "opacity-100" : "opacity-0"
+              }`}
+              loading={index === 0 ? "eager" : "lazy"}
+            />
+          ))}
+          <div className="absolute inset-0 bg-[#1B4332]/70" />
+          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#1B4332]/75 to-transparent" />
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-24 pb-20">
@@ -168,6 +191,20 @@ export default function Home() {
                 <Icon size={14} className="text-green-300" />
                 {label}
               </div>
+            ))}
+          </div>
+
+          <div className="mt-10 flex justify-center gap-2" aria-label="Foto lokasi Pelangi Indonesia Group">
+            {heroImages.map((image, index) => (
+              <button
+                key={image.src}
+                type="button"
+                aria-label={`Tampilkan ${image.alt}`}
+                onClick={() => setHeroImageIdx(index)}
+                className={`h-2.5 rounded-full transition-all ${
+                  index === heroImageIdx ? "w-8 bg-white" : "w-2.5 bg-white/45 hover:bg-white/70"
+                }`}
+              />
             ))}
           </div>
         </div>
