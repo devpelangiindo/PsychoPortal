@@ -55,6 +55,17 @@ const services = [
   { slug: "horecal", name: "HORECAL", desc: "Layanan bisnis operasional untuk fasilitas edukasi dan kelembagaan.", color: "#1B4332" },
 ];
 
+const serviceIcons: Record<string, string> = {
+  asesmen: "/services/asesmen.png",
+  konseling: "/services/konseling.png",
+  terapi: "/services/terapi.png",
+  pelatihan: "/services/pelatihan.png",
+  "produk-digital": "/services/produk-digital.png",
+  kursus: "/services/kursus.png",
+  sekolah: "/services/sekolah.png",
+  horecal: "/services/horecal.png",
+};
+
 function useIntersectionObserver(threshold = 0.1) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -352,8 +363,13 @@ export default function Home() {
               const cardClass = "service-card block p-6 bg-white rounded-2xl border border-gray-100 shadow-sm group";
               const inner = (
                 <>
-                  <div className="w-10 h-10 rounded-xl mb-4 flex items-center justify-center text-white text-sm font-bold" style={{ background: s.color }}>
-                    {s.name.charAt(0)}
+                  <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-xl bg-white">
+                    <img
+                      src={serviceIcons[s.slug]}
+                      alt=""
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                    />
                   </div>
                   <h3 className="font-bold text-gray-900 mb-2 group-hover:text-green-800 transition-colors">{s.name}</h3>
                   <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>

@@ -21,6 +21,17 @@ const FALLBACK_SERVICES = [
   { slug: "horecal", name: "HORECAL", shortDescription: "Layanan bisnis operasional untuk fasilitas edukasi dan kelembagaan.", longDesc: "HORECAL adalah unit usaha pendukung Pelangi Indonesia yang menyediakan layanan bisnis operasional komprehensif.", color: "#9A6E5E" },
 ];
 
+const serviceIcons: Record<string, string> = {
+  asesmen: "/services/asesmen.png",
+  konseling: "/services/konseling.png",
+  terapi: "/services/terapi.png",
+  pelatihan: "/services/pelatihan.png",
+  "produk-digital": "/services/produk-digital.png",
+  kursus: "/services/kursus.png",
+  sekolah: "/services/sekolah.png",
+  horecal: "/services/horecal.png",
+};
+
 function serviceColor(slug: string): string {
   return FALLBACK_SERVICES.find((s) => s.slug === slug)?.color ?? "#2D6A4F";
 }
@@ -35,10 +46,15 @@ function resolveServiceHref(externalHref: string) {
 
 function ServiceCard({ service }: { service: { slug: string; name: string; shortDescription?: string; color: string; externalHref?: string } }) {
   const cardClass = "service-card block p-6 bg-white rounded-2xl border border-gray-100 shadow-sm group";
+  const icon = serviceIcons[service.slug];
   const inner = (
     <>
-      <div className="w-12 h-12 rounded-xl mb-4 flex items-center justify-center text-white text-lg font-bold" style={{ background: service.color }}>
-        {service.name.charAt(0)}
+      <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-xl bg-white">
+        {icon ? (
+          <img src={icon} alt="" className="h-full w-full object-contain" loading="lazy" />
+        ) : (
+          <span className="text-lg font-bold" style={{ color: service.color }}>{service.name.charAt(0)}</span>
+        )}
       </div>
       <h3 className="font-bold text-gray-900 mb-2 group-hover:text-green-800 transition-colors text-lg">{service.name}</h3>
       <p className="text-gray-500 text-sm leading-relaxed mb-4">{service.shortDescription}</p>
@@ -198,7 +214,7 @@ export default function ProdukLayanan() {
   // Use CMS data if available, otherwise fall back to hardcoded
   const services =
     (cmsServices?.docs?.length ?? 0) > 0
-      ? cmsServices!.docs.filter((s: CMSService) => s.slug !== "booking-psikolog").map((s: CMSService) => ({
+      ? cmsServices!.docs.filter((s: CMSService) => s.slug !== "booking-psikolog" && s.slug !== "franchise").map((s: CMSService) => ({
           slug: s.slug,
           name: s.title,
           shortDescription: s.shortDescription,
