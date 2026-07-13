@@ -96,6 +96,10 @@ async function getPsychologistOptions() {
     byName.set(psychologist.name, existing ? {
       ...existing,
       ...psychologist,
+      sipp: psychologist.sipp || existing.sipp,
+      description: psychologist.description || existing.description,
+      details: psychologist.details || existing.details,
+      profileImageUrl: psychologist.profileImageUrl || existing.profileImageUrl,
       signatureUrl: psychologist.signatureUrl || existing.signatureUrl,
     } : psychologist);
   });
