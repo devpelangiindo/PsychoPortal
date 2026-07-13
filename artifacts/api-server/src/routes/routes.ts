@@ -610,8 +610,8 @@ function drawLabelValue(doc: PDFKit.PDFDocument, label: string, value: string, l
     doc.font("Helvetica").heightOfString(value || "-", { width: width - labelWidth - 8 }),
   );
   ensureReportSpace(doc, textHeight + 6);
-  doc.font("Helvetica-Bold").fillColor("#222").text(label, x, doc.y, { width: labelWidth });
-  doc.font("Helvetica").text(value || "-", x + labelWidth, doc.y - textHeight, { width: width - labelWidth, lineGap: 2 });
+  doc.font("Helvetica-Bold").fillColor("#222").text(label, x, y, { width: labelWidth });
+  doc.font("Helvetica").text(value || "-", x + labelWidth, y, { width: width - labelWidth, lineGap: 2 });
   doc.y = y + textHeight + 6;
 }
 
