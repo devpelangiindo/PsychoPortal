@@ -23,6 +23,7 @@ type PsychologistOption = {
   description?: string | null;
   details?: string | null;
   profileImageUrl?: string | null;
+  signatureUrl?: string | null;
 };
 
 const PSYCHOLOGISTS: PsychologistOption[] = [
@@ -31,6 +32,7 @@ const PSYCHOLOGISTS: PsychologistOption[] = [
     types: ["child"],
     prices: { child: "300000" },
     sipp: "20230079-2023-01-2583",
+    signatureUrl: "asset:signature-tria.png",
     description: "Saya psikolog yang berpengalaman dalam mendampingi tumbuh kembang anak, penanganan Anak Berkebutuhan Khusus (ABK), serta manajemen emosi dan perilaku. Berpengalaman dalam menangani kasus kecemasan, dampak bullying, serta menyediakan ruang konsultasi parenting yang suportif untuk membantu orang tua mendampingi setiap fase perkembangan anak secara optimal.",
   },
   {
@@ -38,6 +40,7 @@ const PSYCHOLOGISTS: PsychologistOption[] = [
     types: ["child", "adult", "family"],
     prices: { child: "300000", adult: "200000", family: "200000" },
     sipp: "20191360-2022-01-2917",
+    signatureUrl: "asset:signature-retno.png",
     description: "Saya psikolog yang berpengalaman dalam menangani problem seputar perkembangan anak (autisme, ADHD, gangguan belajar, bullying) serta isu kesehatan mental remaja dan dewasa (kecemasan, depresi, stres, trauma), adiksi, masalah relasi, keluarga/parenting.",
   },
   {
@@ -45,6 +48,7 @@ const PSYCHOLOGISTS: PsychologistOption[] = [
     types: ["child", "adult", "family"],
     prices: { child: "300000", adult: "300000", family: "200000" },
     sipp: "19930009-2025-03-1359",
+    signatureUrl: "asset:signature-yeni.png",
     description: "Saya merupakan Psikolog Klinis dan Neuropsikolog yang berpengalaman dalam menangani kasus perkembangan anak (ADHD, autisme, dan gangguan belajar), serta berbagai permasalahan pada dewasa dan keluarga, seperti konflik pengasuhan, trauma, adiksi, dan masalah relasi. Bersertifikat ABA, TEACCH, Brain training, CBT, DBT, Mindfulness, Clinical Hypnotherapy, Brainspotting, PoV, Braingym, dan Touch for Health dll untuk mendukung layanan psikologis yang komprehensif dan berpusat pada kebutuhan klien.",
   },
   {
@@ -52,6 +56,7 @@ const PSYCHOLOGISTS: PsychologistOption[] = [
     types: ["adult"],
     prices: { adult: "200000" },
     sipp: "397259DD89DA",
+    signatureUrl: "asset:signature-ridwan.png",
     description: "Saya psikolog yang berpengalaman dalam mendampingi berbagai permasalahan psikologis pada rentang usia remaja hingga lansia, mulai dari kecemasan, stres, masalah emosi, kepercayaan diri, relasi keluarga, hubungan sosial, penyesuaian diri, kebingungan arah hidup, masalah akademik atau pekerjaan, hingga perasaan kesepian dan perubahan hidup pada usia lanjut.",
   },
 ];
@@ -81,12 +86,18 @@ async function getPsychologistOptions() {
       description: user.psychologistDescription,
       details: user.psychologistDetails,
       profileImageUrl: user.profileImageUrl,
+      signatureUrl: user.psychologistSignatureUrl,
     }))
     .filter((psychologist) => psychologist.name.trim().length > 0);
 
   const byName = new Map<string, PsychologistOption>();
   [...PSYCHOLOGISTS, ...associatePsychologists].forEach((psychologist) => {
-    byName.set(psychologist.name, psychologist);
+    const existing = byName.get(psychologist.name);
+    byName.set(psychologist.name, existing ? {
+      ...existing,
+      ...psychologist,
+      signatureUrl: psychologist.signatureUrl || existing.signatureUrl,
+    } : psychologist);
   });
   return Array.from(byName.values());
 }
@@ -196,6 +207,7 @@ const adminCreatePsychologistSchema = z.object({
   psychologistSipp: z.string().optional(),
   psychologistDescription: z.string().optional(),
   psychologistDetails: z.string().optional(),
+  psychologistSignatureUrl: z.string().url("URL tanda tangan tidak valid").optional().or(z.literal("")),
   profileImageUrl: z.string().url("URL foto tidak valid").optional().or(z.literal("")),
 }).superRefine((data, ctx) => {
   data.psychologistConsultationTypes.forEach((type) => {
@@ -212,6 +224,10 @@ const bookingReportSchema = z.object({
   reportRecommendations: z.string().max(5000).optional(),
   clientReportNotes: z.string().max(5000).optional(),
   counselingHistoryNotes: z.string().max(5000).optional(),
+  counselingSubjectiveNotes: z.string().max(5000).optional(),
+  counselingObservations: z.array(z.string().max(100)).max(20).optional(),
+  counselingResultNotes: z.string().max(5000).optional(),
+  counselingPlanNotes: z.string().max(5000).optional(),
   submit: z.boolean().optional(),
   submitClientReport: z.boolean().optional(),
   submitHistoryReport: z.boolean().optional(),
@@ -317,6 +333,7 @@ function normalizePsychologistProfileInput<T extends {
   psychologistSipp?: string | null;
   psychologistDescription?: string | null;
   psychologistDetails?: string | null;
+  psychologistSignatureUrl?: string | null;
   profileImageUrl?: string | null;
 }>(data: T) {
   return {
@@ -327,6 +344,7 @@ function normalizePsychologistProfileInput<T extends {
     psychologistSipp: cleanOptionalText(data.psychologistSipp),
     psychologistDescription: cleanOptionalText(data.psychologistDescription),
     psychologistDetails: cleanOptionalText(data.psychologistDetails),
+    psychologistSignatureUrl: cleanOptionalText(data.psychologistSignatureUrl),
     profileImageUrl: cleanOptionalText(data.profileImageUrl),
   };
 }
@@ -474,7 +492,7 @@ function getClientReportText(booking: any) {
 }
 
 function getHistoryReportText(booking: any) {
-  return booking.counselingHistoryNotes || booking.sessionReport || "";
+  return booking.counselingResultNotes || booking.counselingHistoryNotes || booking.sessionReport || "";
 }
 
 function createWaNotificationPlaceholder(event: string, details: Record<string, unknown>) {
@@ -486,52 +504,279 @@ function createWaNotificationPlaceholder(event: string, details: Record<string, 
   };
 }
 
-function streamCounselingReportPdf(res: any, booking: any, mode: "client" | "history") {
-  const reportText = mode === "client" ? getClientReportText(booking) : getHistoryReportText(booking);
-  const fileName = `${mode === "client" ? "laporan-konseling" : "riwayat-konseling"}-${booking.clientName || "klien"}-${booking.id}.pdf`
-    .replace(/[^a-z0-9.-]+/gi, "-")
-    .toLowerCase();
-  const doc = new PDFDocument({ size: "A4", margin: 56 });
+const OBSERVATION_OPTIONS = [
+  { value: "clean_appearance", label: "Penampilan bersih, rapi dan terawat" },
+  { value: "notable_physical_signs", label: "Terdapat tanda fisik yang mencolok (tato/bekas luka, tremor, penggunaan alat bantu)" },
+  { value: "maintains_eye_contact", label: "Mampu menjaga kontak mata" },
+  { value: "repetitive_movements", label: "Adanya gerakan berulang (tic, menggigit kuku, mengetuk-ngetuk jari)" },
+  { value: "cooperative", label: "Kooperatif, mampu merespon dan mengikuti instruksi" },
+  { value: "emotional_problem", label: "Terdapat masalah emosi" },
+  { value: "communication_barrier", label: "Ada hambatan komunikasi" },
+  { value: "perception_thought_problem", label: "Ada masalah persepsi dan proses berpikir" },
+] as const;
 
+function getReportAssetPath(fileName: string) {
+  const candidates = [
+    path.resolve(process.cwd(), "src/assets/report", fileName),
+    path.resolve(process.cwd(), "artifacts/api-server/src/assets/report", fileName),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate));
+}
+
+async function getSignatureImage(signatureUrl?: string | null) {
+  if (!signatureUrl) return undefined;
+  if (signatureUrl.startsWith("asset:")) {
+    return getReportAssetPath(signatureUrl.slice("asset:".length));
+  }
+  if (!/^https?:\/\//i.test(signatureUrl)) return undefined;
+  try {
+    const response = await fetch(signatureUrl);
+    if (!response.ok) return undefined;
+    return Buffer.from(await response.arrayBuffer());
+  } catch {
+    return undefined;
+  }
+}
+
+function formatLongIndonesianDate(value?: string | Date | null, includeDay = false) {
+  if (!value) return "-";
+  const date = value instanceof Date
+    ? value
+    : /^\d{4}-\d{2}-\d{2}/.test(value)
+      ? new Date(`${value.slice(0, 10)}T00:00:00+07:00`)
+      : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    weekday: includeDay ? "long" : undefined,
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function calculateAgeAtDate(birthDate?: string | null, referenceDate?: string | null) {
+  if (!birthDate || !/^\d{4}-\d{2}-\d{2}/.test(birthDate)) return null;
+  const birth = new Date(`${birthDate.slice(0, 10)}T00:00:00+07:00`);
+  const reference = referenceDate && /^\d{4}-\d{2}-\d{2}/.test(referenceDate)
+    ? new Date(`${referenceDate.slice(0, 10)}T00:00:00+07:00`)
+    : new Date();
+  let age = reference.getFullYear() - birth.getFullYear();
+  const monthDifference = reference.getMonth() - birth.getMonth();
+  if (monthDifference < 0 || (monthDifference === 0 && reference.getDate() < birth.getDate())) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+function extractConcernField(concernHistory: string | null | undefined, label: string) {
+  if (!concernHistory) return null;
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return concernHistory.match(new RegExp(`^${escapedLabel}:\\s*(.+)$`, "im"))?.[1]?.trim() || null;
+}
+
+function drawReportHeader(doc: PDFKit.PDFDocument, compact = false) {
+  const logoPath = getReportAssetPath("rppi-logo.jpeg");
+  const left = doc.page.margins.left;
+  const width = doc.page.width - left - doc.page.margins.right;
+  const top = doc.page.margins.top;
+  const logoSize = compact ? 42 : 54;
+  if (logoPath) doc.image(logoPath, left, top, { fit: [logoSize, logoSize] });
+  doc.fillColor("#315a29").font("Helvetica-Bold").fontSize(compact ? 14 : 17)
+    .text("Rumah Psikologi", left + logoSize + 12, top + 2, { width: width - logoSize - 12, align: "center" });
+  doc.fillColor("#252525").fontSize(compact ? 13 : 16)
+    .text("Pelangi Indonesia", left + logoSize + 12, top + (compact ? 21 : 25), { width: width - logoSize - 12, align: "center" });
+  const contactY = top + logoSize + 8;
+  doc.fillColor("#222").font("Helvetica").fontSize(8.2)
+    .text("Jl. Colombo No. 8, Samirono, Caturtunggal, Depok, Sleman, Yogyakarta 55281", left, contactY, { width, align: "center" })
+    .text("Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul, Bantul, Yogyakarta 55711", { width, align: "center" })
+    .text("Hotline: 0851-1765-8242 | Email: psikologi.pelangiindonesia@gmail.com", { width, align: "center" });
+  const lineY = doc.y + 5;
+  doc.strokeColor("#315a29").lineWidth(1.2).moveTo(left, lineY).lineTo(left + width, lineY).stroke();
+  doc.y = lineY + 14;
+}
+
+function ensureReportSpace(doc: PDFKit.PDFDocument, requiredHeight: number) {
+  const bottom = doc.page.height - doc.page.margins.bottom;
+  if (doc.y + requiredHeight <= bottom) return;
+  doc.addPage();
+  drawReportHeader(doc, true);
+}
+
+function drawLabelValue(doc: PDFKit.PDFDocument, label: string, value: string, labelWidth = 115) {
+  const x = doc.page.margins.left;
+  const y = doc.y;
+  const width = doc.page.width - x - doc.page.margins.right;
+  const textHeight = Math.max(
+    doc.font("Helvetica-Bold").fontSize(10).heightOfString(label, { width: labelWidth }),
+    doc.font("Helvetica").heightOfString(value || "-", { width: width - labelWidth - 8 }),
+  );
+  ensureReportSpace(doc, textHeight + 6);
+  doc.font("Helvetica-Bold").fillColor("#222").text(label, x, doc.y, { width: labelWidth });
+  doc.font("Helvetica").text(value || "-", x + labelWidth, doc.y - textHeight, { width: width - labelWidth, lineGap: 2 });
+  doc.y = y + textHeight + 6;
+}
+
+function drawClinicalSection(doc: PDFKit.PDFDocument, title: string, text: string, color: string, note?: string) {
+  const x = doc.page.margins.left;
+  const width = doc.page.width - x - doc.page.margins.right;
+  let remaining = text.trim() || "-";
+  let continuation = false;
+
+  while (remaining) {
+    ensureReportSpace(doc, 118);
+    doc.font("Helvetica").fontSize(9.5);
+    const pageBottom = doc.page.height - doc.page.margins.bottom;
+    const availableContentHeight = Math.max(60, pageBottom - doc.y - 54);
+    const tokens = remaining.match(/\S+\s*/g) || [remaining];
+    let low = 1;
+    let high = tokens.length;
+    let best = 1;
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2);
+      const candidate = tokens.slice(0, middle).join("").trimEnd();
+      const height = doc.heightOfString(candidate, { width: width - 24, lineGap: 3 });
+      if (height <= availableContentHeight) {
+        best = middle;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+
+    const chunk = tokens.slice(0, best).join("").trim();
+    remaining = tokens.slice(best).join("").trim();
+    const contentHeight = doc.heightOfString(chunk, { width: width - 24, lineGap: 3 });
+    const boxHeight = Math.max(92, contentHeight + 42);
+    const y = doc.y;
+    doc.strokeColor("#777").lineWidth(0.7).rect(x, y, width, boxHeight).stroke();
+    doc.font("Helvetica-Bold").fontSize(11).fillColor(color)
+      .text(`${title}${continuation ? " (LANJUTAN)" : ""}`, x + 10, y + 8, { width: width - 20 });
+    doc.font("Helvetica").fontSize(9.5).fillColor("#222")
+      .text(chunk, x + 12, y + 28, { width: width - 24, lineGap: 3 });
+    doc.y = y + boxHeight + 5;
+
+    if (remaining) {
+      doc.addPage();
+      drawReportHeader(doc, true);
+      continuation = true;
+      continue;
+    }
+
+    if (note) {
+      ensureReportSpace(doc, 24);
+      doc.font("Helvetica-Oblique").fontSize(8.3).fillColor("#596579").text(note, x + 8, doc.y, { width: width - 16 });
+      doc.y += 10;
+    }
+    doc.y += 8;
+  }
+}
+
+function drawObservationSection(doc: PDFKit.PDFDocument, selectedValues: string[]) {
+  const x = doc.page.margins.left;
+  const width = doc.page.width - x - doc.page.margins.right;
+  ensureReportSpace(doc, 132);
+  const y = doc.y;
+  doc.strokeColor("#777").lineWidth(0.7).rect(x, y, width, 124).stroke();
+  doc.font("Helvetica-Bold").fontSize(11).fillColor("#2166d1").text("OBSERVASI", x + 10, y + 8);
+  const columnWidth = (width - 30) / 2;
+  OBSERVATION_OPTIONS.forEach((option, index) => {
+    const column = index < 4 ? 0 : 1;
+    const row = index % 4;
+    const itemX = x + 12 + column * (columnWidth + 8);
+    const itemY = y + 30 + row * 22;
+    const checked = selectedValues.includes(option.value);
+    doc.lineWidth(0.8).strokeColor(checked ? "#178253" : "#777").rect(itemX, itemY, 9, 9).stroke();
+    if (checked) {
+      doc.lineWidth(1.4).moveTo(itemX + 2, itemY + 5).lineTo(itemX + 4, itemY + 8).lineTo(itemX + 8, itemY + 2).stroke();
+    }
+    doc.font("Helvetica").fontSize(7.8).fillColor("#253248").text(option.label, itemX + 14, itemY - 1, { width: columnWidth - 18, height: 21 });
+  });
+  doc.y = y + 136;
+}
+
+async function drawPsychologistSignature(doc: PDFKit.PDFDocument, booking: any, psychologist?: PsychologistOption) {
+  ensureReportSpace(doc, 175);
+  const width = 235;
+  const x = doc.page.width - doc.page.margins.right - width;
+  const reportDate = booking.reportSubmittedAt || new Date();
+  doc.font("Helvetica").fontSize(9.5).fillColor("#222")
+    .text(`Yogyakarta, ${formatLongIndonesianDate(reportDate)}`, x, doc.y, { width, align: "center" })
+    .text("Psikolog,", { width, align: "center" });
+  const signature = await getSignatureImage(psychologist?.signatureUrl);
+  const imageY = doc.y + 4;
+  if (signature) doc.image(signature, x + 32, imageY, { fit: [171, 72], align: "center", valign: "center" });
+  doc.y = imageY + 76;
+  doc.font("Helvetica-Bold").fontSize(9.2).text(booking.psychologistName || psychologist?.name || "-", x, doc.y, { width, align: "center" });
+  doc.font("Helvetica").fontSize(8.7).text(`SIPP: ${psychologist?.sipp || "-"}`, x, doc.y + 3, { width, align: "center" });
+  doc.y += 24;
+}
+
+export async function streamClientCounselingReportPdf(res: any, booking: any, psychologist?: PsychologistOption) {
+  const fileName = `laporan-konseling-${booking.clientName || "klien"}-${booking.id}.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
+  const doc = new PDFDocument({ size: "A4", margin: 48, info: { Title: "Laporan Konseling Psikologi" } });
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
   doc.pipe(res);
 
-  doc.fontSize(16).text(mode === "client" ? "LAPORAN HASIL KONSELING" : "RIWAYAT KONSELING", { align: "center" });
+  drawReportHeader(doc);
+  doc.font("Helvetica-Bold").fontSize(15).fillColor("#111").text("LAPORAN KONSELING PSIKOLOGI", { align: "center" });
   doc.moveDown(1.5);
-  doc.fontSize(10).fillColor("#555").text("Rumah Psikologi Pelangi Indonesia", { align: "center" });
-  doc.moveDown(2);
-
-  doc.fillColor("#111").fontSize(11);
-  const rows = [
-    ["Hari/Tanggal", formatDisplayDate(booking.preferredDate)],
-    ["Nama Klien", booking.clientName || "-"],
-    ["Nama Psikolog", booking.psychologistName || "-"],
-  ];
-  rows.forEach(([label, value]) => {
-    doc.font("Helvetica-Bold").text(`${label}: `, { continued: true });
-    doc.font("Helvetica").text(value);
-    doc.moveDown(0.5);
-  });
-
-  doc.moveDown();
-  doc.font("Helvetica-Bold").text(mode === "client" ? "Catatan Hasil Konseling" : "Catatan Internal Psikolog");
+  drawLabelValue(doc, "Hari/Tanggal", formatLongIndonesianDate(booking.preferredDate, true));
+  drawLabelValue(doc, "Nama Klien", booking.clientName || "-");
+  drawLabelValue(doc, "Nama Psikolog", booking.psychologistName || "-");
   doc.moveDown(0.5);
-  doc.font("Helvetica").text(reportText || "-", { align: "left", lineGap: 4 });
-
-  doc.moveDown(2);
-  doc.fontSize(9).fillColor("#666").text(
-    "Catatan: format final dan tanda tangan psikolog dapat disesuaikan setelah keputusan operasional ditetapkan.",
-  );
+  drawClinicalSection(doc, "CATATAN HASIL KONSELING", getClientReportText(booking), "#178253");
+  drawClinicalSection(doc, "REKOMENDASI (OPSIONAL)", booking.reportRecommendations || "-", "#315a29");
+  await drawPsychologistSignature(doc, booking, psychologist);
   doc.end();
 }
 
-function streamClientCounselingReportPdf(res: any, booking: any) {
-  streamCounselingReportPdf(res, booking, "client");
-}
+export async function streamHistoryCounselingReportPdf(res: any, booking: any, psychologist?: PsychologistOption) {
+  const fileName = `riwayat-konseling-${booking.clientName || "klien"}-${booking.id}.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
+  const doc = new PDFDocument({ size: "A4", margin: 42, info: { Title: "Laporan Hasil Pemeriksaan Psikologis" } });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+  doc.pipe(res);
 
-function streamHistoryCounselingReportPdf(res: any, booking: any) {
-  streamCounselingReportPdf(res, booking, "history");
+  drawReportHeader(doc, true);
+  doc.font("Helvetica-Bold").fontSize(14).fillColor("#243047").text("LAPORAN HASIL PEMERIKSAAN PSIKOLOGIS", { align: "center" });
+  doc.moveDown(1.2);
+  const birthDate = booking.birthDate || booking.childBirthDate;
+  const age = calculateAgeAtDate(birthDate, booking.preferredDate);
+  const gender = extractConcernField(booking.concernHistory, "Jenis kelamin") || "-";
+  drawLabelValue(doc, "Nama Pasien / Klien", booking.clientName || "-", 135);
+  drawLabelValue(doc, "No. Identitas", "-", 135);
+  drawLabelValue(doc, "Tanggal Lahir / Usia", `${formatDisplayDate(birthDate)}${age !== null ? ` / ${age} tahun` : ""}`, 135);
+  drawLabelValue(doc, "Jenis Kelamin", gender, 135);
+  drawLabelValue(doc, "Tanggal Pemeriksaan", formatDisplayDate(booking.preferredDate), 135);
+  drawLabelValue(doc, "Pemeriksa / Psikolog", booking.psychologistName || "-", 135);
+  doc.moveDown(0.5);
+  drawClinicalSection(
+    doc,
+    "KELUHAN & RIWAYAT SUBJEKTIF",
+    booking.counselingSubjectiveNotes || booking.mainConcern || "-",
+    "#c86400",
+    "Catatan: Meliputi keluhan yang dirasakan atau dialami oleh klien saat ini.",
+  );
+  drawObservationSection(doc, booking.counselingObservations || []);
+  drawClinicalSection(
+    doc,
+    "HASIL KONSELING",
+    booking.counselingResultNotes || booking.counselingHistoryNotes || booking.sessionReport || "-",
+    "#178253",
+    "Catatan: Meliputi hasil anamnesa (riwayat kasus), serta gambaran diagnosa.",
+  );
+  drawClinicalSection(
+    doc,
+    "RENCANA PENATALAKSANAAN",
+    booking.counselingPlanNotes || "-",
+    "#8a3ffc",
+    "Catatan: Meliputi tindakan yang diberikan saat sesi, tugas rumah dan jadwal konseling berikutnya (jika ada).",
+  );
+  await drawPsychologistSignature(doc, booking, psychologist);
+  ensureReportSpace(doc, 26);
+  doc.font("Helvetica-Oblique").fontSize(8.5).fillColor("#7f8ca3")
+    .text("*Laporan ini bersifat rahasia dan merupakan hak medis klinis klien.", doc.page.margins.left, doc.y + 5);
+  doc.end();
 }
 
 // Result calculation functions
@@ -1923,9 +2168,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if (submitHistoryReport && !data.counselingHistoryNotes?.trim() && !getHistoryReportText(booking)) {
+      const nextSubjective = data.counselingSubjectiveNotes?.trim() || booking.counselingSubjectiveNotes || booking.mainConcern || "";
+      const nextResult = data.counselingResultNotes?.trim() || data.counselingHistoryNotes?.trim() || getHistoryReportText(booking);
+      const nextPlan = data.counselingPlanNotes?.trim() || booking.counselingPlanNotes || "";
+      if (submitHistoryReport && (!nextSubjective || !nextResult || !nextPlan)) {
         return res.status(400).json({
-          message: "Riwayat konseling wajib diisi sebelum laporan diselesaikan.",
+          message: "Keluhan/riwayat subjektif, hasil konseling, dan rencana penatalaksanaan wajib diisi.",
         });
       }
 
@@ -1935,6 +2183,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reportRecommendations: data.reportRecommendations !== undefined ? data.reportRecommendations?.trim() || null : undefined,
         clientReportNotes: data.clientReportNotes !== undefined ? data.clientReportNotes?.trim() || null : undefined,
         counselingHistoryNotes: data.counselingHistoryNotes !== undefined ? data.counselingHistoryNotes?.trim() || null : undefined,
+        counselingSubjectiveNotes: data.counselingSubjectiveNotes !== undefined ? data.counselingSubjectiveNotes?.trim() || null : undefined,
+        counselingObservations: data.counselingObservations,
+        counselingResultNotes: data.counselingResultNotes !== undefined ? data.counselingResultNotes?.trim() || null : undefined,
+        counselingPlanNotes: data.counselingPlanNotes !== undefined ? data.counselingPlanNotes?.trim() || null : undefined,
         submit: submitClientReport,
       });
 
@@ -2396,7 +2648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Laporan untuk klien belum tersedia" });
       }
 
-      streamClientCounselingReportPdf(res, booking);
+      const psychologist = booking.psychologistName ? await getPsychologistOption(booking.psychologistName) : undefined;
+      await streamClientCounselingReportPdf(res, booking, psychologist);
     } catch (error) {
       console.error("Error generating client counseling report PDF:", error);
       res.status(500).json({ message: "Failed to generate PDF" });
@@ -2424,7 +2677,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Riwayat konseling belum tersedia" });
       }
 
-      streamHistoryCounselingReportPdf(res, booking);
+      const psychologist = booking.psychologistName ? await getPsychologistOption(booking.psychologistName) : undefined;
+      await streamHistoryCounselingReportPdf(res, booking, psychologist);
     } catch (error) {
       console.error("Error generating counseling history PDF:", error);
       res.status(500).json({ message: "Failed to generate PDF" });

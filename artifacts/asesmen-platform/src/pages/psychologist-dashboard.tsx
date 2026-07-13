@@ -39,6 +39,10 @@ type Booking = {
   reportRecommendations: string | null;
   clientReportNotes: string | null;
   counselingHistoryNotes: string | null;
+  counselingSubjectiveNotes: string | null;
+  counselingObservations: string[] | null;
+  counselingResultNotes: string | null;
+  counselingPlanNotes: string | null;
   reportSubmittedAt: string | null;
   status: string;
   paidAt: string | null;
@@ -1480,10 +1484,25 @@ type ReportMutationPayload = {
   clientReportNotes?: string;
   reportRecommendations?: string;
   counselingHistoryNotes?: string;
+  counselingSubjectiveNotes?: string;
+  counselingObservations?: string[];
+  counselingResultNotes?: string;
+  counselingPlanNotes?: string;
   sessionReport?: string;
   submitClientReport?: boolean;
   submitHistoryReport?: boolean;
 };
+
+const reportObservationOptions = [
+  { value: "clean_appearance", label: "Penampilan bersih, rapi dan terawat" },
+  { value: "notable_physical_signs", label: "Terdapat tanda fisik yang mencolok (tato/bekas luka, tremor, penggunaan alat bantu)" },
+  { value: "maintains_eye_contact", label: "Mampu menjaga kontak mata" },
+  { value: "repetitive_movements", label: "Adanya gerakan berulang (tic, menggigit kuku, mengetuk-ngetuk jari)" },
+  { value: "cooperative", label: "Kooperatif, mampu merespon dan mengikuti instruksi" },
+  { value: "emotional_problem", label: "Terdapat masalah emosi" },
+  { value: "communication_barrier", label: "Ada hambatan komunikasi" },
+  { value: "perception_thought_problem", label: "Ada masalah persepsi dan proses berpikir" },
+] as const;
 
 function ReportEditor({
   booking,
@@ -1497,23 +1516,30 @@ function ReportEditor({
   onSaved: () => void;
 }) {
   const { toast } = useToast();
-  const [sessionReport, setSessionReport] = useState(booking.sessionReport ?? "");
   const [reportRecommendations, setReportRecommendations] = useState(booking.reportRecommendations ?? "");
   const [clientReportNotes, setClientReportNotes] = useState(booking.clientReportNotes ?? booking.reportRecommendations ?? "");
-  const [counselingHistoryNotes, setCounselingHistoryNotes] = useState(booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
+  const [counselingSubjectiveNotes, setCounselingSubjectiveNotes] = useState(booking.counselingSubjectiveNotes ?? booking.mainConcern ?? "");
+  const [counselingObservations, setCounselingObservations] = useState<string[]>(booking.counselingObservations ?? []);
+  const [counselingResultNotes, setCounselingResultNotes] = useState(booking.counselingResultNotes ?? booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
+  const [counselingPlanNotes, setCounselingPlanNotes] = useState(booking.counselingPlanNotes ?? "");
   const clientReportLocked = !canEditReports || Boolean(booking.reportSubmittedAt && !canEditClientReport);
   const hasSavedReport = Boolean(
     booking.clientReportNotes ||
     booking.reportRecommendations ||
     booking.counselingHistoryNotes ||
-    booking.sessionReport,
+    booking.sessionReport ||
+    booking.counselingSubjectiveNotes ||
+    booking.counselingResultNotes ||
+    booking.counselingPlanNotes,
   );
 
   useEffect(() => {
-    setSessionReport(booking.sessionReport ?? "");
     setReportRecommendations(booking.reportRecommendations ?? "");
     setClientReportNotes(booking.clientReportNotes ?? booking.reportRecommendations ?? "");
-    setCounselingHistoryNotes(booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
+    setCounselingSubjectiveNotes(booking.counselingSubjectiveNotes ?? booking.mainConcern ?? "");
+    setCounselingObservations(booking.counselingObservations ?? []);
+    setCounselingResultNotes(booking.counselingResultNotes ?? booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
+    setCounselingPlanNotes(booking.counselingPlanNotes ?? "");
   }, [booking]);
 
   const mutation = useMutation({
@@ -1546,13 +1572,17 @@ function ReportEditor({
 
   const finishHistoryReport = () => {
     if (!canEditReports) return;
-    if (!counselingHistoryNotes.trim()) {
-      toast({ title: "Riwayat konseling wajib diisi.", variant: "destructive" });
+    if (!counselingSubjectiveNotes.trim() || !counselingResultNotes.trim() || !counselingPlanNotes.trim()) {
+      toast({ title: "Keluhan/riwayat subjektif, hasil konseling, dan rencana penatalaksanaan wajib diisi.", variant: "destructive" });
       return;
     }
     mutation.mutate({
-      sessionReport,
-      counselingHistoryNotes,
+      sessionReport: counselingResultNotes,
+      counselingHistoryNotes: counselingResultNotes,
+      counselingSubjectiveNotes,
+      counselingObservations,
+      counselingResultNotes,
+      counselingPlanNotes,
       submitHistoryReport: true,
     });
   };
@@ -1587,15 +1617,23 @@ function ReportEditor({
         </div>
         <Textarea
           value={clientReportNotes}
-          onChange={(event) => {
-            setClientReportNotes(event.target.value);
-            setReportRecommendations(event.target.value);
-          }}
+          onChange={(event) => setClientReportNotes(event.target.value)}
           placeholder="Isi catatan hasil konseling atau PR yang akan dikirim ke dashboard klien."
           rows={4}
           disabled={clientReportLocked}
           className="mt-2"
         />
+        <div className="mt-3">
+          <Label>Rekomendasi <span className="text-neutral-400">(opsional)</span></Label>
+          <Textarea
+            value={reportRecommendations}
+            onChange={(event) => setReportRecommendations(event.target.value)}
+            placeholder="Isi rekomendasi untuk klien bila diperlukan."
+            rows={3}
+            disabled={clientReportLocked}
+            className="mt-2"
+          />
+        </div>
         {clientReportLocked && (
           <p className="text-xs text-amber-700 mt-2">
             {!canEditReports ? "CSO hanya dapat melihat laporan." : "Laporan untuk klien sudah selesai. Edit lanjutan hanya dapat dilakukan admin super."}
@@ -1620,20 +1658,70 @@ function ReportEditor({
           <Label>Riwayat Konseling: Catatan internal psikolog <span className="text-red-600">*</span></Label>
           <ReportPdfActions booking={booking} mode="history" />
         </div>
-        <Textarea
-          value={counselingHistoryNotes}
-          onChange={(event) => {
-            setCounselingHistoryNotes(event.target.value);
-            setSessionReport(event.target.value);
-          }}
-          placeholder="Isi catatan internal yang akan menjadi track record konseling klien."
-          rows={4}
-          disabled={!canEditReports}
-          className="mt-2"
-        />
+        <div className="mt-3 space-y-4">
+          <div>
+            <Label>Keluhan & Riwayat Subjektif <span className="text-red-600">*</span></Label>
+            <Textarea
+              value={counselingSubjectiveNotes}
+              onChange={(event) => setCounselingSubjectiveNotes(event.target.value)}
+              placeholder="Keluhan yang dirasakan atau dialami oleh klien saat ini."
+              rows={4}
+              disabled={!canEditReports}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <Label>Observasi</Label>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              {reportObservationOptions.map((option) => (
+                <label key={option.value} className="flex items-start gap-2 rounded-md border p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={counselingObservations.includes(option.value)}
+                    onChange={(event) => setCounselingObservations((current) => event.target.checked
+                      ? [...current, option.value]
+                      : current.filter((value) => value !== option.value))}
+                    disabled={!canEditReports}
+                    className="mt-1"
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Hasil Konseling <span className="text-red-600">*</span></Label>
+            <Textarea
+              value={counselingResultNotes}
+              onChange={(event) => setCounselingResultNotes(event.target.value)}
+              placeholder="Hasil anamnesa, riwayat kasus, serta gambaran diagnosa."
+              rows={5}
+              disabled={!canEditReports}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <Label>Rencana Penatalaksanaan <span className="text-red-600">*</span></Label>
+            <Textarea
+              value={counselingPlanNotes}
+              onChange={(event) => setCounselingPlanNotes(event.target.value)}
+              placeholder="Tindakan saat sesi, tugas rumah, dan jadwal konseling berikutnya bila ada."
+              rows={4}
+              disabled={!canEditReports}
+              className="mt-2"
+            />
+          </div>
+        </div>
         {canEditReports && (
           <div className="flex flex-wrap justify-end gap-2 mt-3">
-            <Button onClick={finishHistoryReport} disabled={mutation.isPending || !counselingHistoryNotes.trim()} className="bg-green-700 hover:bg-green-800">
+            <Button
+              onClick={finishHistoryReport}
+              disabled={mutation.isPending || !counselingSubjectiveNotes.trim() || !counselingResultNotes.trim() || !counselingPlanNotes.trim()}
+              className="bg-green-700 hover:bg-green-800"
+            >
               <ClipboardCheck className="w-4 h-4 mr-2" />
               {mutation.isPending ? "Menyimpan..." : "Selesai Riwayat Internal"}
             </Button>
@@ -1682,7 +1770,7 @@ function getClientReportText(booking: Booking) {
 }
 
 function getHistoryReportText(booking: Booking) {
-  return booking.counselingHistoryNotes || booking.sessionReport || "";
+  return booking.counselingResultNotes || booking.counselingHistoryNotes || booking.sessionReport || "";
 }
 
 async function fetchReportPdf(booking: Booking, mode: "client" | "history") {

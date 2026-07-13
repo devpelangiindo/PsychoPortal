@@ -27,6 +27,7 @@ const psychologistProfileSettingsSchema = {
   psychologistSipp: z.string().optional(),
   psychologistDescription: z.string().optional(),
   psychologistDetails: z.string().optional(),
+  psychologistSignatureUrl: z.string().optional(),
   profileImageUrl: z.string().optional(),
 };
 
@@ -63,6 +64,7 @@ interface User {
   psychologistSipp: string | null;
   psychologistDescription: string | null;
   psychologistDetails: string | null;
+  psychologistSignatureUrl: string | null;
   profileImageUrl: string | null;
   role: string;
   isActive: boolean;
@@ -152,6 +154,19 @@ function PsychologistProfileFields({ form }: { form: any }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>URL Foto Profil</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} placeholder="https://..." />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="psychologistSignatureUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>URL Tanda Tangan</FormLabel>
               <FormControl>
                 <Input {...field} value={field.value ?? ""} placeholder="https://..." />
               </FormControl>
@@ -359,6 +374,7 @@ export default function AdminUsers() {
       psychologistSipp: "",
       psychologistDescription: "",
       psychologistDetails: "",
+      psychologistSignatureUrl: "",
       profileImageUrl: "",
       isActive: true,
       role: "user",
@@ -390,6 +406,7 @@ export default function AdminUsers() {
       psychologistSipp: "",
       psychologistDescription: "",
       psychologistDetails: "",
+      psychologistSignatureUrl: "",
       profileImageUrl: "",
     },
   });
@@ -455,6 +472,7 @@ export default function AdminUsers() {
       psychologistSipp: user.psychologistSipp || "",
       psychologistDescription: user.psychologistDescription || "",
       psychologistDetails: user.psychologistDetails || "",
+      psychologistSignatureUrl: user.psychologistSignatureUrl || "",
       profileImageUrl: user.profileImageUrl || "",
       isActive: user.isActive,
       role: user.role as "user" | "admin" | "internal" | "cso" | "psychologist",

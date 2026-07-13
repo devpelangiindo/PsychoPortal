@@ -42,6 +42,7 @@ export const users = pgTable("users", {
   psychologistSipp: varchar("psychologist_sipp", { length: 100 }),
   psychologistDescription: text("psychologist_description"),
   psychologistDetails: text("psychologist_details"),
+  psychologistSignatureUrl: varchar("psychologist_signature_url"),
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),
   authProvider: varchar("auth_provider").default("custom"), // 'replit' or 'custom'
@@ -159,6 +160,10 @@ export const psychologistBookings = pgTable("psychologist_bookings", {
   reportRecommendations: text("report_recommendations"),
   clientReportNotes: text("client_report_notes"),
   counselingHistoryNotes: text("counseling_history_notes"),
+  counselingSubjectiveNotes: text("counseling_subjective_notes"),
+  counselingObservations: jsonb("counseling_observations").$type<string[]>(),
+  counselingResultNotes: text("counseling_result_notes"),
+  counselingPlanNotes: text("counseling_plan_notes"),
   reportSubmittedAt: timestamp("report_submitted_at"),
   status: varchar("status", { length: 50 }).notNull().default("pending_payment"),
   paidAt: timestamp("paid_at"),
@@ -312,6 +317,7 @@ export const userUpdateSchema = z.object({
   psychologistSipp: z.string().optional().nullable(),
   psychologistDescription: z.string().optional().nullable(),
   psychologistDetails: z.string().optional().nullable(),
+  psychologistSignatureUrl: z.string().optional().nullable(),
   profileImageUrl: z.string().optional().nullable(),
 });
 

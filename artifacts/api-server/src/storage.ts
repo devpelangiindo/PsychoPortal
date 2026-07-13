@@ -134,6 +134,10 @@ export interface IStorage {
       reportRecommendations?: string | null;
       clientReportNotes?: string | null;
       counselingHistoryNotes?: string | null;
+      counselingSubjectiveNotes?: string | null;
+      counselingObservations?: string[] | null;
+      counselingResultNotes?: string | null;
+      counselingPlanNotes?: string | null;
       submit?: boolean;
     },
   ): Promise<void>;
@@ -553,6 +557,10 @@ export class DatabaseStorage implements IStorage {
       reportRecommendations?: string | null;
       clientReportNotes?: string | null;
       counselingHistoryNotes?: string | null;
+      counselingSubjectiveNotes?: string | null;
+      counselingObservations?: string[] | null;
+      counselingResultNotes?: string | null;
+      counselingPlanNotes?: string | null;
       submit?: boolean;
     },
   ): Promise<void> {
@@ -565,6 +573,10 @@ export class DatabaseStorage implements IStorage {
     if (report.reportRecommendations !== undefined) updates.reportRecommendations = report.reportRecommendations || null;
     if (report.clientReportNotes !== undefined) updates.clientReportNotes = report.clientReportNotes || null;
     if (report.counselingHistoryNotes !== undefined) updates.counselingHistoryNotes = report.counselingHistoryNotes || null;
+    if (report.counselingSubjectiveNotes !== undefined) updates.counselingSubjectiveNotes = report.counselingSubjectiveNotes || null;
+    if (report.counselingObservations !== undefined) updates.counselingObservations = report.counselingObservations?.length ? report.counselingObservations : null;
+    if (report.counselingResultNotes !== undefined) updates.counselingResultNotes = report.counselingResultNotes || null;
+    if (report.counselingPlanNotes !== undefined) updates.counselingPlanNotes = report.counselingPlanNotes || null;
     if (report.submit && hasClientReport) updates.reportSubmittedAt = new Date();
 
     await db
