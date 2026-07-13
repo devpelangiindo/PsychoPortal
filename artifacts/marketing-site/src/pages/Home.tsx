@@ -466,11 +466,13 @@ export default function Home() {
           </div>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-              <div className="h-48 flex items-center justify-center text-white" style={{ background: "linear-gradient(135deg, #1B4332, #40916C)" }}>
-                <div className="text-center">
-                  <BookOpen size={40} className="mx-auto mb-3 opacity-80" />
-                  <p className="text-sm font-medium opacity-80">Sekolah Pelangi Indonesia</p>
-                </div>
+              <div className="h-56 overflow-hidden bg-green-50">
+                <img
+                  src="/homepage/sekolah-pelangi-unit.jpg"
+                  alt="Sekolah Pelangi Indonesia"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
               </div>
               <div className="p-6">
                 <h3 className="text-xl font-bold mb-3" style={{ color: "#1B4332" }}>Sekolah Pelangi Indonesia</h3>
@@ -484,11 +486,13 @@ export default function Home() {
             </div>
 
             <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-              <div className="h-48 flex items-center justify-center text-white" style={{ background: "linear-gradient(135deg, #9A6E5E, #C4956A)" }}>
-                <div className="text-center">
-                  <Award size={40} className="mx-auto mb-3 opacity-80" />
-                  <p className="text-sm font-medium opacity-80">HORECAL Services</p>
-                </div>
+              <div className="h-56 overflow-hidden bg-green-50">
+                <img
+                  src="/homepage/horecal-unit.jpg"
+                  alt="HORECAL Services"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
               </div>
               <div className="p-6">
                 <h3 className="text-xl font-bold mb-3" style={{ color: "#1B4332" }}>HORECAL Services</h3>
