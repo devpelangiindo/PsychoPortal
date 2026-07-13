@@ -15,20 +15,54 @@ import fs from "fs";
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "../midtrans";
 
 type ConsultationType = "child" | "adult" | "family";
+type PsychologistOption = {
+  name: string;
+  types: ConsultationType[];
+  prices: Partial<Record<ConsultationType, string>>;
+  sipp?: string | null;
+  description?: string | null;
+  details?: string | null;
+  profileImageUrl?: string | null;
+};
 
-const PSYCHOLOGISTS: Array<{ name: string; types: ConsultationType[] }> = [
-  { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] },
-  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] },
-  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"] },
-  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] },
+const PSYCHOLOGISTS: PsychologistOption[] = [
+  {
+    name: "Tria Khusni Barokah, M.Psi., Psikolog",
+    types: ["child"],
+    prices: { child: "300000" },
+    sipp: "20230079-2023-01-2583",
+    description: "Saya psikolog yang berpengalaman dalam mendampingi tumbuh kembang anak, penanganan Anak Berkebutuhan Khusus (ABK), serta manajemen emosi dan perilaku. Berpengalaman dalam menangani kasus kecemasan, dampak bullying, serta menyediakan ruang konsultasi parenting yang suportif untuk membantu orang tua mendampingi setiap fase perkembangan anak secara optimal.",
+  },
+  {
+    name: "Retno Rahayu, M.Psi., Psikolog",
+    types: ["child", "adult", "family"],
+    prices: { child: "300000", adult: "200000", family: "200000" },
+    sipp: "20191360-2022-01-2917",
+    description: "Saya psikolog yang berpengalaman dalam menangani problem seputar perkembangan anak (autisme, ADHD, gangguan belajar, bullying) serta isu kesehatan mental remaja dan dewasa (kecemasan, depresi, stres, trauma), adiksi, masalah relasi, keluarga/parenting.",
+  },
+  {
+    name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
+    types: ["child", "adult", "family"],
+    prices: { child: "300000", adult: "300000", family: "200000" },
+    sipp: "19930009-2025-03-1359",
+    description: "Saya merupakan Psikolog Klinis dan Neuropsikolog yang berpengalaman dalam menangani kasus perkembangan anak (ADHD, autisme, dan gangguan belajar), serta berbagai permasalahan pada dewasa dan keluarga, seperti konflik pengasuhan, trauma, adiksi, dan masalah relasi. Bersertifikat ABA, TEACCH, Brain training, CBT, DBT, Mindfulness, Clinical Hypnotherapy, Brainspotting, PoV, Braingym, dan Touch for Health dll untuk mendukung layanan psikologis yang komprehensif dan berpusat pada kebutuhan klien.",
+  },
+  {
+    name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog",
+    types: ["adult"],
+    prices: { adult: "200000" },
+    sipp: "397259DD89DA",
+    description: "Saya psikolog yang berpengalaman dalam mendampingi berbagai permasalahan psikologis pada rentang usia remaja hingga lansia, mulai dari kecemasan, stres, masalah emosi, kepercayaan diri, relasi keluarga, hubungan sosial, penyesuaian diri, kebingungan arah hidup, masalah akademik atau pekerjaan, hingga perasaan kesepian dan perubahan hidup pada usia lanjut.",
+  },
 ];
 
-const YENI_NAME = "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog";
+function getPsychologistFee(psychologist: PsychologistOption, consultationType: ConsultationType) {
+  return psychologist.prices[consultationType] ?? "200000";
+}
 
-function getPsychologistFee(psychologistName: string, consultationType: ConsultationType) {
-  if (consultationType === "child") return "300000";
-  if (consultationType === "adult") return psychologistName === YENI_NAME ? "300000" : "200000";
-  return "200000";
+function normalizePsychologistTypes(value?: string[] | null): ConsultationType[] {
+  const types = (value ?? []).filter((type): type is ConsultationType => type === "child" || type === "adult" || type === "family");
+  return types.length ? types : ["child", "adult", "family"];
 }
 
 async function getPsychologistOptions() {
@@ -37,13 +71,22 @@ async function getPsychologistOptions() {
     .filter((user) => user.role === "psychologist" && user.isActive)
     .map((user) => ({
       name: user.psychologistProfileName || getDisplayName(user),
-      types: ["child", "adult", "family"] as ConsultationType[],
+      types: normalizePsychologistTypes(user.psychologistConsultationTypes),
+      prices: {
+        child: user.psychologistChildPrice || "300000",
+        adult: user.psychologistAdultPrice || "200000",
+        family: user.psychologistFamilyPrice || "200000",
+      },
+      sipp: user.psychologistSipp,
+      description: user.psychologistDescription,
+      details: user.psychologistDetails,
+      profileImageUrl: user.profileImageUrl,
     }))
     .filter((psychologist) => psychologist.name.trim().length > 0);
 
-  const byName = new Map<string, { name: string; types: ConsultationType[] }>();
+  const byName = new Map<string, PsychologistOption>();
   [...PSYCHOLOGISTS, ...associatePsychologists].forEach((psychologist) => {
-    if (!byName.has(psychologist.name)) byName.set(psychologist.name, psychologist);
+    byName.set(psychologist.name, psychologist);
   });
   return Array.from(byName.values());
 }
@@ -137,6 +180,8 @@ const manualCounselingBookingSchema = bookingRequestSchema.extend({
   markAsPaid: z.boolean().optional(),
 });
 
+const psychologistPriceSchema = z.string().trim().regex(/^\d+$/, "Harga hanya boleh angka").optional().or(z.literal(""));
+
 const adminCreatePsychologistSchema = z.object({
   email: z.string().email("Email tidak valid"),
   password: z.string().min(6, "Password minimal 6 karakter"),
@@ -144,6 +189,21 @@ const adminCreatePsychologistSchema = z.object({
   lastName: z.string().optional(),
   whatsappNumber: z.string().optional(),
   psychologistProfileName: z.string().trim().min(2, "Nama profil psikolog wajib diisi"),
+  psychologistConsultationTypes: z.array(z.enum(["child", "adult", "family"])).min(1, "Pilih minimal satu jenis konsultasi"),
+  psychologistChildPrice: psychologistPriceSchema,
+  psychologistAdultPrice: psychologistPriceSchema,
+  psychologistFamilyPrice: psychologistPriceSchema,
+  psychologistSipp: z.string().optional(),
+  psychologistDescription: z.string().optional(),
+  psychologistDetails: z.string().optional(),
+  profileImageUrl: z.string().url("URL foto tidak valid").optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  data.psychologistConsultationTypes.forEach((type) => {
+    const field = (type === "child" ? "psychologistChildPrice" : type === "adult" ? "psychologistAdultPrice" : "psychologistFamilyPrice") as "psychologistChildPrice" | "psychologistAdultPrice" | "psychologistFamilyPrice";
+    if (!data[field]?.trim()) {
+      ctx.addIssue({ code: "custom", path: [field], message: "Harga wajib diisi untuk jenis konsultasi aktif" });
+    }
+  });
 });
 
 const bookingReportSchema = z.object({
@@ -242,6 +302,33 @@ function isAuthenticated(req: any, res: any, next: any) {
 
 function getDisplayName(user: { firstName?: string | null; lastName?: string | null }) {
   return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+}
+
+function cleanOptionalText(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizePsychologistProfileInput<T extends {
+  psychologistConsultationTypes?: ConsultationType[] | null;
+  psychologistChildPrice?: string | null;
+  psychologistAdultPrice?: string | null;
+  psychologistFamilyPrice?: string | null;
+  psychologistSipp?: string | null;
+  psychologistDescription?: string | null;
+  psychologistDetails?: string | null;
+  profileImageUrl?: string | null;
+}>(data: T) {
+  return {
+    psychologistConsultationTypes: data.psychologistConsultationTypes?.length ? data.psychologistConsultationTypes : null,
+    psychologistChildPrice: cleanOptionalText(data.psychologistChildPrice),
+    psychologistAdultPrice: cleanOptionalText(data.psychologistAdultPrice),
+    psychologistFamilyPrice: cleanOptionalText(data.psychologistFamilyPrice),
+    psychologistSipp: cleanOptionalText(data.psychologistSipp),
+    psychologistDescription: cleanOptionalText(data.psychologistDescription),
+    psychologistDetails: cleanOptionalText(data.psychologistDetails),
+    profileImageUrl: cleanOptionalText(data.profileImageUrl),
+  };
 }
 
 function getJakartaDateString(date = new Date()) {
@@ -2362,7 +2449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Psikolog tidak tersedia pada hari dan jam yang dipilih." });
       }
 
-      const amount = getPsychologistFee(data.psychologistName, data.consultationType);
+      const amount = getPsychologistFee(psychologist, data.consultationType);
       const order = await storage.createOrder({
         userId,
         totalAmount: amount,
@@ -2524,7 +2611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const timestamp = Date.now();
       const manualPaymentId = `manual_counseling_${timestamp}`;
-      const amount = getPsychologistFee(data.psychologistName, data.consultationType);
+      const amount = getPsychologistFee(psychologist, data.consultationType);
 
       const order = await storage.createOrder({
         userId: user.id,
@@ -3174,8 +3261,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.params.userId;
       const updates = userUpdateSchema.parse(req.body);
+      const normalizedUpdates = updates.role === "psychologist"
+        ? { ...updates, ...normalizePsychologistProfileInput(updates) }
+        : updates;
       
-      const updatedUser = await storage.updateUser(userId, updates);
+      const updatedUser = await storage.updateUser(userId, normalizedUpdates);
       
       res.json({
         ...updatedUser,
@@ -3231,6 +3321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: data.lastName || "",
         whatsappNumber: data.whatsappNumber?.replace(/\D/g, "") || "",
         psychologistProfileName: data.psychologistProfileName,
+        ...normalizePsychologistProfileInput(data),
         role: "psychologist",
         authProvider: "custom",
         isActive: true,

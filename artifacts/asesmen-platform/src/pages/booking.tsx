@@ -112,22 +112,23 @@ type BookingForm = {
 type PsychologistOption = {
   name: string;
   types: ConsultationType[];
+  prices?: Partial<Record<ConsultationType, string>>;
+  sipp?: string | null;
+  description?: string | null;
+  details?: string | null;
+  profileImageUrl?: string | null;
 };
 
 const DEFAULT_PSYCHOLOGISTS: PsychologistOption[] = [
-  { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] },
-  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] },
-  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"] },
-  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] },
+  { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"], prices: { child: "300000" } },
+  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"], prices: { child: "300000", adult: "200000", family: "200000" } },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"], prices: { child: "300000", adult: "300000", family: "200000" } },
+  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"], prices: { adult: "200000" } },
 ];
 
-const YENI_NAME = "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog";
-
-const getPsychologistFee = (psychologistName: string | undefined, consultationType: ConsultationType | "") => {
-  if (!psychologistName || !consultationType) return 0;
-  if (consultationType === "child") return 300000;
-  if (consultationType === "adult") return psychologistName === YENI_NAME ? 300000 : 200000;
-  return 200000;
+const getPsychologistFee = (psychologist: PsychologistOption | undefined, consultationType: ConsultationType | "") => {
+  if (!psychologist || !consultationType) return 0;
+  return Number(psychologist.prices?.[consultationType] ?? (consultationType === "child" ? "300000" : "200000"));
 };
 
 const PSYCHOLOGIST_PROFILES = [
@@ -163,6 +164,17 @@ const PSYCHOLOGIST_PROFILES = [
 
 const getPsychologistProfile = (name: string) =>
   PSYCHOLOGIST_PROFILES.find((profile) => profile.name === name);
+
+const getMergedPsychologistProfile = (psychologist: PsychologistOption) => {
+  const staticProfile = getPsychologistProfile(psychologist.name);
+  return {
+    name: psychologist.name,
+    sipp: psychologist.sipp || staticProfile?.sipp || "",
+    photo: psychologist.profileImageUrl || staticProfile?.photo || "",
+    description: psychologist.description || staticProfile?.description || "",
+    details: psychologist.details || "",
+  };
+};
 
 const CONSULTATION_TYPES = [
   {
@@ -369,8 +381,8 @@ export default function Booking() {
   }, [form.consultationType, psychologists]);
 
   const selectedPsychologist = availablePsychologists.find((psychologist) => psychologist.name === form.psychologistName);
-  const selectedPsychologistProfile = selectedPsychologist ? getPsychologistProfile(selectedPsychologist.name) : undefined;
-  const selectedPsychologistFee = getPsychologistFee(selectedPsychologist?.name, form.consultationType);
+  const selectedPsychologistProfile = selectedPsychologist ? getMergedPsychologistProfile(selectedPsychologist) : undefined;
+  const selectedPsychologistFee = getPsychologistFee(selectedPsychologist, form.consultationType);
   const today = useMemo(() => formatDateInput(new Date()), []);
   const maxBookingDate = useMemo(() => {
     const date = new Date();
@@ -806,7 +818,7 @@ export default function Booking() {
                         <p className="text-sm text-neutral-500">Pilih jenis konsultasi pada Form A terlebih dahulu.</p>
                       ) : availablePsychologists.map((psychologist) => {
                         const selected = form.psychologistName === psychologist.name;
-                        const profile = getPsychologistProfile(psychologist.name);
+                        const profile = getMergedPsychologistProfile(psychologist);
                         return (
                           <button
                             key={psychologist.name}
@@ -817,7 +829,7 @@ export default function Booking() {
                             }`}
                           >
                             <div className="flex gap-3">
-                              {profile ? (
+                              {profile.photo ? (
                                 <img
                                   src={profile.photo}
                                   alt={psychologist.name}
@@ -831,8 +843,8 @@ export default function Booking() {
                               )}
                               <div>
                                 <p className="font-semibold text-sm">{psychologist.name}</p>
-                                <p className="text-sm text-green-700 mt-1">{formatCurrency(getPsychologistFee(psychologist.name, form.consultationType))} / sesi</p>
-                                {profile && <p className="text-xs text-neutral-500 mt-1">SIPP: {profile.sipp}</p>}
+                                <p className="text-sm text-green-700 mt-1">{formatCurrency(getPsychologistFee(psychologist, form.consultationType))} / sesi</p>
+                                {profile.sipp && <p className="text-xs text-neutral-500 mt-1">SIPP: {profile.sipp}</p>}
                               </div>
                             </div>
                           </button>
@@ -932,7 +944,7 @@ export default function Booking() {
                     <div className="flex justify-between gap-4">
                       <span className="text-neutral-500">Psikolog</span>
                       <span className="flex max-w-[70%] items-center justify-end gap-3 text-right font-semibold">
-                        {selectedPsychologistProfile && (
+                        {selectedPsychologistProfile?.photo && (
                           <img
                             src={selectedPsychologistProfile.photo}
                             alt={selectedPsychologistProfile.name}
@@ -1013,7 +1025,7 @@ export default function Booking() {
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-neutral-500">Psikolog</span>
                   <span className="flex max-w-[70%] items-center justify-end gap-2 text-right font-medium">
-                    {selectedPsychologistProfile && (
+                    {selectedPsychologistProfile?.photo && (
                       <img
                         src={selectedPsychologistProfile.photo}
                         alt={selectedPsychologistProfile.name}
@@ -1648,6 +1660,11 @@ function BookingLanding({
 }
 
 function PsychologistProfilesSection() {
+  const { data: psychologists = DEFAULT_PSYCHOLOGISTS } = useQuery<PsychologistOption[]>({
+    queryKey: ["/api/psychologists"],
+  });
+  const profiles = psychologists.map(getMergedPsychologistProfile);
+
   return (
     <section className="py-20 bg-neutral-50 dark:bg-muted/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1664,24 +1681,39 @@ function PsychologistProfilesSection() {
         </div>
 
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
-          {PSYCHOLOGIST_PROFILES.map((psychologist) => (
+          {profiles.map((psychologist) => (
             <div key={psychologist.name} className="overflow-hidden rounded-xl border bg-white shadow-sm">
               <div className="aspect-[4/5] bg-green-50">
-                <img
-                  src={psychologist.photo}
-                  alt={psychologist.name}
-                  className="h-full w-full object-cover object-top"
-                  loading="lazy"
-                />
+                {psychologist.photo ? (
+                  <img
+                    src={psychologist.photo}
+                    alt={psychologist.name}
+                    className="h-full w-full object-cover object-top"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <UserRound className="h-16 w-16 text-green-800" />
+                  </div>
+                )}
               </div>
               <div className="p-5">
                 <h3 className="font-bold leading-snug text-neutral-900">{psychologist.name}</h3>
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-green-700">
-                  SIPP: {psychologist.sipp}
-                </p>
-                <p className="mt-4 text-sm leading-relaxed text-neutral-500">
-                  {psychologist.description}
-                </p>
+                {psychologist.sipp && (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-green-700">
+                    SIPP: {psychologist.sipp}
+                  </p>
+                )}
+                {psychologist.description && (
+                  <p className="mt-4 text-sm leading-relaxed text-neutral-500">
+                    {psychologist.description}
+                  </p>
+                )}
+                {psychologist.details && (
+                  <p className="mt-3 text-xs leading-relaxed text-neutral-500">
+                    {psychologist.details}
+                  </p>
+                )}
               </div>
             </div>
           ))}

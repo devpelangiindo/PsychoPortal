@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
@@ -18,6 +19,17 @@ import { userUpdateSchema, passwordResetSchema, type UserUpdateRequest, type Pas
 import { z } from "zod";
 import { formatDisplayDateTime } from "@/lib/date-format";
 
+const psychologistProfileSettingsSchema = {
+  psychologistConsultationTypes: z.array(z.enum(["child", "adult", "family"])).min(1, "Pilih minimal satu jenis konsultasi"),
+  psychologistChildPrice: z.string().optional(),
+  psychologistAdultPrice: z.string().optional(),
+  psychologistFamilyPrice: z.string().optional(),
+  psychologistSipp: z.string().optional(),
+  psychologistDescription: z.string().optional(),
+  psychologistDetails: z.string().optional(),
+  profileImageUrl: z.string().optional(),
+};
+
 const createPsychologistSchema = z.object({
   firstName: z.string().min(1, "Nama depan wajib diisi"),
   lastName: z.string().optional(),
@@ -25,6 +37,14 @@ const createPsychologistSchema = z.object({
   password: z.string().min(6, "Password minimal 6 karakter"),
   whatsappNumber: z.string().optional(),
   psychologistProfileName: z.string().min(2, "Nama profil psikolog wajib diisi"),
+  ...psychologistProfileSettingsSchema,
+}).superRefine((data, ctx) => {
+  data.psychologistConsultationTypes.forEach((type) => {
+    const field = (type === "child" ? "psychologistChildPrice" : type === "adult" ? "psychologistAdultPrice" : "psychologistFamilyPrice") as "psychologistChildPrice" | "psychologistAdultPrice" | "psychologistFamilyPrice";
+    if (!data[field]?.trim()) {
+      ctx.addIssue({ code: "custom", path: [field], message: "Harga wajib diisi" });
+    }
+  });
 });
 
 type CreatePsychologistForm = z.infer<typeof createPsychologistSchema>;
@@ -36,10 +56,140 @@ interface User {
   lastName: string | null;
   whatsappNumber: string | null;
   psychologistProfileName: string | null;
+  psychologistConsultationTypes: Array<"child" | "adult" | "family"> | null;
+  psychologistChildPrice: string | null;
+  psychologistAdultPrice: string | null;
+  psychologistFamilyPrice: string | null;
+  psychologistSipp: string | null;
+  psychologistDescription: string | null;
+  psychologistDetails: string | null;
+  profileImageUrl: string | null;
   role: string;
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+}
+
+const consultationTypeOptions = [
+  { value: "child", label: "Perkembangan anak & remaja", priceField: "psychologistChildPrice" },
+  { value: "adult", label: "Permasalahan pribadi", priceField: "psychologistAdultPrice" },
+  { value: "family", label: "Permasalahan keluarga", priceField: "psychologistFamilyPrice" },
+] as const;
+
+type ConsultationType = (typeof consultationTypeOptions)[number]["value"];
+
+function PsychologistProfileFields({ form }: { form: any }) {
+  const selectedTypes = (form.watch("psychologistConsultationTypes") ?? []) as ConsultationType[];
+
+  const toggleType = (type: ConsultationType, checked: boolean) => {
+    const nextTypes = checked
+      ? Array.from(new Set([...selectedTypes, type]))
+      : selectedTypes.filter((item) => item !== type);
+    form.setValue("psychologistConsultationTypes", nextTypes, { shouldDirty: true, shouldValidate: true });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <FormLabel>Jenis Konsultasi yang Dilayani</FormLabel>
+        <div className="mt-2 grid gap-2 md:grid-cols-3">
+          {consultationTypeOptions.map((option) => (
+            <label key={option.value} className="flex items-start gap-2 rounded-md border bg-white p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={selectedTypes.includes(option.value)}
+                onChange={(event) => toggleType(option.value, event.target.checked)}
+                className="mt-1"
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {consultationTypeOptions.map((option) => (
+          <FormField
+            key={option.value}
+            control={form.control}
+            name={option.priceField}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Harga {option.label}</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    value={field.value ?? ""}
+                    inputMode="numeric"
+                    placeholder="Contoh: 300000"
+                    disabled={!selectedTypes.includes(option.value)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ))}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <FormField
+          control={form.control}
+          name="psychologistSipp"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>SIPP</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} placeholder="Nomor SIPP" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="profileImageUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>URL Foto Profil</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ""} placeholder="https://..." />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      <FormField
+        control={form.control}
+        name="psychologistDescription"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Deskripsi Singkat</FormLabel>
+            <FormControl>
+              <Textarea {...field} value={field.value ?? ""} rows={4} placeholder="Deskripsi yang tampil di halaman booking." />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="psychologistDetails"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Detail Tambahan</FormLabel>
+            <FormControl>
+              <Textarea {...field} value={field.value ?? ""} rows={3} placeholder="Spesialisasi, sertifikasi, catatan internal, atau detail lain." />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </div>
+  );
 }
 
 export default function AdminUsers() {
@@ -202,6 +352,14 @@ export default function AdminUsers() {
       lastName: "",
       whatsappNumber: "",
       psychologistProfileName: "",
+      psychologistConsultationTypes: ["child", "adult", "family"],
+      psychologistChildPrice: "300000",
+      psychologistAdultPrice: "200000",
+      psychologistFamilyPrice: "200000",
+      psychologistSipp: "",
+      psychologistDescription: "",
+      psychologistDetails: "",
+      profileImageUrl: "",
       isActive: true,
       role: "user",
     },
@@ -225,6 +383,14 @@ export default function AdminUsers() {
       password: "",
       whatsappNumber: "",
       psychologistProfileName: "",
+      psychologistConsultationTypes: ["child", "adult", "family"],
+      psychologistChildPrice: "300000",
+      psychologistAdultPrice: "200000",
+      psychologistFamilyPrice: "200000",
+      psychologistSipp: "",
+      psychologistDescription: "",
+      psychologistDetails: "",
+      profileImageUrl: "",
     },
   });
 
@@ -282,6 +448,14 @@ export default function AdminUsers() {
       lastName: user.lastName || "",
       whatsappNumber: user.whatsappNumber || "",
       psychologistProfileName: user.psychologistProfileName || "",
+      psychologistConsultationTypes: user.psychologistConsultationTypes?.length ? user.psychologistConsultationTypes : ["child", "adult", "family"],
+      psychologistChildPrice: user.psychologistChildPrice || "300000",
+      psychologistAdultPrice: user.psychologistAdultPrice || "200000",
+      psychologistFamilyPrice: user.psychologistFamilyPrice || "200000",
+      psychologistSipp: user.psychologistSipp || "",
+      psychologistDescription: user.psychologistDescription || "",
+      psychologistDetails: user.psychologistDetails || "",
+      profileImageUrl: user.profileImageUrl || "",
       isActive: user.isActive,
       role: user.role as "user" | "admin" | "internal" | "cso" | "psychologist",
     });
@@ -481,8 +655,9 @@ export default function AdminUsers() {
                     </FormControl>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                  )}
+                />
+              <PsychologistProfileFields form={createPsychologistForm} />
               <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={createPsychologistForm.control}
@@ -637,19 +812,22 @@ export default function AdminUsers() {
               />
 
               {editForm.watch("role") === "psychologist" && (
-                <FormField
-                  control={editForm.control}
-                  name="psychologistProfileName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nama Profil Psikolog</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value ?? ""} placeholder="Nama yang tampil di layanan booking" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="space-y-4 rounded-lg border bg-green-50/60 p-4">
+                  <FormField
+                    control={editForm.control}
+                    name="psychologistProfileName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nama Profil Psikolog</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value ?? ""} placeholder="Nama yang tampil di layanan booking" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <PsychologistProfileFields form={editForm} />
+                </div>
               )}
 
               <FormField

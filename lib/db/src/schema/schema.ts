@@ -35,6 +35,13 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   whatsappNumber: varchar("whatsapp_number"),
   psychologistProfileName: varchar("psychologist_profile_name", { length: 255 }),
+  psychologistConsultationTypes: jsonb("psychologist_consultation_types").$type<string[]>(),
+  psychologistChildPrice: decimal("psychologist_child_price", { precision: 10, scale: 2 }),
+  psychologistAdultPrice: decimal("psychologist_adult_price", { precision: 10, scale: 2 }),
+  psychologistFamilyPrice: decimal("psychologist_family_price", { precision: 10, scale: 2 }),
+  psychologistSipp: varchar("psychologist_sipp", { length: 100 }),
+  psychologistDescription: text("psychologist_description"),
+  psychologistDetails: text("psychologist_details"),
   profileImageUrl: varchar("profile_image_url"),
   isEmailVerified: boolean("is_email_verified").default(false),
   authProvider: varchar("auth_provider").default("custom"), // 'replit' or 'custom'
@@ -298,6 +305,14 @@ export const userUpdateSchema = z.object({
   isActive: z.boolean().optional(),
   role: z.enum(["user", "admin", "internal", "cso", "psychologist"]).optional(),
   psychologistProfileName: z.string().optional().nullable(),
+  psychologistConsultationTypes: z.array(z.enum(["child", "adult", "family"])).optional().nullable(),
+  psychologistChildPrice: z.string().optional().nullable(),
+  psychologistAdultPrice: z.string().optional().nullable(),
+  psychologistFamilyPrice: z.string().optional().nullable(),
+  psychologistSipp: z.string().optional().nullable(),
+  psychologistDescription: z.string().optional().nullable(),
+  psychologistDetails: z.string().optional().nullable(),
+  profileImageUrl: z.string().optional().nullable(),
 });
 
 export const passwordResetSchema = z.object({
