@@ -1450,9 +1450,10 @@ function BookingLanding({
           <img
             src="/homepage/pig-building-1.jpg"
             alt="Gedung Pelangi Indonesia"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full scale-105 object-cover opacity-90 blur-[2px]"
           />
-          <div className="absolute inset-0 bg-[#1B4332]/72" />
+          <div className="absolute inset-0 bg-[#1B4332]/68" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1B4332]/75 via-[#2D6A4F]/45 to-[#1B4332]/65" />
           <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#1B4332]/75 to-transparent" />
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-12 items-center">
