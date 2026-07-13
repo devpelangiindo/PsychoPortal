@@ -85,6 +85,11 @@ type ScheduleResponse = {
   scheduleSlots: ScheduleSlot[];
 };
 
+type PsychologistOption = {
+  name: string;
+  types: Array<"child" | "adult" | "family">;
+};
+
 const consultationLabels = {
   child: "Anak/remaja",
   adult: "Pribadi dewasa",
@@ -193,12 +198,46 @@ const dayLabels = [
 ];
 
 const timeSlots = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"];
-const psychologistNames = [
+const defaultPsychologistNames = [
   "Tria Khusni Barokah, M.Psi., Psikolog",
   "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
   "Retno Rahayu, M.Psi., Psikolog",
   "Ridwan Rahmawan, S.Psi., M.H., Psikolog",
 ];
+
+function normalizeDateInput(value: string) {
+  const trimmed = value.trim();
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (ddmmyyyy) {
+    const [, day, month, year] = ddmmyyyy;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  const yyyymmdd = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (yyyymmdd) {
+    const [, year, month, day] = yyyymmdd;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  return null;
+}
+
+function parseDateSearch(query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return null;
+  const rangeMatch = normalizedQuery.match(/^(.+?)\s*(?:s\/d|sd|sampai|to|\.\.|-)\s*(.+)$/i);
+  if (rangeMatch) {
+    const start = normalizeDateInput(rangeMatch[1]);
+    const end = normalizeDateInput(rangeMatch[2]);
+    if (start && end) return { start: start <= end ? start : end, end: start <= end ? end : start };
+  }
+  const exact = normalizeDateInput(normalizedQuery);
+  return exact ? { start: exact, end: exact } : null;
+}
+
+function isDateInSearchRange(dateValue: string | null | undefined, range: { start: string; end: string }) {
+  if (!dateValue) return false;
+  const normalized = dateValue.slice(0, 10);
+  return normalized >= range.start && normalized <= range.end;
+}
 
 type DashboardMode = "psychologist" | "admin";
 
@@ -212,7 +251,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   const [, setLocation] = useLocation();
   const [bookingSearch, setBookingSearch] = useState("");
   const [reportSearch, setReportSearch] = useState("");
-  const [selectedAdminPsychologist, setSelectedAdminPsychologist] = useState(psychologistNames[0]);
+  const [selectedAdminPsychologist, setSelectedAdminPsychologist] = useState(defaultPsychologistNames[0]);
   const isAdminMode = mode === "admin";
   const isAdminOrCso = user?.role === "admin" || user?.role === "internal" || user?.role === "cso";
   const isCsoRole = user?.role === "cso" || user?.role === "internal";
@@ -234,6 +273,22 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
     },
     enabled: hasAccess,
   });
+
+  const { data: psychologistOptions = [] } = useQuery<PsychologistOption[]>({
+    queryKey: ["/api/psychologists"],
+    enabled: hasAccess,
+  });
+  const psychologistNames = useMemo(
+    () => psychologistOptions.length
+      ? psychologistOptions.map((psychologist) => psychologist.name)
+      : defaultPsychologistNames,
+    [psychologistOptions],
+  );
+
+  useEffect(() => {
+    if (!psychologistNames.length || psychologistNames.includes(selectedAdminPsychologist)) return;
+    setSelectedAdminPsychologist(psychologistNames[0]);
+  }, [psychologistNames, selectedAdminPsychologist]);
 
   const { data: scheduleData, isLoading: scheduleLoading } = useQuery<ScheduleResponse>({
     queryKey: ["/api/psychologist/schedule-slots", mode, isAdminMode ? selectedAdminPsychologist : "self"],
@@ -343,7 +398,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <Input
                 value={bookingSearch}
                 onChange={(event) => setBookingSearch(event.target.value)}
-                placeholder="Cari klien, psikolog, email, WA, jadwal, status, atau lokasi"
+                placeholder="Cari klien, psikolog, status, atau tanggal DD/MM/YYYY; range 01/07/2026-13/07/2026"
                 className="pl-9"
               />
             </div>
@@ -418,7 +473,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <Input
                 value={reportSearch}
                 onChange={(event) => setReportSearch(event.target.value)}
-                placeholder="Cari nama klien, email, atau psikolog"
+                placeholder="Cari nama klien, psikolog, atau tanggal DD/MM/YYYY; range 01/07/2026-13/07/2026"
                 className="pl-9"
               />
             </div>
@@ -460,6 +515,14 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 function matchesBookingSearch(booking: Booking, query: string) {
+  const dateRange = parseDateSearch(query);
+  if (dateRange) {
+    return isDateInSearchRange(booking.preferredDate, dateRange) ||
+      isDateInSearchRange(booking.createdAt, dateRange) ||
+      isDateInSearchRange(booking.paidAt, dateRange) ||
+      isDateInSearchRange(booking.order.paidAt, dateRange);
+  }
+
   const haystack = [
     String(booking.id),
     booking.clientName,

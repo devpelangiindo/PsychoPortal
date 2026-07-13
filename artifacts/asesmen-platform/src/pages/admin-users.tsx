@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Search, Edit, Key, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, Edit, Key, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -17,6 +17,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { userUpdateSchema, passwordResetSchema, type UserUpdateRequest, type PasswordResetRequest } from "@shared/schema";
 import { z } from "zod";
 import { formatDisplayDateTime } from "@/lib/date-format";
+
+const createPsychologistSchema = z.object({
+  firstName: z.string().min(1, "Nama depan wajib diisi"),
+  lastName: z.string().optional(),
+  email: z.string().email("Email tidak valid"),
+  password: z.string().min(6, "Password minimal 6 karakter"),
+  whatsappNumber: z.string().optional(),
+  psychologistProfileName: z.string().min(2, "Nama profil psikolog wajib diisi"),
+});
+
+type CreatePsychologistForm = z.infer<typeof createPsychologistSchema>;
 
 interface User {
   id: string;
@@ -36,6 +47,7 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isCreatePsychologistDialogOpen, setIsCreatePsychologistDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -204,6 +216,60 @@ export default function AdminUsers() {
     },
   });
 
+  const createPsychologistForm = useForm<CreatePsychologistForm>({
+    resolver: zodResolver(createPsychologistSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      whatsappNumber: "",
+      psychologistProfileName: "",
+    },
+  });
+
+  const createPsychologistMutation = useMutation({
+    mutationFn: async (data: CreatePsychologistForm) => {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Token admin tidak ditemukan. Silakan login ulang.');
+      }
+
+      const res = await fetch('/api/admin/psychologists', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/psychologists"] });
+      createPsychologistForm.reset();
+      setIsCreatePsychologistDialogOpen(false);
+      toast({
+        title: "Psikolog ditambahkan",
+        description: "Akun psikolog associate berhasil dibuat.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Gagal menambahkan psikolog",
+        description: error.message || "Silakan cek data dan coba lagi.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredUsers = users?.filter(user =>
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
@@ -244,6 +310,10 @@ export default function AdminUsers() {
     const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
     if (!window.confirm(`Hapus user "${name}"? User hanya dapat dihapus jika belum memiliki order, booking, atau asesmen.`)) return;
     deleteUserMutation.mutate(user);
+  };
+
+  const onCreatePsychologist = (data: CreatePsychologistForm) => {
+    createPsychologistMutation.mutate(data);
   };
 
   const formatDate = (dateString: string | null) => {
@@ -294,6 +364,10 @@ export default function AdminUsers() {
             <div className="flex justify-between items-center">
               <CardTitle>Daftar Pengguna ({filteredUsers.length})</CardTitle>
               <div className="flex items-center space-x-2">
+                <Button className="bg-green-700 hover:bg-green-800" onClick={() => setIsCreatePsychologistDialogOpen(true)}>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Tambah Psikolog
+                </Button>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
@@ -388,6 +462,110 @@ export default function AdminUsers() {
         </Card>
       </div>
 
+      {/* Create Psychologist Dialog */}
+      <Dialog open={isCreatePsychologistDialogOpen} onOpenChange={setIsCreatePsychologistDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah Psikolog Associate</DialogTitle>
+          </DialogHeader>
+          <Form {...createPsychologistForm}>
+            <form onSubmit={createPsychologistForm.handleSubmit(onCreatePsychologist)} className="space-y-4">
+              <FormField
+                control={createPsychologistForm.control}
+                name="psychologistProfileName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nama Profil Psikolog</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Nama lengkap beserta gelar" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={createPsychologistForm.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Depan</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Nama depan" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createPsychologistForm.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Belakang</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Nama belakang" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={createPsychologistForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Login</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="email" placeholder="psikolog@example.com" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createPsychologistForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password Awal</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="password" placeholder="Minimal 6 karakter" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createPsychologistForm.control}
+                name="whatsappNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nomor WhatsApp</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="08xxxxxxxxxx" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="rounded-lg border bg-green-50 p-3 text-xs text-green-900">
+                Psikolog associate akan aktif untuk pilihan booking dan jadwal dengan akses dashboard psikolog.
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setIsCreatePsychologistDialogOpen(false)}>
+                  Batal
+                </Button>
+                <Button type="submit" disabled={createPsychologistMutation.isPending}>
+                  {createPsychologistMutation.isPending ? "Menyimpan..." : "Tambah Psikolog"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
@@ -466,13 +644,7 @@ export default function AdminUsers() {
                     <FormItem>
                       <FormLabel>Nama Profil Psikolog</FormLabel>
                       <FormControl>
-                        <select {...field} value={field.value ?? ""} className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-md px-3 py-2">
-                          <option value="">Pilih nama di layanan booking</option>
-                          <option value="Tria Khusni Barokah, M.Psi., Psikolog">Tria Khusni Barokah, M.Psi., Psikolog</option>
-                          <option value="Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog">Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog</option>
-                          <option value="Retno Rahayu, M.Psi., Psikolog">Retno Rahayu, M.Psi., Psikolog</option>
-                          <option value="Ridwan Rahmawan, S.Psi., M.H., Psikolog">Ridwan Rahmawan, S.Psi., M.H., Psikolog</option>
-                        </select>
+                        <Input {...field} value={field.value ?? ""} placeholder="Nama yang tampil di layanan booking" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

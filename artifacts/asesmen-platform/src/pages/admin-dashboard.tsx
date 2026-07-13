@@ -29,6 +29,11 @@ const psychologists = [
   { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] },
 ];
 
+type PsychologistOption = {
+  name: string;
+  types: string[];
+};
+
 const consultationTypes = [
   { value: "child", label: "Anak/remaja" },
   { value: "adult", label: "Pribadi dewasa" },
@@ -124,6 +129,10 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
     },
   });
 
+  const { data: psychologistOptions = psychologists } = useQuery<PsychologistOption[]>({
+    queryKey: ["/api/psychologists"],
+  });
+
   // Debug: Check if token exists
   console.log('Admin Dashboard Debug:', { 
     token: token ? 'EXISTS' : 'MISSING', 
@@ -186,14 +195,14 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
     setManualForm((current) => {
       const next = { ...current, [field]: value };
       if (field === "consultationType" && typeof value === "string") {
-        const firstMatch = psychologists.find((psychologist) => psychologist.types.includes(value));
+        const firstMatch = psychologistOptions.find((psychologist) => psychologist.types.includes(value));
         next.psychologistName = firstMatch?.name || "";
       }
       return next;
     });
   };
 
-  const manualPsychologistOptions = psychologists.filter((psychologist) => psychologist.types.includes(manualForm.consultationType));
+  const manualPsychologistOptions = psychologistOptions.filter((psychologist) => psychologist.types.includes(manualForm.consultationType));
 
   if (isLoading) {
     return (

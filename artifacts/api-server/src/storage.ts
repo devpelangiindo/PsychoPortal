@@ -52,6 +52,34 @@ function bookingWithPaymentStatus(row: {
   };
 }
 
+function normalizeDateSearchInput(value: string) {
+  const trimmed = value.trim();
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (ddmmyyyy) {
+    const [, day, month, year] = ddmmyyyy;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  const yyyymmdd = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (yyyymmdd) {
+    const [, year, month, day] = yyyymmdd;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  return null;
+}
+
+function parseDateSearchRange(search?: string) {
+  const query = search?.trim().toLowerCase();
+  if (!query) return null;
+  const rangeMatch = query.match(/^(.+?)\s*(?:s\/d|sd|sampai|to|\.\.|-)\s*(.+)$/i);
+  if (rangeMatch) {
+    const start = normalizeDateSearchInput(rangeMatch[1]);
+    const end = normalizeDateSearchInput(rangeMatch[2]);
+    if (start && end) return { start: start <= end ? start : end, end: start <= end ? end : start };
+  }
+  const exact = normalizeDateSearchInput(query);
+  return exact ? { start: exact, end: exact } : null;
+}
+
 function operationalPsychologistBookingOrder() {
   return [
     sql<number>`case when ${psychologistBookings.status} = 'paid' or ${orders.status} = 'completed' or ${orders.paymentStatus} = 'paid' then 0 else 1 end`,
@@ -427,6 +455,7 @@ export class DatabaseStorage implements IStorage {
 
   async searchPsychologistBookingReports(search?: string): Promise<PsychologistBookingWithDetails[]> {
     const trimmedSearch = search?.trim();
+    const dateRange = parseDateSearchRange(trimmedSearch);
     const results = await db
       .select({
         booking: psychologistBookings,
@@ -437,7 +466,12 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
       .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
       .where(
-        trimmedSearch
+        dateRange
+          ? and(
+              gte(psychologistBookings.preferredDate, dateRange.start),
+              lte(psychologistBookings.preferredDate, dateRange.end),
+            )
+          : trimmedSearch
           ? or(
               ilike(psychologistBookings.clientName, `%${trimmedSearch}%`),
               ilike(psychologistBookings.email, `%${trimmedSearch}%`),

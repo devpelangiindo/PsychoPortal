@@ -59,8 +59,50 @@ function formatCurrency(value: string | number) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
 }
 
+function normalizeDateInput(value: string) {
+  const trimmed = value.trim();
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (ddmmyyyy) {
+    const [, day, month, year] = ddmmyyyy;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  const yyyymmdd = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (yyyymmdd) {
+    const [, year, month, day] = yyyymmdd;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  return null;
+}
+
+function parseDateSearch(query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return null;
+  const rangeMatch = normalizedQuery.match(/^(.+?)\s*(?:s\/d|sd|sampai|to|\.\.|-)\s*(.+)$/i);
+  if (rangeMatch) {
+    const start = normalizeDateInput(rangeMatch[1]);
+    const end = normalizeDateInput(rangeMatch[2]);
+    if (start && end) return { start: start <= end ? start : end, end: start <= end ? end : start };
+  }
+  const exact = normalizeDateInput(normalizedQuery);
+  return exact ? { start: exact, end: exact } : null;
+}
+
+function isDateInSearchRange(dateValue: string | null | undefined, range: { start: string; end: string }) {
+  if (!dateValue) return false;
+  const normalized = dateValue.slice(0, 10);
+  return normalized >= range.start && normalized <= range.end;
+}
+
 function matchesClientDashboardOrder(order: OrderWithItems, bookings: Booking[], query: string) {
   const booking = bookings.find((item) => item.orderId === order.id);
+  const dateRange = parseDateSearch(query);
+  if (dateRange) {
+    return isDateInSearchRange(order.createdAt, dateRange) ||
+      isDateInSearchRange(order.updatedAt, dateRange) ||
+      isDateInSearchRange(order.paidAt, dateRange) ||
+      isDateInSearchRange(booking?.preferredDate, dateRange);
+  }
+
   const haystack = [
     `pesanan ${order.id}`,
     String(order.id),
@@ -629,7 +671,7 @@ export default function Dashboard() {
                 <Input
                   value={orderSearch}
                   onChange={(event) => setOrderSearch(event.target.value)}
-                  placeholder="Cari pesanan, psikolog, layanan, status, atau jadwal"
+                  placeholder="Cari pesanan, psikolog, status, atau tanggal DD/MM/YYYY; range 01/07/2026-13/07/2026"
                   className="pl-9"
                 />
               </div>

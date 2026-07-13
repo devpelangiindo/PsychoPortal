@@ -109,11 +109,16 @@ type BookingForm = {
   location: LocationType;
 };
 
-const PSYCHOLOGISTS = [
-  { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] as ConsultationType[] },
-  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] as ConsultationType[] },
-  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"] as ConsultationType[] },
-  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] as ConsultationType[] },
+type PsychologistOption = {
+  name: string;
+  types: ConsultationType[];
+};
+
+const DEFAULT_PSYCHOLOGISTS: PsychologistOption[] = [
+  { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] },
+  { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] },
+  { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"] },
+  { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] },
 ];
 
 const YENI_NAME = "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog";
@@ -349,6 +354,10 @@ export default function Booking() {
     queryKey: ["/api/booking-services"],
   });
 
+  const { data: psychologists = DEFAULT_PSYCHOLOGISTS } = useQuery<PsychologistOption[]>({
+    queryKey: ["/api/psychologists"],
+  });
+
   const selectedService = useMemo(() => {
     if (!services?.length) return undefined;
     return services.find((service) => service.id === selectedServiceId) ?? services[0];
@@ -356,8 +365,8 @@ export default function Booking() {
 
   const availablePsychologists = useMemo(() => {
     if (!form.consultationType) return [];
-    return PSYCHOLOGISTS.filter((psychologist) => psychologist.types.includes(form.consultationType as ConsultationType));
-  }, [form.consultationType]);
+    return psychologists.filter((psychologist) => psychologist.types.includes(form.consultationType as ConsultationType));
+  }, [form.consultationType, psychologists]);
 
   const selectedPsychologist = availablePsychologists.find((psychologist) => psychologist.name === form.psychologistName);
   const selectedPsychologistProfile = selectedPsychologist ? getPsychologistProfile(selectedPsychologist.name) : undefined;

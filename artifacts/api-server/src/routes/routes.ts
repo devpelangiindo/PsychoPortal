@@ -14,14 +14,14 @@ import fs from "fs";
 // Using Midtrans payment gateway
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "../midtrans";
 
-const PSYCHOLOGISTS = [
+type ConsultationType = "child" | "adult" | "family";
+
+const PSYCHOLOGISTS: Array<{ name: string; types: ConsultationType[] }> = [
   { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] },
   { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] },
   { name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog", types: ["child", "adult", "family"] },
   { name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog", types: ["adult"] },
 ];
-
-type ConsultationType = "child" | "adult" | "family";
 
 const YENI_NAME = "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog";
 
@@ -29,6 +29,27 @@ function getPsychologistFee(psychologistName: string, consultationType: Consulta
   if (consultationType === "child") return "300000";
   if (consultationType === "adult") return psychologistName === YENI_NAME ? "300000" : "200000";
   return "200000";
+}
+
+async function getPsychologistOptions() {
+  const users = await storage.getAllUsers();
+  const associatePsychologists = users
+    .filter((user) => user.role === "psychologist" && user.isActive)
+    .map((user) => ({
+      name: user.psychologistProfileName || getDisplayName(user),
+      types: ["child", "adult", "family"] as ConsultationType[],
+    }))
+    .filter((psychologist) => psychologist.name.trim().length > 0);
+
+  const byName = new Map<string, { name: string; types: ConsultationType[] }>();
+  [...PSYCHOLOGISTS, ...associatePsychologists].forEach((psychologist) => {
+    if (!byName.has(psychologist.name)) byName.set(psychologist.name, psychologist);
+  });
+  return Array.from(byName.values());
+}
+
+async function getPsychologistOption(name: string) {
+  return (await getPsychologistOptions()).find((psychologist) => psychologist.name === name);
 }
 
 function canManageBookingsRole(role?: string | null) {
@@ -85,15 +106,6 @@ const bookingRequestSchema = z.object({
   psychologistName: z.string().min(2),
   location: z.enum(["online", "colombo", "bantul"]),
 }).superRefine((data, ctx) => {
-  const psychologist = PSYCHOLOGISTS.find((item) => item.name === data.psychologistName);
-  if (!psychologist || !psychologist.types.includes(data.consultationType)) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["psychologistName"],
-      message: "Psikolog tidak sesuai dengan jenis konsultasi",
-    });
-  }
-
   if (data.consultationType === "child") {
     if (!data.childName?.trim()) {
       ctx.addIssue({ code: "custom", path: ["childName"], message: "Nama anak wajib diisi" });
@@ -123,6 +135,15 @@ const bookingRequestSchema = z.object({
 const manualCounselingBookingSchema = bookingRequestSchema.extend({
   serviceId: z.number().int().positive().optional(),
   markAsPaid: z.boolean().optional(),
+});
+
+const adminCreatePsychologistSchema = z.object({
+  email: z.string().email("Email tidak valid"),
+  password: z.string().min(6, "Password minimal 6 karakter"),
+  firstName: z.string().trim().min(1, "Nama depan wajib diisi"),
+  lastName: z.string().optional(),
+  whatsappNumber: z.string().optional(),
+  psychologistProfileName: z.string().trim().min(2, "Nama profil psikolog wajib diisi"),
 });
 
 const bookingReportSchema = z.object({
@@ -2211,6 +2232,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/psychologists', async (_req, res) => {
+    try {
+      res.json(await getPsychologistOptions());
+    } catch (error) {
+      console.error("Error fetching psychologists:", error);
+      res.status(500).json({ message: "Failed to fetch psychologists" });
+    }
+  });
+
   app.get('/api/psychologist-availability', async (req, res) => {
     try {
       const psychologistName = typeof req.query.psychologistName === "string" ? req.query.psychologistName : "";
@@ -2324,7 +2354,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Booking service not found" });
       }
 
-      const psychologist = PSYCHOLOGISTS.find((item) => item.name === data.psychologistName)!;
+      const psychologist = await getPsychologistOption(data.psychologistName);
+      if (!psychologist || !psychologist.types.includes(data.consultationType)) {
+        return res.status(400).json({ message: "Psikolog tidak sesuai dengan jenis konsultasi." });
+      }
       if (!(await isPsychologistAvailable(data.psychologistName, data.preferredDate, data.preferredTime, data.location))) {
         return res.status(400).json({ message: "Psikolog tidak tersedia pada hari dan jam yang dipilih." });
       }
@@ -2454,9 +2487,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = manualCounselingBookingSchema.parse(req.body);
-      const psychologist = PSYCHOLOGISTS.find((item) => item.name === data.psychologistName);
-      if (!psychologist) {
-        return res.status(400).json({ message: "Psikolog tidak ditemukan." });
+      const psychologist = await getPsychologistOption(data.psychologistName);
+      if (!psychologist || !psychologist.types.includes(data.consultationType)) {
+        return res.status(400).json({ message: "Psikolog tidak sesuai dengan jenis konsultasi." });
       }
 
       const services = await storage.getBookingServices();
@@ -3178,6 +3211,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error resetting password:", error);
       res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  app.post('/api/admin/psychologists', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const data = adminCreatePsychologistSchema.parse(req.body);
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(409).json({ message: "Email sudah terdaftar." });
+      }
+
+      const bcrypt = await import("bcryptjs");
+      const user = await storage.createUser({
+        id: AuthUtils.generateUserId(),
+        email: data.email,
+        password: await bcrypt.hash(data.password, 10),
+        firstName: data.firstName,
+        lastName: data.lastName || "",
+        whatsappNumber: data.whatsappNumber?.replace(/\D/g, "") || "",
+        psychologistProfileName: data.psychologistProfileName,
+        role: "psychologist",
+        authProvider: "custom",
+        isActive: true,
+        isEmailVerified: true,
+      });
+
+      res.status(201).json({ ...user, password: undefined });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Data psikolog tidak valid", errors: error.flatten() });
+      }
+      console.error("Error creating psychologist:", error);
+      res.status(500).json({ message: "Failed to create psychologist" });
     }
   });
 
