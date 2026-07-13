@@ -1446,8 +1446,15 @@ function BookingLanding({
     <div className="min-h-screen bg-background">
       <Header />
       <main>
-        <section className="gradient-hero py-20 md:py-24">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="relative overflow-hidden bg-[#1B4332] py-20 md:py-24">
+          <img
+            src="/homepage/pig-building-1.jpg"
+            alt="Gedung Pelangi Indonesia"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-[#1B4332]/72" />
+          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#1B4332]/75 to-transparent" />
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-12 items-center">
               <div className="text-white">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-green-50 mb-6">
