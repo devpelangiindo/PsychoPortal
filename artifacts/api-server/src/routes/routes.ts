@@ -151,6 +151,8 @@ const bookingRequestSchema = z.object({
   serviceId: z.number().int().positive(),
   clientName: z.string().min(2),
   birthDate: z.string().optional(),
+  gender: z.enum(["male", "female"]).optional(),
+  age: z.number().int().min(0).max(120).optional(),
   email: z.string().email(),
   whatsappNumber: z.string().regex(/^[0-9]+$/, "Nomor WhatsApp hanya boleh angka").min(8),
   mainConcern: z.string().trim().min(1),
@@ -192,6 +194,8 @@ const bookingRequestSchema = z.object({
 
 const manualCounselingBookingSchema = bookingRequestSchema.extend({
   serviceId: z.number().int().positive().optional(),
+  gender: z.enum(["male", "female"]),
+  age: z.number().int().min(0).max(120),
   markAsPaid: z.boolean().optional(),
 });
 
@@ -745,8 +749,12 @@ export async function streamHistoryCounselingReportPdf(res: any, booking: any, p
   doc.font("Helvetica-Bold").fontSize(14).fillColor("#243047").text("LAPORAN HASIL PEMERIKSAAN PSIKOLOGIS", { align: "center" });
   doc.moveDown(1.2);
   const birthDate = booking.birthDate || booking.childBirthDate;
-  const age = calculateAgeAtDate(birthDate, booking.preferredDate);
-  const gender = extractConcernField(booking.concernHistory, "Jenis kelamin") || "-";
+  const age = booking.age ?? calculateAgeAtDate(birthDate, booking.preferredDate);
+  const gender = booking.gender === "male"
+    ? "Laki-laki"
+    : booking.gender === "female"
+      ? "Perempuan"
+      : extractConcernField(booking.concernHistory, "Jenis kelamin") || "-";
   drawLabelValue(doc, "Nama Pasien / Klien", booking.clientName || "-", 135);
   drawLabelValue(doc, "No. Identitas", "-", 135);
   drawLabelValue(doc, "Tanggal Lahir / Usia", `${formatDisplayDate(birthDate)}${age !== null ? ` / ${age} tahun` : ""}`, 135);
@@ -2720,6 +2728,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderId: order.id,
         clientName: data.clientName,
         birthDate: data.birthDate,
+        gender: data.gender,
+        age: data.age,
         email: data.email,
         whatsappNumber: data.whatsappNumber,
         mainConcern: data.mainConcern,
@@ -2888,6 +2898,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderId: order.id,
         clientName: data.clientName,
         birthDate: data.birthDate,
+        gender: data.gender,
+        age: data.age,
         email: data.email,
         whatsappNumber: data.whatsappNumber,
         mainConcern: data.mainConcern,

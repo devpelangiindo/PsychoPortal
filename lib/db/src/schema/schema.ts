@@ -142,6 +142,8 @@ export const psychologistBookings = pgTable("psychologist_bookings", {
   orderId: integer("order_id").notNull().references(() => orders.id),
   clientName: varchar("client_name", { length: 255 }).notNull(),
   birthDate: varchar("birth_date", { length: 20 }),
+  gender: varchar("gender", { length: 20 }),
+  age: integer("age"),
   email: varchar("email", { length: 255 }).notNull(),
   whatsappNumber: varchar("whatsapp_number", { length: 50 }).notNull(),
   mainConcern: text("main_concern"),

@@ -22,6 +22,8 @@ type Booking = {
   id: number;
   clientName: string;
   birthDate: string | null;
+  gender: "male" | "female" | null;
+  age: number | null;
   email: string;
   whatsappNumber: string;
   mainConcern: string | null;
@@ -1314,6 +1316,8 @@ function formatBookingPersonalData(booking: Booking) {
     "Identitas Klien",
     `Nama klien: ${booking.clientName || "-"}`,
     `Tanggal lahir: ${booking.birthDate ? formatDisplayDate(booking.birthDate) : "-"}`,
+    `Usia: ${booking.age !== null && booking.age !== undefined ? `${booking.age} tahun` : "-"}`,
+    `Jenis kelamin: ${booking.gender === "male" ? "Laki-laki" : booking.gender === "female" ? "Perempuan" : "-"}`,
     `Email: ${booking.email || "-"}`,
     `No WA: ${booking.whatsappNumber || "-"}`,
     `Jenis konsultasi: ${booking.consultationType ? consultationLabels[booking.consultationType] : "-"}`,

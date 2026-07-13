@@ -45,6 +45,8 @@ const adminInputClass = "w-full rounded-md border border-gray-300 bg-white px-3 
 type ManualBookingForm = {
   clientName: string;
   birthDate: string;
+  gender: string;
+  age: string;
   email: string;
   whatsappNumber: string;
   mainConcern: string;
@@ -64,6 +66,8 @@ type ManualBookingForm = {
 const defaultManualBookingForm: ManualBookingForm = {
   clientName: "",
   birthDate: "",
+  gender: "",
+  age: "",
   email: "",
   whatsappNumber: "",
   mainConcern: "",
@@ -79,6 +83,17 @@ const defaultManualBookingForm: ManualBookingForm = {
   location: "online",
   markAsPaid: true,
 };
+
+function calculateManualBookingAge(birthDateValue: string, referenceDateValue?: string) {
+  if (!birthDateValue) return null;
+  const birthDate = new Date(`${birthDateValue}T00:00:00`);
+  const referenceDate = referenceDateValue ? new Date(`${referenceDateValue}T00:00:00`) : new Date();
+  if (Number.isNaN(birthDate.getTime()) || Number.isNaN(referenceDate.getTime())) return null;
+  let age = referenceDate.getFullYear() - birthDate.getFullYear();
+  const monthDifference = referenceDate.getMonth() - birthDate.getMonth();
+  if (monthDifference < 0 || (monthDifference === 0 && referenceDate.getDate() < birthDate.getDate())) age -= 1;
+  return age >= 0 && age <= 120 ? age : null;
+}
 
 export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "cso" }) {
   const { toast } = useToast();
@@ -159,6 +174,8 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
       const response = await apiRequest("POST", "/api/admin/manual-counseling-bookings", {
         clientName: manualForm.clientName,
         birthDate: manualForm.birthDate,
+        gender: manualForm.gender,
+        age: Number(manualForm.age),
         email: manualForm.email,
         whatsappNumber: manualForm.whatsappNumber.replace(/\D/g, ""),
         mainConcern: manualForm.mainConcern,
@@ -194,6 +211,12 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
   const updateManualForm = (field: keyof ManualBookingForm, value: string | boolean) => {
     setManualForm((current) => {
       const next = { ...current, [field]: value };
+      if ((field === "birthDate" || field === "preferredDate") && typeof value === "string") {
+        const birthDate = field === "birthDate" ? value : next.birthDate;
+        const referenceDate = field === "preferredDate" ? value : next.preferredDate;
+        const calculatedAge = calculateManualBookingAge(birthDate, referenceDate);
+        if (calculatedAge !== null) next.age = String(calculatedAge);
+      }
       if (field === "consultationType" && typeof value === "string") {
         const firstMatch = psychologistOptions.find((psychologist) => psychologist.types.includes(value));
         next.psychologistName = firstMatch?.name || "";
@@ -437,6 +460,24 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
               <ManualField label="Tanggal lahir">
                 <input type="date" className={adminInputClass} value={manualForm.birthDate} onChange={(event) => updateManualForm("birthDate", event.target.value)} />
               </ManualField>
+              <ManualField label="Jenis kelamin">
+                <select className={adminInputClass} value={manualForm.gender} onChange={(event) => updateManualForm("gender", event.target.value)}>
+                  <option value="">Pilih jenis kelamin</option>
+                  <option value="male">Laki-laki</option>
+                  <option value="female">Perempuan</option>
+                </select>
+              </ManualField>
+              <ManualField label="Usia saat konseling">
+                <input
+                  type="number"
+                  min="0"
+                  max="120"
+                  className={adminInputClass}
+                  value={manualForm.age}
+                  onChange={(event) => updateManualForm("age", event.target.value)}
+                  placeholder="Contoh: 25"
+                />
+              </ManualField>
               <ManualField label="Email">
                 <input type="email" className={adminInputClass} value={manualForm.email} onChange={(event) => updateManualForm("email", event.target.value)} />
               </ManualField>
@@ -513,7 +554,7 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             <div className="flex justify-end">
               <Button
                 onClick={() => manualBookingMutation.mutate()}
-                disabled={manualBookingMutation.isPending}
+                disabled={manualBookingMutation.isPending || !manualForm.gender || manualForm.age === ""}
                 className="bg-teal-600 hover:bg-teal-700"
               >
                 {manualBookingMutation.isPending ? "Menyimpan..." : "Simpan Klien Manual"}
