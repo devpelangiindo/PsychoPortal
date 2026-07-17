@@ -20,6 +20,7 @@ type PsychologistOption = {
   types: ConsultationType[];
   prices: Partial<Record<ConsultationType, string>>;
   sipp?: string | null;
+  licenseType?: "SIPP" | "SILP" | null;
   description?: string | null;
   details?: string | null;
   profileImageUrl?: string | null;
@@ -32,6 +33,7 @@ const PSYCHOLOGISTS: PsychologistOption[] = [
     types: ["child"],
     prices: { child: "300000" },
     sipp: "20230079-2023-01-2583",
+    licenseType: "SIPP",
     signatureUrl: "asset:signature-tria.png",
     description: "Saya psikolog yang berpengalaman dalam mendampingi tumbuh kembang anak, penanganan Anak Berkebutuhan Khusus (ABK), serta manajemen emosi dan perilaku. Berpengalaman dalam menangani kasus kecemasan, dampak bullying, serta menyediakan ruang konsultasi parenting yang suportif untuk membantu orang tua mendampingi setiap fase perkembangan anak secara optimal.",
   },
@@ -40,6 +42,7 @@ const PSYCHOLOGISTS: PsychologistOption[] = [
     types: ["child", "adult", "family"],
     prices: { child: "300000", adult: "200000", family: "200000" },
     sipp: "20191360-2022-01-2917",
+    licenseType: "SIPP",
     signatureUrl: "asset:signature-retno.png",
     description: "Saya psikolog yang berpengalaman dalam menangani problem seputar perkembangan anak (autisme, ADHD, gangguan belajar, bullying) serta isu kesehatan mental remaja dan dewasa (kecemasan, depresi, stres, trauma), adiksi, masalah relasi, keluarga/parenting.",
   },
@@ -48,6 +51,7 @@ const PSYCHOLOGISTS: PsychologistOption[] = [
     types: ["child", "adult", "family"],
     prices: { child: "300000", adult: "300000", family: "200000" },
     sipp: "19930009-2025-03-1359",
+    licenseType: "SIPP",
     signatureUrl: "asset:signature-yeni.png",
     description: "Saya merupakan Psikolog Klinis dan Neuropsikolog yang berpengalaman dalam menangani kasus perkembangan anak (ADHD, autisme, dan gangguan belajar), serta berbagai permasalahan pada dewasa dan keluarga, seperti konflik pengasuhan, trauma, adiksi, dan masalah relasi. Bersertifikat ABA, TEACCH, Brain training, CBT, DBT, Mindfulness, Clinical Hypnotherapy, Brainspotting, PoV, Braingym, dan Touch for Health dll untuk mendukung layanan psikologis yang komprehensif dan berpusat pada kebutuhan klien.",
   },
@@ -56,6 +60,7 @@ const PSYCHOLOGISTS: PsychologistOption[] = [
     types: ["adult"],
     prices: { adult: "200000" },
     sipp: "397259DD89DA",
+    licenseType: "SILP",
     signatureUrl: "asset:signature-ridwan.png",
     description: "Saya psikolog yang berpengalaman dalam mendampingi berbagai permasalahan psikologis pada rentang usia remaja hingga lansia, mulai dari kecemasan, stres, masalah emosi, kepercayaan diri, relasi keluarga, hubungan sosial, penyesuaian diri, kebingungan arah hidup, masalah akademik atau pekerjaan, hingga perasaan kesepian dan perubahan hidup pada usia lanjut.",
   },
@@ -83,6 +88,7 @@ async function getPsychologistOptions() {
         family: user.psychologistFamilyPrice || "200000",
       },
       sipp: user.psychologistSipp,
+      licenseType: user.psychologistLicenseType === "SILP" ? "SILP" as const : user.psychologistLicenseType === "SIPP" ? "SIPP" as const : null,
       description: user.psychologistDescription,
       details: user.psychologistDetails,
       profileImageUrl: user.profileImageUrl,
@@ -97,6 +103,7 @@ async function getPsychologistOptions() {
       ...existing,
       ...psychologist,
       sipp: psychologist.sipp || existing.sipp,
+      licenseType: psychologist.licenseType || existing.licenseType,
       description: psychologist.description || existing.description,
       details: psychologist.details || existing.details,
       profileImageUrl: psychologist.profileImageUrl || existing.profileImageUrl,
@@ -213,6 +220,7 @@ const adminCreatePsychologistSchema = z.object({
   psychologistAdultPrice: psychologistPriceSchema,
   psychologistFamilyPrice: psychologistPriceSchema,
   psychologistSipp: z.string().optional(),
+  psychologistLicenseType: z.enum(["SIPP", "SILP"]).optional(),
   psychologistDescription: z.string().optional(),
   psychologistDetails: z.string().optional(),
   psychologistSignatureUrl: z.string().url("URL tanda tangan tidak valid").optional().or(z.literal("")),
@@ -339,6 +347,7 @@ function normalizePsychologistProfileInput<T extends {
   psychologistAdultPrice?: string | null;
   psychologistFamilyPrice?: string | null;
   psychologistSipp?: string | null;
+  psychologistLicenseType?: "SIPP" | "SILP" | null;
   psychologistDescription?: string | null;
   psychologistDetails?: string | null;
   psychologistSignatureUrl?: string | null;
@@ -350,6 +359,7 @@ function normalizePsychologistProfileInput<T extends {
     psychologistAdultPrice: cleanOptionalText(data.psychologistAdultPrice),
     psychologistFamilyPrice: cleanOptionalText(data.psychologistFamilyPrice),
     psychologistSipp: cleanOptionalText(data.psychologistSipp),
+    psychologistLicenseType: data.psychologistLicenseType || null,
     psychologistDescription: cleanOptionalText(data.psychologistDescription),
     psychologistDetails: cleanOptionalText(data.psychologistDetails),
     psychologistSignatureUrl: cleanOptionalText(data.psychologistSignatureUrl),
@@ -710,11 +720,15 @@ async function drawPsychologistSignature(doc: PDFKit.PDFDocument, booking: any, 
     .text(`Yogyakarta, ${formatLongIndonesianDate(reportDate)}`, x, doc.y, { width, align: "center" })
     .text("Psikolog,", { width, align: "center" });
   const signature = await getSignatureImage(psychologist?.signatureUrl);
+  const stamp = getReportAssetPath("rppi-stamp.png");
   const imageY = doc.y + 4;
   if (signature) doc.image(signature, x + 32, imageY, { fit: [171, 72], align: "center", valign: "center" });
+  if (stamp) {
+    doc.save().opacity(0.72).image(stamp, x + 106, imageY + 2, { fit: [68, 68] }).restore();
+  }
   doc.y = imageY + 76;
   doc.font("Helvetica-Bold").fontSize(9.2).text(booking.psychologistName || psychologist?.name || "-", x, doc.y, { width, align: "center" });
-  doc.font("Helvetica").fontSize(8.7).text(`SIPP: ${psychologist?.sipp || "-"}`, x, doc.y + 3, { width, align: "center" });
+  doc.font("Helvetica").fontSize(8.7).text(`${psychologist?.licenseType || "SIPP"}: ${psychologist?.sipp || "-"}`, x, doc.y + 3, { width, align: "center" });
   doc.y += 24;
 }
 

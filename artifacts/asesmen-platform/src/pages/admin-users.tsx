@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Search, Edit, Key, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +25,7 @@ const psychologistProfileSettingsSchema = {
   psychologistChildPrice: z.string().optional(),
   psychologistAdultPrice: z.string().optional(),
   psychologistFamilyPrice: z.string().optional(),
+  psychologistLicenseType: z.enum(["SIPP", "SILP"]).optional(),
   psychologistSipp: z.string().optional(),
   psychologistDescription: z.string().optional(),
   psychologistDetails: z.string().optional(),
@@ -61,6 +63,7 @@ interface User {
   psychologistChildPrice: string | null;
   psychologistAdultPrice: string | null;
   psychologistFamilyPrice: string | null;
+  psychologistLicenseType: "SIPP" | "SILP" | null;
   psychologistSipp: string | null;
   psychologistDescription: string | null;
   psychologistDetails: string | null;
@@ -137,12 +140,33 @@ function PsychologistProfileFields({ form }: { form: any }) {
       <div className="grid gap-3 md:grid-cols-2">
         <FormField
           control={form.control}
+          name="psychologistLicenseType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Jenis Izin Praktik</FormLabel>
+              <Select value={field.value || "SIPP"} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih jenis izin" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="SIPP">SIPP</SelectItem>
+                  <SelectItem value="SILP">SILP</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
           name="psychologistSipp"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>SIPP</FormLabel>
+              <FormLabel>Nomor Izin Praktik</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} placeholder="Nomor SIPP" />
+                <Input {...field} value={field.value ?? ""} placeholder="Nomor izin praktik" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -371,6 +395,7 @@ export default function AdminUsers() {
       psychologistChildPrice: "300000",
       psychologistAdultPrice: "200000",
       psychologistFamilyPrice: "200000",
+      psychologistLicenseType: "SIPP",
       psychologistSipp: "",
       psychologistDescription: "",
       psychologistDetails: "",
@@ -403,6 +428,7 @@ export default function AdminUsers() {
       psychologistChildPrice: "300000",
       psychologistAdultPrice: "200000",
       psychologistFamilyPrice: "200000",
+      psychologistLicenseType: "SIPP",
       psychologistSipp: "",
       psychologistDescription: "",
       psychologistDetails: "",
@@ -469,6 +495,7 @@ export default function AdminUsers() {
       psychologistChildPrice: user.psychologistChildPrice || "300000",
       psychologistAdultPrice: user.psychologistAdultPrice || "200000",
       psychologistFamilyPrice: user.psychologistFamilyPrice || "200000",
+      psychologistLicenseType: user.psychologistLicenseType || (user.psychologistProfileName?.includes("Ridwan") ? "SILP" : "SIPP"),
       psychologistSipp: user.psychologistSipp || "",
       psychologistDescription: user.psychologistDescription || "",
       psychologistDetails: user.psychologistDetails || "",
