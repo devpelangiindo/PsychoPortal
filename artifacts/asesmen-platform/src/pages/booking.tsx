@@ -114,6 +114,7 @@ type PsychologistOption = {
   types: ConsultationType[];
   prices?: Partial<Record<ConsultationType, string>>;
   sipp?: string | null;
+  licenseType?: "SIPP" | "SILP" | null;
   description?: string | null;
   details?: string | null;
   profileImageUrl?: string | null;
@@ -135,6 +136,7 @@ const PSYCHOLOGIST_PROFILES = [
   {
     name: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
     sipp: "19930009-2025-03-1359",
+    licenseType: "SIPP" as const,
     photo: yeniPhoto,
     description:
       "Saya merupakan Psikolog Klinis dan Neuropsikolog yang berpengalaman dalam menangani kasus perkembangan anak (ADHD, autisme, dan gangguan belajar), serta berbagai permasalahan pada dewasa dan keluarga, seperti konflik pengasuhan, trauma, adiksi, dan masalah relasi. Bersertifikat ABA, TEACCH, Brain training, CBT, DBT, Mindfulness, Clinical Hypnotherapy, Brainspotting, PoV, Braingym, dan Touch for Health dll untuk mendukung layanan psikologis yang komprehensif dan berpusat pada kebutuhan klien.",
@@ -142,6 +144,7 @@ const PSYCHOLOGIST_PROFILES = [
   {
     name: "Retno Rahayu, M.Psi., Psikolog",
     sipp: "20191360-2022-01-2917",
+    licenseType: "SIPP" as const,
     photo: retnoPhoto,
     description:
       "Saya psikolog yang berpengalaman dalam menangani problem seputar perkembangan anak (autisme, ADHD, gangguan belajar, bullying) serta isu kesehatan mental remaja dan dewasa (kecemasan, depresi, stres, trauma), adiksi, masalah relasi, keluarga/parenting.",
@@ -149,6 +152,7 @@ const PSYCHOLOGIST_PROFILES = [
   {
     name: "Tria Khusni Barokah, M.Psi., Psikolog",
     sipp: "20230079-2023-01-2583",
+    licenseType: "SIPP" as const,
     photo: triaPhoto,
     description:
       "Saya psikolog yang berpengalaman dalam mendampingi tumbuh kembang anak, penanganan Anak Berkebutuhan Khusus (ABK), serta manajemen emosi dan perilaku. Berpengalaman dalam menangani kasus kecemasan, dampak bullying, serta menyediakan ruang konsultasi parenting yang suportif untuk membantu orang tua mendampingi setiap fase perkembangan anak secara optimal.",
@@ -156,6 +160,7 @@ const PSYCHOLOGIST_PROFILES = [
   {
     name: "Ridwan Rahmawan, S.Psi., M.H., Psikolog",
     sipp: "397259DD89DA",
+    licenseType: "SILP" as const,
     photo: ridwanPhoto,
     description:
       "Saya psikolog yang berpengalaman dalam mendampingi berbagai permasalahan psikologis pada rentang usia remaja hingga lansia, mulai dari kecemasan, stres, masalah emosi, kepercayaan diri, relasi keluarga, hubungan sosial, penyesuaian diri, kebingungan arah hidup, masalah akademik atau pekerjaan, hingga perasaan kesepian dan perubahan hidup pada usia lanjut.",
@@ -170,6 +175,7 @@ const getMergedPsychologistProfile = (psychologist: PsychologistOption) => {
   return {
     name: psychologist.name,
     sipp: psychologist.sipp || staticProfile?.sipp || "",
+    licenseType: psychologist.licenseType || staticProfile?.licenseType || "SIPP",
     photo: psychologist.profileImageUrl || staticProfile?.photo || "",
     description: psychologist.description || staticProfile?.description || "",
     details: psychologist.details || "",
@@ -844,7 +850,7 @@ export default function Booking() {
                               <div>
                                 <p className="font-semibold text-sm">{psychologist.name}</p>
                                 <p className="text-sm text-green-700 mt-1">{formatCurrency(getPsychologistFee(psychologist, form.consultationType))} / sesi</p>
-                                {profile.sipp && <p className="text-xs text-neutral-500 mt-1">SIPP: {profile.sipp}</p>}
+                                {profile.sipp && <p className="text-xs text-neutral-500 mt-1">{profile.licenseType}: {profile.sipp}</p>}
                               </div>
                             </div>
                           </button>
@@ -1701,7 +1707,7 @@ function PsychologistProfilesSection() {
                 <h3 className="font-bold leading-snug text-neutral-900">{psychologist.name}</h3>
                 {psychologist.sipp && (
                   <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-green-700">
-                    SIPP: {psychologist.sipp}
+                    {psychologist.licenseType}: {psychologist.sipp}
                   </p>
                 )}
                 {psychologist.description && (
