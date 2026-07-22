@@ -1097,8 +1097,8 @@ function GeneralClientForm({
       <Field label="Jenis kelamin">
         <select value={form.gender} onChange={(event) => updateField("gender", event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
           <option value="">Pilih jenis kelamin</option>
-          <option value="Laki-laki">Laki-laki</option>
-          <option value="Perempuan">Perempuan</option>
+          <option value="male">Laki-laki</option>
+          <option value="female">Perempuan</option>
         </select>
       </Field>
       <Field label="Alamat" className="md:col-span-2">
@@ -1387,6 +1387,7 @@ function buildBookingPayload(form: BookingForm, user: any) {
     const parentWhatsapp = form.fatherWhatsapp || form.motherWhatsapp || form.guardianWhatsapp || user?.whatsappNumber || "";
     return {
       ...form,
+      gender: undefined,
       clientName: form.childName,
       birthDate: "",
       email: form.email || user?.email,
@@ -1406,9 +1407,10 @@ function buildBookingPayload(form: BookingForm, user: any) {
 }
 
 function formatGeneralConcernHistory(form: BookingForm) {
+  const genderLabel = form.gender === "male" ? "Laki-laki" : form.gender === "female" ? "Perempuan" : "-";
   return [
     "Data Klien",
-    `Jenis kelamin: ${form.gender || "-"}`,
+    `Jenis kelamin: ${genderLabel}`,
     `Alamat: ${form.address || "-"}`,
     `Pekerjaan saat ini: ${form.occupation || "-"}`,
     `Agama: ${form.religion || "-"}`,

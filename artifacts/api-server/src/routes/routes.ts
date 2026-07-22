@@ -158,7 +158,10 @@ const bookingRequestSchema = z.object({
   serviceId: z.number().int().positive(),
   clientName: z.string().min(2),
   birthDate: z.string().optional(),
-  gender: z.enum(["male", "female"]).optional(),
+  gender: z.preprocess(
+    (value) => value === "" ? undefined : value,
+    z.enum(["male", "female"]).optional(),
+  ),
   age: z.number().int().min(0).max(120).optional(),
   email: z.string().email(),
   whatsappNumber: z.string().regex(/^[0-9]+$/, "Nomor WhatsApp hanya boleh angka").min(8),
