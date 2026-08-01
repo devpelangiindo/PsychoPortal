@@ -173,6 +173,7 @@ const bookingRequestSchema = z.object({
   previousDiagnosis: z.string().optional(),
   preferredDate: z.string().min(4),
   preferredTime: z.string().regex(TIME_SLOT_PATTERN, "Format waktu harus HH.MM - HH.MM"),
+  additionalPreferredTime: z.string().regex(TIME_SLOT_PATTERN, "Format waktu sesi kedua harus HH.MM - HH.MM").optional(),
   psychologistName: z.string().min(2),
   location: z.enum(["online", "colombo", "bantul"]),
 }).superRefine((data, ctx) => {
@@ -199,6 +200,17 @@ const bookingRequestSchema = z.object({
       path: ["preferredTime"],
       message: "Waktu konseling harus berada antara 07.00-21.00",
     });
+  }
+  if (data.additionalPreferredTime) {
+    const first = parseTimeSlotRange(data.preferredTime);
+    const second = parseTimeSlotRange(data.additionalPreferredTime);
+    if (!second || !isValidTimeSlotRange(data.additionalPreferredTime) || !first || first.endMinutes !== second.startMinutes) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["additionalPreferredTime"],
+        message: "Sesi kedua harus dimulai tepat setelah sesi pertama",
+      });
+    }
   }
 });
 
@@ -417,6 +429,13 @@ function isValidTimeSlotRange(slot: string) {
   return range.startMinutes >= 7 * 60 && range.endMinutes <= 21 * 60 && range.startMinutes < range.endMinutes;
 }
 
+function isBookingReservationActive(booking: { status: string; order: { status: string; paymentStatus?: string | null; createdAt?: Date | string | null; updatedAt?: Date | string | null } }) {
+  if (booking.status === "paid" || booking.order.status === "completed" || booking.order.paymentStatus === "paid") return true;
+  if (booking.order.status !== "pending" || ["expired", "cancelled", "failed"].includes(booking.order.paymentStatus ?? "")) return false;
+  const referenceTime = booking.order.updatedAt ?? booking.order.createdAt;
+  return Boolean(referenceTime && Date.now() - new Date(referenceTime).getTime() < PAYMENT_EXPIRY_MINUTES * 60 * 1000);
+}
+
 function findOverlappingScheduleSlot(slots: { scheduleDate: string; timeSlot: string; isAvailable?: boolean }[]) {
   const slotsByDate = new Map<string, { timeSlot: string; startMinutes: number; endMinutes: number }[]>();
 
@@ -482,7 +501,7 @@ async function isPsychologistAvailable(psychologistName: string, preferredDate: 
   const bookings = await storage.getPsychologistBookingsByProvider(psychologistName);
   const alreadyPaid = bookings.some((booking) =>
     booking.id !== excludeBookingId &&
-    booking.status === "paid" &&
+    isBookingReservationActive(booking) &&
     booking.preferredDate === preferredDate &&
     (() => {
       const bookingRange = parseTimeSlotRange(booking.preferredTime);
@@ -1779,10 +1798,13 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
     return { assessmentsCreated, bookingUpdated: false };
   }
 
-  const booking = await storage.getPsychologistBookingByOrder(orderId);
-  if (booking && booking.status !== 'paid') {
+  const bookings = await storage.getPsychologistBookingsByOrder(orderId);
+  const unpaidBookings = bookings.filter((booking) => booking.status !== 'paid');
+  for (const booking of unpaidBookings) {
     await storage.updatePsychologistBookingStatus(booking.id, 'paid');
     console.log(`📅 Booking ${booking.id} marked as paid for order ${orderId}`);
+  }
+  if (unpaidBookings.length > 0) {
     return { assessmentsCreated: 0, bookingUpdated: true };
   }
 
@@ -2619,7 +2641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const availability = await storage.getPsychologistAvailability(psychologistName);
       const scheduleSlots = await storage.getPsychologistScheduleSlots(psychologistName, startDate, endDate);
       const paidBookings = (await storage.getPsychologistBookingsByProvider(psychologistName))
-        .filter((booking) => booking.status === "paid")
+        .filter(isBookingReservationActive)
         .map((booking) => ({
           preferredDate: booking.preferredDate,
           preferredTime: normalizeTimeSlot(booking.preferredTime),
@@ -2728,21 +2750,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!psychologist || !psychologist.types.includes(data.consultationType)) {
         return res.status(400).json({ message: "Psikolog tidak sesuai dengan jenis konsultasi." });
       }
-      if (!(await isPsychologistAvailable(data.psychologistName, data.preferredDate, data.preferredTime, data.location))) {
-        return res.status(400).json({ message: "Psikolog tidak tersedia pada hari dan jam yang dipilih." });
+      const preferredTimes = [data.preferredTime, data.additionalPreferredTime].filter((time): time is string => Boolean(time));
+      for (const preferredTime of preferredTimes) {
+        if (!(await isPsychologistAvailable(data.psychologistName, data.preferredDate, preferredTime, data.location))) {
+          return res.status(400).json({ message: "Salah satu sesi tidak lagi tersedia. Silakan pilih jadwal kembali." });
+        }
       }
 
       const amount = getPsychologistFee(psychologist, data.consultationType);
-      const order = await storage.createOrder({
-        userId,
-        totalAmount: amount,
-        status: 'pending',
-      });
-
-      const booking = await storage.createPsychologistBooking({
+      const bookingData = {
         userId,
         serviceId: service.id,
-        orderId: order.id,
         clientName: data.clientName,
         birthDate: data.birthDate,
         gender: data.gender,
@@ -2756,18 +2774,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         childBirthDate: data.childBirthDate,
         previousDiagnosis: data.previousDiagnosis,
         preferredDate: data.preferredDate,
-        preferredTime: normalizeTimeSlot(data.preferredTime),
         psychologistName: data.psychologistName,
         psychologistFee: amount,
         location: data.location,
         status: 'pending_payment',
-      });
+      };
+      const created = await storage.createPsychologistBookingOrder(
+        {
+          userId,
+          totalAmount: String(Number(amount) * preferredTimes.length),
+          status: 'pending',
+        },
+        preferredTimes.map((preferredTime) => ({
+          ...bookingData,
+          preferredTime: normalizeTimeSlot(preferredTime),
+        })),
+      );
 
-      const bookingWithDetails = await storage.getPsychologistBooking(booking.id);
-      res.status(201).json(bookingWithDetails);
+      const groupedBookings = await storage.getPsychologistBookingsByOrder(created.order.id);
+      res.status(201).json({
+        ...groupedBookings[0],
+        groupBookings: groupedBookings,
+        sessionCount: groupedBookings.length,
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Data booking tidak valid", errors: error.flatten() });
+      }
+      if (error instanceof Error && error.message === "BOOKING_SLOT_UNAVAILABLE") {
+        return res.status(409).json({ message: "Salah satu sesi baru saja dipilih klien lain. Silakan pilih jadwal kembali." });
       }
       console.error("Error creating booking:", error);
       res.status(500).json({ message: "Failed to create booking" });
@@ -2804,7 +2839,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timestamp = Date.now();
       const midtransOrderId = `order_${booking.orderId}_${timestamp}`;
       const user = await storage.getUser(booking.userId);
-      const bookingAmount = booking.psychologistFee || booking.service.price;
+      const groupedBookings = await storage.getPsychologistBookingsByOrder(booking.orderId);
+      const bookingAmount = order.totalAmount;
+      const unitPrice = parseInt(booking.psychologistFee || booking.service.price);
 
       const transaction = await createMidtransTransaction({
         orderId: midtransOrderId,
@@ -2819,9 +2856,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemDetails: [
           {
             id: `booking_service_${booking.serviceId}`,
-            name: `${booking.service.name} - ${booking.psychologistName || "Psikolog"}`,
-            price: parseInt(bookingAmount),
-            quantity: 1,
+            name: `${booking.service.name} - ${booking.psychologistName || "Psikolog"}${groupedBookings.length > 1 ? ` (${groupedBookings.length} sesi)` : ""}`,
+            price: unitPrice,
+            quantity: groupedBookings.length,
           },
         ],
       });
@@ -2830,6 +2867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const waReminderPlaceholder = createWaNotificationPlaceholder("booking_payment_reminder", {
         bookingId: booking.id,
+        bookingIds: groupedBookings.map((item) => item.id),
         orderId: booking.orderId,
         clientName: booking.clientName,
         clientWhatsapp: booking.whatsappNumber,
@@ -2842,6 +2880,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentId: midtransOrderId,
         orderId: booking.orderId,
         bookingId: booking.id,
+        bookingIds: groupedBookings.map((item) => item.id),
+        sessionCount: groupedBookings.length,
         amount: bookingAmount,
         status: 'pending',
         waReminderPlaceholder,
@@ -3073,9 +3113,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const midtransOrderId = `order_${orderId}_${timestamp}`;
       
       // Prepare Midtrans transaction data
-      const booking = order.orderItems.length === 0
-        ? await storage.getPsychologistBookingByOrder(order.id)
-        : undefined;
+      const bookings = order.orderItems.length === 0
+        ? await storage.getPsychologistBookingsByOrder(order.id)
+        : [];
+      const booking = bookings[0];
 
       const itemDetails = order.orderItems.length > 0 ? order.orderItems.map(item => ({
         id: `assessment_${item.assessmentId}`,
@@ -3084,9 +3125,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         quantity: 1
       })) : booking ? [{
         id: `booking_service_${booking.serviceId}`,
-        name: booking.service.name,
-        price: parseInt(booking.service.price),
-        quantity: 1,
+        name: `${booking.service.name}${bookings.length > 1 ? ` (${bookings.length} sesi)` : ""}`,
+        price: parseInt(booking.psychologistFee || booking.service.price),
+        quantity: bookings.length,
       }] : [];
 
       if (itemDetails.length === 0) {

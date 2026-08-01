@@ -105,6 +105,7 @@ type BookingForm = {
   consentSignature: string;
   preferredDate: string;
   preferredTime: string;
+  additionalPreferredTime: string;
   psychologistName: string;
   location: LocationType;
 };
@@ -230,6 +231,17 @@ const formatScheduleOption = (dateString: string, timeSlot: string) => {
     timeZone: "UTC",
   }).format(date);
   return `${formattedDate}, Pukul ${timeSlot}`;
+};
+
+const parseScheduleTimeRange = (timeSlot: string) => {
+  const [start, end] = timeSlot.replace(/:/g, ".").split(/\s*-\s*/);
+  const toMinutes = (value?: string) => {
+    const [hour, minute] = (value ?? "").split(".").map(Number);
+    return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : Number.NaN;
+  };
+  const startMinutes = toMinutes(start);
+  const endMinutes = toMinutes(end);
+  return Number.isFinite(startMinutes) && Number.isFinite(endMinutes) ? { startMinutes, endMinutes } : null;
 };
 
 const formatScheduleDate = (dateString: string) => {
@@ -358,6 +370,7 @@ export default function Booking() {
     consentSignature: "",
     preferredDate: "",
     preferredTime: "",
+    additionalPreferredTime: "",
     psychologistName: "",
     location: "online",
   });
@@ -447,17 +460,28 @@ export default function Booking() {
       .filter((option) => !form.preferredDate || option.date === form.preferredDate)
       .map((option) => option.time);
   }, [availableScheduleOptions, form.preferredDate]);
+  const consecutiveScheduleOption = useMemo(() => {
+    if (!form.preferredTime) return undefined;
+    const selectedRange = parseScheduleTimeRange(form.preferredTime);
+    if (!selectedRange) return undefined;
+    return availableScheduleOptions.find((option) => {
+      const candidateRange = parseScheduleTimeRange(option.time);
+      return candidateRange?.startMinutes === selectedRange.endMinutes;
+    });
+  }, [availableScheduleOptions, form.preferredTime]);
+  const sessionCount = form.additionalPreferredTime ? 2 : 1;
   const availableLocations = useMemo(() => {
     if (!form.preferredTime || dateScheduleSlots.length === 0) return LOCATIONS;
-    const offlineLocations = new Set(
-      dateScheduleSlots
-        .filter((slot) => slot.timeSlot === form.preferredTime && slot.location !== "online")
-        .map((slot) => slot.location),
-    );
-    return LOCATIONS.filter((location) => location.value === "online" || offlineLocations.has(location.value));
-  }, [dateScheduleSlots, form.preferredTime]);
+    const selectedTimes = [form.preferredTime, form.additionalPreferredTime].filter(Boolean);
+    return LOCATIONS.filter((location) => location.value === "online" || selectedTimes.every((time) =>
+      dateScheduleSlots.some((slot) => slot.timeSlot === time && slot.location === location.value),
+    ));
+  }, [dateScheduleSlots, form.additionalPreferredTime, form.preferredTime]);
   const selectedScheduleLabel = form.preferredDate && form.preferredTime
-    ? formatScheduleOption(form.preferredDate, form.preferredTime)
+    ? [form.preferredTime, form.additionalPreferredTime]
+        .filter(Boolean)
+        .map((time) => formatScheduleOption(form.preferredDate, time))
+        .join("; ")
     : "-";
   const updateField = (field: keyof BookingForm, value: string) => {
     setForm((current) => {
@@ -466,6 +490,7 @@ export default function Booking() {
         next.psychologistName = "";
         next.preferredDate = "";
         next.preferredTime = "";
+        next.additionalPreferredTime = "";
         next.location = "online";
         if (value !== "child") {
           next.fatherName = "";
@@ -500,10 +525,12 @@ export default function Booking() {
       if (field === "psychologistName") {
         next.preferredDate = "";
         next.preferredTime = "";
+        next.additionalPreferredTime = "";
         next.location = "online";
       }
       if (field === "preferredDate") {
         next.preferredTime = "";
+        next.additionalPreferredTime = "";
         next.location = "online";
       }
       return next;
@@ -541,6 +568,7 @@ export default function Booking() {
       ...current,
       preferredDate: preferredDate || "",
       preferredTime: preferredTime || "",
+      additionalPreferredTime: "",
       location: "online",
     }));
   };
@@ -627,6 +655,9 @@ export default function Booking() {
       }
       if (!availableTimeSlots.includes(form.preferredTime)) {
         return "Psikolog tidak tersedia pada hari dan jam yang dipilih.";
+      }
+      if (form.additionalPreferredTime && (!availableTimeSlots.includes(form.additionalPreferredTime) || consecutiveScheduleOption?.time !== form.additionalPreferredTime)) {
+        return "Sesi kedua tidak lagi tersedia. Pilih ulang jadwal konseling.";
       }
       if (form.preferredDate < today || form.preferredDate > maxBookingDate) {
         return "Tanggal booking hanya dapat dipilih sampai 30 hari dari hari ini.";
@@ -911,6 +942,32 @@ export default function Booking() {
                     )}
                   </Field>
 
+                  {form.preferredTime && (
+                    <div className="rounded-lg border bg-white p-4">
+                      {consecutiveScheduleOption ? (
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(form.additionalPreferredTime)}
+                            onChange={(event) => updateField(
+                              "additionalPreferredTime",
+                              event.target.checked ? consecutiveScheduleOption.time : "",
+                            )}
+                            className="mt-1 h-4 w-4 accent-green-700"
+                          />
+                          <span>
+                            <span className="block font-semibold text-sm">Booking 2 sesi berturut-turut</span>
+                            <span className="mt-1 block text-xs text-neutral-500">
+                              Tambahkan sesi {consecutiveScheduleOption.time} pada tanggal dan psikolog yang sama.
+                            </span>
+                          </span>
+                        </label>
+                      ) : (
+                        <p className="text-xs text-neutral-500">Tidak ada sesi berurutan yang tersedia setelah jadwal ini.</p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <Label>Pilihan lokasi</Label>
                     <div className="grid md:grid-cols-3 gap-4 mt-2">
@@ -965,9 +1022,13 @@ export default function Booking() {
                       <span className="text-neutral-500">Jadwal</span>
                       <span className="font-semibold text-right">{selectedScheduleLabel}</span>
                     </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-neutral-500">Jumlah sesi</span>
+                      <span className="font-semibold text-right">{sessionCount} sesi</span>
+                    </div>
                     <div className="border-t pt-3 flex justify-between items-center">
                       <span className="font-semibold">Total Transaksi</span>
-                      <span className="text-2xl font-bold text-green-700">{formatCurrency(selectedPsychologistFee)}</span>
+                      <span className="text-2xl font-bold text-green-700">{formatCurrency(selectedPsychologistFee * sessionCount)}</span>
                     </div>
                   </div>
                   <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
@@ -1043,11 +1104,12 @@ export default function Booking() {
                   </span>
                 </div>
                 <SummaryRow label="Waktu" value={selectedScheduleLabel} />
+                <SummaryRow label="Jumlah sesi" value={`${sessionCount} sesi`} />
                 <SummaryRow label="Lokasi" value={LOCATIONS.find((location) => location.value === form.location)?.label ?? "-"} />
               </div>
               <div className="border-t pt-4">
                 <p className="text-sm text-neutral-500">Total</p>
-                <p className="text-2xl font-bold text-green-700">{formatCurrency(selectedPsychologistFee)}</p>
+                <p className="text-2xl font-bold text-green-700">{formatCurrency(selectedPsychologistFee * sessionCount)}</p>
               </div>
               <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
                 <div className="flex gap-2">

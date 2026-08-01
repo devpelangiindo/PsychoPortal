@@ -89,6 +89,26 @@ function operationalPsychologistBookingOrder() {
   ];
 }
 
+function bookingTimeRange(value: string) {
+  const [start, end] = value.replace(/:/g, ".").split(/\s*-\s*/);
+  const toMinutes = (time?: string) => {
+    const [hour, minute] = (time ?? "").split(".").map(Number);
+    return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : Number.NaN;
+  };
+  const startMinutes = toMinutes(start);
+  const endMinutes = toMinutes(end);
+  return Number.isFinite(startMinutes) && Number.isFinite(endMinutes)
+    ? { startMinutes, endMinutes }
+    : null;
+}
+
+function bookingTimesOverlap(first: string, second: string) {
+  const firstRange = bookingTimeRange(first);
+  const secondRange = bookingTimeRange(second);
+  if (!firstRange || !secondRange) return first === second;
+  return firstRange.startMinutes < secondRange.endMinutes && secondRange.startMinutes < firstRange.endMinutes;
+}
+
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
@@ -119,12 +139,14 @@ export interface IStorage {
   getPsychologistScheduleSlots(psychologistName: string, startDate: string, endDate: string): Promise<PsychologistScheduleSlot[]>;
   setPsychologistScheduleSlots(psychologistName: string, slots: Omit<InsertPsychologistScheduleSlot, "psychologistName">[], updatedBy?: string): Promise<PsychologistScheduleSlot[]>;
   createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking>;
+  createPsychologistBookingOrder(order: InsertOrder, bookings: Omit<InsertPsychologistBooking, "orderId">[]): Promise<{ order: Order; bookings: PsychologistBooking[] }>;
   getUserPsychologistBookings(userId: string): Promise<PsychologistBookingWithDetails[]>;
   getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]>;
   searchPsychologistBookingReports(search?: string): Promise<PsychologistBookingWithDetails[]>;
   getPsychologistBookingsByProvider(psychologistName: string): Promise<PsychologistBookingWithDetails[]>;
   getPsychologistBooking(id: number): Promise<PsychologistBookingWithDetails | undefined>;
   getPsychologistBookingByOrder(orderId: number): Promise<PsychologistBookingWithDetails | undefined>;
+  getPsychologistBookingsByOrder(orderId: number): Promise<PsychologistBookingWithDetails[]>;
   updatePsychologistBookingStatus(id: number, status: string): Promise<void>;
   updatePsychologistBookingReport(
     id: number,
@@ -426,6 +448,49 @@ export class DatabaseStorage implements IStorage {
     return newBooking;
   }
 
+  async createPsychologistBookingOrder(
+    order: InsertOrder,
+    bookings: Omit<InsertPsychologistBooking, "orderId">[],
+  ): Promise<{ order: Order; bookings: PsychologistBooking[] }> {
+    return db.transaction(async (tx) => {
+      const lockKeys = Array.from(new Set(bookings.map((booking) => `${booking.psychologistName}:${booking.preferredDate}`))).sort();
+      for (const lockKey of lockKeys) {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+      }
+
+      for (const booking of bookings) {
+        const existingBookings = await tx
+          .select({ booking: psychologistBookings, order: orders })
+          .from(psychologistBookings)
+          .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
+          .where(and(
+            eq(psychologistBookings.psychologistName, booking.psychologistName ?? ""),
+            eq(psychologistBookings.preferredDate, booking.preferredDate),
+          ));
+
+        const hasConflict = existingBookings.some(({ booking: existing, order: existingOrder }) => {
+          const isPaid = existing.status === "paid" || existingOrder.status === "completed" || existingOrder.paymentStatus === "paid";
+          const referenceTime = existingOrder.updatedAt ?? existingOrder.createdAt;
+          const isActivePending = existingOrder.status === "pending"
+            && !["expired", "cancelled", "failed"].includes(existingOrder.paymentStatus ?? "")
+            && Boolean(referenceTime && Date.now() - new Date(referenceTime).getTime() < 15 * 60 * 1000);
+          return (isPaid || isActivePending) && bookingTimesOverlap(existing.preferredTime, booking.preferredTime);
+        });
+
+        if (hasConflict) {
+          throw new Error("BOOKING_SLOT_UNAVAILABLE");
+        }
+      }
+
+      const [createdOrder] = await tx.insert(orders).values(order).returning();
+      const createdBookings = await tx
+        .insert(psychologistBookings)
+        .values(bookings.map((booking) => ({ ...booking, orderId: createdOrder.id })))
+        .returning();
+      return { order: createdOrder, bookings: createdBookings };
+    });
+  }
+
   async getUserPsychologistBookings(userId: string): Promise<PsychologistBookingWithDetails[]> {
     const results = await db
       .select({
@@ -522,7 +587,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPsychologistBookingByOrder(orderId: number): Promise<PsychologistBookingWithDetails | undefined> {
-    const [result] = await db
+    return (await this.getPsychologistBookingsByOrder(orderId))[0];
+  }
+
+  async getPsychologistBookingsByOrder(orderId: number): Promise<PsychologistBookingWithDetails[]> {
+    const results = await db
       .select({
         booking: psychologistBookings,
         service: bookingServices,
@@ -531,11 +600,10 @@ export class DatabaseStorage implements IStorage {
       .from(psychologistBookings)
       .innerJoin(bookingServices, eq(psychologistBookings.serviceId, bookingServices.id))
       .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
-      .where(eq(psychologistBookings.orderId, orderId));
+      .where(eq(psychologistBookings.orderId, orderId))
+      .orderBy(psychologistBookings.preferredDate, psychologistBookings.preferredTime);
 
-    if (!result) return undefined;
-
-    return bookingWithPaymentStatus(result);
+    return results.map(bookingWithPaymentStatus);
   }
 
   async updatePsychologistBookingStatus(id: number, status: string): Promise<void> {

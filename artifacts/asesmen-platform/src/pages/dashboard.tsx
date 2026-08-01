@@ -94,13 +94,13 @@ function isDateInSearchRange(dateValue: string | null | undefined, range: { star
 }
 
 function matchesClientDashboardOrder(order: OrderWithItems, bookings: Booking[], query: string) {
-  const booking = bookings.find((item) => item.orderId === order.id);
+  const orderBookings = bookings.filter((item) => item.orderId === order.id);
   const dateRange = parseDateSearch(query);
   if (dateRange) {
     return isDateInSearchRange(order.createdAt, dateRange) ||
       isDateInSearchRange(order.updatedAt, dateRange) ||
       isDateInSearchRange(order.paidAt, dateRange) ||
-      isDateInSearchRange(booking?.preferredDate, dateRange);
+      orderBookings.some((booking) => isDateInSearchRange(booking.preferredDate, dateRange));
   }
 
   const haystack = [
@@ -111,12 +111,14 @@ function matchesClientDashboardOrder(order: OrderWithItems, bookings: Booking[],
     order.paymentMethod,
     order.totalAmount,
     order.createdAt,
-    booking?.clientName,
-    booking?.psychologistName,
-    booking?.service.name,
-    booking?.preferredDate,
-    booking?.preferredTime,
-    booking?.location,
+    ...orderBookings.flatMap((booking) => [
+      booking.clientName,
+      booking.psychologistName,
+      booking.service.name,
+      booking.preferredDate,
+      booking.preferredTime,
+      booking.location,
+    ]),
     ...order.orderItems.map((item) => item.assessment.name),
   ]
     .filter(Boolean)
@@ -135,9 +137,10 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, "&#039;");
 }
 
-function printReceipt(order: OrderWithItems, booking?: Booking) {
+function printReceipt(order: OrderWithItems, bookings: Booking[] = []) {
   if (!isOrderPaid(order)) return;
   const paidAt = order.paidAt ?? order.updatedAt ?? order.createdAt;
+  const booking = bookings[0];
 
   const items = order.orderItems.length > 0
     ? order.orderItems.map((item) => `
@@ -148,7 +151,7 @@ function printReceipt(order: OrderWithItems, booking?: Booking) {
       `).join("")
     : `
         <tr>
-          <td>${escapeHtml(booking?.service.name ?? "Booking Psikolog")}</td>
+          <td>${escapeHtml(`${booking?.service.name ?? "Booking Psikolog"}${bookings.length > 1 ? ` (${bookings.length} sesi)` : ""}`)}</td>
           <td class="right">${escapeHtml(formatCurrency(order.totalAmount))}</td>
         </tr>
       `;
@@ -158,7 +161,7 @@ function printReceipt(order: OrderWithItems, booking?: Booking) {
       <h2>Detail Konseling</h2>
       <div class="row"><span>Nama Klien</span><strong>${escapeHtml(booking.clientName)}</strong></div>
       <div class="row"><span>Psikolog</span><strong>${escapeHtml(booking.psychologistName)}</strong></div>
-      <div class="row"><span>Jadwal</span><strong>${escapeHtml(`${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`)}</strong></div>
+      ${bookings.map((item, index) => `<div class="row"><span>Sesi ${index + 1}</span><strong>${escapeHtml(`${formatDisplayDate(item.preferredDate)}, ${item.preferredTime}`)}</strong></div>`).join("")}
       <div class="row"><span>Lokasi</span><strong>${escapeHtml(booking.location ?? "-")}</strong></div>
     </div>
   ` : "";
@@ -687,7 +690,8 @@ export default function Dashboard() {
                     const paymentDeadline = getPaymentDeadline(order);
                     const paymentExpired = isOrderPaymentExpired(order);
                     const canPay = canSettleOrderPayment(order);
-                    const booking = bookings?.find((item) => item.orderId === order.id);
+                    const orderBookings = bookings?.filter((item) => item.orderId === order.id) ?? [];
+                    const booking = orderBookings[0];
 
                     return (
                     <div key={order.id} className="dashboard-item">
@@ -699,7 +703,7 @@ export default function Dashboard() {
                           {getOrderStatusBadge(order.status)}
                         </div>
                         <p className="text-sm text-neutral-500 dark:text-muted-foreground">
-                          {order.orderItems.length > 0 ? `${order.orderItems.length} item` : 'Booking psikolog'} • 
+                          {order.orderItems.length > 0 ? `${order.orderItems.length} item` : `${orderBookings.length || 1} sesi psikolog`} •
                           Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
                         </p>
                         {booking?.psychologistName && (
@@ -707,18 +711,23 @@ export default function Dashboard() {
                             Psikolog: {booking.psychologistName}
                           </p>
                         )}
-                        {booking?.location === "online" && booking.meetingUrl && (
-                          <a
-                            href={booking.meetingUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:underline"
-                          >
-                            <Video className="w-4 h-4" />
-                            Buka link meeting online
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
+                        {orderBookings.map((item, index) => (
+                          <div key={item.id} className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+                            Sesi {index + 1}: {formatDisplayDate(item.preferredDate)}, {item.preferredTime}
+                            {item.location === "online" && item.meetingUrl && (
+                              <a
+                                href={item.meetingUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="ml-2 inline-flex items-center gap-1 font-medium text-green-700 hover:underline"
+                              >
+                                <Video className="w-4 h-4" />
+                                Link meeting
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        ))}
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
                           {formatDisplayDate(order.createdAt)}
                         </p>
@@ -764,7 +773,7 @@ export default function Dashboard() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => printReceipt(order, booking)}
+                            onClick={() => printReceipt(order, orderBookings)}
                             className="whitespace-nowrap"
                           >
                             <Printer className="w-4 h-4 mr-2" />
