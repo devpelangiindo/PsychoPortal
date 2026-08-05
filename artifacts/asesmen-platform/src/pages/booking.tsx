@@ -244,6 +244,34 @@ const parseScheduleTimeRange = (timeSlot: string) => {
   return Number.isFinite(startMinutes) && Number.isFinite(endMinutes) ? { startMinutes, endMinutes } : null;
 };
 
+const getJakartaScheduleClock = (date: Date) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const getPart = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  const hour = Number(getPart("hour"));
+  const minute = Number(getPart("minute"));
+
+  return {
+    date: `${getPart("year")}-${getPart("month")}-${getPart("day")}`,
+    minutes: hour * 60 + minute,
+  };
+};
+
+const isScheduleSlotPast = (dateString: string, timeSlot: string, clock: ReturnType<typeof getJakartaScheduleClock>) => {
+  if (dateString < clock.date) return true;
+  if (dateString > clock.date) return false;
+
+  const range = parseScheduleTimeRange(timeSlot);
+  return Boolean(range && range.startMinutes <= clock.minutes);
+};
+
 const formatScheduleDate = (dateString: string) => {
   const [year, month, day] = dateString.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -327,6 +355,7 @@ export default function Booking() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const [step, setStep] = useState(0);
+  const [scheduleNow, setScheduleNow] = useState(() => new Date());
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const isFormRoute = location.startsWith("/booking/form");
   const [form, setForm] = useState<BookingForm>({
@@ -380,6 +409,11 @@ export default function Booking() {
   }, [step]);
 
   useEffect(() => {
+    const interval = window.setInterval(() => setScheduleNow(new Date()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (isFormRoute && !authLoading && !isAuthenticated) {
       setLocation("/login?redirect=/booking/form");
     }
@@ -406,7 +440,8 @@ export default function Booking() {
   const selectedPsychologist = availablePsychologists.find((psychologist) => psychologist.name === form.psychologistName);
   const selectedPsychologistProfile = selectedPsychologist ? getMergedPsychologistProfile(selectedPsychologist) : undefined;
   const selectedPsychologistFee = getPsychologistFee(selectedPsychologist, form.consultationType);
-  const today = useMemo(() => formatDateInput(new Date()), []);
+  const scheduleClock = useMemo(() => getJakartaScheduleClock(scheduleNow), [scheduleNow]);
+  const today = scheduleClock.date;
   const maxBookingDate = useMemo(() => {
     const date = new Date();
     date.setDate(date.getDate() + 30);
@@ -422,8 +457,12 @@ export default function Booking() {
   });
   const dateScheduleSlots = useMemo(() => {
     if (!form.preferredDate || !availabilityData?.scheduleSlots?.length) return [];
-    return availabilityData.scheduleSlots.filter((slot) => slot.scheduleDate === form.preferredDate && slot.isAvailable);
-  }, [availabilityData, form.preferredDate]);
+    return availabilityData.scheduleSlots.filter((slot) => (
+      slot.scheduleDate === form.preferredDate
+      && slot.isAvailable
+      && !isScheduleSlotPast(slot.scheduleDate, slot.timeSlot, scheduleClock)
+    ));
+  }, [availabilityData, form.preferredDate, scheduleClock]);
   const scheduleDateOptions = useMemo(() => {
     if (!availabilityData?.scheduleSlots?.length) return [];
     const dates = new Map<string, { date: string; label: string; hasAvailable: boolean }>();
@@ -440,7 +479,7 @@ export default function Booking() {
     return Array.from(dates.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [availabilityData, maxBookingDate, today]);
 
-  const availableScheduleOptions = useMemo(() => {
+  const scheduleOptions = useMemo(() => {
     if (!form.preferredDate || !availabilityData?.scheduleSlots?.length) return [];
     const unique = new Map<string, ScheduleSlot>();
     availabilityData.scheduleSlots
@@ -457,8 +496,24 @@ export default function Booking() {
         date: slot.scheduleDate,
         time: slot.timeSlot,
         label: formatScheduleOption(slot.scheduleDate, slot.timeSlot),
+        isPast: isScheduleSlotPast(slot.scheduleDate, slot.timeSlot, scheduleClock),
       }));
-  }, [availabilityData, form.preferredDate]);
+  }, [availabilityData, form.preferredDate, scheduleClock]);
+  const availableScheduleOptions = useMemo(
+    () => scheduleOptions.filter((option) => !option.isPast),
+    [scheduleOptions],
+  );
+  useEffect(() => {
+    const selectedOption = scheduleOptions.find((option) => option.time === form.preferredTime);
+    if (!selectedOption?.isPast) return;
+
+    setForm((current) => ({
+      ...current,
+      preferredTime: "",
+      additionalPreferredTime: "",
+      location: "online",
+    }));
+  }, [form.preferredTime, scheduleOptions]);
   const availableTimeSlots = useMemo(() => {
     return availableScheduleOptions
       .filter((option) => !form.preferredDate || option.date === form.preferredDate)
@@ -927,22 +982,31 @@ export default function Booking() {
                     <select
                       value={form.preferredDate && form.preferredTime ? `${form.preferredDate}|${form.preferredTime}` : ""}
                       onChange={(event) => updateScheduleChoice(event.target.value)}
-                      disabled={!form.preferredDate || availableScheduleOptions.length === 0}
+                      disabled={!form.preferredDate || scheduleOptions.length === 0}
                       className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
                       <option value="">
                         {!form.preferredDate
                           ? "Pilih tanggal terlebih dahulu"
-                          : availableScheduleOptions.length === 0
+                          : scheduleOptions.length === 0
                             ? "Tidak ada sesi tersedia pada tanggal ini"
-                            : "Pilih sesi konseling"}
+                            : availableScheduleOptions.length === 0
+                              ? "Semua sesi pada tanggal ini telah lewat"
+                              : "Pilih sesi konseling"}
                       </option>
-                      {availableScheduleOptions.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
+                      {scheduleOptions.map((option) => (
+                        <option
+                          key={option.value}
+                          value={option.value}
+                          disabled={option.isPast}
+                          className={option.isPast ? "bg-gray-100 text-gray-400" : undefined}
+                        >
+                          {option.label}{option.isPast ? " - Waktu telah lewat" : ""}
+                        </option>
                       ))}
                     </select>
                     {form.preferredDate && availableScheduleOptions.length === 0 && (
-                      <p className="text-xs text-red-600 mt-2">Semua sesi pada tanggal ini sudah terisi atau belum tersedia.</p>
+                      <p className="text-xs text-red-600 mt-2">Semua sesi pada tanggal ini sudah terisi, telah lewat, atau belum tersedia.</p>
                     )}
                   </Field>
 
