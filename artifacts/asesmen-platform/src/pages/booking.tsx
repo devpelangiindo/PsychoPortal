@@ -376,6 +376,10 @@ export default function Booking() {
   });
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
+
+  useEffect(() => {
     if (isFormRoute && !authLoading && !isAuthenticated) {
       setLocation("/login?redirect=/booking/form");
     }
