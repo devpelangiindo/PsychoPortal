@@ -112,6 +112,15 @@ function formatCurrency(value: string | number) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
 }
 
+function compareBookingsNewestFirst(left: Booking, right: Booking) {
+  const leftTimestamp = Date.parse(left.createdAt ?? "");
+  const rightTimestamp = Date.parse(right.createdAt ?? "");
+  const safeLeftTimestamp = Number.isFinite(leftTimestamp) ? leftTimestamp : 0;
+  const safeRightTimestamp = Number.isFinite(rightTimestamp) ? rightTimestamp : 0;
+
+  return safeRightTimestamp - safeLeftTimestamp || right.id - left.id;
+}
+
 function escapeHtml(value: unknown) {
   return String(value ?? "-")
     .replace(/&/g, "&amp;")
@@ -307,9 +316,14 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   });
   const filteredBookings = useMemo(() => {
     const query = bookingSearch.trim().toLowerCase();
-    if (!query) return bookings;
-    return bookings.filter((booking) => matchesBookingSearch(booking, query));
-  }, [bookingSearch, bookings]);
+    const matchingBookings = query
+      ? bookings.filter((booking) => matchesBookingSearch(booking, query))
+      : bookings;
+
+    return isAdminMode
+      ? [...matchingBookings].sort(compareBookingsNewestFirst)
+      : matchingBookings;
+  }, [bookingSearch, bookings, isAdminMode]);
 
   if (authLoading) {
     return <LoadingState label="Memuat akun..." />;
