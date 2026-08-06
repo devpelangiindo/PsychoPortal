@@ -412,7 +412,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <SectionTitle
                 icon={<Clock className="w-5 h-5" />}
                 title="Perubahan Jadwal"
-                description="Atur jadwal 30 hari ke depan. Jadwal dapat diperbarui kembali selama jam sesi tidak saling bertabrakan."
+                description="Atur jadwal dalam satu bulan kalender berjalan. Jadwal dapat diperbarui kembali selama jam sesi tidak saling bertabrakan."
               />
               {scheduleLoading ? (
                 <LoadingState label="Memuat jadwal..." compact />
@@ -491,7 +491,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <SectionTitle
                 icon={<Clock className="w-5 h-5" />}
                 title="Perubahan Jadwal Psikolog"
-                description={isCsoRole ? "CSO dapat melihat jadwal psikolog. Perubahan jadwal psikolog hanya dapat dilakukan admin." : "Admin dapat mengubah jadwal psikolog untuk klien yang sudah terjadwal."}
+                description={isCsoRole ? "CSO dapat melihat kalender jadwal psikolog bulan berjalan. Perubahan jadwal psikolog hanya dapat dilakukan admin." : "Admin dapat mengubah jadwal psikolog dalam satu bulan kalender berjalan."}
               />
               <Card>
                 <CardContent className="p-5">
@@ -663,6 +663,7 @@ function ScheduleUploadEditor({
   const { toast } = useToast();
   const [rows, setRows] = useState<ScheduleDraftRow[]>(() => buildScheduleRows(scheduleSlots));
   const [deletedSlots, setDeletedSlots] = useState<DeletedScheduleSlot[]>([]);
+  const todayDate = formatDateInput(new Date());
 
   useEffect(() => {
     setRows(buildScheduleRows(scheduleSlots));
@@ -671,10 +672,12 @@ function ScheduleUploadEditor({
 
   const calendarCells = useMemo(() => {
     const firstDayOffset = rows[0] ? getDayOfWeekFromDateString(rows[0].scheduleDate) : 0;
-    return [
+    const cells: Array<{ row: ScheduleDraftRow; rowIndex: number } | null> = [
       ...Array.from({ length: firstDayOffset }, () => null),
       ...rows.map((row, rowIndex) => ({ row, rowIndex })),
     ];
+    const trailingDayCount = (7 - (cells.length % 7)) % 7;
+    return [...cells, ...Array.from({ length: trailingDayCount }, () => null)];
   }, [rows]);
   const paidBookingsByDate = useMemo(() => groupPaidBookingsByDate(bookings), [bookings]);
 
@@ -722,7 +725,7 @@ function ScheduleUploadEditor({
       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/schedule-slots"] });
       toast({
         title: "Jadwal disimpan",
-        description: isAdmin ? "Jadwal psikolog berhasil diperbarui." : "Jadwal 30 hari ke depan berhasil diperbarui.",
+        description: isAdmin ? "Jadwal psikolog berhasil diperbarui." : "Jadwal bulan berjalan berhasil diperbarui.",
       });
     },
     onError: (error) => {
@@ -804,7 +807,7 @@ function ScheduleUploadEditor({
           </div>
         ) : (
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            Sesi dapat diedit kapan saja selama masih berada dalam rentang 30 hari. Pastikan jam sesi tidak saling bertabrakan.
+            Sesi dapat diedit dari hari ini sampai akhir bulan berjalan. Pastikan jam sesi tidak saling bertabrakan.
           </div>
         )}
 
@@ -812,7 +815,7 @@ function ScheduleUploadEditor({
           <div className="min-w-[1260px]">
             <div className="rounded-t-lg border border-b-0 bg-white px-4 py-3">
               <p className="text-base font-semibold text-neutral-900">{formatCalendarMonthRange(rows)}</p>
-              <p className="text-xs text-neutral-500">Rentang jadwal 30 hari ke depan</p>
+              <p className="text-xs text-neutral-500">Kalender jadwal bulan berjalan</p>
             </div>
             <div className="grid grid-cols-7 rounded-t-lg border border-b-0 bg-neutral-50">
               {dayLabels.map((day) => (
@@ -828,9 +831,10 @@ function ScheduleUploadEditor({
                 }
 
                 const paidBookingsForDate = paidBookingsByDate.get(cell.row.scheduleDate) ?? [];
+                const isPastDate = cell.row.scheduleDate < todayDate;
 
                 return (
-                  <div key={cell.row.scheduleDate} className="min-h-[220px] border-b border-r bg-white p-3">
+                  <div key={cell.row.scheduleDate} className={`min-h-[220px] border-b border-r p-3 ${isPastDate ? "bg-neutral-100" : "bg-white"}`}>
                     <div className="mb-3 flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-neutral-900">{formatCalendarDayNumber(cell.row.scheduleDate)}</p>
@@ -841,16 +845,21 @@ function ScheduleUploadEditor({
                           </span>
                         )}
                       </div>
-                      <Button type="button" size="sm" variant="outline" onClick={() => addSession(cell.rowIndex)} disabled={readOnly} className="h-8 px-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => addSession(cell.rowIndex)} disabled={readOnly || isPastDate} className="h-8 px-2">
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
                     </div>
 
-                    <div className="space-y-3">
-                      {cell.row.sessions.map((session) => {
-                        const bookedSessions = findBookingsForSession(paidBookingsForDate, session);
+                    {isPastDate ? (
+                      <div className="rounded-md border border-neutral-200 bg-neutral-200/60 px-3 py-4 text-center text-xs font-medium text-neutral-500">
+                        Tanggal telah lewat
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {cell.row.sessions.map((session) => {
+                          const bookedSessions = findBookingsForSession(paidBookingsForDate, session);
 
-                        return (
+                          return (
                         <div key={session.key} className={`rounded-md border p-3 ${bookedSessions.length > 0 ? "border-emerald-300 bg-emerald-50" : session.enabled ? "border-green-200 bg-green-50/50" : "border-neutral-200 bg-neutral-50"}`}>
                           <div className="mb-2 flex items-start justify-between gap-2">
                             <label className="inline-flex items-center gap-2 text-xs font-medium text-neutral-700">
@@ -909,9 +918,10 @@ function ScheduleUploadEditor({
                             </div>
                           )}
                         </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -934,9 +944,11 @@ function ScheduleUploadEditor({
 
 function buildScheduleRows(scheduleSlots: ScheduleSlot[]): ScheduleDraftRow[] {
   const today = new Date();
-  return Array.from({ length: 30 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  return Array.from({ length: daysInMonth }, (_, index) => {
+    const date = new Date(firstDayOfMonth);
+    date.setDate(index + 1);
     const scheduleDate = formatDateInput(date);
     const slotsForDate = scheduleSlots.filter((slot) => slot.scheduleDate === scheduleDate && slot.isAvailable);
     const slotsByTime = new Map<string, ScheduleSlot[]>();
