@@ -254,6 +254,11 @@ function isDateInSearchRange(dateValue: string | null | undefined, range: { star
   return normalized >= range.start && normalized <= range.end;
 }
 
+function matchesBookingDateRange(booking: Booking, startDate: string, endDate: string) {
+  const bookingDate = booking.preferredDate.slice(0, 10);
+  return (!startDate || bookingDate >= startDate) && (!endDate || bookingDate <= endDate);
+}
+
 type DashboardMode = "psychologist" | "admin";
 
 export function AdminPsychologistBookings() {
@@ -265,6 +270,8 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [bookingSearch, setBookingSearch] = useState("");
+  const [bookingStartDate, setBookingStartDate] = useState("");
+  const [bookingEndDate, setBookingEndDate] = useState("");
   const [reportSearch, setReportSearch] = useState("");
   const [selectedAdminPsychologist, setSelectedAdminPsychologist] = useState(defaultPsychologistNames[0]);
   const isAdminMode = mode === "admin";
@@ -316,14 +323,18 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   });
   const filteredBookings = useMemo(() => {
     const query = bookingSearch.trim().toLowerCase();
-    const matchingBookings = query
-      ? bookings.filter((booking) => matchesBookingSearch(booking, query))
+    const hasDateFilter = Boolean(bookingStartDate || bookingEndDate);
+    const matchingBookings = query || hasDateFilter
+      ? bookings.filter((booking) => (
+          (!query || matchesBookingSearch(booking, query))
+          && (!hasDateFilter || matchesBookingDateRange(booking, bookingStartDate, bookingEndDate))
+        ))
       : bookings;
 
     return isAdminMode
       ? [...matchingBookings].sort(compareBookingsNewestFirst)
       : matchingBookings;
-  }, [bookingSearch, bookings, isAdminMode]);
+  }, [bookingEndDate, bookingSearch, bookingStartDate, bookings, isAdminMode]);
 
   if (authLoading) {
     return <LoadingState label="Memuat akun..." />;
@@ -413,14 +424,38 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
 
           <TabsContent value="konseling" className="space-y-4">
             <SectionTitle icon={<CalendarDays className="w-5 h-5" />} title="Klien Terjadwal" description="Kelola jadwal, link meeting, dan laporan setelah sesi konseling." />
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <Input
-                value={bookingSearch}
-                onChange={(event) => setBookingSearch(event.target.value)}
-                placeholder="Cari klien, psikolog, status, atau tanggal DD/MM/YYYY; range 01/07/2026-13/07/2026"
-                className="pl-9"
-              />
+            <div className={isAdminMode ? "grid gap-3 lg:grid-cols-2" : undefined}>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  value={bookingSearch}
+                  onChange={(event) => setBookingSearch(event.target.value)}
+                  placeholder="Cari nama klien, psikolog, atau status"
+                  className="pl-9"
+                />
+              </div>
+              {isAdminMode && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-input bg-background px-3 py-1">
+                  <CalendarDays className="h-4 w-4 shrink-0 text-neutral-400" />
+                  <Input
+                    type="date"
+                    aria-label="Tanggal konseling mulai"
+                    value={bookingStartDate}
+                    max={bookingEndDate || undefined}
+                    onChange={(event) => setBookingStartDate(event.target.value)}
+                    className="h-8 min-w-[135px] flex-1 border-0 px-0 shadow-none focus-visible:ring-0"
+                  />
+                  <span className="text-xs text-neutral-500">s.d.</span>
+                  <Input
+                    type="date"
+                    aria-label="Tanggal konseling akhir"
+                    value={bookingEndDate}
+                    min={bookingStartDate || undefined}
+                    onChange={(event) => setBookingEndDate(event.target.value)}
+                    className="h-8 min-w-[135px] flex-1 border-0 px-0 shadow-none focus-visible:ring-0"
+                  />
+                </div>
+              )}
             </div>
             {isLoading ? (
               <LoadingState label="Memuat booking..." compact />
