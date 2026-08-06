@@ -614,7 +614,7 @@ function extractConcernField(concernHistory: string | null | undefined, label: s
 }
 
 function drawReportHeader(doc: PDFKit.PDFDocument, compact = false) {
-  const logoPath = getReportAssetPath("rppi-logo.jpeg");
+  const logoPath = getReportAssetPath("rppi-logo.png");
   const left = doc.page.margins.left;
   const width = doc.page.width - left - doc.page.margins.right;
   const top = doc.page.margins.top;
