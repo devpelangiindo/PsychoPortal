@@ -683,7 +683,7 @@ export default function AdminUsers() {
 
       {/* Create Psychologist Dialog */}
       <Dialog open={isCreatePsychologistDialogOpen} onOpenChange={setIsCreatePsychologistDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Tambah Psikolog Associate</DialogTitle>
           </DialogHeader>
