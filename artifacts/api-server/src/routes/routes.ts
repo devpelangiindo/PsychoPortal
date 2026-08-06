@@ -618,20 +618,27 @@ function drawReportHeader(doc: PDFKit.PDFDocument, compact = false) {
   const left = doc.page.margins.left;
   const width = doc.page.width - left - doc.page.margins.right;
   const top = doc.page.margins.top;
-  const logoSize = compact ? 42 : 54;
-  if (logoPath) doc.image(logoPath, left, top, { fit: [logoSize, logoSize] });
-  doc.fillColor("#315a29").font("Helvetica-Bold").fontSize(compact ? 14 : 17)
-    .text("Rumah Psikologi", left + logoSize + 12, top + 2, { width: width - logoSize - 12, align: "center" });
-  doc.fillColor("#252525").fontSize(compact ? 13 : 16)
-    .text("Pelangi Indonesia", left + logoSize + 12, top + (compact ? 21 : 25), { width: width - logoSize - 12, align: "center" });
-  const contactY = top + logoSize + 8;
-  doc.fillColor("#222").font("Helvetica").fontSize(8.2)
-    .text("Jl. Colombo No. 8, Samirono, Caturtunggal, Depok, Sleman, Yogyakarta 55281", left, contactY, { width, align: "center" })
-    .text("Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul, Bantul, Yogyakarta 55711", { width, align: "center" })
-    .text("Hotline: 0851-1765-8242 | Email: psikologi.pelangiindonesia@gmail.com", { width, align: "center" });
-  const lineY = doc.y + 5;
-  doc.strokeColor("#315a29").lineWidth(1.2).moveTo(left, lineY).lineTo(left + width, lineY).stroke();
-  doc.y = lineY + 14;
+  const headerTop = Math.max(28, top - 16);
+  const logoSize = compact ? 64 : 68;
+  const contentLeft = left + 82;
+  const contentWidth = width - 164;
+
+  if (logoPath) {
+    doc.image(logoPath, left + 8, headerTop, { fit: [logoSize, logoSize], align: "center", valign: "center" });
+  }
+
+  doc.fillColor("#347c26").font("Helvetica").fontSize(16.5)
+    .text("Rumah Psikologi Pelangi Indonesia", contentLeft, headerTop + 8, { width: contentWidth, align: "center" });
+
+  const contactTop = headerTop + 40;
+  doc.fillColor("#111").font("Helvetica").fontSize(8)
+    .text("Jl. Colombo No. 8, Samirono, Caturtunggal, Depok, Sleman, Yogyakarta 55281", contentLeft, contactTop, { width: contentWidth, align: "center" })
+    .text("Jl. Mgr. Sugiyo Pranoto No. 14, Melikan Kidul, Bantul, Yogyakarta 55711", contentLeft, doc.y, { width: contentWidth, align: "center" })
+    .text("Hotline: 0851-1765-8242 | Email: psikologi.pelangiindonesia@gmail.com", contentLeft, doc.y, { width: contentWidth, align: "center" });
+
+  const lineY = Math.max(headerTop + logoSize + 5, doc.y + 6);
+  doc.strokeColor("#145d78").lineWidth(1.15).moveTo(left, lineY).lineTo(left + width, lineY).stroke();
+  doc.y = lineY + (compact ? 11 : 14);
 }
 
 function ensureReportSpace(doc: PDFKit.PDFDocument, requiredHeight: number) {
