@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Brain, GraduationCap, Lightbulb, Clock, Users, Play, Eye } from "lucide-react";
+import { Brain, GraduationCap, Lightbulb, Clock, Users, Play, Eye, HeartPulse, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +35,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
       return <Brain className="w-12 h-12 text-secondary" />;
     } else if (type === 'intelligence') {
       return <Lightbulb className="w-12 h-12 text-purple-600" />;
+    } else if (type === 'mental-health') {
+      return <HeartPulse className="w-12 h-12 text-rose-600" />;
     }
     return <GraduationCap className="w-12 h-12 text-accent" />;
   };
@@ -44,6 +46,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
       return 'bg-secondary-light';
     } else if (type === 'intelligence') {
       return 'bg-purple-100 dark:bg-purple-900/20';
+    } else if (type === 'mental-health') {
+      return 'bg-rose-100 dark:bg-rose-950/30';
     }
     return 'bg-accent-light';
   };
@@ -53,6 +57,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
       return 'Pemrosesan Sensoris';
     } else if (type === 'intelligence') {
       return 'Kecerdasan Majemuk';
+    } else if (type === 'mental-health') {
+      return 'Kesehatan Mental';
     }
     return 'Preferensi Belajar';
   };
@@ -92,6 +98,8 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
         setLocation(`/learning-style/${data.userAssessmentId}`);
       } else if (assessment.type === 'intelligence') {
         setLocation(`/multiple-intelligence/${data.userAssessmentId}`);
+      } else if (assessment.type === 'mental-health') {
+        setLocation(`/mental-health-checkup/${data.userAssessmentId}`);
       } else {
         // Fallback to assessment detail page
         setLocation(`/assessment/${assessment.id}`);
@@ -220,8 +228,24 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
           </div>
         )}
         
+        {assessment.type === 'mental-health' && (
+          <div className="mb-4 space-y-3">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/20 dark:text-rose-200">
+              Free access sementara. Hasil merupakan skrining awal dan bukan diagnosis.
+            </div>
+            <a
+              href="https://wa.me/6285117658242?text=Halo%20PI%2C%20saya%20ingin%20mengetahui%20lebih%20lanjut%20tentang%20Mental%20Health%20Check%20Up."
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center rounded-md border-2 border-green-600 px-4 py-2 text-sm font-semibold text-green-700 transition-colors hover:bg-green-50"
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />MORE INFO ...
+            </a>
+          </div>
+        )}
+
         {/* Try Sample Button - Always Visible */}
-        <div className="mb-4">
+        {assessment.type !== 'mental-health' && <div className="mb-4">
           <Button
             onClick={handleTrySample}
             variant="outline"
@@ -232,11 +256,19 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
             <Eye className="w-4 h-4 mr-2" />
             Coba Sample Gratis
           </Button>
-        </div>
+        </div>}
 
         <div className="flex items-center justify-between">
           <div className="flex items-baseline text-primary">
-            {parseFloat(assessment.price) === 0 ? (
+            {assessment.type === 'mental-health' ? (
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-gray-500 line-through">Rp 200.000</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-2xl font-bold text-rose-600">Rp 129.000</span>
+                  <span className="rounded-full bg-green-100 px-2 py-1 text-[11px] font-bold text-green-700">GRATIS SEMENTARA</span>
+                </div>
+              </div>
+            ) : parseFloat(assessment.price) === 0 ? (
               <span className="text-xl font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
                 Free Access
               </span>

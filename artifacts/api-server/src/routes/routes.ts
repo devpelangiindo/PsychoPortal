@@ -943,6 +943,44 @@ function calculateLearningStyleResults(responses: any, participantInfo: any) {
   };
 }
 
+const MENTAL_HEALTH_DOMAIN_ITEMS = {
+  anxiety: ["anxiety_1", "anxiety_2", "anxiety_3", "anxiety_4", "anxiety_5", "anxiety_6"],
+  stress: ["stress_1", "stress_2", "stress_3", "stress_4", "stress_5", "stress_6"],
+  depression: ["depression_1", "depression_2", "depression_3", "depression_4", "depression_5", "depression_6"],
+  burnout: ["burnout_1", "burnout_2", "burnout_3", "burnout_4", "burnout_5", "burnout_6"],
+} as const;
+
+function getMentalHealthAttentionLevel(score: number) {
+  if (score <= 4) return { key: "low", label: "Rendah", color: "green" };
+  if (score <= 8) return { key: "mild", label: "Perlu dipantau", color: "blue" };
+  if (score <= 13) return { key: "elevated", label: "Perlu perhatian", color: "orange" };
+  return { key: "high", label: "Perlu perhatian tinggi", color: "red" };
+}
+
+function calculateMentalHealthCheckupResults(responses: any, participantInfo: any) {
+  const safeResponses = responses && typeof responses === "object" ? responses : {};
+  const domainScores = Object.fromEntries(
+    Object.entries(MENTAL_HEALTH_DOMAIN_ITEMS).map(([domain, itemIds]) => {
+      const score = itemIds.reduce((total, itemId) => {
+        const value = Number(safeResponses[itemId]);
+        return total + (Number.isInteger(value) && value >= 0 && value <= 3 ? value : 0);
+      }, 0);
+      return [domain, { score, maxScore: itemIds.length * 3, level: getMentalHealthAttentionLevel(score) }];
+    }),
+  );
+  const safetyResponse = Number(safeResponses.safety_1);
+
+  return {
+    responses: safeResponses,
+    participantInfo: participantInfo || {},
+    domainScores,
+    safetyFlag: Number.isInteger(safetyResponse) && safetyResponse > 0,
+    timeframe: "2 minggu terakhir",
+    instrumentNote: "Skrining internal non-diagnostik; bukan alat penegakan diagnosis klinis.",
+    completedAt: new Date().toISOString(),
+  };
+}
+
 function calculateMultipleIntelligenceResults(responses: any, participantInfo: any) {
   // Define the 7 intelligence categories with question mappings
   const categoryMapping = {
@@ -1263,6 +1301,44 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
           });
         }
         
+      } else if (assessmentType === 'mental-health') {
+        const domainNames: Record<string, string> = {
+          anxiety: 'Kecemasan',
+          stress: 'Stres',
+          depression: 'Depresi',
+          burnout: 'Burnout kerja/studi',
+        };
+
+        doc.fontSize(14).font('Helvetica-Bold')
+          .text('HASIL MENTAL HEALTH CHECK UP', { underline: true });
+        doc.moveDown(0.6);
+        doc.fontSize(10.5).font('Helvetica')
+          .text('Periode jawaban: 2 minggu terakhir')
+          .text('Hasil ini merupakan skrining internal non-diagnostik dan bukan penegakan diagnosis klinis.');
+        doc.moveDown(0.8);
+
+        Object.entries(results?.domainScores || {}).forEach(([domain, data]: [string, any]) => {
+          doc.fontSize(11).font('Helvetica-Bold')
+            .text(`${domainNames[domain] || domain}: ${data.score}/${data.maxScore} - ${data.level?.label || '-'}`);
+          doc.moveDown(0.25);
+        });
+
+        if (results?.safetyFlag) {
+          doc.moveDown(0.8);
+          doc.fillColor('#a40000').fontSize(11).font('Helvetica-Bold')
+            .text('PERHATIAN KESELAMATAN');
+          doc.font('Helvetica').fontSize(10.5)
+            .text('Jawaban menunjukkan adanya pikiran menyakiti diri. Hubungi 119 ekstensi 8, akses Healing119.id, minta orang tepercaya menemani, atau datang ke IGD terdekat bila ada risiko langsung.', { align: 'justify' });
+          doc.fillColor('black');
+        }
+
+        doc.moveDown(1);
+        doc.fontSize(11).font('Helvetica-Bold').text('Langkah berikutnya:');
+        doc.fontSize(10.5).font('Helvetica')
+          .text('- Pantau pola tidur, energi, emosi, serta beban kerja atau belajar.')
+          .text('- Konsultasikan dengan psikolog atau tenaga kesehatan jika keluhan mengganggu aktivitas, bertahan, atau memburuk.')
+          .text('- Hubungi WhatsApp PI di 0851-1765-8242 untuk informasi dan konsultasi lebih lanjut.');
+
       } else if (assessmentType === 'sensory') {
         const { totalScore, interpretation, sectionScores, participantInfo, responses } = results;
         
@@ -1756,6 +1832,9 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       if (assessmentType === 'learning') {
         disclaimerText = 'Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut.';
         disclaimerHeight = 40;
+      } else if (assessmentType === 'mental-health') {
+        disclaimerText = 'Hasil ini merupakan skrining awal, bukan diagnosis. Jika gejala mengganggu aktivitas, menetap, memburuk, atau muncul risiko keselamatan diri, segera cari bantuan profesional.';
+        disclaimerHeight = 52;
       } else {
         disclaimerText = 'Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut. Untuk penjadwalan konsultasi online, silakan kirim pesan ke WhatsApp Rumah Psikologi Pelangi Indonesia di nomor +62 819-9146-6546, dengan melampirkan hasil asesmen ini.';
         disclaimerHeight = 80;
@@ -3421,6 +3500,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (userAssessment.assessment.type === 'intelligence') {
         // Calculate multiple intelligence results
         processedResults = calculateMultipleIntelligenceResults(responses, participantInfo);
+      } else if (userAssessment.assessment.type === 'mental-health') {
+        processedResults = calculateMentalHealthCheckupResults(responses, participantInfo);
       } else {
         // Default results structure
         processedResults = {
@@ -4240,6 +4321,20 @@ async function initializeAssessments() {
       console.log("Asesmen default berhasil dibuat");
     } else {
       console.log(`Found ${existingAssessments.length} existing assessments`);
+    }
+
+    const mentalHealthAssessment = existingAssessments.find((assessment) => assessment.type === "mental-health");
+    if (!mentalHealthAssessment) {
+      await storage.createAssessment({
+        name: "Mental Health Check Up",
+        description: "Skrining kecemasan, stress, depresi, burnout",
+        price: "0.00",
+        duration: "10-15 menit",
+        ageRange: "Usia 17+",
+        type: "mental-health",
+        isActive: true,
+      });
+      console.log("Mental Health Check Up berhasil dibuat dengan free access sementara");
     }
   } catch (error) {
     console.error("Error initializing assessments:", error);

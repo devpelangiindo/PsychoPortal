@@ -372,6 +372,7 @@ export default function Dashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'available':
+      case 'purchased':
         return <Badge className="status-available">Tersedia</Badge>;
       case 'completed':
         return <Badge className="status-completed">Selesai</Badge>;
@@ -605,7 +606,7 @@ export default function Dashboard() {
                         )}
                       </div>
                       <div className="ml-4">
-                        {userAssessment.status === 'available' && (
+                        {(userAssessment.status === 'available' || userAssessment.status === 'purchased') && (
                           <Link href={
                             userAssessment.assessment.type === 'sensory' 
                               ? `/sensory-profile/${userAssessment.id}`
@@ -613,6 +614,8 @@ export default function Dashboard() {
                                 ? `/learning-style/${userAssessment.id}`
                                 : userAssessment.assessment.type === 'intelligence'
                                   ? `/multiple-intelligence/${userAssessment.id}`
+                                  : userAssessment.assessment.type === 'mental-health'
+                                    ? `/mental-health-checkup/${userAssessment.id}`
                                   : `/assessment/${userAssessment.id}`
                           }>
                             <Button size="sm">Mulai Tes</Button>
@@ -626,6 +629,8 @@ export default function Dashboard() {
                                 ? `/learning-style/${userAssessment.id}`
                                 : userAssessment.assessment.type === 'intelligence'
                                   ? `/multiple-intelligence/${userAssessment.id}`
+                                  : userAssessment.assessment.type === 'mental-health'
+                                    ? `/mental-health-checkup/${userAssessment.id}`
                                   : `/assessment/${userAssessment.id}`
                           }>
                             <Button size="sm" variant="outline">Lanjutkan</Button>

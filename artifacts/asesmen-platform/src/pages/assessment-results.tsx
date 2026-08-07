@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, Lightbulb, Calculator, Play, Music, Users, User } from "lucide-react";
+import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, Lightbulb, Calculator, Play, Music, Users, User, HeartPulse, ShieldAlert, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -708,6 +708,70 @@ export default function AssessmentResults() {
     );
   };
 
+  const renderMentalHealthResults = (results: any) => {
+    const domainNames: Record<string, string> = {
+      anxiety: "Kecemasan",
+      stress: "Stres",
+      depression: "Depresi",
+      burnout: "Burnout kerja/studi",
+    };
+    const levelStyles: Record<string, string> = {
+      low: "border-green-200 bg-green-50 text-green-900",
+      mild: "border-blue-200 bg-blue-50 text-blue-900",
+      elevated: "border-orange-200 bg-orange-50 text-orange-900",
+      high: "border-red-200 bg-red-50 text-red-900",
+    };
+
+    return (
+      <div className="space-y-6">
+        {results?.safetyFlag && (
+          <Card className="border-red-400 bg-red-50">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-red-900"><ShieldAlert className="h-6 w-6" />Utamakan keselamatan Anda sekarang</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-red-900">
+              <p>Jawaban Anda menunjukkan adanya pikiran menyakiti diri. Hasil skrining ini tidak cukup untuk menilai tingkat bahaya, jadi mohon cari dukungan langsung sekarang.</p>
+              <div className="flex flex-wrap gap-3">
+                <a href="tel:119"><Button variant="destructive">Hubungi 119 ekstensi 8</Button></a>
+                <a href="https://www.healing119.id" target="_blank" rel="noreferrer"><Button variant="outline">Buka Healing119.id</Button></a>
+              </div>
+              <p className="text-sm">Minta orang tepercaya menemani Anda dan menuju IGD terdekat bila ada risiko langsung.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="h-6 w-6 text-rose-600" />Ringkasan Mental Health Check Up</CardTitle></CardHeader>
+          <CardContent>
+            <p className="mb-5 text-sm text-neutral-600">Skor menggambarkan frekuensi indikator yang Anda laporkan selama {results?.timeframe || "2 minggu terakhir"}. Ini bukan diagnosis klinis.</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {Object.entries(results?.domainScores || {}).map(([domain, data]: [string, any]) => (
+                <div key={domain} className={`rounded-xl border p-5 ${levelStyles[data.level?.key] || levelStyles.low}`}>
+                  <div className="mb-2 flex items-center justify-between gap-3"><h3 className="font-semibold">{domainNames[domain] || domain}</h3><Badge variant="outline">{data.level?.label}</Badge></div>
+                  <p className="mb-2 text-2xl font-bold">{data.score}<span className="text-sm font-normal"> / {data.maxScore}</span></p>
+                  <Progress value={(data.score / data.maxScore) * 100} className="h-2" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Langkah berikutnya</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
+              <li>Perhatikan pola tidur, energi, emosi, dan beban kerja atau belajar selama dua minggu berikutnya.</li>
+              <li>Jika indikator mengganggu fungsi sehari-hari, bertahan, atau memburuk, konsultasikan dengan psikolog atau tenaga kesehatan.</li>
+              <li>Burnout pada hasil ini berkaitan dengan konteks pekerjaan atau kegiatan belajar, bukan diagnosis penyakit.</li>
+            </ul>
+            <a href="https://wa.me/6285117658242?text=Halo%20PI%2C%20saya%20ingin%20berkonsultasi%20mengenai%20hasil%20Mental%20Health%20Check%20Up." target="_blank" rel="noreferrer">
+              <Button className="bg-green-700 hover:bg-green-800"><MessageCircle className="mr-2 h-4 w-4" />Konsultasi melalui WhatsApp PI</Button>
+            </a>
+            <p className="text-xs text-neutral-500">{results?.instrumentNote || "Skrining internal non-diagnostik; bukan alat penegakan diagnosis klinis."}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-background">
@@ -761,6 +825,8 @@ export default function AssessmentResults() {
           ? renderLearningStyleResults(userAssessment.results)
           : userAssessment.assessment.type === 'intelligence' 
           ? renderMultipleIntelligenceResults(userAssessment.results)
+          : userAssessment.assessment.type === 'mental-health'
+          ? renderMentalHealthResults(userAssessment.results)
           : renderSensoryProfileResults(userAssessment.results)
         }
 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText } from "lucide-react";
+import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, HeartPulse, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserAssessmentWithDetails } from "@shared/schema";
 import { formatDisplayDate } from "@/lib/date-format";
@@ -242,6 +242,32 @@ export default function AdminAssessmentResult() {
     );
   };
 
+  const renderMentalHealthResults = (results: any) => {
+    const names: Record<string, string> = { anxiety: "Kecemasan", stress: "Stres", depression: "Depresi", burnout: "Burnout kerja/studi" };
+    return (
+      <div className="space-y-6">
+        {results?.safetyFlag && (
+          <Card className="border-red-400 bg-red-50">
+            <CardHeader><CardTitle className="flex items-center gap-2 text-red-900"><ShieldAlert className="h-5 w-5" />Perlu tindak lanjut keselamatan</CardTitle></CardHeader>
+            <CardContent className="text-sm text-red-900">Respons klien menunjukkan adanya pikiran menyakiti diri. Lakukan penilaian risiko dan tindak lanjut sesuai prosedur klinis.</CardContent>
+          </Card>
+        )}
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="h-5 w-5" />Ringkasan domain</CardTitle></CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            {Object.entries(results?.domainScores || {}).map(([domain, data]: [string, any]) => (
+              <div key={domain} className="rounded-lg border p-4">
+                <div className="mb-2 flex justify-between gap-3"><span className="font-medium">{names[domain] || domain}</span><Badge variant="outline">{data.level?.label}</Badge></div>
+                <p className="text-2xl font-bold">{data.score}<span className="text-sm font-normal"> / {data.maxScore}</span></p>
+                <Progress className="mt-2 h-2" value={(data.score / data.maxScore) * 100} />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -304,6 +330,8 @@ export default function AdminAssessmentResult() {
 
         {userAssessment.assessment.type === 'learning' 
           ? renderLearningStyleResults(userAssessment.results)
+          : userAssessment.assessment.type === 'mental-health'
+          ? renderMentalHealthResults(userAssessment.results)
           : renderSensoryProfileResults(userAssessment.results)
         }
       </div>

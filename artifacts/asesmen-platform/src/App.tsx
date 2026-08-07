@@ -14,6 +14,7 @@ import AssessmentDetail from "@/pages/assessment/[id]";
 import SensoryProfile from "@/pages/sensory-profile";
 import LearningStyle from "@/pages/learning-style";
 import MultipleIntelligence from "@/pages/multiple-intelligence";
+import MentalHealthCheckup from "@/pages/mental-health-checkup";
 import AssessmentResults from "@/pages/assessment-results";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
@@ -73,6 +74,7 @@ function Router() {
       <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
       <Route path="/learning-style/:assessmentId" component={LearningStyle} />
       <Route path="/multiple-intelligence/:userAssessmentId" component={MultipleIntelligence} />
+      <Route path="/mental-health-checkup/:userAssessmentId" component={MentalHealthCheckup} />
       <Route path="/results/:assessmentId" component={AssessmentResults} />
       <Route path="/payment-success" component={PaymentSuccess} />
       <Route path="/payment-failed" component={PaymentFailed} />
