@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, HeartPulse, ShieldAlert, Compass } from "lucide-react";
+import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, HeartPulse, ShieldAlert, Compass, BriefcaseBusiness } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserAssessmentWithDetails } from "@shared/schema";
 import { formatDisplayDate } from "@/lib/date-format";
@@ -276,6 +276,10 @@ export default function AdminAssessmentResult() {
     </div>
   );
 
+  const renderCareerPotentialResults = (results: any) => (
+    <div className="space-y-6"><Card><CardHeader><CardTitle className="flex items-center gap-2"><BriefcaseBusiness className="h-5 w-5 text-emerald-700" />Potensi Karir</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2"><div className="rounded-lg border p-4"><p className="text-sm">Penalaran kerja</p><p className="text-2xl font-bold">{results?.cognitive?.percentage || 0}%</p><Badge>{results?.cognitive?.band}</Badge></div><div className="rounded-lg border p-4"><p className="text-sm">Pertimbangan situasional</p><p className="text-2xl font-bold">{results?.situational?.percentage || 0}%</p><Badge variant="outline">{results?.situational?.band}</Badge></div></CardContent></Card><Card><CardHeader><CardTitle>Kompetensi Perilaku</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{(results?.competencies || []).map((item: any) => <div key={item.label} className="rounded-lg border p-4"><div className="flex justify-between text-sm"><span>{item.label}</span><Badge variant="outline">{item.band}</Badge></div><p className="mt-2 text-xl font-bold">{item.percentage}%</p><Progress className="mt-2 h-2" value={item.percentage} /></div>)}</CardContent></Card><Card><CardHeader><CardTitle>Preferensi Peran & Pengembangan</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-3 sm:grid-cols-2">{(results?.topRolePreferences || []).map((item: any) => <div key={item.code} className="rounded-lg border p-4"><strong>{item.label}</strong><p>{item.percentage}%</p><Progress className="mt-2 h-2" value={item.percentage} /></div>)}</div><ul className="list-disc pl-5 text-sm">{(results?.developmentRecommendations || []).map((item: string) => <li key={item}>{item}</li>)}</ul></CardContent></Card><div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{results?.instrumentNote}</div></div>
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -342,6 +346,8 @@ export default function AdminAssessmentResult() {
           ? renderMentalHealthResults(userAssessment.results)
           : userAssessment.assessment.type === 'student-potential'
           ? renderStudentPotentialResults(userAssessment.results)
+          : userAssessment.assessment.type === 'career-potential'
+          ? renderCareerPotentialResults(userAssessment.results)
           : renderSensoryProfileResults(userAssessment.results)
         }
       </div>

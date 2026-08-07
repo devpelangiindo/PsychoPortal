@@ -1070,6 +1070,98 @@ function calculateStudentPotentialResults(responses: any, participantInfo: any) 
   };
 }
 
+const CAREER_COGNITIVE_ITEMS: Record<string, { answer: string; domain: string }> = {
+  career_cog_1: { answer: "B", domain: "Verbal" }, career_cog_2: { answer: "D", domain: "Verbal" },
+  career_cog_3: { answer: "C", domain: "Numerik" }, career_cog_4: { answer: "A", domain: "Numerik" },
+  career_cog_5: { answer: "D", domain: "Logis" }, career_cog_6: { answer: "B", domain: "Logis" },
+  career_cog_7: { answer: "C", domain: "Analitis" }, career_cog_8: { answer: "A", domain: "Analitis" },
+  career_cog_9: { answer: "B", domain: "Ketelitian" }, career_cog_10: { answer: "D", domain: "Ketelitian" },
+};
+
+const CAREER_SJT_SCORES: Record<string, Record<string, number>> = {
+  career_sjt_1: { A: 0, B: 2, C: 3, D: 1 }, career_sjt_2: { A: 1, B: 3, C: 0, D: 2 },
+  career_sjt_3: { A: 3, B: 1, C: 0, D: 2 }, career_sjt_4: { A: 0, B: 2, C: 1, D: 3 },
+  career_sjt_5: { A: 2, B: 0, C: 3, D: 1 }, career_sjt_6: { A: 1, B: 3, C: 2, D: 0 },
+  career_sjt_7: { A: 3, B: 0, C: 2, D: 1 }, career_sjt_8: { A: 2, B: 1, C: 0, D: 3 },
+};
+
+const CAREER_COMPETENCY_ITEMS: Record<string, { competency: string; reverse?: boolean }> = {
+  career_comp_1: { competency: "Orientasi Hasil" }, career_comp_2: { competency: "Orientasi Hasil", reverse: true },
+  career_comp_3: { competency: "Kolaborasi" }, career_comp_4: { competency: "Kolaborasi", reverse: true },
+  career_comp_5: { competency: "Adaptabilitas" }, career_comp_6: { competency: "Adaptabilitas", reverse: true },
+  career_comp_7: { competency: "Orientasi Pelanggan" }, career_comp_8: { competency: "Orientasi Pelanggan", reverse: true },
+  career_comp_9: { competency: "Kepemimpinan" }, career_comp_10: { competency: "Kepemimpinan", reverse: true },
+  career_comp_11: { competency: "Integritas Kerja" }, career_comp_12: { competency: "Integritas Kerja", reverse: true },
+};
+
+const CAREER_INTEREST_ITEMS: Record<string, string> = {
+  career_int_1: "analytical", career_int_2: "analytical", career_int_3: "people", career_int_4: "people",
+  career_int_5: "operations", career_int_6: "operations", career_int_7: "commercial", career_int_8: "commercial",
+  career_int_9: "innovation", career_int_10: "innovation", career_int_11: "leadership", career_int_12: "leadership",
+};
+
+const CAREER_ROLE_INFO: Record<string, { label: string; roles: string[]; development: string[] }> = {
+  analytical: { label: "Analisis & Data", roles: ["Analitik bisnis, keuangan, riset, quality assurance, atau data"], development: ["Latih analisis data dan penyusunan insight", "Ambil proyek pemecahan masalah berbasis bukti"] },
+  people: { label: "People & Service", roles: ["Human resources, learning & development, customer experience, atau layanan"], development: ["Latih active listening dan fasilitasi", "Ambil peran mentoring atau layanan lintas fungsi"] },
+  operations: { label: "Operasional & Proses", roles: ["Operasional, project coordination, supply chain, administrasi, atau compliance"], development: ["Pelajari process mapping dan manajemen proyek", "Pimpin perbaikan proses berskala kecil"] },
+  commercial: { label: "Komersial & Relasi", roles: ["Sales, business development, account management, atau partnership"], development: ["Latih negosiasi dan presentasi nilai", "Bangun pengalaman mengelola relasi pemangku kepentingan"] },
+  innovation: { label: "Inovasi & Produk", roles: ["Product, desain layanan, teknologi, komunikasi kreatif, atau continuous improvement"], development: ["Bangun portofolio eksperimen atau prototipe", "Latih discovery kebutuhan pengguna"] },
+  leadership: { label: "Strategi & Kepemimpinan", roles: ["Team lead, supervisor, program management, atau strategic planning"], development: ["Latih delegasi, coaching, dan pengambilan keputusan", "Ambil tanggung jawab memimpin proyek lintas fungsi"] },
+};
+
+function getCareerPotentialBand(percentage: number) {
+  if (percentage >= 80) return "Sangat kuat";
+  if (percentage >= 65) return "Kuat";
+  if (percentage >= 45) return "Cukup berkembang";
+  return "Perlu dikembangkan";
+}
+
+function calculateCareerPotentialResults(responses: any, participantInfo: any) {
+  const safe = responses && typeof responses === "object" ? responses : {};
+  const cognitiveDomains: Record<string, { score: number; maxScore: number; percentage: number }> = {};
+  let cognitiveScore = 0;
+  Object.entries(CAREER_COGNITIVE_ITEMS).forEach(([id, item]) => {
+    if (!cognitiveDomains[item.domain]) cognitiveDomains[item.domain] = { score: 0, maxScore: 0, percentage: 0 };
+    cognitiveDomains[item.domain].maxScore += 1;
+    if (safe[id] === item.answer) { cognitiveScore += 1; cognitiveDomains[item.domain].score += 1; }
+  });
+  Object.values(cognitiveDomains).forEach((domain) => { domain.percentage = Math.round((domain.score / domain.maxScore) * 100); });
+  const cognitivePercentage = Math.round((cognitiveScore / Object.keys(CAREER_COGNITIVE_ITEMS).length) * 100);
+
+  const situationalScore = Object.entries(CAREER_SJT_SCORES).reduce((total, [id, scores]) => total + (scores[String(safe[id])] || 0), 0);
+  const situationalMax = Object.keys(CAREER_SJT_SCORES).length * 3;
+  const situationalPercentage = Math.round((situationalScore / situationalMax) * 100);
+
+  const competencyMap: Record<string, { score: number; maxScore: number }> = {};
+  Object.entries(CAREER_COMPETENCY_ITEMS).forEach(([id, item]) => {
+    if (!competencyMap[item.competency]) competencyMap[item.competency] = { score: 0, maxScore: 0 };
+    const raw = Math.max(0, Math.min(4, Number(safe[id]) || 0));
+    competencyMap[item.competency].score += item.reverse ? 4 - raw : raw;
+    competencyMap[item.competency].maxScore += 4;
+  });
+  const competencies = Object.entries(competencyMap).map(([label, data]) => ({ label, ...data, percentage: Math.round((data.score / data.maxScore) * 100), band: getCareerPotentialBand(Math.round((data.score / data.maxScore) * 100)) })).sort((a, b) => b.percentage - a.percentage);
+
+  const interestMap: Record<string, { score: number; maxScore: number }> = {};
+  Object.entries(CAREER_INTEREST_ITEMS).forEach(([id, code]) => {
+    if (!interestMap[code]) interestMap[code] = { score: 0, maxScore: 0 };
+    interestMap[code].score += Math.max(0, Math.min(4, Number(safe[id]) || 0));
+    interestMap[code].maxScore += 4;
+  });
+  const rolePreferences = Object.entries(interestMap).map(([code, data]) => ({ code, label: CAREER_ROLE_INFO[code].label, ...data, percentage: Math.round((data.score / data.maxScore) * 100) })).sort((a, b) => b.percentage - a.percentage);
+  const topRolePreferences = rolePreferences.slice(0, 2);
+
+  return {
+    responses: safe, participantInfo: participantInfo || {},
+    cognitive: { score: cognitiveScore, maxScore: 10, percentage: cognitivePercentage, band: getCareerPotentialBand(cognitivePercentage), domains: cognitiveDomains },
+    situational: { score: situationalScore, maxScore: situationalMax, percentage: situationalPercentage, band: getCareerPotentialBand(situationalPercentage) },
+    competencies, rolePreferences, topRolePreferences,
+    roleRecommendations: topRolePreferences.flatMap((item) => CAREER_ROLE_INFO[item.code].roles),
+    developmentRecommendations: [...competencies.slice(-2).flatMap((item) => [`Kembangkan ${item.label} melalui target perilaku yang terukur dan umpan balik berkala.`]), ...topRolePreferences.flatMap((item) => CAREER_ROLE_INFO[item.code].development)],
+    instrumentNote: "Hasil ini adalah pemetaan awal potensi kerja dan bukan keputusan otomatis atau alat tunggal untuk rekrutmen, promosi, evaluasi kinerja, maupun pengembangan karyawan. Organisasi perlu melakukan analisis jabatan dan validasi untuk konteks penggunaan, menyediakan akomodasi yang wajar, memantau potensi bias, serta menggabungkan hasil dengan wawancara terstruktur, simulasi kerja, bukti kinerja, dan penilaian profesional.",
+    completedAt: new Date().toISOString(),
+  };
+}
+
 function calculateMultipleIntelligenceResults(responses: any, participantInfo: any) {
   // Define the 7 intelligence categories with question mappings
   const categoryMapping = {
@@ -1444,6 +1536,23 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
         (results?.activityRecommendations || []).forEach((item: string) => doc.fontSize(10.5).font('Helvetica').text(`- ${item}`));
         doc.moveDown(0.8);
         doc.fontSize(9.5).font('Helvetica-Oblique').text(results?.instrumentNote || '', { align: 'justify' });
+
+      } else if (assessmentType === 'career-potential') {
+        doc.fontSize(14).font('Helvetica-Bold').text('HASIL TES POTENSI KARIR (PERUSAHAAN)', { underline: true });
+        doc.moveDown(0.6);
+        doc.fontSize(10.5).font('Helvetica').text(`Penalaran kerja: ${results?.cognitive?.percentage || 0}% (${results?.cognitive?.band || '-'})`)
+          .text(`Pertimbangan situasional: ${results?.situational?.percentage || 0}% (${results?.situational?.band || '-'})`);
+        doc.moveDown(0.7);
+        doc.fontSize(11).font('Helvetica-Bold').text('Kompetensi perilaku:');
+        (results?.competencies || []).forEach((item: any) => doc.fontSize(10).font('Helvetica').text(`- ${item.label}: ${item.percentage}% (${item.band})`));
+        doc.moveDown(0.6);
+        doc.fontSize(11).font('Helvetica-Bold').text('Preferensi peran utama:');
+        (results?.topRolePreferences || []).forEach((item: any) => doc.fontSize(10).font('Helvetica').text(`- ${item.label}: ${item.percentage}%`));
+        doc.moveDown(0.6);
+        doc.fontSize(11).font('Helvetica-Bold').text('Arah pengembangan:');
+        (results?.developmentRecommendations || []).forEach((item: string) => doc.fontSize(9.5).font('Helvetica').text(`- ${item}`));
+        doc.moveDown(0.7);
+        doc.fontSize(9).font('Helvetica-Oblique').text(results?.instrumentNote || '', { align: 'justify' });
 
       } else if (assessmentType === 'sensory') {
         const { totalScore, interpretation, sectionScores, participantInfo, responses } = results;
@@ -1944,6 +2053,9 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       } else if (assessmentType === 'student-potential') {
         disclaimerText = 'Hasil ini merupakan pemetaan awal, bukan skor IQ formal atau keputusan tunggal penentuan studi. Pertimbangkan nilai akademik, aspirasi siswa, pilihan mata pelajaran yang tersedia, serta diskusi dengan orang tua dan guru BK.';
         disclaimerHeight = 65;
+      } else if (assessmentType === 'career-potential') {
+        disclaimerText = 'Hasil ini bukan keputusan otomatis atau alat tunggal untuk rekrutmen, promosi, evaluasi kinerja, atau pengembangan. Gunakan hanya setelah analisis jabatan dan validasi profesional, bersama bukti kerja serta metode penilaian lain yang relevan.';
+        disclaimerHeight = 68;
       } else {
         disclaimerText = 'Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut. Untuk penjadwalan konsultasi online, silakan kirim pesan ke WhatsApp Rumah Psikologi Pelangi Indonesia di nomor +62 819-9146-6546, dengan melampirkan hasil asesmen ini.';
         disclaimerHeight = 80;
@@ -3613,6 +3725,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         processedResults = calculateMentalHealthCheckupResults(responses, participantInfo);
       } else if (userAssessment.assessment.type === 'student-potential') {
         processedResults = calculateStudentPotentialResults(responses, participantInfo);
+      } else if (userAssessment.assessment.type === 'career-potential') {
+        processedResults = calculateCareerPotentialResults(responses, participantInfo);
       } else {
         // Default results structure
         processedResults = {
@@ -4460,6 +4574,20 @@ async function initializeAssessments() {
         isActive: true,
       });
       console.log("Paket Tes Intelegensi & Potensi Siswa berhasil dibuat dengan free access sementara");
+    }
+
+    const careerPotentialAssessment = existingAssessments.find((assessment) => assessment.type === "career-potential");
+    if (!careerPotentialAssessment) {
+      await storage.createAssessment({
+        name: "Tes Potensi Karir (Perusahaan)",
+        description: "Promosi jabatan, pengembangan karyawan, evaluasi kinerja, dan rekrutmen karyawan",
+        price: "0.00",
+        duration: "40-50 menit",
+        ageRange: "Karyawan & kandidat kerja",
+        type: "career-potential",
+        isActive: true,
+      });
+      console.log("Tes Potensi Karir (Perusahaan) berhasil dibuat dengan free access sementara");
     }
   } catch (error) {
     console.error("Error initializing assessments:", error);

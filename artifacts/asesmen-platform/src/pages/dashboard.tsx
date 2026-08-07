@@ -618,6 +618,8 @@ export default function Dashboard() {
                                     ? `/mental-health-checkup/${userAssessment.id}`
                                     : userAssessment.assessment.type === 'student-potential'
                                       ? `/student-potential-test/${userAssessment.id}`
+                                      : userAssessment.assessment.type === 'career-potential'
+                                        ? `/career-potential-test/${userAssessment.id}`
                                   : `/assessment/${userAssessment.id}`
                           }>
                             <Button size="sm">Mulai Tes</Button>
@@ -635,6 +637,8 @@ export default function Dashboard() {
                                     ? `/mental-health-checkup/${userAssessment.id}`
                                     : userAssessment.assessment.type === 'student-potential'
                                       ? `/student-potential-test/${userAssessment.id}`
+                                      : userAssessment.assessment.type === 'career-potential'
+                                        ? `/career-potential-test/${userAssessment.id}`
                                   : `/assessment/${userAssessment.id}`
                           }>
                             <Button size="sm" variant="outline">Lanjutkan</Button>
