@@ -981,6 +981,95 @@ function calculateMentalHealthCheckupResults(responses: any, participantInfo: an
   };
 }
 
+const STUDENT_COGNITIVE_ITEMS: Record<string, { answer: string; domain: string }> = {
+  cog_1: { answer: "C", domain: "Verbal" }, cog_2: { answer: "B", domain: "Verbal" },
+  cog_3: { answer: "D", domain: "Verbal" }, cog_4: { answer: "C", domain: "Numerik" },
+  cog_5: { answer: "B", domain: "Numerik" }, cog_6: { answer: "D", domain: "Numerik" },
+  cog_7: { answer: "B", domain: "Logis" }, cog_8: { answer: "C", domain: "Logis" },
+  cog_9: { answer: "A", domain: "Spasial" }, cog_10: { answer: "D", domain: "Spasial" },
+};
+
+const STUDENT_EQ_SCORES: Record<string, Record<string, number>> = {
+  eq_1: { A: 0, B: 1, C: 3, D: 2 }, eq_2: { A: 1, B: 3, C: 0, D: 2 },
+  eq_3: { A: 0, B: 2, C: 3, D: 1 }, eq_4: { A: 3, B: 1, C: 0, D: 2 },
+  eq_5: { A: 1, B: 0, C: 2, D: 3 }, eq_6: { A: 2, B: 3, C: 0, D: 1 },
+};
+
+const STUDENT_PERSONALITY_ITEMS: Record<string, { trait: string; reverse?: boolean }> = {
+  per_1: { trait: "Keterbukaan" }, per_2: { trait: "Keterbukaan", reverse: true },
+  per_3: { trait: "Ketekunan" }, per_4: { trait: "Ketekunan", reverse: true },
+  per_5: { trait: "Sosial" }, per_6: { trait: "Sosial", reverse: true },
+  per_7: { trait: "Kerja Sama" }, per_8: { trait: "Kerja Sama", reverse: true },
+  per_9: { trait: "Ketenangan Emosi" }, per_10: { trait: "Ketenangan Emosi", reverse: true },
+};
+
+const STUDENT_INTEREST_ITEMS: Record<string, string> = {
+  int_1: "R", int_2: "R", int_3: "I", int_4: "I", int_5: "A", int_6: "A",
+  int_7: "S", int_8: "S", int_9: "E", int_10: "E", int_11: "C", int_12: "C",
+};
+
+const STUDENT_INTEREST_INFO: Record<string, { label: string; fields: string[]; activities: string[] }> = {
+  R: { label: "Realistic (Praktis)", fields: ["Teknik, teknologi terapan, olahraga, dan bidang vokasi"], activities: ["Klub robotika atau engineering", "Proyek lapangan dan praktik langsung"] },
+  I: { label: "Investigative (Analitis)", fields: ["Sains, kesehatan, matematika, data, dan riset"], activities: ["Klub sains atau karya ilmiah", "Eksperimen dan proyek analisis data"] },
+  A: { label: "Artistic (Kreatif)", fields: ["Desain, bahasa, media, seni, dan industri kreatif"], activities: ["Membangun portofolio kreatif", "Teater, musik, desain, atau penulisan"] },
+  S: { label: "Social (Menolong)", fields: ["Psikologi, pendidikan, kesehatan, dan layanan sosial"], activities: ["Relawan dan kegiatan sosial", "Mentoring atau tutor sebaya"] },
+  E: { label: "Enterprising (Persuasif)", fields: ["Bisnis, hukum, komunikasi, manajemen, dan pemasaran"], activities: ["Kewirausahaan siswa", "Debat, organisasi, dan kepemimpinan"] },
+  C: { label: "Conventional (Terstruktur)", fields: ["Akuntansi, administrasi, sistem informasi, dan pengelolaan data"], activities: ["Bendahara atau administrasi organisasi", "Proyek pengolahan data dan perencanaan"] },
+};
+
+function getStudentPotentialBand(percentage: number) {
+  if (percentage >= 80) return "Sangat kuat";
+  if (percentage >= 65) return "Kuat";
+  if (percentage >= 45) return "Cukup berkembang";
+  return "Perlu dikembangkan";
+}
+
+function calculateStudentPotentialResults(responses: any, participantInfo: any) {
+  const safe = responses && typeof responses === "object" ? responses : {};
+  const domainScores: Record<string, { score: number; maxScore: number; percentage: number }> = {};
+  let cognitiveScore = 0;
+  Object.entries(STUDENT_COGNITIVE_ITEMS).forEach(([id, item]) => {
+    if (!domainScores[item.domain]) domainScores[item.domain] = { score: 0, maxScore: 0, percentage: 0 };
+    domainScores[item.domain].maxScore += 1;
+    if (safe[id] === item.answer) { cognitiveScore += 1; domainScores[item.domain].score += 1; }
+  });
+  Object.values(domainScores).forEach((domain) => { domain.percentage = Math.round((domain.score / domain.maxScore) * 100); });
+  const cognitivePercentage = Math.round((cognitiveScore / Object.keys(STUDENT_COGNITIVE_ITEMS).length) * 100);
+
+  const emotionalScore = Object.entries(STUDENT_EQ_SCORES).reduce((total, [id, scores]) => total + (scores[String(safe[id])] || 0), 0);
+  const emotionalMax = Object.keys(STUDENT_EQ_SCORES).length * 3;
+  const emotionalPercentage = Math.round((emotionalScore / emotionalMax) * 100);
+
+  const personalityMap: Record<string, { score: number; maxScore: number }> = {};
+  Object.entries(STUDENT_PERSONALITY_ITEMS).forEach(([id, item]) => {
+    if (!personalityMap[item.trait]) personalityMap[item.trait] = { score: 0, maxScore: 0 };
+    const raw = Math.max(0, Math.min(3, Number(safe[id]) || 0));
+    personalityMap[item.trait].score += item.reverse ? 3 - raw : raw;
+    personalityMap[item.trait].maxScore += 3;
+  });
+  const personality = Object.entries(personalityMap).map(([label, data]) => ({ label, ...data, percentage: Math.round((data.score / data.maxScore) * 100) })).sort((a, b) => b.percentage - a.percentage);
+
+  const interestMap: Record<string, { score: number; maxScore: number }> = {};
+  Object.entries(STUDENT_INTEREST_ITEMS).forEach(([id, code]) => {
+    if (!interestMap[code]) interestMap[code] = { score: 0, maxScore: 0 };
+    interestMap[code].score += Math.max(0, Math.min(3, Number(safe[id]) || 0));
+    interestMap[code].maxScore += 3;
+  });
+  const interests = Object.entries(interestMap).map(([code, data]) => ({ code, label: STUDENT_INTEREST_INFO[code].label, ...data, percentage: Math.round((data.score / data.maxScore) * 100) })).sort((a, b) => b.percentage - a.percentage);
+  const topInterests = interests.slice(0, 2);
+
+  return {
+    responses: safe, participantInfo: participantInfo || {},
+    cognitive: { score: cognitiveScore, maxScore: Object.keys(STUDENT_COGNITIVE_ITEMS).length, percentage: cognitivePercentage, band: getStudentPotentialBand(cognitivePercentage), domains: domainScores },
+    emotional: { score: emotionalScore, maxScore: emotionalMax, percentage: emotionalPercentage, band: getStudentPotentialBand(emotionalPercentage) },
+    personality, interests, topInterests,
+    studyRecommendations: topInterests.flatMap((item) => STUDENT_INTEREST_INFO[item.code].fields),
+    activityRecommendations: topInterests.flatMap((item) => STUDENT_INTEREST_INFO[item.code].activities),
+    instrumentNote: "Hasil ini adalah pemetaan awal potensi, bukan skor IQ formal, diagnosis, atau keputusan tunggal penentuan studi. Skor IQ formal memerlukan alat terstandar dan pemeriksaan psikolog dalam kondisi terkontrol.",
+    completedAt: new Date().toISOString(),
+  };
+}
+
 function calculateMultipleIntelligenceResults(responses: any, participantInfo: any) {
   // Define the 7 intelligence categories with question mappings
   const categoryMapping = {
@@ -1338,6 +1427,23 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
           .text('- Pantau pola tidur, energi, emosi, serta beban kerja atau belajar.')
           .text('- Konsultasikan dengan psikolog atau tenaga kesehatan jika keluhan mengganggu aktivitas, bertahan, atau memburuk.')
           .text('- Hubungi WhatsApp PI di 0851-1765-8242 untuk informasi dan konsultasi lebih lanjut.');
+
+      } else if (assessmentType === 'student-potential') {
+        doc.fontSize(14).font('Helvetica-Bold').text('HASIL PEMETAAN INTELEGENSI & POTENSI SISWA', { underline: true });
+        doc.moveDown(0.6);
+        doc.fontSize(10.5).font('Helvetica').text(`Potensi penalaran: ${results?.cognitive?.score || 0}/${results?.cognitive?.maxScore || 10} (${results?.cognitive?.band || '-'})`)
+          .text(`Kecerdasan emosional situasional: ${results?.emotional?.score || 0}/${results?.emotional?.maxScore || 18} (${results?.emotional?.band || '-'})`);
+        doc.moveDown(0.7);
+        doc.fontSize(11).font('Helvetica-Bold').text('Dua kecenderungan minat utama:');
+        (results?.topInterests || []).forEach((item: any) => doc.fontSize(10.5).font('Helvetica').text(`- ${item.label}: ${item.percentage}%`));
+        doc.moveDown(0.6);
+        doc.fontSize(11).font('Helvetica-Bold').text('Pilihan bidang studi untuk dieksplorasi:');
+        (results?.studyRecommendations || []).forEach((item: string) => doc.fontSize(10.5).font('Helvetica').text(`- ${item}`));
+        doc.moveDown(0.6);
+        doc.fontSize(11).font('Helvetica-Bold').text('Aktivitas pengembangan:');
+        (results?.activityRecommendations || []).forEach((item: string) => doc.fontSize(10.5).font('Helvetica').text(`- ${item}`));
+        doc.moveDown(0.8);
+        doc.fontSize(9.5).font('Helvetica-Oblique').text(results?.instrumentNote || '', { align: 'justify' });
 
       } else if (assessmentType === 'sensory') {
         const { totalScore, interpretation, sectionScores, participantInfo, responses } = results;
@@ -1835,6 +1941,9 @@ function generatePdfContent(userAssessment: UserAssessmentWithDetails): Promise<
       } else if (assessmentType === 'mental-health') {
         disclaimerText = 'Hasil ini merupakan skrining awal, bukan diagnosis. Jika gejala mengganggu aktivitas, menetap, memburuk, atau muncul risiko keselamatan diri, segera cari bantuan profesional.';
         disclaimerHeight = 52;
+      } else if (assessmentType === 'student-potential') {
+        disclaimerText = 'Hasil ini merupakan pemetaan awal, bukan skor IQ formal atau keputusan tunggal penentuan studi. Pertimbangkan nilai akademik, aspirasi siswa, pilihan mata pelajaran yang tersedia, serta diskusi dengan orang tua dan guru BK.';
+        disclaimerHeight = 65;
       } else {
         disclaimerText = 'Hasil asesmen menunjukkan kecenderungan kondisi Anda saat ini dan bukan merupakan diagnosa, sehingga diperlukan konsultasi lebih lanjut. Untuk penjadwalan konsultasi online, silakan kirim pesan ke WhatsApp Rumah Psikologi Pelangi Indonesia di nomor +62 819-9146-6546, dengan melampirkan hasil asesmen ini.';
         disclaimerHeight = 80;
@@ -3502,6 +3611,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         processedResults = calculateMultipleIntelligenceResults(responses, participantInfo);
       } else if (userAssessment.assessment.type === 'mental-health') {
         processedResults = calculateMentalHealthCheckupResults(responses, participantInfo);
+      } else if (userAssessment.assessment.type === 'student-potential') {
+        processedResults = calculateStudentPotentialResults(responses, participantInfo);
       } else {
         // Default results structure
         processedResults = {
@@ -4335,6 +4446,20 @@ async function initializeAssessments() {
         isActive: true,
       });
       console.log("Mental Health Check Up berhasil dibuat dengan free access sementara");
+    }
+
+    const studentPotentialAssessment = existingAssessments.find((assessment) => assessment.type === "student-potential");
+    if (!studentPotentialAssessment) {
+      await storage.createAssessment({
+        name: "Paket Tes Intelegensi & Potensi Siswa (SMA)",
+        description: "Tes IQ, EQ, gambaran kepribadian dan jurusan serta saran aktivitas yang sesuai.",
+        price: "0.00",
+        duration: "35-45 menit",
+        ageRange: "Siswa SMA / sederajat",
+        type: "student-potential",
+        isActive: true,
+      });
+      console.log("Paket Tes Intelegensi & Potensi Siswa berhasil dibuat dengan free access sementara");
     }
   } catch (error) {
     console.error("Error initializing assessments:", error);

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, Lightbulb, Calculator, Play, Music, Users, User, HeartPulse, ShieldAlert, MessageCircle } from "lucide-react";
+import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, Lightbulb, Calculator, Play, Music, Users, User, HeartPulse, ShieldAlert, MessageCircle, Compass } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -772,6 +772,26 @@ export default function AssessmentResults() {
     );
   };
 
+  const renderStudentPotentialResults = (results: any) => (
+    <div className="space-y-6">
+      <Card><CardHeader><CardTitle className="flex items-center gap-2"><Brain className="h-6 w-6 text-indigo-600" />Ringkasan Potensi Siswa</CardTitle></CardHeader><CardContent className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5"><p className="text-sm text-indigo-800">Potensi Penalaran</p><p className="mt-1 text-2xl font-bold text-indigo-950">{results?.cognitive?.percentage || 0}%</p><Badge className="mt-2">{results?.cognitive?.band || "-"}</Badge><Progress className="mt-3 h-2" value={results?.cognitive?.percentage || 0} /></div>
+          <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-5"><p className="text-sm text-cyan-800">Kecerdasan Emosional Situasional</p><p className="mt-1 text-2xl font-bold text-cyan-950">{results?.emotional?.percentage || 0}%</p><Badge className="mt-2" variant="outline">{results?.emotional?.band || "-"}</Badge><Progress className="mt-3 h-2" value={results?.emotional?.percentage || 0} /></div>
+        </div>
+        <div><h3 className="mb-3 font-semibold">Profil penalaran</h3><div className="grid gap-3 sm:grid-cols-2">{Object.entries(results?.cognitive?.domains || {}).map(([name, data]: [string, any]) => <div key={name} className="rounded-lg border p-3"><div className="flex justify-between text-sm"><span>{name}</span><strong>{data.percentage}%</strong></div><Progress className="mt-2 h-2" value={data.percentage} /></div>)}</div></div>
+      </CardContent></Card>
+      <Card><CardHeader><CardTitle className="flex items-center gap-2"><Compass className="h-6 w-6 text-teal-600" />Minat dan Arah Eksplorasi</CardTitle></CardHeader><CardContent className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">{(results?.topInterests || []).map((item: any) => <div key={item.code} className="rounded-xl border p-4"><div className="flex justify-between gap-3"><strong>{item.label}</strong><Badge variant="outline">{item.percentage}%</Badge></div><Progress className="mt-3 h-2" value={item.percentage} /></div>)}</div>
+        <div><h3 className="font-semibold">Bidang studi untuk dieksplorasi</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{(results?.studyRecommendations || []).map((item: string) => <li key={item}>{item}</li>)}</ul></div>
+        <div><h3 className="font-semibold">Aktivitas pengembangan</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{(results?.activityRecommendations || []).map((item: string) => <li key={item}>{item}</li>)}</ul></div>
+      </CardContent></Card>
+      <Card><CardHeader><CardTitle>Gambaran Kecenderungan Kepribadian</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2">{(results?.personality || []).map((item: any) => <div key={item.label} className="rounded-lg border p-3"><div className="flex justify-between text-sm"><span>{item.label}</span><strong>{item.percentage}%</strong></div><Progress className="mt-2 h-2" value={item.percentage} /></div>)}</CardContent></Card>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Catatan penting:</strong> {results?.instrumentNote} Pertimbangkan pula nilai akademik, aspirasi pribadi, pilihan mata pelajaran yang tersedia, serta diskusi bersama orang tua dan guru BK.</div>
+      <a href="https://wa.me/6285117658242?text=Halo%20PI%2C%20saya%20ingin%20berkonsultasi%20mengenai%20hasil%20Tes%20Potensi%20Siswa." target="_blank" rel="noreferrer"><Button className="bg-green-700 hover:bg-green-800"><MessageCircle className="mr-2 h-4 w-4" />Konsultasi melalui WhatsApp PI</Button></a>
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-background">
@@ -827,6 +847,8 @@ export default function AssessmentResults() {
           ? renderMultipleIntelligenceResults(userAssessment.results)
           : userAssessment.assessment.type === 'mental-health'
           ? renderMentalHealthResults(userAssessment.results)
+          : userAssessment.assessment.type === 'student-potential'
+          ? renderStudentPotentialResults(userAssessment.results)
           : renderSensoryProfileResults(userAssessment.results)
         }
 

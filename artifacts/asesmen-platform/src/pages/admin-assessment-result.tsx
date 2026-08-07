@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, HeartPulse, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Download, Eye, Ear, Hand, Brain, BarChart3, FileText, HeartPulse, ShieldAlert, Compass } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserAssessmentWithDetails } from "@shared/schema";
 import { formatDisplayDate } from "@/lib/date-format";
@@ -268,6 +268,14 @@ export default function AdminAssessmentResult() {
     );
   };
 
+  const renderStudentPotentialResults = (results: any) => (
+    <div className="space-y-6">
+      <Card><CardHeader><CardTitle className="flex items-center gap-2"><Brain className="h-5 w-5 text-indigo-600" />Potensi Penalaran & Emosional</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2"><div className="rounded-lg border p-4"><p className="text-sm">Penalaran</p><p className="text-2xl font-bold">{results?.cognitive?.percentage || 0}%</p><Badge>{results?.cognitive?.band}</Badge></div><div className="rounded-lg border p-4"><p className="text-sm">Kecerdasan emosional situasional</p><p className="text-2xl font-bold">{results?.emotional?.percentage || 0}%</p><Badge variant="outline">{results?.emotional?.band}</Badge></div></CardContent></Card>
+      <Card><CardHeader><CardTitle className="flex items-center gap-2"><Compass className="h-5 w-5 text-teal-600" />Minat Utama & Rekomendasi</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-3 sm:grid-cols-2">{(results?.topInterests || []).map((item: any) => <div key={item.code} className="rounded-lg border p-4"><strong>{item.label}</strong><p>{item.percentage}%</p><Progress className="mt-2 h-2" value={item.percentage} /></div>)}</div><div><strong>Bidang studi:</strong><ul className="list-disc pl-5 text-sm">{(results?.studyRecommendations || []).map((item: string) => <li key={item}>{item}</li>)}</ul></div><div><strong>Aktivitas:</strong><ul className="list-disc pl-5 text-sm">{(results?.activityRecommendations || []).map((item: string) => <li key={item}>{item}</li>)}</ul></div></CardContent></Card>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{results?.instrumentNote}</div>
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -332,6 +340,8 @@ export default function AdminAssessmentResult() {
           ? renderLearningStyleResults(userAssessment.results)
           : userAssessment.assessment.type === 'mental-health'
           ? renderMentalHealthResults(userAssessment.results)
+          : userAssessment.assessment.type === 'student-potential'
+          ? renderStudentPotentialResults(userAssessment.results)
           : renderSensoryProfileResults(userAssessment.results)
         }
       </div>
