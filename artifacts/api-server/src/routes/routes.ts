@@ -173,7 +173,10 @@ const bookingRequestSchema = z.object({
   previousDiagnosis: z.string().optional(),
   preferredDate: z.string().min(4),
   preferredTime: z.string().regex(TIME_SLOT_PATTERN, "Format waktu harus HH.MM - HH.MM"),
-  additionalPreferredTime: z.string().regex(TIME_SLOT_PATTERN, "Format waktu sesi kedua harus HH.MM - HH.MM").optional(),
+  additionalPreferredTime: z.preprocess(
+    (value) => value === "" ? undefined : value,
+    z.string().regex(TIME_SLOT_PATTERN, "Format waktu sesi kedua harus HH.MM - HH.MM").optional(),
+  ),
   psychologistName: z.string().min(2),
   location: z.enum(["online", "colombo", "bantul"]),
 }).superRefine((data, ctx) => {

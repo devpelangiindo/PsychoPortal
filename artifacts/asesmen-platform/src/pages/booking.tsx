@@ -1517,6 +1517,7 @@ function buildBookingPayload(form: BookingForm, user: any) {
     const parentWhatsapp = form.fatherWhatsapp || form.motherWhatsapp || form.guardianWhatsapp || user?.whatsappNumber || "";
     return {
       ...form,
+      additionalPreferredTime: form.additionalPreferredTime || undefined,
       gender: undefined,
       clientName: form.childName,
       birthDate: "",
@@ -1529,6 +1530,7 @@ function buildBookingPayload(form: BookingForm, user: any) {
 
   return {
     ...form,
+    additionalPreferredTime: form.additionalPreferredTime || undefined,
     clientName: form.clientName || `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
     email: form.email || user?.email,
     whatsappNumber: form.whatsappNumber || user?.whatsappNumber,
