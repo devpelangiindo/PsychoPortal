@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, ClipboardCheck, Clock, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Printer, Save, Search, Trash2, UserRound, Video } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Printer, Save, Search, Trash2, UserRound, Video } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
@@ -274,6 +274,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   const [bookingEndDate, setBookingEndDate] = useState("");
   const [reportSearch, setReportSearch] = useState("");
   const [selectedAdminPsychologist, setSelectedAdminPsychologist] = useState(defaultPsychologistNames[0]);
+  const [selectedScheduleMonth, setSelectedScheduleMonth] = useState(() => formatMonthInput(new Date()));
   const isAdminMode = mode === "admin";
   const isAdminOrCso = user?.role === "admin" || user?.role === "internal" || user?.role === "cso";
   const isCsoRole = user?.role === "cso" || user?.role === "internal";
@@ -313,10 +314,11 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   }, [psychologistNames, selectedAdminPsychologist]);
 
   const { data: scheduleData, isLoading: scheduleLoading } = useQuery<ScheduleResponse>({
-    queryKey: ["/api/psychologist/schedule-slots", mode, isAdminMode ? selectedAdminPsychologist : "self"],
+    queryKey: ["/api/psychologist/schedule-slots", mode, isAdminMode ? selectedAdminPsychologist : "self", selectedScheduleMonth],
     queryFn: async () => {
-      const query = isAdminMode ? `?psychologistName=${encodeURIComponent(selectedAdminPsychologist)}` : "";
-      const response = await apiRequest("GET", `/api/psychologist/schedule-slots${query}`);
+      const params = new URLSearchParams({ month: selectedScheduleMonth });
+      if (isAdminMode) params.set("psychologistName", selectedAdminPsychologist);
+      const response = await apiRequest("GET", `/api/psychologist/schedule-slots?${params.toString()}`);
       return response.json();
     },
     enabled: hasAccess && (!isAdminMode || Boolean(selectedAdminPsychologist)),
@@ -412,12 +414,17 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <SectionTitle
                 icon={<Clock className="w-5 h-5" />}
                 title="Perubahan Jadwal"
-                description="Atur jadwal dalam satu bulan kalender berjalan. Jadwal dapat diperbarui kembali selama jam sesi tidak saling bertabrakan."
+                description="Atur jadwal per bulan kalender. Jadwal dapat diperbarui kembali selama jam sesi tidak saling bertabrakan."
               />
               {scheduleLoading ? (
                 <LoadingState label="Memuat jadwal..." compact />
               ) : (
-                <ScheduleUploadEditor scheduleSlots={scheduleData?.scheduleSlots ?? []} bookings={bookings} />
+                <ScheduleUploadEditor
+                  scheduleSlots={scheduleData?.scheduleSlots ?? []}
+                  bookings={bookings}
+                  calendarMonth={selectedScheduleMonth}
+                  onMonthChange={setSelectedScheduleMonth}
+                />
               )}
             </TabsContent>
           )}
@@ -491,7 +498,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
               <SectionTitle
                 icon={<Clock className="w-5 h-5" />}
                 title="Perubahan Jadwal Psikolog"
-                description={isCsoRole ? "CSO dapat melihat kalender jadwal psikolog bulan berjalan. Perubahan jadwal psikolog hanya dapat dilakukan admin." : "Admin dapat mengubah jadwal psikolog dalam satu bulan kalender berjalan."}
+                description={isCsoRole ? "CSO dapat melihat kalender jadwal psikolog per bulan. Perubahan jadwal psikolog hanya dapat dilakukan admin." : "Admin dapat mengubah jadwal psikolog pada bulan yang dipilih."}
               />
               <Card>
                 <CardContent className="p-5">
@@ -516,6 +523,8 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                   isAdmin
                   psychologistName={selectedAdminPsychologist}
                   readOnly={!canManagePsychologistSchedules}
+                  calendarMonth={selectedScheduleMonth}
+                  onMonthChange={setSelectedScheduleMonth}
                 />
               )}
             </TabsContent>
@@ -653,22 +662,26 @@ function ScheduleUploadEditor({
   isAdmin = false,
   psychologistName,
   readOnly = false,
+  calendarMonth,
+  onMonthChange,
 }: {
   scheduleSlots: ScheduleSlot[];
   bookings: Booking[];
   isAdmin?: boolean;
   psychologistName?: string;
   readOnly?: boolean;
+  calendarMonth: string;
+  onMonthChange: (month: string) => void;
 }) {
   const { toast } = useToast();
-  const [rows, setRows] = useState<ScheduleDraftRow[]>(() => buildScheduleRows(scheduleSlots));
+  const [rows, setRows] = useState<ScheduleDraftRow[]>(() => buildScheduleRows(scheduleSlots, calendarMonth));
   const [deletedSlots, setDeletedSlots] = useState<DeletedScheduleSlot[]>([]);
   const todayDate = formatDateInput(new Date());
 
   useEffect(() => {
-    setRows(buildScheduleRows(scheduleSlots));
+    setRows(buildScheduleRows(scheduleSlots, calendarMonth));
     setDeletedSlots([]);
-  }, [scheduleSlots]);
+  }, [calendarMonth, scheduleSlots]);
 
   const calendarCells = useMemo(() => {
     const firstDayOffset = rows[0] ? getDayOfWeekFromDateString(rows[0].scheduleDate) : 0;
@@ -716,11 +729,12 @@ function ScheduleUploadEditor({
       const response = await apiRequest("PUT", "/api/psychologist/schedule-slots", {
         slots,
         ...(isAdmin && psychologistName ? { psychologistName } : {}),
+        month: calendarMonth,
       });
       return response.json();
     },
     onSuccess: (data: ScheduleResponse) => {
-      setRows(buildScheduleRows(data.scheduleSlots));
+      setRows(buildScheduleRows(data.scheduleSlots, calendarMonth));
       setDeletedSlots([]);
       queryClient.invalidateQueries({ queryKey: ["/api/psychologist/schedule-slots"] });
       toast({
@@ -807,15 +821,30 @@ function ScheduleUploadEditor({
           </div>
         ) : (
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            Sesi dapat diedit dari hari ini sampai akhir bulan berjalan. Pastikan jam sesi tidak saling bertabrakan.
+            Sesi pada bulan yang dipilih dapat diedit selama tanggalnya belum lewat. Pastikan jam sesi tidak saling bertabrakan.
           </div>
         )}
 
         <div className="overflow-x-auto">
           <div className="min-w-[1260px]">
             <div className="rounded-t-lg border border-b-0 bg-white px-4 py-3">
-              <p className="text-base font-semibold text-neutral-900">{formatCalendarMonthRange(rows)}</p>
-              <p className="text-xs text-neutral-500">Kalender jadwal bulan berjalan</p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-base font-semibold capitalize text-neutral-900">{formatCalendarMonth(calendarMonth)}</p>
+                  <p className="text-xs text-neutral-500">Kalender jadwal bulanan</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => onMonthChange(shiftCalendarMonth(calendarMonth, -1))}>
+                    <ChevronLeft className="mr-1 h-4 w-4" />Bulan sebelumnya
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => onMonthChange(formatMonthInput(new Date()))}>
+                    Bulan ini
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => onMonthChange(shiftCalendarMonth(calendarMonth, 1))}>
+                    Bulan berikutnya<ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-7 rounded-t-lg border border-b-0 bg-neutral-50">
               {dayLabels.map((day) => (
@@ -942,10 +971,10 @@ function ScheduleUploadEditor({
   );
 }
 
-function buildScheduleRows(scheduleSlots: ScheduleSlot[]): ScheduleDraftRow[] {
-  const today = new Date();
-  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+function buildScheduleRows(scheduleSlots: ScheduleSlot[], calendarMonth: string): ScheduleDraftRow[] {
+  const [year, month] = calendarMonth.split("-").map(Number);
+  const firstDayOfMonth = new Date(year, (month || 1) - 1, 1);
+  const daysInMonth = new Date(year, month || 1, 0).getDate();
   return Array.from({ length: daysInMonth }, (_, index) => {
     const date = new Date(firstDayOfMonth);
     date.setDate(index + 1);
@@ -1019,6 +1048,20 @@ function formatDateInput(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatMonthInput(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function shiftCalendarMonth(monthValue: string, offset: number) {
+  const [year, month] = monthValue.split("-").map(Number);
+  return formatMonthInput(new Date(year, (month || 1) - 1 + offset, 1));
+}
+
+function formatCalendarMonth(monthValue: string) {
+  const [year, month] = monthValue.split("-").map(Number);
+  return new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(year, (month || 1) - 1, 1));
 }
 
 function getDayOfWeekFromDateString(value: string) {

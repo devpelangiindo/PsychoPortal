@@ -315,6 +315,7 @@ const scheduleSlotSchema = z.object({
 
 const psychologistScheduleUpdateSchema = z.object({
   psychologistName: z.string().min(2).optional(),
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Format bulan harus YYYY-MM").optional(),
   slots: z.array(scheduleSlotSchema).max(900),
 });
 
@@ -642,6 +643,18 @@ function drawReportHeader(doc: PDFKit.PDFDocument, compact = false) {
   const lineY = Math.max(headerTop + logoSize + 5, doc.y + 6);
   doc.strokeColor("#145d78").lineWidth(1.15).moveTo(left, lineY).lineTo(left + width, lineY).stroke();
   doc.y = lineY + (compact ? 11 : 14);
+}
+
+function scheduleMonthRange(monthValue: string) {
+  const match = monthValue.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return {
+    startDate: `${monthValue}-01`,
+    endDate: `${monthValue}-${String(lastDay).padStart(2, "0")}`,
+  };
 }
 
 function ensureReportSpace(doc: PDFKit.PDFDocument, requiredHeight: number) {
@@ -2313,7 +2326,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
       }
 
-      const { startDate, endDate } = scheduleRange();
+      const requestedMonth = typeof req.query.month === "string" ? req.query.month : undefined;
+      const requestedRange = requestedMonth ? scheduleMonthRange(requestedMonth) : scheduleRange();
+      if (!requestedRange) {
+        return res.status(400).json({ message: "Format bulan harus YYYY-MM" });
+      }
+      const { startDate, endDate } = requestedRange;
       const scheduleSlots = await storage.getPsychologistScheduleSlots(providerName, startDate, endDate);
       res.json({ psychologistName: providerName, startDate, endDate, scheduleSlots });
     } catch (error) {
@@ -2346,7 +2364,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
       }
 
-      const { startDate, endDate } = scheduleRange();
+      const requestedRange = data.month ? scheduleMonthRange(data.month) : scheduleRange();
+      if (!requestedRange) {
+        return res.status(400).json({ message: "Format bulan harus YYYY-MM" });
+      }
+      const { startDate, endDate } = requestedRange;
       const normalizedSlots = data.slots.map((slot) => ({
         scheduleDate: slot.scheduleDate,
         timeSlot: normalizeTimeSlot(slot.timeSlot),
@@ -2360,7 +2382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         !isValidTimeSlotRange(slot.timeSlot),
       );
       if (invalidSlot) {
-        return res.status(400).json({ message: "Jadwal hanya boleh untuk 30 hari ke depan dan jam 07.00-21.00." });
+        return res.status(400).json({ message: "Jadwal harus berada pada bulan yang dipilih dan jam 07.00-21.00." });
       }
 
       const overlappingSlot = findOverlappingScheduleSlot(normalizedSlots);
@@ -2370,7 +2392,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const scheduleSlots = await storage.setPsychologistScheduleSlots(providerName, normalizedSlots, user.id);
+      if (normalizedSlots.length > 0) {
+        await storage.setPsychologistScheduleSlots(providerName, normalizedSlots, user.id);
+      }
+      const scheduleSlots = await storage.getPsychologistScheduleSlots(providerName, startDate, endDate);
       res.json({ psychologistName: providerName, startDate, endDate, scheduleSlots });
     } catch (error) {
       if (error instanceof z.ZodError) {
