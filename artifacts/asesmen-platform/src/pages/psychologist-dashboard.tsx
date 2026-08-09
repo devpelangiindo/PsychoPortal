@@ -544,20 +544,11 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
             {reportsLoading ? (
               <LoadingState label="Memuat laporan..." compact />
             ) : (
-              <div className="grid lg:grid-cols-2 gap-6">
-                <ReportList
-                  title="Laporan untuk Klien"
-                  icon={<ClipboardCheck className="w-5 h-5 text-green-700" />}
-                  reports={reports.filter((booking) => Boolean(booking.reportSubmittedAt && getClientReportText(booking)))}
-                  mode="client"
-                />
-                <ReportList
-                  title="Riwayat Konseling"
-                  icon={<History className="w-5 h-5 text-green-700" />}
-                  reports={reports.filter((booking) => Boolean(getHistoryReportText(booking)))}
-                  mode="history"
-                />
-              </div>
+              <ConsultationReportList
+                reports={reports.filter((booking) => Boolean(
+                  (booking.reportSubmittedAt && getClientReportText(booking)) || getHistoryReportText(booking),
+                ))}
+              />
             )}
           </TabsContent>
         </Tabs>
@@ -1909,6 +1900,76 @@ async function viewReportPdf(booking: Booking, mode: "client" | "history") {
   const url = URL.createObjectURL(blob);
   window.open(url, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function ConsultationReportList({ reports }: { reports: Booking[] }) {
+  const [activeReport, setActiveReport] = useState<{ bookingId: number; mode: "client" | "history" } | null>(null);
+
+  if (reports.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-sm text-neutral-500">Belum ada data laporan.</CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-5xl space-y-4">
+      {reports.map((booking) => {
+        const hasClientReport = Boolean(booking.reportSubmittedAt && getClientReportText(booking));
+        const hasHistoryReport = Boolean(getHistoryReportText(booking));
+        const clientOpen = activeReport?.bookingId === booking.id && activeReport.mode === "client";
+        const historyOpen = activeReport?.bookingId === booking.id && activeReport.mode === "history";
+        const selectedMode = clientOpen ? "client" : historyOpen ? "history" : null;
+        const toggleReport = (mode: "client" | "history") => {
+          setActiveReport((current) => current?.bookingId === booking.id && current.mode === mode ? null : { bookingId: booking.id, mode });
+        };
+
+        return (
+          <Card key={booking.id} className="overflow-hidden border-0 shadow-md">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-sky-100 ring-4 ring-white shadow-sm">
+                    <UserRound className="h-7 w-7 text-emerald-700" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{booking.service.name}</p>
+                    <h3 className="mt-1 truncate text-lg font-semibold text-neutral-900">{booking.clientName}</h3>
+                    <p className="mt-1 text-sm text-neutral-500">{formatDisplayDate(booking.preferredDate)}, {booking.preferredTime}</p>
+                    <p className="mt-1 text-xs text-neutral-400">Psikolog: {booking.psychologistName || "-"}</p>
+                  </div>
+                </div>
+
+                <div className="grid shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button type="button" size="sm" disabled={!hasClientReport} onClick={() => toggleReport("client")} className={clientOpen ? "bg-amber-600 hover:bg-amber-700" : "bg-amber-500 hover:bg-amber-600"}>
+                    <ClipboardCheck className="mr-2 h-4 w-4" />
+                    {clientOpen ? "Tutup Laporan" : "Laporan Klien"}
+                  </Button>
+                  <Button type="button" size="sm" disabled={!hasHistoryReport} onClick={() => toggleReport("history")} className={historyOpen ? "bg-sky-600 hover:bg-sky-700" : "bg-sky-500 hover:bg-sky-600"}>
+                    <History className="mr-2 h-4 w-4" />
+                    {historyOpen ? "Tutup Riwayat" : "Riwayat Konseling"}
+                  </Button>
+                </div>
+              </div>
+
+              {selectedMode && (
+                <div className={`mt-5 rounded-xl border p-4 ${selectedMode === "client" ? "border-amber-200 bg-amber-50/60" : "border-sky-200 bg-sky-50/60"}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h4 className="font-semibold text-neutral-900">{selectedMode === "client" ? "Laporan untuk Klien" : "Riwayat Konseling"}</h4>
+                    <ViewReportPdfButton booking={booking} mode={selectedMode} />
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
+                    {selectedMode === "client" ? getClientReportText(booking) : getHistoryReportText(booking)}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
 }
 
 
