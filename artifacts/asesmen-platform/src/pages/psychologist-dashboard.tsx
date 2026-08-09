@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, ClipboardCheck, Clock, Download, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Printer, Save, Search, Trash2, UserRound, Video } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Clock, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Printer, Save, Search, Trash2, UserRound, Video } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
@@ -1587,6 +1587,7 @@ function ReportEditor({
   const [counselingObservations, setCounselingObservations] = useState<string[]>(booking.counselingObservations ?? []);
   const [counselingResultNotes, setCounselingResultNotes] = useState(booking.counselingResultNotes ?? booking.counselingHistoryNotes ?? booking.sessionReport ?? "");
   const [counselingPlanNotes, setCounselingPlanNotes] = useState(booking.counselingPlanNotes ?? "");
+  const [activeReportSection, setActiveReportSection] = useState<"client" | "history" | null>(null);
   const clientReportLocked = !canEditReports || Boolean(booking.reportSubmittedAt && !canEditClientReport);
   const hasSavedReport = Boolean(
     booking.clientReportNotes ||
@@ -1675,10 +1676,32 @@ function ReportEditor({
         </Badge>
       </div>
 
-      <div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Button
+          type="button"
+          variant={activeReportSection === "client" ? "default" : "outline"}
+          onClick={() => setActiveReportSection((current) => current === "client" ? null : "client")}
+          className={activeReportSection === "client" ? "bg-amber-500 text-white hover:bg-amber-600" : "border-amber-300 text-amber-700 hover:bg-amber-50"}
+        >
+          <ClipboardCheck className="mr-2 h-4 w-4" />
+          Laporan untuk Klien
+        </Button>
+        <Button
+          type="button"
+          variant={activeReportSection === "history" ? "default" : "outline"}
+          onClick={() => setActiveReportSection((current) => current === "history" ? null : "history")}
+          className={activeReportSection === "history" ? "bg-sky-500 text-white hover:bg-sky-600" : "border-sky-300 text-sky-700 hover:bg-sky-50"}
+        >
+          <History className="mr-2 h-4 w-4" />
+          Riwayat Konseling
+        </Button>
+      </div>
+
+      {activeReportSection === "client" && (
+      <div className="rounded-lg border border-amber-100 bg-amber-50/30 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Label>Laporan untuk Klien: Catatan Hasil Konseling / PR <span className="text-neutral-400">(opsional)</span></Label>
-          <ReportPdfActions booking={booking} mode="client" />
+          <ViewReportPdfButton booking={booking} mode="client" />
         </div>
         <Textarea
           value={clientReportNotes}
@@ -1717,11 +1740,13 @@ function ReportEditor({
           </div>
         )}
       </div>
+      )}
 
-      <div>
+      {activeReportSection === "history" && (
+      <div className="rounded-lg border border-sky-100 bg-sky-50/30 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Label>Riwayat Konseling: Catatan internal psikolog <span className="text-red-600">*</span></Label>
-          <ReportPdfActions booking={booking} mode="history" />
+          <ViewReportPdfButton booking={booking} mode="history" />
         </div>
         <div className="mt-3 space-y-4">
           <div>
@@ -1793,39 +1818,7 @@ function ReportEditor({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function ReportPdfActions({ booking, mode }: { booking: Booking; mode: "client" | "history" }) {
-  const { toast } = useToast();
-  const isAvailable =
-    mode === "client"
-      ? Boolean(booking.reportSubmittedAt && getClientReportText(booking))
-      : Boolean(getHistoryReportText(booking));
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={!isAvailable}
-        onClick={() => viewReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
-      >
-        <Eye className="w-4 h-4 mr-2" />
-        Lihat PDF
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={!isAvailable}
-        onClick={() => downloadReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
-      >
-        <Download className="w-4 h-4 mr-2" />
-        Download PDF
-      </Button>
+      )}
     </div>
   );
 }
@@ -1838,15 +1831,33 @@ function getHistoryReportText(booking: Booking) {
   return booking.counselingResultNotes || booking.counselingHistoryNotes || booking.sessionReport || "";
 }
 
+function ViewReportPdfButton({ booking, mode }: { booking: Booking; mode: "client" | "history" }) {
+  const { toast } = useToast();
+  const isAvailable = mode === "client"
+    ? Boolean(booking.reportSubmittedAt && getClientReportText(booking))
+    : Boolean(getHistoryReportText(booking));
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={!isAvailable}
+      onClick={() => viewReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
+    >
+      <Eye className="mr-2 h-4 w-4" />
+      Lihat PDF
+    </Button>
+  );
+}
+
 async function fetchReportPdf(booking: Booking, mode: "client" | "history") {
   const token = getAuthToken();
   const endpoint = mode === "client" ? "client-report" : "history-report";
   const response = await fetch(`/api/bookings/${booking.id}/${endpoint}.pdf`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
-  if (!response.ok) {
-    throw new Error("PDF belum tersedia");
-  }
+  if (!response.ok) throw new Error("PDF belum tersedia");
   return response.blob();
 }
 
@@ -1857,18 +1868,9 @@ async function viewReportPdf(booking: Booking, mode: "client" | "history") {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-async function downloadReportPdf(booking: Booking, mode: "client" | "history") {
-  const blob = await fetchReportPdf(booking, mode);
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${mode === "client" ? "laporan-konseling" : "riwayat-konseling"}-${booking.clientName}-${booking.id}.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 function ReportList({ title, icon, reports, mode }: { title: string; icon: ReactNode; reports: Booking[]; mode: "client" | "history" }) {
-  const { toast } = useToast();
+  const [expandedBookingId, setExpandedBookingId] = useState<number | null>(null);
 
   return (
     <Card>
@@ -1883,7 +1885,7 @@ function ReportList({ title, icon, reports, mode }: { title: string; icon: React
           <p className="py-8 text-center text-sm text-neutral-500">Belum ada data laporan.</p>
         ) : reports.map((booking) => (
           <div key={`${mode}-${booking.id}`} className="rounded-lg border p-4">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="font-semibold">{booking.clientName}</h3>
                 <p className="text-xs text-neutral-500 mt-1">
@@ -1892,26 +1894,23 @@ function ReportList({ title, icon, reports, mode }: { title: string; icon: React
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button
+                  type="button"
                   size="sm"
-                  variant="outline"
-                  onClick={() => viewReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
+                  variant={expandedBookingId === booking.id ? "default" : "outline"}
+                  onClick={() => setExpandedBookingId((current) => current === booking.id ? null : booking.id)}
+                  className={mode === "client"
+                    ? expandedBookingId === booking.id ? "bg-amber-500 hover:bg-amber-600" : "border-amber-300 text-amber-700 hover:bg-amber-50"
+                    : expandedBookingId === booking.id ? "bg-sky-500 hover:bg-sky-600" : "border-sky-300 text-sky-700 hover:bg-sky-50"}
                 >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Lihat PDF
+                  {mode === "client" ? <ClipboardCheck className="mr-2 h-4 w-4" /> : <History className="mr-2 h-4 w-4" />}
+                  {expandedBookingId === booking.id ? "Tutup" : title}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => downloadReportPdf(booking, mode).catch(() => toast({ title: "PDF belum tersedia", variant: "destructive" }))}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download PDF
-                </Button>
+                <ViewReportPdfButton booking={booking} mode={mode} />
               </div>
             </div>
-            <p className="text-sm text-neutral-700 whitespace-pre-wrap mt-3">
+            {expandedBookingId === booking.id && <p className="mt-3 whitespace-pre-wrap rounded-md bg-neutral-50 p-3 text-sm text-neutral-700">
               {mode === "client" ? getClientReportText(booking) : getHistoryReportText(booking)}
-            </p>
+            </p>}
           </div>
         ))}
       </CardContent>
