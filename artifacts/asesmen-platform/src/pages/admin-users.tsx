@@ -788,7 +788,7 @@ export default function AdminUsers() {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Edit Pengguna</DialogTitle>
           </DialogHeader>
