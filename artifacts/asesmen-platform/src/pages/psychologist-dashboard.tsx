@@ -112,7 +112,12 @@ function formatCurrency(value: string | number) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
 }
 
-function compareBookingsNewestFirst(left: Booking, right: Booking) {
+function compareBookingsByLatestSchedule(left: Booking, right: Booking) {
+  const scheduleComparison = `${right.preferredDate} ${right.preferredTime}`.localeCompare(
+    `${left.preferredDate} ${left.preferredTime}`,
+  );
+  if (scheduleComparison !== 0) return scheduleComparison;
+
   const leftTimestamp = Date.parse(left.createdAt ?? "");
   const rightTimestamp = Date.parse(right.createdAt ?? "");
   const safeLeftTimestamp = Number.isFinite(leftTimestamp) ? leftTimestamp : 0;
@@ -334,7 +339,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
       : bookings;
 
     return isAdminMode
-      ? [...matchingBookings].sort(compareBookingsNewestFirst)
+      ? [...matchingBookings].sort(compareBookingsByLatestSchedule)
       : matchingBookings;
   }, [bookingEndDate, bookingSearch, bookingStartDate, bookings, isAdminMode]);
 
