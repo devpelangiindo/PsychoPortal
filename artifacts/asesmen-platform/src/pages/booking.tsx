@@ -69,6 +69,7 @@ type BookingForm = {
   birthDate: string;
   gender: string;
   address: string;
+  city: string;
   email: string;
   whatsappNumber: string;
   occupation: string;
@@ -363,6 +364,7 @@ export default function Booking() {
     birthDate: "",
     gender: "",
     address: "",
+    city: "",
     email: "",
     whatsappNumber: "",
     occupation: "",
@@ -691,8 +693,8 @@ export default function Booking() {
       const name = form.clientName || `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
       const email = form.email || user?.email;
       const whatsapp = form.whatsappNumber || user?.whatsappNumber;
-      if (!name || !form.birthDate || !form.gender || !form.address || !email || !whatsapp || !form.occupation || !form.religion || !form.mainConcern) {
-        return "Lengkapi nama, tanggal lahir, jenis kelamin, alamat, email, WhatsApp, pekerjaan, agama, dan keluhan saat ini.";
+      if (!name || !form.birthDate || !form.gender || !form.address || !form.city || !email || !whatsapp || !form.occupation || !form.religion || !form.mainConcern) {
+        return "Lengkapi nama, tanggal lahir, jenis kelamin, alamat, kota, email, WhatsApp, pekerjaan, agama, dan keluhan saat ini.";
       }
       if (!/^[0-9]+$/.test(whatsapp)) {
         return "Nomor WhatsApp hanya boleh angka.";
@@ -1234,6 +1236,9 @@ function GeneralClientForm({
       <Field label="Alamat" className="md:col-span-2">
         <Textarea rows={3} value={form.address} onChange={(event) => updateField("address", event.target.value)} />
       </Field>
+      <Field label="Kota">
+        <Input value={form.city} onChange={(event) => updateField("city", event.target.value)} />
+      </Field>
       <Field label="Email">
         <Input
           type="email"
@@ -1544,6 +1549,7 @@ function formatGeneralConcernHistory(form: BookingForm) {
     "Data Klien",
     `Jenis kelamin: ${genderLabel}`,
     `Alamat: ${form.address || "-"}`,
+    `Kota: ${form.city || "-"}`,
     `Pekerjaan saat ini: ${form.occupation || "-"}`,
     `Agama: ${form.religion || "-"}`,
     "",
