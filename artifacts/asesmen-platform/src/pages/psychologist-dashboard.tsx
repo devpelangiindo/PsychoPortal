@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Printer, Save, Search, Trash2, UserRound, Video } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Clock, ExternalLink, Eye, FileText, History, LogOut, Mail, MapPin, Phone, Plus, Printer, Save, Search, Trash2, UserRound, Video } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
@@ -1291,64 +1291,88 @@ function BookingCard({
   canEditClientReport: boolean;
   onSaved: () => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <Card>
-      <CardContent className="p-5">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center">
-                <UserRound className="w-5 h-5 text-green-800" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-lg">{booking.clientName}</h2>
-                <p className="text-sm text-neutral-500">
-                  {booking.consultationType ? consultationLabels[booking.consultationType] : "-"}
-                </p>
-                <p className="text-sm font-medium text-green-800 mt-1">
-                  Psikolog: {booking.psychologistName || "-"}
-                </p>
-              </div>
+      <CardContent className="p-0">
+        <button
+          type="button"
+          onClick={() => setIsOpen((open) => !open)}
+          aria-expanded={isOpen}
+          aria-controls={`booking-details-${booking.id}`}
+          className="flex w-full items-center justify-between gap-4 rounded-lg p-5 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="w-11 h-11 shrink-0 rounded-full bg-green-100 flex items-center justify-center">
+              <UserRound className="w-5 h-5 text-green-800" />
             </div>
-            <div className="grid sm:grid-cols-2 gap-2 text-sm text-neutral-600">
-              <Info icon={<CalendarDays className="w-4 h-4" />} text={`${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`} />
-              <Info icon={<MapPin className="w-4 h-4" />} text={locationLabels[booking.location ?? ""] ?? "-"} />
-              <Info icon={<Mail className="w-4 h-4" />} text={booking.email} />
-              <Info icon={<Phone className="w-4 h-4" />} text={booking.whatsappNumber} />
+            <div className="min-w-0">
+              <h2 className="truncate font-semibold text-lg">{booking.clientName}</h2>
+              <p className="text-sm text-neutral-500">
+                {booking.consultationType ? consultationLabels[booking.consultationType] : "-"}
+              </p>
+              <p className="truncate text-sm font-medium text-green-800 mt-1">
+                Psikolog: {booking.psychologistName || "-"}
+              </p>
             </div>
           </div>
-          <div className="flex lg:flex-col gap-2 lg:items-end">
-            <Badge variant={booking.status === "paid" ? "default" : "secondary"}>
-              {booking.status === "paid" ? "Sudah bayar" : "Menunggu bayar"}
-            </Badge>
-            <span className="text-sm text-neutral-500">{booking.service.name}</span>
-            {(booking.status === "paid" || booking.order.paymentStatus === "paid" || booking.order.status === "completed") && (
-              <Button size="sm" variant="outline" onClick={() => printBookingReceipt(booking)}>
-                <Printer className="w-4 h-4 mr-2" />
-                Cetak Resi
-              </Button>
-            )}
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <Badge variant={booking.status === "paid" ? "default" : "secondary"}>
+                {booking.status === "paid" ? "Sudah bayar" : "Menunggu bayar"}
+              </Badge>
+              <p className="mt-2 text-sm text-neutral-500">{booking.service.name}</p>
+            </div>
+            <ChevronDown className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
           </div>
-        </div>
+        </button>
 
-        <div className="mt-5 grid md:grid-cols-2 gap-4">
-          <BookingDataDialogActions booking={booking} />
-          {booking.location === "online" && (
-            <Detail
-              label="Link meeting online"
-              value={booking.meetingUrl ? (
-                <a href={booking.meetingUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-green-700 hover:underline">
-                  Buka ruang meeting
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              ) : "-"}
-            />
-          )}
-        </div>
+        {isOpen && (
+          <div id={`booking-details-${booking.id}`} className="border-t px-5 pb-5 pt-4">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+              <div className="grid flex-1 sm:grid-cols-2 gap-2 text-sm text-neutral-600">
+                <Info icon={<CalendarDays className="w-4 h-4" />} text={`${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`} />
+                <Info icon={<MapPin className="w-4 h-4" />} text={locationLabels[booking.location ?? ""] ?? "-"} />
+                <Info icon={<Mail className="w-4 h-4" />} text={booking.email} />
+                <Info icon={<Phone className="w-4 h-4" />} text={booking.whatsappNumber} />
+              </div>
+              <div className="flex flex-wrap gap-2 lg:flex-col lg:items-end">
+                <div className="sm:hidden">
+                  <Badge variant={booking.status === "paid" ? "default" : "secondary"}>
+                    {booking.status === "paid" ? "Sudah bayar" : "Menunggu bayar"}
+                  </Badge>
+                </div>
+                <span className="text-sm text-neutral-500 sm:hidden">{booking.service.name}</span>
+                {(booking.status === "paid" || booking.order.paymentStatus === "paid" || booking.order.status === "completed") && (
+                  <Button size="sm" variant="outline" onClick={() => printBookingReceipt(booking)}>
+                    <Printer className="w-4 h-4 mr-2" />
+                    Cetak Resi
+                  </Button>
+                )}
+              </div>
+            </div>
 
-        {canEditMeetingLink && booking.location === "online" && <MeetingLinkEditor booking={booking} onSaved={onSaved} />}
-        {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
-        <ReportEditor booking={booking} canEditReports={canEditReports} canEditClientReport={canEditClientReport} onSaved={onSaved} />
+            <div className="mt-5 grid md:grid-cols-2 gap-4">
+              <BookingDataDialogActions booking={booking} />
+              {booking.location === "online" && (
+                <Detail
+                  label="Link meeting online"
+                  value={booking.meetingUrl ? (
+                    <a href={booking.meetingUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-green-700 hover:underline">
+                      Buka ruang meeting
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : "-"}
+                />
+              )}
+            </div>
+
+            {canEditMeetingLink && booking.location === "online" && <MeetingLinkEditor booking={booking} onSaved={onSaved} />}
+            {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
+            <ReportEditor booking={booking} canEditReports={canEditReports} canEditClientReport={canEditClientReport} onSaved={onSaved} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
