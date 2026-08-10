@@ -350,68 +350,6 @@ export default function PaymentReturn() {
     }
   };
 
-  const handleRetryPayment = async () => {
-    try {
-      let orderIdToUse = orderData?.orderId;
-      
-      // If no order data, try to find from localStorage or latest order
-      if (!orderIdToUse) {
-        const storedInvoices = Object.keys(localStorage).filter(key => key.startsWith('payment_data_'));
-        if (storedInvoices.length > 0) {
-          const invoiceData = JSON.parse(localStorage.getItem(storedInvoices[0]) || '{}');
-          orderIdToUse = invoiceData.orderId;
-        }
-        
-        // Last fallback: get latest pending order
-        if (!orderIdToUse && user) {
-          const ordersResponse = await apiRequest('GET', '/api/orders');
-          const orders = await ordersResponse.json();
-          if (orders && orders.length > 0) {
-            const latestOrder = orders.find((o: any) => o.status === 'pending') || orders[0];
-            orderIdToUse = latestOrder.id;
-          }
-        }
-      }
-      
-      if (!orderIdToUse) {
-        throw new Error('Tidak dapat menemukan order untuk disimulasikan');
-      }
-      
-      // Simulate payment completion for testing
-      const response = await apiRequest('POST', `/api/midtrans/simulate-payment/${orderIdToUse}`, {});
-      const result = await response.json();
-      
-      if (result.success) {
-        setPaymentStatus('success');
-        // Get the completed order details to show correct total
-        const orderResponse = await apiRequest('GET', `/api/payment-status/${orderIdToUse}`);
-        const orderDetails = await orderResponse.json();
-        setOrderData(orderDetails);
-        
-        // Clean up localStorage
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('payment_data_')) {
-            localStorage.removeItem(key);
-          }
-        });
-        
-        toast({
-          title: "Pembayaran Berhasil!",
-          description: "Asesmen Anda sekarang tersedia di dashboard.",
-        });
-      } else {
-        throw new Error(result.message || 'Gagal mensimulasikan pembayaran');
-      }
-    } catch (error: any) {
-      console.error('Retry payment error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Gagal mengulang pembayaran",
-        variant: "destructive"
-      });
-    }
-  };
-
   const renderContent = () => {
     switch (paymentStatus) {
       case 'loading':
@@ -491,14 +429,9 @@ export default function PaymentReturn() {
                   </p>
                 </div>
               )}
-              <div className="space-y-2">
-                <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
-                  Periksa Status Lagi
-                </Button>
-                <Button onClick={handleRetryPayment} className="w-full">
-                  Simulasi Pembayaran (Testing)
-                </Button>
-              </div>
+              <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
+                Periksa Status Lagi
+              </Button>
             </CardContent>
           </Card>
         );
@@ -526,19 +459,9 @@ export default function PaymentReturn() {
                   </p>
                 </div>
               )}
-              <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <strong>Catatan Testing:</strong> Gunakan tombol simulasi untuk menyelesaikan pembayaran dalam mode testing.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Button onClick={handleRetryPayment} className="w-full">
-                  Simulasi Pembayaran (Testing)
-                </Button>
-                <Button onClick={handleContinue} variant="outline" className="w-full">
-                  Kembali ke Keranjang
-                </Button>
-              </div>
+              <Button onClick={handleContinue} variant="outline" className="w-full">
+                Kembali ke Keranjang
+              </Button>
             </CardContent>
           </Card>
         );
