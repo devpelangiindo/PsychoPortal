@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { AlertCircle, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Printer, Search, Video } from "lucide-react";
+import { AlertCircle, ChevronDown, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Printer, Search, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -231,6 +231,9 @@ export default function Dashboard() {
   const [refreshCountdown, setRefreshCountdown] = useState(3);
   const [settlingOrderId, setSettlingOrderId] = useState<number | null>(null);
   const [orderSearch, setOrderSearch] = useState("");
+  const [isMyAssessmentsOpen, setIsMyAssessmentsOpen] = useState(false);
+  const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
+  const [isCounselingReportsOpen, setIsCounselingReportsOpen] = useState(false);
 
   // Countdown timer for auto refresh
   useEffect(() => {
@@ -543,11 +546,23 @@ export default function Dashboard() {
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* My Assessments */}
-          <Card className="order-2">
-            <CardHeader>
-              <CardTitle>Asesmen Saya</CardTitle>
+          <Card className="order-2 self-start">
+            <CardHeader className="p-0">
+              <button
+                type="button"
+                onClick={() => setIsMyAssessmentsOpen((isOpen) => !isOpen)}
+                aria-expanded={isMyAssessmentsOpen}
+                aria-controls="my-assessments-content"
+                className="flex w-full items-center justify-between gap-4 rounded-t-lg p-6 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                <CardTitle>Asesmen Saya</CardTitle>
+                <ChevronDown
+                  className={`h-5 w-5 shrink-0 transition-transform ${isMyAssessmentsOpen ? "rotate-180" : ""}`}
+                />
+              </button>
             </CardHeader>
-            <CardContent>
+            {isMyAssessmentsOpen && (
+            <CardContent id="my-assessments-content">
               {userAssessments && userAssessments.length > 0 ? (
                 <div className="space-y-4">
                   {userAssessments.map((userAssessment: UserAssessmentWithDetails) => (
@@ -629,22 +644,33 @@ export default function Dashboard() {
                 </div>
               )}
             </CardContent>
+            )}
           </Card>
 
           {/* Order History */}
-          <Card className="order-1">
-            <CardHeader>
-              <div className="flex items-center justify-between">
+          <Card className="order-1 self-start">
+            <CardHeader className="p-0">
+              <button
+                type="button"
+                onClick={() => setIsOrderHistoryOpen((isOpen) => !isOpen)}
+                aria-expanded={isOrderHistoryOpen}
+                aria-controls="order-history-content"
+                className="flex w-full items-center justify-between gap-4 rounded-t-lg p-6 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
                 <CardTitle>Riwayat Pesanan</CardTitle>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 rounded-md">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     <span className="text-xs text-green-700 dark:text-green-400 font-medium">Real-time Sync</span>
                   </div>
+                  <ChevronDown
+                    className={`h-5 w-5 shrink-0 transition-transform ${isOrderHistoryOpen ? "rotate-180" : ""}`}
+                  />
                 </div>
-              </div>
+              </button>
             </CardHeader>
-            <CardContent>
+            {isOrderHistoryOpen && (
+            <CardContent id="order-history-content">
               <div className="relative mb-4">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                 <Input
@@ -769,21 +795,36 @@ export default function Dashboard() {
                 </div>
               )}
             </CardContent>
+            )}
           </Card>
         </div>
 
         <div className="mt-8">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-green-700" />
-                Laporan Konseling
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Laporan hasil konseling yang sudah dikirim psikolog akan muncul di sini.
-              </p>
+            <CardHeader className="p-0">
+              <button
+                type="button"
+                onClick={() => setIsCounselingReportsOpen((isOpen) => !isOpen)}
+                aria-expanded={isCounselingReportsOpen}
+                aria-controls="counseling-reports-content"
+                className="flex w-full items-center justify-between gap-4 rounded-t-lg p-6 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                <div className="space-y-1.5">
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-green-700" />
+                    Laporan Konseling
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Laporan hasil konseling yang sudah dikirim psikolog akan muncul di sini.
+                  </p>
+                </div>
+                <ChevronDown
+                  className={`h-5 w-5 shrink-0 transition-transform ${isCounselingReportsOpen ? "rotate-180" : ""}`}
+                />
+              </button>
             </CardHeader>
-            <CardContent>
+            {isCounselingReportsOpen && (
+            <CardContent id="counseling-reports-content">
               {clientReports.length > 0 ? (
                 <div className="space-y-4">
                   {clientReports.map((booking) => (
@@ -808,6 +849,7 @@ export default function Dashboard() {
                 <p className="text-center py-8 text-neutral-500">Belum ada laporan konseling dari psikolog.</p>
               )}
             </CardContent>
+            )}
           </Card>
         </div>
 
