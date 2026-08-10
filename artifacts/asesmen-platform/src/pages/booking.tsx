@@ -355,6 +355,7 @@ function getConsentPrefill(form: BookingForm, user: any) {
       consentPhone: form.guardianWhatsapp || form.fatherWhatsapp || form.motherWhatsapp,
       consentAge: "",
       consentRole: "Orangtua/wali",
+      consentCity: "",
     };
   }
 
@@ -364,6 +365,7 @@ function getConsentPrefill(form: BookingForm, user: any) {
     consentPhone: form.whatsappNumber || user?.whatsappNumber || "",
     consentAge: calculateAgeFromBirthDate(form.birthDate),
     consentRole: form.consultationType === "family" ? "Keluarga klien" : "Diri sendiri",
+    consentCity: form.city,
   };
 }
 
@@ -390,6 +392,10 @@ function applyConsentPrefill(form: BookingForm, user: any) {
   }
   if (!next.consentRole && prefill.consentRole) {
     next.consentRole = prefill.consentRole;
+    changed = true;
+  }
+  if (!next.consentCity && prefill.consentCity) {
+    next.consentCity = prefill.consentCity;
     changed = true;
   }
 
@@ -682,6 +688,7 @@ export default function Booking() {
     form.clientName,
     form.birthDate,
     form.address,
+    form.city,
     form.whatsappNumber,
     form.fatherName,
     form.motherName,
