@@ -40,6 +40,17 @@ type BookingService = {
   duration: string;
 };
 
+type PreviousBooking = {
+  id: number;
+  birthDate: string | null;
+  gender: string | null;
+  concernHistory: string | null;
+  consultationType: ConsultationType | null;
+  createdAt: string | null;
+};
+
+type PreviousClientProfile = Pick<BookingForm, "birthDate" | "gender" | "address" | "city" | "occupation" | "religion">;
+
 type AvailabilitySlot = {
   dayOfWeek: number;
   timeSlot: string;
@@ -298,6 +309,40 @@ function calculateAgeFromBirthDate(value: string) {
   return age >= 0 ? String(age) : "";
 }
 
+function extractProfileValue(history: string, label: string, nextLabels: string[] = []) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const nextLabelPattern = nextLabels.length > 0
+    ? `\\n(?:${nextLabels.map((item) => item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}):`
+    : null;
+  const endPattern = [nextLabelPattern, "\\n\\n", "$"].filter(Boolean).join("|");
+  const match = history.match(new RegExp(`(?:^|\\n)${escapedLabel}:\\s*([\\s\\S]*?)(?=${endPattern})`));
+  const value = match?.[1]?.trim() ?? "";
+  return value === "-" ? "" : value;
+}
+
+function getPreviousClientProfile(bookings: PreviousBooking[]): PreviousClientProfile | null {
+  const previousBooking = [...bookings]
+    .filter((booking) => booking.consultationType !== "child" && booking.concernHistory?.includes("Data Klien"))
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.createdAt ?? "");
+      const rightTime = Date.parse(right.createdAt ?? "");
+      const safeLeftTime = Number.isFinite(leftTime) ? leftTime : 0;
+      const safeRightTime = Number.isFinite(rightTime) ? rightTime : 0;
+      return safeRightTime - safeLeftTime || right.id - left.id;
+    })[0];
+
+  if (!previousBooking) return null;
+  const history = previousBooking.concernHistory ?? "";
+  return {
+    birthDate: previousBooking.birthDate ?? "",
+    gender: previousBooking.gender ?? "",
+    address: extractProfileValue(history, "Alamat", ["Kota", "Pekerjaan saat ini"]),
+    city: extractProfileValue(history, "Kota", ["Pekerjaan saat ini"]),
+    occupation: extractProfileValue(history, "Pekerjaan saat ini", ["Agama"]),
+    religion: extractProfileValue(history, "Agama"),
+  };
+}
+
 function getUserDisplayName(user: any) {
   return `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
 }
@@ -358,6 +403,7 @@ export default function Booking() {
   const [step, setStep] = useState(0);
   const [scheduleNow, setScheduleNow] = useState(() => new Date());
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
+  const [hasAppliedPreviousProfile, setHasAppliedPreviousProfile] = useState(false);
   const isFormRoute = location.startsWith("/booking/form");
   const [form, setForm] = useState<BookingForm>({
     clientName: "",
@@ -425,9 +471,31 @@ export default function Booking() {
     queryKey: ["/api/booking-services"],
   });
 
+  const { data: previousBookings } = useQuery<PreviousBooking[]>({
+    queryKey: ["/api/bookings"],
+    enabled: isFormRoute && isAuthenticated,
+  });
+
   const { data: psychologists = DEFAULT_PSYCHOLOGISTS } = useQuery<PsychologistOption[]>({
     queryKey: ["/api/psychologists"],
   });
+
+  useEffect(() => {
+    if (!previousBookings || hasAppliedPreviousProfile) return;
+    const profile = getPreviousClientProfile(previousBookings);
+    if (profile) {
+      setForm((current) => ({
+        ...current,
+        birthDate: current.birthDate || profile.birthDate,
+        gender: current.gender || profile.gender,
+        address: current.address || profile.address,
+        city: current.city || profile.city,
+        occupation: current.occupation || profile.occupation,
+        religion: current.religion || profile.religion,
+      }));
+    }
+    setHasAppliedPreviousProfile(true);
+  }, [hasAppliedPreviousProfile, previousBookings]);
 
   const selectedService = useMemo(() => {
     if (!services?.length) return undefined;
