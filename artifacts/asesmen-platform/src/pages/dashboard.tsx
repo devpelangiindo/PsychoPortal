@@ -541,46 +541,9 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Available Assessments Section */}
-        <div className="mb-12">
-          <Card>
-            <CardHeader>
-              <CardTitle>Asesmen yang Tersedia</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Klik tombol keranjang untuk menambahkan asesmen ke keranjang dan lakukan pembelian
-              </p>
-            </CardHeader>
-            <CardContent>
-              {assessmentsForSaleLoading ? (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="h-64 bg-muted rounded animate-pulse" />
-                  ))}
-                </div>
-              ) : assessments && assessments.length > 0 ? (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {assessments.map((assessment) => (
-                    <AssessmentCard
-                      key={assessment.id}
-                      assessment={assessment}
-                      showAddToCart={true}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-neutral-500 dark:text-muted-foreground">
-                    Tidak ada asesmen yang tersedia saat ini
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
         <div className="grid lg:grid-cols-2 gap-8">
           {/* My Assessments */}
-          <Card>
+          <Card className="order-2">
             <CardHeader>
               <CardTitle>Asesmen Saya</CardTitle>
             </CardHeader>
@@ -669,7 +632,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Order History */}
-          <Card>
+          <Card className="order-1">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Riwayat Pesanan</CardTitle>
@@ -843,6 +806,43 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="text-center py-8 text-neutral-500">Belum ada laporan konseling dari psikolog.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Available Assessments Section */}
+        <div className="mt-12">
+          <Card>
+            <CardHeader>
+              <CardTitle>Asesmen yang Tersedia</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Klik tombol keranjang untuk menambahkan asesmen ke keranjang dan lakukan pembelian
+              </p>
+            </CardHeader>
+            <CardContent>
+              {assessmentsForSaleLoading ? (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-64 bg-muted rounded animate-pulse" />
+                  ))}
+                </div>
+              ) : assessments && assessments.length > 0 ? (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {assessments.map((assessment) => (
+                    <AssessmentCard
+                      key={assessment.id}
+                      assessment={assessment}
+                      showAddToCart={true}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-neutral-500 dark:text-muted-foreground">
+                    Tidak ada asesmen yang tersedia saat ini
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
