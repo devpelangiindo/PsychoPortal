@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { AlertCircle, ChevronDown, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Printer, Search, Video } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, ClipboardCheck, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Printer, Search, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,19 @@ type Booking = {
   sessionReport: string | null;
   reportSubmittedAt: string | null;
   service: { name: string };
+};
+
+type DassEligibility = {
+  orderId: number;
+  psychologistName: string | null;
+  preferredDate: string;
+  preferredTime: string;
+  completed: boolean;
+  completedAt: string | null;
+};
+
+type DassEligibilityResponse = {
+  eligibleOrders: DassEligibility[];
 };
 
 const PAYMENT_EXPIRY_MINUTES = 15;
@@ -274,6 +287,12 @@ export default function Dashboard() {
     refetchInterval: 5000,
   });
 
+  const { data: dassEligibility } = useQuery<DassEligibilityResponse>({
+    queryKey: ["/api/dass-screenings/eligibility"],
+    enabled: isAuthenticated,
+    refetchInterval: 5000,
+  });
+
   const settlePaymentMutation = useMutation({
     mutationFn: async (orderId: number) => {
       const response = await apiRequest("POST", "/api/payments/create", {
@@ -343,7 +362,8 @@ export default function Dashboard() {
       // Then refresh local data
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] }),
-        queryClient.refetchQueries({ queryKey: ["/api/orders"] })
+        queryClient.refetchQueries({ queryKey: ["/api/orders"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/dass-screenings/eligibility"] }),
       ]);
       toast({
         title: "Sinkronisasi Berhasil",
@@ -366,6 +386,8 @@ export default function Dashboard() {
   const completedAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'completed') || [];
   const inProgressAssessments = userAssessments?.filter((ua: UserAssessmentWithDetails) => ua.status === 'in_progress') || [];
   const clientReports = bookings?.filter((booking) => booking.reportSubmittedAt && getClientReportText(booking)) || [];
+  const activeDassScreening = dassEligibility?.eligibleOrders.find((item) => !item.completed)
+    ?? dassEligibility?.eligibleOrders[0];
   const filteredOrders = useMemo(() => {
     const query = orderSearch.trim().toLowerCase();
     if (!query) return orders || [];
@@ -496,6 +518,37 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {activeDassScreening && (
+          <Card className="mb-12 overflow-hidden border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+            <CardContent className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="rounded-full bg-green-700 p-3 text-white">
+                  {activeDassScreening.completed ? <CheckCircle2 className="h-6 w-6" /> : <ClipboardCheck className="h-6 w-6" />}
+                </div>
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-wide text-green-700">Screening Awal Konseling</p>
+                  <h2 className="mt-1 text-xl font-semibold text-neutral-900">Tes DASS (Depression Anxiety Stress Scale)</h2>
+                  <p className="mt-2 text-sm text-neutral-600">
+                    {activeDassScreening.completed
+                      ? "Tes telah selesai dan hasilnya sudah tersedia untuk psikolog yang menangani Anda."
+                      : "Isi 42 pernyataan mengenai kondisi satu minggu terakhir sebagai data pendukung konseling."}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Psikolog: {activeDassScreening.psychologistName || "-"} · Jadwal {formatDisplayDate(activeDassScreening.preferredDate)}, {activeDassScreening.preferredTime}
+                  </p>
+                </div>
+              </div>
+              {activeDassScreening.completed ? (
+                <Badge className="self-start bg-green-700 md:self-center">Sudah diisi</Badge>
+              ) : (
+                <Link href={`/dass-screening/${activeDassScreening.orderId}`}>
+                  <Button className="w-full whitespace-nowrap md:w-auto">Mulai Tes DASS</Button>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Statistics Cards */}
         <div className="grid md:grid-cols-4 gap-6 mb-12">

@@ -133,6 +133,35 @@ const TIME_SLOTS = ["08.00 - 10.00", "10.30 - 12.30", "13.30 - 15.30"] as const;
 const TIME_SLOT_PATTERN = /^([01]\d|2[0-1])[.:][0-5]\d\s*-\s*([01]\d|2[0-1])[.:][0-5]\d$/;
 const SCHEDULE_WINDOW_DAYS = 30;
 const PAYMENT_EXPIRY_MINUTES = 15;
+const DASS_DEPRESSION_ITEMS = [3, 5, 10, 13, 16, 17, 21, 24, 26, 31, 34, 37, 38, 42] as const;
+const DASS_ANXIETY_ITEMS = [2, 4, 7, 9, 15, 19, 20, 23, 25, 28, 30, 36, 40, 41] as const;
+const DASS_STRESS_ITEMS = [1, 6, 8, 11, 12, 14, 18, 22, 27, 29, 32, 33, 35, 39] as const;
+
+const dassSubmissionSchema = z.object({
+  orderId: z.number().int().positive(),
+  answers: z.array(z.number().int().min(0).max(3)).length(42),
+});
+
+function sumDassItems(answers: number[], items: readonly number[]) {
+  return items.reduce((total, itemNumber) => total + answers[itemNumber - 1], 0);
+}
+
+function getDassCategory(scale: "depression" | "anxiety" | "stress", score: number) {
+  const thresholds = scale === "depression"
+    ? [10, 14, 21, 28]
+    : scale === "anxiety"
+      ? [8, 10, 15, 20]
+      : [15, 19, 26, 34];
+  if (score < thresholds[0]) return "Normal";
+  if (score < thresholds[1]) return "Ringan";
+  if (score < thresholds[2]) return "Sedang";
+  if (score < thresholds[3]) return "Berat";
+  return "Sangat Berat";
+}
+
+function isPaidCounselingBooking(booking: { status: string; order: { status: string; paymentStatus?: string | null } }) {
+  return booking.status === "paid" || booking.order.status === "completed" || booking.order.paymentStatus === "paid";
+}
 
 function hasPaymentExpired(order: { status: string; paymentId?: string | null; paymentStatus?: string | null; updatedAt?: Date | string | null }) {
   if (order.status !== "pending" || !order.paymentId || order.paymentStatus === "paid") return false;
@@ -2995,6 +3024,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching public psychologist availability:", error);
       res.status(500).json({ message: "Failed to fetch psychologist availability" });
+    }
+  });
+
+  app.get('/api/dass-screenings/eligibility', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [bookings, screenings] = await Promise.all([
+        storage.getUserPsychologistBookings(userId),
+        storage.getDassScreeningsByUser(userId),
+      ]);
+      const screeningByOrder = new Map(screenings.map((screening) => [screening.orderId, screening]));
+      const eligibleOrders = new Map<number, {
+        orderId: number;
+        psychologistName: string | null;
+        preferredDate: string;
+        preferredTime: string;
+        completed: boolean;
+        completedAt: Date | null;
+      }>();
+
+      const latestPaidBooking = bookings
+        .filter(isPaidCounselingBooking)
+        .sort((left, right) => right.id - left.id)[0];
+
+      bookings
+        .filter((booking) => latestPaidBooking && booking.orderId === latestPaidBooking.orderId)
+        .forEach((booking) => {
+          if (eligibleOrders.has(booking.orderId)) return;
+          const screening = screeningByOrder.get(booking.orderId);
+          eligibleOrders.set(booking.orderId, {
+            orderId: booking.orderId,
+            psychologistName: booking.psychologistName,
+            preferredDate: booking.preferredDate,
+            preferredTime: booking.preferredTime,
+            completed: Boolean(screening),
+            completedAt: screening?.completedAt ?? null,
+          });
+        });
+
+      return res.json({ eligibleOrders: Array.from(eligibleOrders.values()) });
+    } catch (error) {
+      console.error("Error fetching DASS eligibility:", error);
+      return res.status(500).json({ message: "Failed to fetch DASS eligibility" });
+    }
+  });
+
+  app.post('/api/dass-screenings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = dassSubmissionSchema.parse(req.body);
+      const booking = await storage.getPsychologistBookingByOrder(data.orderId);
+
+      if (!booking || booking.userId !== userId) {
+        return res.status(404).json({ message: "Booking konseling tidak ditemukan" });
+      }
+      if (!isPaidCounselingBooking(booking)) {
+        return res.status(403).json({ message: "Tes DASS hanya tersedia setelah pembayaran konseling selesai" });
+      }
+      const latestPaidBooking = (await storage.getUserPsychologistBookings(userId))
+        .filter(isPaidCounselingBooking)
+        .sort((left, right) => right.id - left.id)[0];
+      if (!latestPaidBooking || latestPaidBooking.orderId !== data.orderId) {
+        return res.status(403).json({ message: "Tes DASS hanya tersedia untuk booking konseling berbayar terbaru" });
+      }
+      if (await storage.getDassScreeningByOrder(data.orderId)) {
+        return res.status(409).json({ message: "Tes DASS untuk booking ini sudah pernah diselesaikan" });
+      }
+
+      const depressionScore = sumDassItems(data.answers, DASS_DEPRESSION_ITEMS);
+      const anxietyScore = sumDassItems(data.answers, DASS_ANXIETY_ITEMS);
+      const stressScore = sumDassItems(data.answers, DASS_STRESS_ITEMS);
+      await storage.createDassScreening({
+        userId,
+        orderId: data.orderId,
+        answers: data.answers,
+        depressionScore,
+        anxietyScore,
+        stressScore,
+        depressionCategory: getDassCategory("depression", depressionScore),
+        anxietyCategory: getDassCategory("anxiety", anxietyScore),
+        stressCategory: getDassCategory("stress", stressScore),
+      });
+
+      return res.status(201).json({ completed: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Jawaban DASS tidak lengkap atau tidak valid", errors: error.flatten() });
+      }
+      console.error("Error saving DASS screening:", error);
+      return res.status(500).json({ message: "Failed to save DASS screening" });
+    }
+  });
+
+  app.get('/api/psychologist/dass-screenings', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== "psychologist") {
+        return res.status(403).json({ message: "Hasil DASS hanya dapat diakses oleh psikolog" });
+      }
+      const providerName = user.psychologistProfileName || getDisplayName(user);
+      if (!providerName) {
+        return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
+      }
+
+      const screenings = await storage.getDassScreeningsByPsychologist(providerName);
+      return res.json(screenings.map((screening) => ({
+        id: screening.id,
+        orderId: screening.orderId,
+        clientName: screening.clientName,
+        preferredDate: screening.preferredDate,
+        preferredTime: screening.preferredTime,
+        completedAt: screening.completedAt,
+        depressionScore: screening.depressionScore,
+        depressionCategory: screening.depressionCategory,
+        anxietyScore: screening.anxietyScore,
+        anxietyCategory: screening.anxietyCategory,
+        stressScore: screening.stressScore,
+        stressCategory: screening.stressCategory,
+      })));
+    } catch (error) {
+      console.error("Error fetching psychologist DASS screenings:", error);
+      return res.status(500).json({ message: "Failed to fetch DASS screenings" });
     }
   });
 

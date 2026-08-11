@@ -63,6 +63,21 @@ type Booking = {
   };
 };
 
+type DassScreeningResult = {
+  id: number;
+  orderId: number;
+  clientName: string;
+  preferredDate: string;
+  preferredTime: string;
+  completedAt: string;
+  depressionScore: number;
+  depressionCategory: string;
+  anxietyScore: number;
+  anxietyCategory: string;
+  stressScore: number;
+  stressCategory: string;
+};
+
 type AvailabilitySlot = {
   id?: number;
   dayOfWeek: number;
@@ -328,6 +343,13 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
     },
     enabled: hasAccess && (!isAdminMode || Boolean(selectedAdminPsychologist)),
   });
+
+  const { data: dassScreenings = [] } = useQuery<DassScreeningResult[]>({
+    queryKey: ["/api/psychologist/dass-screenings"],
+    enabled: hasAccess && !isAdminMode && user?.role === "psychologist",
+    retry: false,
+    refetchInterval: 10000,
+  });
   const filteredBookings = useMemo(() => {
     const query = bookingSearch.trim().toLowerCase();
     const hasDateFilter = Boolean(bookingStartDate || bookingEndDate);
@@ -483,6 +505,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                   <BookingCard
                     key={booking.id}
                     booking={booking}
+                    dassScreening={dassScreenings.find((screening) => screening.orderId === booking.order.id)}
                     canEditClientSchedule={isAdminMode}
                     canEditMeetingLink={user?.role === "admin"}
                     canEditReports={canEditReports}
@@ -1283,6 +1306,7 @@ function flattenAvailability(slots: Record<number, Record<string, boolean>>) {
 
 function BookingCard({
   booking,
+  dassScreening,
   canEditClientSchedule,
   canEditMeetingLink,
   canEditReports,
@@ -1290,6 +1314,7 @@ function BookingCard({
   onSaved,
 }: {
   booking: Booking;
+  dassScreening?: DassScreeningResult;
   canEditClientSchedule: boolean;
   canEditMeetingLink: boolean;
   canEditReports: boolean;
@@ -1372,6 +1397,8 @@ function BookingCard({
                 />
               )}
             </div>
+
+            {dassScreening && <DassScreeningResultCard screening={dassScreening} />}
 
             {canEditMeetingLink && booking.location === "online" && <MeetingLinkEditor booking={booking} onSaved={onSaved} />}
             {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
@@ -1882,6 +1909,38 @@ function ReportEditor({
         )}
       </div>
       )}
+    </div>
+  );
+}
+
+function DassScreeningResultCard({ screening }: { screening: DassScreeningResult }) {
+  const scales = [
+    { label: "Depresi", score: screening.depressionScore, category: screening.depressionCategory },
+    { label: "Kecemasan", score: screening.anxietyScore, category: screening.anxietyCategory },
+    { label: "Stres", score: screening.stressScore, category: screening.stressCategory },
+  ];
+
+  return (
+    <div className="mt-5 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Hasil Screening Awal</p>
+          <h3 className="mt-1 font-semibold text-neutral-900">Tes DASS (Depression Anxiety Stress Scale)</h3>
+        </div>
+        <span className="text-xs text-neutral-500">Diisi {formatDisplayDateTime(screening.completedAt)}</span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {scales.map((scale) => (
+          <div key={scale.label} className="rounded-lg border bg-white p-3">
+            <p className="text-xs uppercase text-neutral-500">{scale.label}</p>
+            <div className="mt-1 flex items-end justify-between gap-2">
+              <span className="text-2xl font-bold text-neutral-900">{scale.score}</span>
+              <Badge variant="secondary">{scale.category}</Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-neutral-600">DASS-42 merupakan instrumen screening dan bukan diagnosis. Interpretasikan hasil bersama informasi klinis dan proses konseling.</p>
     </div>
   );
 }
