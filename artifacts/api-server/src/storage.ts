@@ -146,7 +146,6 @@ export interface IStorage {
   setPsychologistAvailability(psychologistName: string, availability: Omit<InsertPsychologistAvailability, "psychologistName">[]): Promise<PsychologistAvailability[]>;
   getPsychologistScheduleSlots(psychologistName: string, startDate: string, endDate: string): Promise<PsychologistScheduleSlot[]>;
   setPsychologistScheduleSlots(psychologistName: string, slots: Omit<InsertPsychologistScheduleSlot, "psychologistName">[], updatedBy?: string): Promise<PsychologistScheduleSlot[]>;
-  createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking>;
   createPsychologistBookingOrder(order: InsertOrder, bookings: Omit<InsertPsychologistBooking, "orderId">[]): Promise<{ order: Order; bookings: PsychologistBooking[] }>;
   getUserPsychologistBookings(userId: string): Promise<PsychologistBookingWithDetails[]>;
   getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]>;
@@ -459,17 +458,24 @@ export class DatabaseStorage implements IStorage {
     return this.getPsychologistScheduleSlots(psychologistName, dates[0], dates[dates.length - 1]);
   }
 
-  async createPsychologistBooking(booking: InsertPsychologistBooking): Promise<PsychologistBooking> {
-    const [newBooking] = await db.insert(psychologistBookings).values(booking).returning();
-    return newBooking;
-  }
-
   async createPsychologistBookingOrder(
     order: InsertOrder,
     bookings: Omit<InsertPsychologistBooking, "orderId">[],
   ): Promise<{ order: Order; bookings: PsychologistBooking[] }> {
     return db.transaction(async (tx) => {
-      const lockKeys = Array.from(new Set(bookings.map((booking) => `${booking.psychologistName}:${booking.preferredDate}`))).sort();
+      if (bookings.length === 0) throw new Error("BOOKING_SESSIONS_REQUIRED");
+
+      const hasInternalConflict = bookings.some((booking, index) => bookings.some((other, otherIndex) => (
+        otherIndex > index
+        && booking.psychologistName === other.psychologistName
+        && booking.preferredDate === other.preferredDate
+        && bookingTimesOverlap(booking.preferredTime, other.preferredTime)
+      )));
+      if (hasInternalConflict) throw new Error("BOOKING_SLOT_UNAVAILABLE");
+
+      const lockKeys = Array.from(new Set(bookings.map((booking) => (
+        `${booking.psychologistName?.trim().toLocaleLowerCase()}:${booking.preferredDate.trim()}`
+      )))).sort();
       for (const lockKey of lockKeys) {
         await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
       }

@@ -3407,7 +3407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       const groupedBookings = await storage.getPsychologistBookingsByOrder(created.order.id);
-      res.status(201).json({
+      return res.status(201).json({
         ...groupedBookings[0],
         groupBookings: groupedBookings,
         sessionCount: groupedBookings.length,
@@ -3420,7 +3420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "Salah satu sesi baru saja dipilih klien lain. Silakan pilih jadwal kembali." });
       }
       console.error("Error creating booking:", error);
-      res.status(500).json({ message: "Failed to create booking" });
+      return res.status(500).json({ message: "Failed to create booking" });
     }
   });
 
@@ -3553,44 +3553,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const manualPaymentId = `manual_counseling_${timestamp}`;
       const amount = getPsychologistFee(psychologist, data.consultationType);
 
-      const order = await storage.createOrder({
-        userId: user.id,
-        totalAmount: amount,
-        status: data.markAsPaid === false ? "pending" : "completed",
-        paymentStatus: data.markAsPaid === false ? "pending" : "paid",
-        paymentId: manualPaymentId,
-        paymentMethod: "manual_offline",
-        paidAt: data.markAsPaid === false ? undefined : new Date(),
-        paidAmount: data.markAsPaid === false ? undefined : amount,
-      });
+      const paidAt = data.markAsPaid === false ? undefined : new Date();
+      const created = await storage.createPsychologistBookingOrder(
+        {
+          userId: user.id,
+          totalAmount: amount,
+          status: data.markAsPaid === false ? "pending" : "completed",
+          paymentStatus: data.markAsPaid === false ? "pending" : "paid",
+          paymentId: manualPaymentId,
+          paymentMethod: "manual_offline",
+          paidAt,
+          paidAmount: data.markAsPaid === false ? undefined : amount,
+        },
+        [{
+          userId: user.id,
+          serviceId: service.id,
+          clientName: data.clientName,
+          birthDate: data.birthDate,
+          gender: data.gender,
+          age: data.age,
+          email: data.email,
+          whatsappNumber: data.whatsappNumber,
+          mainConcern: data.mainConcern,
+          concernHistory: data.concernHistory,
+          consultationType: data.consultationType,
+          childName: data.childName,
+          childBirthDate: data.childBirthDate,
+          previousDiagnosis: data.previousDiagnosis,
+          preferredDate: data.preferredDate,
+          preferredTime: normalizeTimeSlot(data.preferredTime),
+          psychologistName: data.psychologistName,
+          psychologistFee: amount,
+          location: data.location,
+          status: data.markAsPaid === false ? "pending_payment" : "paid",
+          paidAt,
+        }],
+      );
 
-      const booking = await storage.createPsychologistBooking({
-        userId: user.id,
-        serviceId: service.id,
-        orderId: order.id,
-        clientName: data.clientName,
-        birthDate: data.birthDate,
-        gender: data.gender,
-        age: data.age,
-        email: data.email,
-        whatsappNumber: data.whatsappNumber,
-        mainConcern: data.mainConcern,
-        concernHistory: data.concernHistory,
-        consultationType: data.consultationType,
-        childName: data.childName,
-        childBirthDate: data.childBirthDate,
-        previousDiagnosis: data.previousDiagnosis,
-        preferredDate: data.preferredDate,
-        preferredTime: normalizeTimeSlot(data.preferredTime),
-        psychologistName: data.psychologistName,
-        psychologistFee: amount,
-        location: data.location,
-        status: data.markAsPaid === false ? "pending_payment" : "paid",
-        paidAt: data.markAsPaid === false ? undefined : new Date(),
-      });
-
-      const bookingWithDetails = await storage.getPsychologistBooking(booking.id);
-      res.status(201).json({
+      const bookingWithDetails = await storage.getPsychologistBooking(created.bookings[0].id);
+      return res.status(201).json({
         booking: bookingWithDetails,
         integrationStatus,
         message: integrationStatus === "linked_existing_user"
@@ -3601,8 +3602,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Data booking manual tidak valid", errors: error.flatten() });
       }
+      if (error instanceof Error && error.message === "BOOKING_SLOT_UNAVAILABLE") {
+        return res.status(409).json({ message: "Jadwal baru saja dipilih oleh booking lain. Silakan pilih jadwal yang berbeda." });
+      }
       console.error("Error creating manual counseling booking:", error);
-      res.status(500).json({ message: "Failed to create manual counseling booking" });
+      return res.status(500).json({ message: "Failed to create manual counseling booking" });
     }
   });
 
