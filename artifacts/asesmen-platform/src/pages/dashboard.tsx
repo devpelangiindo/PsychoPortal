@@ -44,6 +44,8 @@ type DassEligibilityResponse = {
   eligibleOrders: DassEligibility[];
 };
 
+type SrqEligibilityResponse = DassEligibilityResponse;
+
 const PAYMENT_EXPIRY_MINUTES = 15;
 
 function isOrderPaid(order: OrderWithItems) {
@@ -293,6 +295,12 @@ export default function Dashboard() {
     refetchInterval: 5000,
   });
 
+  const { data: srqEligibility } = useQuery<SrqEligibilityResponse>({
+    queryKey: ["/api/srq-screenings/eligibility"],
+    enabled: isAuthenticated,
+    refetchInterval: 5000,
+  });
+
   const settlePaymentMutation = useMutation({
     mutationFn: async (orderId: number) => {
       const response = await apiRequest("POST", "/api/payments/create", {
@@ -364,6 +372,7 @@ export default function Dashboard() {
         queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] }),
         queryClient.refetchQueries({ queryKey: ["/api/orders"] }),
         queryClient.refetchQueries({ queryKey: ["/api/dass-screenings/eligibility"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/srq-screenings/eligibility"] }),
       ]);
       toast({
         title: "Sinkronisasi Berhasil",
@@ -388,6 +397,8 @@ export default function Dashboard() {
   const clientReports = bookings?.filter((booking) => booking.reportSubmittedAt && getClientReportText(booking)) || [];
   const activeDassScreening = dassEligibility?.eligibleOrders.find((item) => !item.completed)
     ?? dassEligibility?.eligibleOrders[0];
+  const activeSrqScreening = srqEligibility?.eligibleOrders.find((item) => !item.completed)
+    ?? srqEligibility?.eligibleOrders[0];
   const filteredOrders = useMemo(() => {
     const query = orderSearch.trim().toLowerCase();
     if (!query) return orders || [];
@@ -544,6 +555,37 @@ export default function Dashboard() {
               ) : (
                 <Link href={`/dass-screening/${activeDassScreening.orderId}`}>
                   <Button className="w-full whitespace-nowrap md:w-auto">Mulai Tes DASS</Button>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeSrqScreening && (
+          <Card className="mb-12 -mt-8 overflow-hidden border-sky-200 bg-gradient-to-r from-sky-50 to-cyan-50">
+            <CardContent className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="rounded-full bg-sky-700 p-3 text-white">
+                  {activeSrqScreening.completed ? <CheckCircle2 className="h-6 w-6" /> : <ClipboardCheck className="h-6 w-6" />}
+                </div>
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-wide text-sky-700">Screening Awal Konseling</p>
+                  <h2 className="mt-1 text-xl font-semibold text-neutral-900">Self-Reporting Questionnaire (SRQ-29)</h2>
+                  <p className="mt-2 text-sm text-neutral-600">
+                    {activeSrqScreening.completed
+                      ? "Tes telah selesai dan hasilnya sudah tersedia untuk psikolog yang menangani Anda."
+                      : "Jawab 29 pertanyaan mengenai kondisi 30 hari terakhir sebagai data pendukung konseling."}
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Psikolog: {activeSrqScreening.psychologistName || "-"} · Jadwal {formatDisplayDate(activeSrqScreening.preferredDate)}, {activeSrqScreening.preferredTime}
+                  </p>
+                </div>
+              </div>
+              {activeSrqScreening.completed ? (
+                <Badge className="self-start bg-sky-700 md:self-center">Sudah diisi</Badge>
+              ) : (
+                <Link href={`/srq-screening/${activeSrqScreening.orderId}`}>
+                  <Button className="w-full whitespace-nowrap bg-sky-700 hover:bg-sky-800 md:w-auto">Mulai Tes SRQ</Button>
                 </Link>
               )}
             </CardContent>

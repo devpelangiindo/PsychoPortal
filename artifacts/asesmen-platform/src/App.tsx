@@ -18,6 +18,7 @@ import MentalHealthCheckup from "@/pages/mental-health-checkup";
 import StudentPotentialTest from "@/pages/student-potential-test";
 import CareerPotentialTest from "@/pages/career-potential-test";
 import DassScreening from "@/pages/dass-screening";
+import SrqScreening from "@/pages/srq-screening";
 import AssessmentResults from "@/pages/assessment-results";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
@@ -81,6 +82,7 @@ function Router() {
       <Route path="/student-potential-test/:userAssessmentId" component={StudentPotentialTest} />
       <Route path="/career-potential-test/:userAssessmentId" component={CareerPotentialTest} />
       <Route path="/dass-screening/:orderId" component={DassScreening} />
+      <Route path="/srq-screening/:orderId" component={SrqScreening} />
       <Route path="/results/:assessmentId" component={AssessmentResults} />
       <Route path="/payment-success" component={PaymentSuccess} />
       <Route path="/payment-failed" component={PaymentFailed} />

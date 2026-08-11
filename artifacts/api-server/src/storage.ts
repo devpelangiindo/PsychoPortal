@@ -6,6 +6,7 @@ import {
   psychologistScheduleSlots,
   psychologistBookings,
   dassScreenings,
+  srqScreenings,
   orders,
   orderItems,
   userAssessments,
@@ -26,6 +27,9 @@ import {
   type DassScreening,
   type InsertDassScreening,
   type PsychologistDassScreeningWithClient,
+  type SrqScreening,
+  type InsertSrqScreening,
+  type PsychologistSrqScreeningWithClient,
   type Order,
   type InsertOrder,
   type OrderItem,
@@ -155,6 +159,10 @@ export interface IStorage {
   getDassScreeningsByUser(userId: string): Promise<DassScreening[]>;
   getDassScreeningsByPsychologist(psychologistName: string): Promise<PsychologistDassScreeningWithClient[]>;
   createDassScreening(screening: InsertDassScreening): Promise<DassScreening>;
+  getSrqScreeningByOrder(orderId: number): Promise<SrqScreening | undefined>;
+  getSrqScreeningsByUser(userId: string): Promise<SrqScreening[]>;
+  getSrqScreeningsByPsychologist(psychologistName: string): Promise<PsychologistSrqScreeningWithClient[]>;
+  createSrqScreening(screening: InsertSrqScreening): Promise<SrqScreening>;
   updatePsychologistBookingStatus(id: number, status: string): Promise<void>;
   updatePsychologistBookingReport(
     id: number,
@@ -573,6 +581,49 @@ export class DatabaseStorage implements IStorage {
 
   async createDassScreening(screening: InsertDassScreening): Promise<DassScreening> {
     const [created] = await db.insert(dassScreenings).values(screening).returning();
+    return created;
+  }
+
+  async getSrqScreeningByOrder(orderId: number): Promise<SrqScreening | undefined> {
+    const [screening] = await db
+      .select()
+      .from(srqScreenings)
+      .where(eq(srqScreenings.orderId, orderId));
+    return screening;
+  }
+
+  async getSrqScreeningsByUser(userId: string): Promise<SrqScreening[]> {
+    return db
+      .select()
+      .from(srqScreenings)
+      .where(eq(srqScreenings.userId, userId))
+      .orderBy(desc(srqScreenings.completedAt));
+  }
+
+  async getSrqScreeningsByPsychologist(psychologistName: string): Promise<PsychologistSrqScreeningWithClient[]> {
+    const rows = await db
+      .select({ screening: srqScreenings, booking: psychologistBookings })
+      .from(srqScreenings)
+      .innerJoin(psychologistBookings, eq(srqScreenings.orderId, psychologistBookings.orderId))
+      .where(eq(psychologistBookings.psychologistName, psychologistName))
+      .orderBy(desc(srqScreenings.completedAt), psychologistBookings.preferredDate);
+
+    const uniqueScreenings = new Map<number, PsychologistSrqScreeningWithClient>();
+    rows.forEach(({ screening, booking }) => {
+      if (uniqueScreenings.has(screening.id)) return;
+      uniqueScreenings.set(screening.id, {
+        ...screening,
+        clientName: booking.clientName,
+        psychologistName: booking.psychologistName,
+        preferredDate: booking.preferredDate,
+        preferredTime: booking.preferredTime,
+      });
+    });
+    return Array.from(uniqueScreenings.values());
+  }
+
+  async createSrqScreening(screening: InsertSrqScreening): Promise<SrqScreening> {
+    const [created] = await db.insert(srqScreenings).values(screening).returning();
     return created;
   }
 

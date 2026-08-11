@@ -142,6 +142,11 @@ const dassSubmissionSchema = z.object({
   answers: z.array(z.number().int().min(0).max(3)).length(42),
 });
 
+const srqSubmissionSchema = z.object({
+  orderId: z.number().int().positive(),
+  answers: z.array(z.boolean()).length(29),
+});
+
 function sumDassItems(answers: number[], items: readonly number[]) {
   return items.reduce((total, itemNumber) => total + answers[itemNumber - 1], 0);
 }
@@ -157,6 +162,12 @@ function getDassCategory(scale: "depression" | "anxiety" | "stress", score: numb
   if (score < thresholds[2]) return "Sedang";
   if (score < thresholds[3]) return "Berat";
   return "Sangat Berat";
+}
+
+function getSrqCategory(score: number) {
+  if (score <= 5) return "Ringan";
+  if (score <= 10) return "Sedang";
+  return "Berat";
 }
 
 function isPaidCounselingBooking(booking: { status: string; order: { status: string; paymentStatus?: string | null } }) {
@@ -3147,6 +3158,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching psychologist DASS screenings:", error);
       return res.status(500).json({ message: "Failed to fetch DASS screenings" });
+    }
+  });
+
+  app.get('/api/srq-screenings/eligibility', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [bookings, screenings] = await Promise.all([
+        storage.getUserPsychologistBookings(userId),
+        storage.getSrqScreeningsByUser(userId),
+      ]);
+      const screeningByOrder = new Map(screenings.map((screening) => [screening.orderId, screening]));
+      const latestPaidBooking = bookings
+        .filter(isPaidCounselingBooking)
+        .sort((left, right) => right.id - left.id)[0];
+      const eligibleOrders = new Map<number, {
+        orderId: number;
+        psychologistName: string | null;
+        preferredDate: string;
+        preferredTime: string;
+        completed: boolean;
+        completedAt: Date | null;
+      }>();
+
+      bookings
+        .filter((booking) => latestPaidBooking && booking.orderId === latestPaidBooking.orderId)
+        .forEach((booking) => {
+          if (eligibleOrders.has(booking.orderId)) return;
+          const screening = screeningByOrder.get(booking.orderId);
+          eligibleOrders.set(booking.orderId, {
+            orderId: booking.orderId,
+            psychologistName: booking.psychologistName,
+            preferredDate: booking.preferredDate,
+            preferredTime: booking.preferredTime,
+            completed: Boolean(screening),
+            completedAt: screening?.completedAt ?? null,
+          });
+        });
+
+      return res.json({ eligibleOrders: Array.from(eligibleOrders.values()) });
+    } catch (error) {
+      console.error("Error fetching SRQ eligibility:", error);
+      return res.status(500).json({ message: "Failed to fetch SRQ eligibility" });
+    }
+  });
+
+  app.post('/api/srq-screenings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = srqSubmissionSchema.parse(req.body);
+      const booking = await storage.getPsychologistBookingByOrder(data.orderId);
+
+      if (!booking || booking.userId !== userId) {
+        return res.status(404).json({ message: "Booking konseling tidak ditemukan" });
+      }
+      if (!isPaidCounselingBooking(booking)) {
+        return res.status(403).json({ message: "Tes SRQ hanya tersedia setelah pembayaran konseling selesai" });
+      }
+      const latestPaidBooking = (await storage.getUserPsychologistBookings(userId))
+        .filter(isPaidCounselingBooking)
+        .sort((left, right) => right.id - left.id)[0];
+      if (!latestPaidBooking || latestPaidBooking.orderId !== data.orderId) {
+        return res.status(403).json({ message: "Tes SRQ hanya tersedia untuk booking konseling berbayar terbaru" });
+      }
+      if (await storage.getSrqScreeningByOrder(data.orderId)) {
+        return res.status(409).json({ message: "Tes SRQ untuk booking ini sudah pernah diselesaikan" });
+      }
+
+      const score = data.answers.filter(Boolean).length;
+      await storage.createSrqScreening({
+        userId,
+        orderId: data.orderId,
+        answers: data.answers,
+        score,
+        category: getSrqCategory(score),
+        hasSafetyAlert: data.answers[16],
+      });
+
+      return res.status(201).json({ completed: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Jawaban SRQ tidak lengkap atau tidak valid", errors: error.flatten() });
+      }
+      console.error("Error saving SRQ screening:", error);
+      return res.status(500).json({ message: "Failed to save SRQ screening" });
+    }
+  });
+
+  app.get('/api/psychologist/srq-screenings', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== "psychologist") {
+        return res.status(403).json({ message: "Hasil SRQ hanya dapat diakses oleh psikolog" });
+      }
+      const providerName = user.psychologistProfileName || getDisplayName(user);
+      if (!providerName) {
+        return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
+      }
+
+      const screenings = await storage.getSrqScreeningsByPsychologist(providerName);
+      return res.json(screenings.map((screening) => ({
+        id: screening.id,
+        orderId: screening.orderId,
+        clientName: screening.clientName,
+        preferredDate: screening.preferredDate,
+        preferredTime: screening.preferredTime,
+        completedAt: screening.completedAt,
+        score: screening.score,
+        category: screening.category,
+        hasSafetyAlert: screening.hasSafetyAlert,
+        affirmativeItems: screening.answers
+          .map((answer, index) => answer ? index + 1 : null)
+          .filter((itemNumber): itemNumber is number => itemNumber !== null),
+      })));
+    } catch (error) {
+      console.error("Error fetching psychologist SRQ screenings:", error);
+      return res.status(500).json({ message: "Failed to fetch SRQ screenings" });
     }
   });
 

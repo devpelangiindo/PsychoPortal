@@ -193,6 +193,22 @@ export const dassScreenings = pgTable("dass_screenings", {
   index("dass_screening_user_idx").on(table.userId),
 ]);
 
+// SRQ-29 screening results for paid counseling orders
+export const srqScreenings = pgTable("srq_screenings", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  answers: jsonb("answers").$type<boolean[]>().notNull(),
+  score: integer("score").notNull(),
+  category: varchar("category", { length: 30 }).notNull(),
+  hasSafetyAlert: boolean("has_safety_alert").notNull().default(false),
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("srq_screening_order_unique").on(table.orderId),
+  index("srq_screening_user_idx").on(table.userId),
+]);
+
 // Order items
 export const orderItems = pgTable("order_items", {
   id: serial("id").primaryKey(),
@@ -220,6 +236,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   userAssessments: many(userAssessments),
   psychologistBookings: many(psychologistBookings),
   dassScreenings: many(dassScreenings),
+  srqScreenings: many(srqScreenings),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -231,6 +248,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   userAssessments: many(userAssessments),
   psychologistBookings: many(psychologistBookings),
   dassScreenings: many(dassScreenings),
+  srqScreenings: many(srqScreenings),
 }));
 
 export const dassScreeningsRelations = relations(dassScreenings, ({ one }) => ({
@@ -240,6 +258,17 @@ export const dassScreeningsRelations = relations(dassScreenings, ({ one }) => ({
   }),
   order: one(orders, {
     fields: [dassScreenings.orderId],
+    references: [orders.id],
+  }),
+}));
+
+export const srqScreeningsRelations = relations(srqScreenings, ({ one }) => ({
+  user: one(users, {
+    fields: [srqScreenings.userId],
+    references: [users.id],
+  }),
+  order: one(orders, {
+    fields: [srqScreenings.orderId],
     references: [orders.id],
   }),
 }));
@@ -302,6 +331,7 @@ export const insertPsychologistAvailabilitySchema = createInsertSchema(psycholog
 export const insertPsychologistScheduleSlotSchema = createInsertSchema(psychologistScheduleSlots);
 export const insertPsychologistBookingSchema = createInsertSchema(psychologistBookings);
 export const insertDassScreeningSchema = createInsertSchema(dassScreenings);
+export const insertSrqScreeningSchema = createInsertSchema(srqScreenings);
 export const insertOrderSchema = createInsertSchema(orders);
 export const insertOrderItemSchema = createInsertSchema(orderItems);
 export const insertUserAssessmentSchema = createInsertSchema(userAssessments);
@@ -380,6 +410,8 @@ export type PsychologistBooking = typeof psychologistBookings.$inferSelect;
 export type InsertPsychologistBooking = z.infer<typeof insertPsychologistBookingSchema>;
 export type DassScreening = typeof dassScreenings.$inferSelect;
 export type InsertDassScreening = z.infer<typeof insertDassScreeningSchema>;
+export type SrqScreening = typeof srqScreenings.$inferSelect;
+export type InsertSrqScreening = z.infer<typeof insertSrqScreeningSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type OrderItem = typeof orderItems.$inferSelect;
@@ -421,6 +453,13 @@ export type PsychologistBookingWithDetails = PsychologistBooking & {
 };
 
 export type PsychologistDassScreeningWithClient = DassScreening & {
+  clientName: string;
+  psychologistName: string | null;
+  preferredDate: string;
+  preferredTime: string;
+};
+
+export type PsychologistSrqScreeningWithClient = SrqScreening & {
   clientName: string;
   psychologistName: string | null;
   preferredDate: string;

@@ -78,6 +78,19 @@ type DassScreeningResult = {
   stressCategory: string;
 };
 
+type SrqScreeningResult = {
+  id: number;
+  orderId: number;
+  clientName: string;
+  preferredDate: string;
+  preferredTime: string;
+  completedAt: string;
+  score: number;
+  category: string;
+  hasSafetyAlert: boolean;
+  affirmativeItems: number[];
+};
+
 type AvailabilitySlot = {
   id?: number;
   dayOfWeek: number;
@@ -350,6 +363,12 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
     retry: false,
     refetchInterval: 10000,
   });
+  const { data: srqScreenings = [] } = useQuery<SrqScreeningResult[]>({
+    queryKey: ["/api/psychologist/srq-screenings"],
+    enabled: hasAccess && !isAdminMode && user?.role === "psychologist",
+    retry: false,
+    refetchInterval: 10000,
+  });
   const filteredBookings = useMemo(() => {
     const query = bookingSearch.trim().toLowerCase();
     const hasDateFilter = Boolean(bookingStartDate || bookingEndDate);
@@ -506,6 +525,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                     key={booking.id}
                     booking={booking}
                     dassScreening={dassScreenings.find((screening) => screening.orderId === booking.order.id)}
+                    srqScreening={srqScreenings.find((screening) => screening.orderId === booking.order.id)}
                     canEditClientSchedule={isAdminMode}
                     canEditMeetingLink={user?.role === "admin"}
                     canEditReports={canEditReports}
@@ -1307,6 +1327,7 @@ function flattenAvailability(slots: Record<number, Record<string, boolean>>) {
 function BookingCard({
   booking,
   dassScreening,
+  srqScreening,
   canEditClientSchedule,
   canEditMeetingLink,
   canEditReports,
@@ -1315,6 +1336,7 @@ function BookingCard({
 }: {
   booking: Booking;
   dassScreening?: DassScreeningResult;
+  srqScreening?: SrqScreeningResult;
   canEditClientSchedule: boolean;
   canEditMeetingLink: boolean;
   canEditReports: boolean;
@@ -1399,6 +1421,7 @@ function BookingCard({
             </div>
 
             {dassScreening && <DassScreeningResultCard screening={dassScreening} />}
+            {srqScreening && <SrqScreeningResultCard screening={srqScreening} />}
 
             {canEditMeetingLink && booking.location === "online" && <MeetingLinkEditor booking={booking} onSaved={onSaved} />}
             {canEditClientSchedule && <ScheduleEditor booking={booking} onSaved={onSaved} />}
@@ -1941,6 +1964,40 @@ function DassScreeningResultCard({ screening }: { screening: DassScreeningResult
         ))}
       </div>
       <p className="mt-3 text-xs leading-relaxed text-neutral-600">DASS-42 merupakan instrumen screening dan bukan diagnosis. Interpretasikan hasil bersama informasi klinis dan proses konseling.</p>
+    </div>
+  );
+}
+
+function SrqScreeningResultCard({ screening }: { screening: SrqScreeningResult }) {
+  return (
+    <div className={`mt-5 rounded-xl border p-4 ${screening.hasSafetyAlert ? "border-red-300 bg-red-50" : "border-sky-200 bg-sky-50/60"}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className={`text-xs font-semibold uppercase tracking-wide ${screening.hasSafetyAlert ? "text-red-700" : "text-sky-700"}`}>Hasil Screening Awal</p>
+          <h3 className="mt-1 font-semibold text-neutral-900">Self-Reporting Questionnaire (SRQ-29)</h3>
+        </div>
+        <span className="text-xs text-neutral-500">Diisi {formatDisplayDateTime(screening.completedAt)}</span>
+      </div>
+      {screening.hasSafetyAlert && (
+        <div className="mt-4 rounded-lg border border-red-300 bg-white p-3 text-sm font-medium text-red-800">
+          Perhatian: klien menjawab “Ya” pada pertanyaan 17 tentang pikiran mengakhiri hidup. Lakukan penilaian keselamatan dan tindak lanjut klinis sesuai prosedur.
+        </div>
+      )}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border bg-white p-3">
+          <p className="text-xs uppercase text-neutral-500">Skor total</p>
+          <span className="mt-1 block text-2xl font-bold text-neutral-900">{screening.score} / 29</span>
+        </div>
+        <div className="rounded-lg border bg-white p-3">
+          <p className="text-xs uppercase text-neutral-500">Kategori</p>
+          <Badge className="mt-2" variant="secondary">{screening.category}</Badge>
+        </div>
+      </div>
+      <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-neutral-700">
+        <span className="font-medium">Pertanyaan yang dijawab “Ya”:</span>{" "}
+        {screening.affirmativeItems.length ? screening.affirmativeItems.join(", ") : "Tidak ada"}
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-neutral-600">SRQ-29 merupakan instrumen screening dan bukan diagnosis. Interpretasikan hasil bersama informasi klinis dan proses konseling.</p>
     </div>
   );
 }
