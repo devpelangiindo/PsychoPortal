@@ -350,6 +350,62 @@ export default function PaymentReturn() {
     }
   };
 
+  const handleSimulatePayment = async () => {
+    try {
+      let orderIdToUse = orderData?.orderId;
+
+      if (!orderIdToUse) {
+        const storedInvoices = Object.keys(localStorage).filter(key => key.startsWith('payment_data_'));
+        if (storedInvoices.length > 0) {
+          const invoiceData = JSON.parse(localStorage.getItem(storedInvoices[0]) || '{}');
+          orderIdToUse = invoiceData.orderId;
+        }
+
+        if (!orderIdToUse && user) {
+          const ordersResponse = await apiRequest('GET', '/api/orders');
+          const orders = await ordersResponse.json();
+          if (orders && orders.length > 0) {
+            const latestOrder = orders.find((order: any) => order.status === 'pending') || orders[0];
+            orderIdToUse = latestOrder.id;
+          }
+        }
+      }
+
+      if (!orderIdToUse) {
+        throw new Error('Tidak dapat menemukan order untuk disimulasikan');
+      }
+
+      const response = await apiRequest('POST', `/api/midtrans/simulate-payment/${orderIdToUse}`, {});
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Gagal mensimulasikan pembayaran');
+      }
+
+      setPaymentStatus('success');
+      const orderResponse = await apiRequest('GET', `/api/payment-status/${orderIdToUse}`);
+      setOrderData(await orderResponse.json());
+
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('payment_data_')) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      toast({
+        title: "Pembayaran Berhasil!",
+        description: "Asesmen Anda sekarang tersedia di dashboard.",
+      });
+    } catch (simulationError: any) {
+      console.error('Payment simulation error:', simulationError);
+      toast({
+        title: "Error",
+        description: simulationError.message || "Gagal mensimulasikan pembayaran",
+        variant: "destructive",
+      });
+    }
+  };
+
   const renderContent = () => {
     switch (paymentStatus) {
       case 'loading':
@@ -429,9 +485,14 @@ export default function PaymentReturn() {
                   </p>
                 </div>
               )}
-              <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
-                Periksa Status Lagi
-              </Button>
+              <div className="space-y-2">
+                <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
+                  Periksa Status Lagi
+                </Button>
+                <Button onClick={handleSimulatePayment} className="w-full">
+                  Simulasi Pembayaran (Testing)
+                </Button>
+              </div>
             </CardContent>
           </Card>
         );
