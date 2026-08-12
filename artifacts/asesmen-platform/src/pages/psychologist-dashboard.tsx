@@ -378,6 +378,10 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
     retry: false,
     refetchInterval: 10000,
   });
+  const screeningOrderIds = useMemo(
+    () => new Set([...dassScreenings, ...srqScreenings].map((screening) => screening.orderId)),
+    [dassScreenings, srqScreenings],
+  );
   const filteredBookings = useMemo(() => {
     const query = bookingSearch.trim().toLowerCase();
     const hasDateFilter = Boolean(bookingStartDate || bookingEndDate);
@@ -603,8 +607,12 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
             ) : (
               <ConsultationReportList
                 reports={reports.filter((booking) => Boolean(
-                  (booking.reportSubmittedAt && getClientReportText(booking)) || getHistoryReportText(booking),
+                  (booking.reportSubmittedAt && getClientReportText(booking))
+                  || getHistoryReportText(booking)
+                  || screeningOrderIds.has(booking.order.id),
                 ))}
+                dassScreenings={dassScreenings}
+                srqScreenings={srqScreenings}
               />
             )}
           </TabsContent>
@@ -2089,8 +2097,16 @@ async function viewReportPdf(booking: Booking, mode: "client" | "history") {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-function ConsultationReportList({ reports }: { reports: Booking[] }) {
-  const [activeReport, setActiveReport] = useState<{ bookingId: number; mode: "client" | "history" } | null>(null);
+function ConsultationReportList({
+  reports,
+  dassScreenings,
+  srqScreenings,
+}: {
+  reports: Booking[];
+  dassScreenings: DassScreeningResult[];
+  srqScreenings: SrqScreeningResult[];
+}) {
+  const [activeReport, setActiveReport] = useState<{ bookingId: number; mode: "client" | "history" | "screening" } | null>(null);
 
   if (reports.length === 0) {
     return (
@@ -2105,10 +2121,14 @@ function ConsultationReportList({ reports }: { reports: Booking[] }) {
       {reports.map((booking) => {
         const hasClientReport = Boolean(booking.reportSubmittedAt && getClientReportText(booking));
         const hasHistoryReport = Boolean(getHistoryReportText(booking));
+        const dassScreening = dassScreenings.find((screening) => screening.orderId === booking.order.id);
+        const srqScreening = srqScreenings.find((screening) => screening.orderId === booking.order.id);
+        const hasScreening = Boolean(dassScreening || srqScreening);
         const clientOpen = activeReport?.bookingId === booking.id && activeReport.mode === "client";
         const historyOpen = activeReport?.bookingId === booking.id && activeReport.mode === "history";
-        const selectedMode = clientOpen ? "client" : historyOpen ? "history" : null;
-        const toggleReport = (mode: "client" | "history") => {
+        const screeningOpen = activeReport?.bookingId === booking.id && activeReport.mode === "screening";
+        const selectedMode = clientOpen ? "client" : historyOpen ? "history" : screeningOpen ? "screening" : null;
+        const toggleReport = (mode: "client" | "history" | "screening") => {
           setActiveReport((current) => current?.bookingId === booking.id && current.mode === mode ? null : { bookingId: booking.id, mode });
         };
 
@@ -2128,7 +2148,7 @@ function ConsultationReportList({ reports }: { reports: Booking[] }) {
                   </div>
                 </div>
 
-                <div className="grid shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className={`grid shrink-0 grid-cols-1 gap-2 ${hasScreening ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                   <Button type="button" size="sm" disabled={!hasClientReport} onClick={() => toggleReport("client")} className={clientOpen ? "bg-amber-600 hover:bg-amber-700" : "bg-amber-500 hover:bg-amber-600"}>
                     <ClipboardCheck className="mr-2 h-4 w-4" />
                     {clientOpen ? "Tutup Laporan" : "Laporan Klien"}
@@ -2137,10 +2157,16 @@ function ConsultationReportList({ reports }: { reports: Booking[] }) {
                     <History className="mr-2 h-4 w-4" />
                     {historyOpen ? "Tutup Riwayat" : "Riwayat Konseling"}
                   </Button>
+                  {hasScreening && (
+                    <Button type="button" size="sm" onClick={() => toggleReport("screening")} className={screeningOpen ? "bg-indigo-700 hover:bg-indigo-800" : "bg-indigo-600 hover:bg-indigo-700"}>
+                      <ClipboardCheck className="mr-2 h-4 w-4" />
+                      {screeningOpen ? "Tutup Screening" : "Hasil Screening"}
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              {selectedMode && (
+              {selectedMode && selectedMode !== "screening" && (
                 <div className={`mt-5 rounded-xl border p-4 ${selectedMode === "client" ? "border-amber-200 bg-amber-50/60" : "border-sky-200 bg-sky-50/60"}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h4 className="font-semibold text-neutral-900">{selectedMode === "client" ? "Laporan untuk Klien" : "Riwayat Konseling"}</h4>
@@ -2149,6 +2175,13 @@ function ConsultationReportList({ reports }: { reports: Booking[] }) {
                   <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
                     {selectedMode === "client" ? getClientReportText(booking) : getHistoryReportText(booking)}
                   </p>
+                </div>
+              )}
+              {screeningOpen && (
+                <div className="mt-5 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+                  <h4 className="font-semibold text-neutral-900">Hasil Tes Screening</h4>
+                  {dassScreening && <DassScreeningResultCard screening={dassScreening} />}
+                  {srqScreening && <SrqScreeningResultCard screening={srqScreening} />}
                 </div>
               )}
             </CardContent>
