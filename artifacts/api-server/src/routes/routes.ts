@@ -224,6 +224,10 @@ function isPaidCounselingBooking(booking: { status: string; order: { status: str
   return booking.status === "paid" || booking.order.status === "completed" || booking.order.paymentStatus === "paid";
 }
 
+function isScreeningEligibleConsultation(booking: { consultationType?: string | null }) {
+  return booking.consultationType !== "child";
+}
+
 function hasPaymentExpired(order: { status: string; paymentId?: string | null; paymentStatus?: string | null; updatedAt?: Date | string | null }) {
   if (order.status !== "pending" || !order.paymentId || order.paymentStatus === "paid") return false;
 
@@ -3222,7 +3226,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((left, right) => right.id - left.id)[0];
 
       bookings
-        .filter((booking) => latestPaidBooking && booking.orderId === latestPaidBooking.orderId)
+        .filter((booking) => latestPaidBooking
+          && booking.orderId === latestPaidBooking.orderId
+          && isScreeningEligibleConsultation(booking))
         .forEach((booking) => {
           if (eligibleOrders.has(booking.orderId)) return;
           const screening = screeningByOrder.get(booking.orderId);
@@ -3251,6 +3257,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!booking || booking.userId !== userId) {
         return res.status(404).json({ message: "Booking konseling tidak ditemukan" });
+      }
+      if (!isScreeningEligibleConsultation(booking)) {
+        return res.status(403).json({ message: "Tes DASS tidak tersedia untuk konsultasi perkembangan anak & remaja" });
       }
       if (!isPaidCounselingBooking(booking)) {
         return res.status(403).json({ message: "Tes DASS hanya tersedia setelah pembayaran konseling selesai" });
@@ -3384,7 +3393,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }>();
 
       bookings
-        .filter((booking) => latestPaidBooking && booking.orderId === latestPaidBooking.orderId)
+        .filter((booking) => latestPaidBooking
+          && booking.orderId === latestPaidBooking.orderId
+          && isScreeningEligibleConsultation(booking))
         .forEach((booking) => {
           if (eligibleOrders.has(booking.orderId)) return;
           const screening = screeningByOrder.get(booking.orderId);
@@ -3413,6 +3424,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!booking || booking.userId !== userId) {
         return res.status(404).json({ message: "Booking konseling tidak ditemukan" });
+      }
+      if (!isScreeningEligibleConsultation(booking)) {
+        return res.status(403).json({ message: "Tes SRQ tidak tersedia untuk konsultasi perkembangan anak & remaja" });
       }
       if (!isPaidCounselingBooking(booking)) {
         return res.status(403).json({ message: "Tes SRQ hanya tersedia setelah pembayaran konseling selesai" });
