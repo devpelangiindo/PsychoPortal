@@ -479,10 +479,17 @@ export default function AdminUsers() {
     },
   });
 
-  const filteredUsers = users?.filter(user =>
+  const filteredUsers = (users?.filter(user =>
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  ) || []).sort((left, right) => {
+    const leftTimestamp = Date.parse(left.createdAt);
+    const rightTimestamp = Date.parse(right.createdAt);
+    const safeLeftTimestamp = Number.isFinite(leftTimestamp) ? leftTimestamp : 0;
+    const safeRightTimestamp = Number.isFinite(rightTimestamp) ? rightTimestamp : 0;
+
+    return safeRightTimestamp - safeLeftTimestamp || right.id.localeCompare(left.id);
+  });
 
   const openEditDialog = (user: User) => {
     setSelectedUser(user);
