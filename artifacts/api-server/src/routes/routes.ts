@@ -136,6 +136,56 @@ const PAYMENT_EXPIRY_MINUTES = 15;
 const DASS_DEPRESSION_ITEMS = [3, 5, 10, 13, 16, 17, 21, 24, 26, 31, 34, 37, 38, 42] as const;
 const DASS_ANXIETY_ITEMS = [2, 4, 7, 9, 15, 19, 20, 23, 25, 28, 30, 36, 40, 41] as const;
 const DASS_STRESS_ITEMS = [1, 6, 8, 11, 12, 14, 18, 22, 27, 29, 32, 33, 35, 39] as const;
+const DASS_QUESTIONS = [
+  "Saya merasa bahwa diri saya menjadi marah karena hal-hal sepele.",
+  "Saya merasa bibir saya sering kering.",
+  "Saya sama sekali tidak dapat merasakan perasaan positif.",
+  "Saya mengalami kesulitan bernapas (misalnya sering terengah-engah atau tidak dapat bernapas padahal tidak melakukan aktivitas fisik sebelumnya).",
+  "Saya sepertinya tidak kuat lagi untuk melakukan suatu kegiatan.",
+  "Saya cenderung bereaksi berlebihan terhadap suatu situasi.",
+  "Saya merasa goyah (misalnya kaki terasa mau 'copot').",
+  "Saya merasa sulit untuk bersantai.",
+  "Saya menemukan diri saya berada dalam situasi yang membuat saya merasa sangat cemas dan saya akan merasa sangat lega jika semua ini berakhir.",
+  "Saya merasa tidak ada hal yang dapat diharapkan di masa depan.",
+  "Saya menemukan diri saya mudah merasa kesal.",
+  "Saya merasa telah menghabiskan banyak energi untuk merasa cemas.",
+  "Saya merasa sedih dan tertekan.",
+  "Saya menemukan diri saya menjadi tidak sabar ketika mengalami penundaan (misalnya kemacetan lalu lintas atau menunggu sesuatu).",
+  "Saya merasa lemas seperti mau pingsan.",
+  "Saya merasa saya kehilangan minat akan segala hal.",
+  "Saya merasa bahwa saya tidak berharga sebagai seorang manusia.",
+  "Saya merasa bahwa saya sangat mudah tersinggung.",
+  "Saya berkeringat secara berlebihan (misalnya tangan berkeringat), padahal temperatur tidak panas atau tidak melakukan aktivitas fisik sebelumnya.",
+  "Saya merasa takut tanpa alasan yang jelas.",
+  "Saya merasa bahwa hidup tidak bermanfaat.",
+  "Saya merasa sulit untuk beristirahat.",
+  "Saya mengalami kesulitan dalam menelan.",
+  "Saya tidak dapat merasakan kenikmatan dari berbagai hal yang saya lakukan.",
+  "Saya menyadari kegiatan jantung, walaupun saya tidak sehabis melakukan aktivitas fisik (misalnya merasa detak jantung meningkat atau melemah).",
+  "Saya merasa putus asa dan sedih.",
+  "Saya merasa bahwa saya sangat mudah marah.",
+  "Saya merasa saya hampir panik.",
+  "Saya merasa sulit untuk tenang setelah sesuatu membuat saya kesal.",
+  "Saya takut bahwa saya akan 'terhambat' oleh tugas-tugas sepele yang tidak biasa saya lakukan.",
+  "Saya tidak merasa antusias dalam hal apa pun.",
+  "Saya sulit untuk sabar dalam menghadapi gangguan terhadap hal yang sedang saya lakukan.",
+  "Saya sedang merasa gelisah.",
+  "Saya merasa bahwa saya tidak berharga.",
+  "Saya tidak dapat memaklumi hal apa pun yang menghalangi saya untuk menyelesaikan hal yang sedang saya lakukan.",
+  "Saya merasa sangat ketakutan.",
+  "Saya melihat tidak ada harapan untuk masa depan.",
+  "Saya merasa bahwa hidup tidak berarti.",
+  "Saya menemukan diri saya mudah gelisah.",
+  "Saya merasa khawatir dengan situasi di mana saya mungkin menjadi panik dan mempermalukan diri sendiri.",
+  "Saya merasa gemetar (misalnya pada tangan).",
+  "Saya merasa sulit untuk meningkatkan inisiatif dalam melakukan sesuatu.",
+] as const;
+const DASS_RESPONSE_LABELS = [
+  "Tidak sesuai dengan saya sama sekali, atau tidak pernah.",
+  "Sesuai dengan saya sampai tingkat tertentu, atau kadang-kadang.",
+  "Sesuai dengan saya sampai batas yang dapat dipertimbangkan, atau lumayan sering.",
+  "Sangat sesuai dengan saya, atau sering sekali.",
+] as const;
 
 const dassSubmissionSchema = z.object({
   orderId: z.number().int().positive(),
@@ -834,6 +884,118 @@ export async function streamClientCounselingReportPdf(res: any, booking: any, ps
   drawClinicalSection(doc, "CATATAN HASIL KONSELING", getClientReportText(booking), "#178253");
   drawClinicalSection(doc, "REKOMENDASI (OPSIONAL)", booking.reportRecommendations || "-", "#315a29");
   await drawPsychologistSignature(doc, booking, psychologist);
+  doc.end();
+}
+
+function getDassScaleLabel(itemNumber: number) {
+  if ((DASS_DEPRESSION_ITEMS as readonly number[]).includes(itemNumber)) return "Depresi";
+  if ((DASS_ANXIETY_ITEMS as readonly number[]).includes(itemNumber)) return "Kecemasan";
+  return "Stres";
+}
+
+function drawDassAnswerTableHeader(doc: PDFKit.PDFDocument) {
+  const x = doc.page.margins.left;
+  const width = doc.page.width - x - doc.page.margins.right;
+  const columns = { number: 25, scale: 64, answer: 142 };
+  const questionWidth = width - columns.number - columns.scale - columns.answer;
+  const y = doc.y;
+  doc.rect(x, y, width, 25).fill("#315a78");
+  doc.font("Helvetica-Bold").fontSize(8).fillColor("#ffffff")
+    .text("No.", x + 4, y + 8, { width: columns.number - 8, align: "center" })
+    .text("Skala", x + columns.number + 5, y + 8, { width: columns.scale - 10 })
+    .text("Pernyataan", x + columns.number + columns.scale + 5, y + 8, { width: questionWidth - 10 })
+    .text("Jawaban", x + width - columns.answer + 5, y + 8, { width: columns.answer - 10 });
+  doc.y = y + 25;
+}
+
+function startDassAnswerPage(doc: PDFKit.PDFDocument, continuation = false) {
+  if (continuation) {
+    doc.addPage();
+  }
+  const x = doc.page.margins.left;
+  const width = doc.page.width - x - doc.page.margins.right;
+  doc.font("Helvetica-Bold").fontSize(11).fillColor("#243047")
+    .text(`JAWABAN LENGKAP${continuation ? " (LANJUTAN)" : ""}`, x, doc.y, { width });
+  doc.moveDown(0.45);
+  drawDassAnswerTableHeader(doc);
+}
+
+export function streamDassScreeningReportPdf(res: any, screening: any, booking: any) {
+  const fileName = `laporan-dass-${booking.clientName || "klien"}-${screening.id}.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
+  const doc = new PDFDocument({ size: "A4", margin: 42, info: { Title: "Laporan Tes DASS" } });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+  doc.pipe(res);
+  doc.on("pageAdded", () => drawReportHeader(doc, true));
+
+  drawReportHeader(doc, true);
+  doc.font("Helvetica-Bold").fontSize(14).fillColor("#243047")
+    .text("LAPORAN TES DASS", { align: "center" });
+  doc.font("Helvetica").fontSize(9).fillColor("#596579")
+    .text("Depression Anxiety Stress Scale - 42 Item", { align: "center" });
+  doc.moveDown(1.1);
+  drawLabelValue(doc, "Nama Klien", booking.clientName || "-", 120);
+  drawLabelValue(doc, "Psikolog", booking.psychologistName || "-", 120);
+  drawLabelValue(doc, "Jadwal Konseling", `${formatLongIndonesianDate(booking.preferredDate, true)}, ${booking.preferredTime || "-"}`, 120);
+  drawLabelValue(doc, "Tanggal Pengisian", formatLongIndonesianDate(screening.completedAt, true), 120);
+  doc.moveDown(0.35);
+
+  const scores = [
+    { label: "Depresi", score: screening.depressionScore, category: screening.depressionCategory, color: "#315a78" },
+    { label: "Kecemasan", score: screening.anxietyScore, category: screening.anxietyCategory, color: "#347c26" },
+    { label: "Stres", score: screening.stressScore, category: screening.stressCategory, color: "#a56514" },
+  ];
+  const x = doc.page.margins.left;
+  const contentWidth = doc.page.width - x - doc.page.margins.right;
+  const gap = 10;
+  const cardWidth = (contentWidth - gap * 2) / 3;
+  const scoreY = doc.y;
+  scores.forEach((item, index) => {
+    const cardX = x + index * (cardWidth + gap);
+    doc.roundedRect(cardX, scoreY, cardWidth, 61, 5).fillAndStroke("#f8fafc", "#cbd5e1");
+    doc.font("Helvetica-Bold").fontSize(8).fillColor(item.color).text(item.label.toUpperCase(), cardX + 9, scoreY + 9, { width: cardWidth - 18 });
+    doc.font("Helvetica-Bold").fontSize(18).fillColor("#111827").text(String(item.score), cardX + 9, scoreY + 25, { width: 42 });
+    doc.font("Helvetica").fontSize(8.5).fillColor("#334155").text(item.category, cardX + 51, scoreY + 31, { width: cardWidth - 60, align: "right" });
+  });
+  doc.y = scoreY + 74;
+  doc.font("Helvetica-Oblique").fontSize(8).fillColor("#596579")
+    .text("DASS-42 merupakan instrumen screening, bukan diagnosis. Interpretasi hasil perlu mempertimbangkan informasi klinis dan proses konseling.", x, doc.y, { width: contentWidth, lineGap: 2 });
+  doc.moveDown(0.9);
+
+  startDassAnswerPage(doc);
+  const columns = { number: 25, scale: 64, answer: 142 };
+  const questionWidth = contentWidth - columns.number - columns.scale - columns.answer;
+  screening.answers.forEach((answer: number, index: number) => {
+    const question = DASS_QUESTIONS[index] || `Pernyataan ${index + 1}`;
+    const answerLabel = `${answer} - ${DASS_RESPONSE_LABELS[answer] || "-"}`;
+    doc.font("Helvetica").fontSize(7.5);
+    const rowHeight = Math.max(
+      31,
+      doc.heightOfString(question, { width: questionWidth - 10, lineGap: 1.5 }) + 12,
+      doc.heightOfString(answerLabel, { width: columns.answer - 10, lineGap: 1.5 }) + 12,
+    );
+    const bottom = doc.page.height - doc.page.margins.bottom;
+    // PDFKit can advance a page while laying out wrapped text near the bottom.
+    // Keep a conservative buffer so every continuation page is created here and receives the report header.
+    if (doc.y + rowHeight + 30 > bottom) startDassAnswerPage(doc, true);
+
+    const rowY = doc.y;
+    const background = index % 2 === 0 ? "#f8fafc" : "#ffffff";
+    doc.rect(x, rowY, contentWidth, rowHeight).fillAndStroke(background, "#d7dee8");
+    const boundaries = [x + columns.number, x + columns.number + columns.scale, x + contentWidth - columns.answer];
+    boundaries.forEach((boundary) => doc.moveTo(boundary, rowY).lineTo(boundary, rowY + rowHeight).strokeColor("#d7dee8").stroke());
+    doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#243047")
+      .text(String(index + 1), x + 4, rowY + 7, { width: columns.number - 8, align: "center" })
+      .text(getDassScaleLabel(index + 1), x + columns.number + 5, rowY + 7, { width: columns.scale - 10 });
+    doc.font("Helvetica").fillColor("#222")
+      .text(question, x + columns.number + columns.scale + 5, rowY + 7, { width: questionWidth - 10, height: rowHeight - 12, lineGap: 1.5 })
+      .text(answerLabel, x + contentWidth - columns.answer + 5, rowY + 7, { width: columns.answer - 10, height: rowHeight - 12, lineGap: 1.5 });
+    doc.y = rowY + rowHeight;
+  });
+
+  doc.moveDown(0.8);
+  doc.font("Helvetica-Oblique").fontSize(7.8).fillColor("#596579")
+    .text("Dokumen ini bersifat rahasia dan ditujukan untuk psikolog yang menangani klien.", x, doc.y, { width: contentWidth, align: "center" });
   doc.end();
 }
 
@@ -3158,6 +3320,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching psychologist DASS screenings:", error);
       return res.status(500).json({ message: "Failed to fetch DASS screenings" });
+    }
+  });
+
+  app.get('/api/psychologist/dass-screenings/:id/report.pdf', isAuthenticated, async (req: any, res) => {
+    try {
+      const screeningId = Number(req.params.id);
+      if (!Number.isInteger(screeningId) || screeningId <= 0) {
+        return res.status(400).json({ message: "ID hasil DASS tidak valid" });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== "psychologist") {
+        return res.status(403).json({ message: "Laporan DASS hanya dapat diakses oleh psikolog" });
+      }
+      const providerName = user.psychologistProfileName || getDisplayName(user);
+      if (!providerName) {
+        return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
+      }
+
+      const screening = (await storage.getDassScreeningsByPsychologist(providerName))
+        .find((item) => item.id === screeningId);
+      if (!screening) {
+        return res.status(404).json({ message: "Hasil DASS tidak ditemukan untuk psikolog ini" });
+      }
+      const booking = await storage.getPsychologistBookingByOrder(screening.orderId);
+      if (!booking || booking.psychologistName !== providerName) {
+        return res.status(403).json({ message: "Anda tidak memiliki akses ke laporan DASS ini" });
+      }
+      if (!Array.isArray(screening.answers) || screening.answers.length !== DASS_QUESTIONS.length) {
+        return res.status(422).json({ message: "Jawaban DASS tidak lengkap" });
+      }
+
+      streamDassScreeningReportPdf(res, screening, booking);
+      return;
+    } catch (error) {
+      console.error("Error generating DASS screening PDF:", error);
+      if (!res.headersSent) return res.status(500).json({ message: "Failed to generate DASS PDF" });
+      res.end();
+      return;
     }
   });
 

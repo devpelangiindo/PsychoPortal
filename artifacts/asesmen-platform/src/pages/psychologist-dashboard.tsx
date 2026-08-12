@@ -1959,7 +1959,10 @@ function DassScreeningResultCard({ screening }: { screening: DassScreeningResult
           <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Hasil Screening Awal</p>
           <h3 className="mt-1 font-semibold text-neutral-900">Tes DASS (Depression Anxiety Stress Scale)</h3>
         </div>
-        <span className="text-xs text-neutral-500">Diisi {formatDisplayDateTime(screening.completedAt)}</span>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <span className="text-xs text-neutral-500">Diisi {formatDisplayDateTime(screening.completedAt)}</span>
+          <ViewDassPdfButton screening={screening} />
+        </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {scales.map((scale) => (
@@ -1974,6 +1977,36 @@ function DassScreeningResultCard({ screening }: { screening: DassScreeningResult
       </div>
       <p className="mt-3 text-xs leading-relaxed text-neutral-600">DASS-42 merupakan instrumen screening dan bukan diagnosis. Interpretasikan hasil bersama informasi klinis dan proses konseling.</p>
     </div>
+  );
+}
+
+function ViewDassPdfButton({ screening }: { screening: DassScreeningResult }) {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleView = async () => {
+    setIsLoading(true);
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`/api/psychologist/dass-screenings/${screening.id}/report.pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) throw new Error("PDF belum tersedia");
+      const url = URL.createObjectURL(await response.blob());
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      toast({ title: "PDF DASS belum tersedia", description: "Silakan coba kembali.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={handleView}>
+      <Eye className="mr-2 h-4 w-4" />
+      {isLoading ? "Membuka..." : "Lihat PDF"}
+    </Button>
   );
 }
 
