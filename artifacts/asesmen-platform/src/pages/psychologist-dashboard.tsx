@@ -154,6 +154,15 @@ function compareBookingsByLatestSchedule(left: Booking, right: Booking) {
   return safeRightTimestamp - safeLeftTimestamp || right.id - left.id;
 }
 
+function compareBookingsByNewestClient(left: Booking, right: Booking) {
+  const leftTimestamp = Date.parse(left.createdAt ?? "");
+  const rightTimestamp = Date.parse(right.createdAt ?? "");
+  const safeLeftTimestamp = Number.isFinite(leftTimestamp) ? leftTimestamp : 0;
+  const safeRightTimestamp = Number.isFinite(rightTimestamp) ? rightTimestamp : 0;
+
+  return safeRightTimestamp - safeLeftTimestamp || right.id - left.id;
+}
+
 function escapeHtml(value: unknown) {
   return String(value ?? "-")
     .replace(/&/g, "&amp;")
@@ -379,9 +388,9 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
         ))
       : bookings;
 
-    return isAdminMode
-      ? [...matchingBookings].sort(compareBookingsByLatestSchedule)
-      : matchingBookings;
+    return [...matchingBookings].sort(
+      isAdminMode ? compareBookingsByLatestSchedule : compareBookingsByNewestClient,
+    );
   }, [bookingEndDate, bookingSearch, bookingStartDate, bookings, isAdminMode]);
 
   if (authLoading) {
