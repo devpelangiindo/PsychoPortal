@@ -156,11 +156,11 @@ export interface IStorage {
   getPsychologistBookingsByOrder(orderId: number): Promise<PsychologistBookingWithDetails[]>;
   getDassScreeningByOrder(orderId: number): Promise<DassScreening | undefined>;
   getDassScreeningsByUser(userId: string): Promise<DassScreening[]>;
-  getDassScreeningsByPsychologist(psychologistName: string): Promise<PsychologistDassScreeningWithClient[]>;
+  getDassScreeningsByPsychologist(psychologistName?: string): Promise<PsychologistDassScreeningWithClient[]>;
   createDassScreening(screening: InsertDassScreening): Promise<DassScreening>;
   getSrqScreeningByOrder(orderId: number): Promise<SrqScreening | undefined>;
   getSrqScreeningsByUser(userId: string): Promise<SrqScreening[]>;
-  getSrqScreeningsByPsychologist(psychologistName: string): Promise<PsychologistSrqScreeningWithClient[]>;
+  getSrqScreeningsByPsychologist(psychologistName?: string): Promise<PsychologistSrqScreeningWithClient[]>;
   createSrqScreening(screening: InsertSrqScreening): Promise<SrqScreening>;
   updatePsychologistBookingStatus(id: number, status: string): Promise<void>;
   updatePsychologistBookingReport(
@@ -560,7 +560,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(dassScreenings.completedAt));
   }
 
-  async getDassScreeningsByPsychologist(psychologistName: string): Promise<PsychologistDassScreeningWithClient[]> {
+  async getDassScreeningsByPsychologist(psychologistName?: string): Promise<PsychologistDassScreeningWithClient[]> {
     const rows = await db
       .select({
         screening: dassScreenings,
@@ -568,7 +568,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(dassScreenings)
       .innerJoin(psychologistBookings, eq(dassScreenings.orderId, psychologistBookings.orderId))
-      .where(eq(psychologistBookings.psychologistName, psychologistName))
+      .where(psychologistName ? eq(psychologistBookings.psychologistName, psychologistName) : undefined)
       .orderBy(desc(dassScreenings.completedAt), psychologistBookings.preferredDate);
 
     const uniqueScreenings = new Map<number, PsychologistDassScreeningWithClient>();
@@ -606,12 +606,12 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(srqScreenings.completedAt));
   }
 
-  async getSrqScreeningsByPsychologist(psychologistName: string): Promise<PsychologistSrqScreeningWithClient[]> {
+  async getSrqScreeningsByPsychologist(psychologistName?: string): Promise<PsychologistSrqScreeningWithClient[]> {
     const rows = await db
       .select({ screening: srqScreenings, booking: psychologistBookings })
       .from(srqScreenings)
       .innerJoin(psychologistBookings, eq(srqScreenings.orderId, psychologistBookings.orderId))
-      .where(eq(psychologistBookings.psychologistName, psychologistName))
+      .where(psychologistName ? eq(psychologistBookings.psychologistName, psychologistName) : undefined)
       .orderBy(desc(srqScreenings.completedAt), psychologistBookings.preferredDate);
 
     const uniqueScreenings = new Map<number, PsychologistSrqScreeningWithClient>();

@@ -3303,11 +3303,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await storage.getUser(req.user.claims.sub);
       if (!user) return res.status(404).json({ message: "User not found" });
-      if (user.role !== "psychologist") {
-        return res.status(403).json({ message: "Hasil DASS hanya dapat diakses oleh psikolog" });
+      if (user.role !== "psychologist" && user.role !== "admin") {
+        return res.status(403).json({ message: "Hasil DASS hanya dapat diakses oleh psikolog atau admin" });
       }
-      const providerName = user.psychologistProfileName || getDisplayName(user);
-      if (!providerName) {
+      const providerName = user.role === "psychologist"
+        ? user.psychologistProfileName || getDisplayName(user)
+        : undefined;
+      if (user.role === "psychologist" && !providerName) {
         return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
       }
 
@@ -3341,11 +3343,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.getUser(req.user.claims.sub);
       if (!user) return res.status(404).json({ message: "User not found" });
-      if (user.role !== "psychologist") {
-        return res.status(403).json({ message: "Laporan DASS hanya dapat diakses oleh psikolog" });
+      if (user.role !== "psychologist" && user.role !== "admin") {
+        return res.status(403).json({ message: "Laporan DASS hanya dapat diakses oleh psikolog atau admin" });
       }
-      const providerName = user.psychologistProfileName || getDisplayName(user);
-      if (!providerName) {
+      const providerName = user.role === "psychologist"
+        ? user.psychologistProfileName || getDisplayName(user)
+        : undefined;
+      if (user.role === "psychologist" && !providerName) {
         return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
       }
 
@@ -3355,7 +3359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Hasil DASS tidak ditemukan untuk psikolog ini" });
       }
       const booking = await storage.getPsychologistBookingByOrder(screening.orderId);
-      if (!booking || booking.psychologistName !== providerName) {
+      if (!booking || (user.role === "psychologist" && booking.psychologistName !== providerName)) {
         return res.status(403).json({ message: "Anda tidak memiliki akses ke laporan DASS ini" });
       }
       if (!Array.isArray(screening.answers) || screening.answers.length !== DASS_QUESTIONS.length) {
@@ -3465,11 +3469,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await storage.getUser(req.user.claims.sub);
       if (!user) return res.status(404).json({ message: "User not found" });
-      if (user.role !== "psychologist") {
-        return res.status(403).json({ message: "Hasil SRQ hanya dapat diakses oleh psikolog" });
+      if (user.role !== "psychologist" && user.role !== "admin") {
+        return res.status(403).json({ message: "Hasil SRQ hanya dapat diakses oleh psikolog atau admin" });
       }
-      const providerName = user.psychologistProfileName || getDisplayName(user);
-      if (!providerName) {
+      const providerName = user.role === "psychologist"
+        ? user.psychologistProfileName || getDisplayName(user)
+        : undefined;
+      if (user.role === "psychologist" && !providerName) {
         return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
       }
 

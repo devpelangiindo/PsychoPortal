@@ -367,14 +367,14 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   });
 
   const { data: dassScreenings = [] } = useQuery<DassScreeningResult[]>({
-    queryKey: ["/api/psychologist/dass-screenings"],
-    enabled: hasAccess && !isAdminMode && user?.role === "psychologist",
+    queryKey: ["/api/psychologist/dass-screenings", mode],
+    enabled: hasAccess && (user?.role === "psychologist" || user?.role === "admin"),
     retry: false,
     refetchInterval: 10000,
   });
   const { data: srqScreenings = [] } = useQuery<SrqScreeningResult[]>({
-    queryKey: ["/api/psychologist/srq-screenings"],
-    enabled: hasAccess && !isAdminMode && user?.role === "psychologist",
+    queryKey: ["/api/psychologist/srq-screenings", mode],
+    enabled: hasAccess && (user?.role === "psychologist" || user?.role === "admin"),
     retry: false,
     refetchInterval: 10000,
   });
