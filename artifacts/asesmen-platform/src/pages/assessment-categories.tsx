@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { ArrowLeft, ArrowRight, Building2, CheckCircle2, ClipboardList, Info, MonitorCheck, PackageSearch } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CheckCircle2, ClipboardList, Info, MessageCircle, MonitorCheck, PackageSearch, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import Footer from "@/components/layout/footer";
 import Header from "@/components/layout/header";
@@ -16,6 +16,63 @@ type AssessmentCategory = {
   iconStyle: string;
   availability: string;
 };
+
+type AssessmentService = {
+  title: string;
+  description: string;
+  price: number;
+};
+
+const onsiteAssessmentServices: AssessmentService[] = [
+  {
+    title: "Surat Keterangan Sehat Mental Psikologi",
+    description: "Sebagai syarat administratif kerja, jabatan, atau legal.",
+    price: 250000,
+  },
+  {
+    title: "Tes Intelegensi Lengkap",
+    description: "Pemetaan skor IQ dan kekuatan kognitif.",
+    price: 250000,
+  },
+  {
+    title: "Asesmen Deteksi Dini Tumbuh Kembang",
+    description: "Identifikasi awal aspek motorik, bicara, & sosial anak.",
+    price: 450000,
+  },
+  {
+    title: "Asesmen Kesiapan Masuk SD",
+    description: "Evaluasi kematangan anak memasuki jenjang sekolah dasar.",
+    price: 450000,
+  },
+  {
+    title: "Asesmen Kecerdasan, Minat, Kepribadian SMP",
+    description: "Penentuan arah studi dan penjurusan karier masa depan.",
+    price: 500000,
+  },
+  {
+    title: "Asesmen Kecerdasan, Minat, Kepribadian SMA",
+    description: "Penentuan arah studi dan penjurusan karier masa depan.",
+    price: 600000,
+  },
+  {
+    title: "Asesmen Kerja",
+    description: "Rekrutmen, promosi, dan pemetaan potensi SDM.",
+    price: 800000,
+  },
+  {
+    title: "Asesmen Klinis Dewasa",
+    description: "Diagnosis kesehatan mental dan rencana intervensi.",
+    price: 800000,
+  },
+];
+
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 const assessmentCategories: AssessmentCategory[] = [
   {
@@ -105,6 +162,7 @@ function InformationPage({
   icon: Icon,
   highlights,
   details,
+  catalog,
 }: {
   title: string;
   description: string;
@@ -119,13 +177,14 @@ function InformationPage({
     items: Array<{ title: string; description: string }>;
     note?: string;
   };
+  catalog?: AssessmentService[];
 }) {
   const whatsappMessage = encodeURIComponent(`Halo PI, saya ingin mendapatkan informasi mengenai ${title}.`);
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
       <Header />
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <Link href="/assessments" className="mb-8 inline-flex items-center text-sm font-semibold text-emerald-800 hover:text-emerald-600">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Kembali ke Kategori Asesmen
@@ -199,12 +258,61 @@ function InformationPage({
             <div className="flex min-h-[320px] items-center justify-center bg-gradient-to-br from-emerald-800 to-green-500 p-10 text-white">
               <div className="text-center">
                 <PackageSearch className="mx-auto h-20 w-20 opacity-90" />
-                <h2 className="mt-6 text-2xl font-bold">Katalog sedang disiapkan</h2>
-                <p className="mt-3 max-w-sm text-green-50/90">Tim kami siap membantu memberikan informasi layanan dan produk yang tersedia saat ini.</p>
+                <h2 className="mt-6 text-2xl font-bold">{catalog ? `${catalog.length} Layanan Tersedia` : "Katalog sedang disiapkan"}</h2>
+                <p className="mt-3 max-w-sm text-green-50/90">
+                  {catalog
+                    ? "Pilih layanan asesmen yang sesuai dan hubungi Hotline PI untuk mengatur jadwal pelaksanaan."
+                    : "Tim kami siap membantu memberikan informasi layanan dan produk yang tersedia saat ini."}
+                </p>
               </div>
             </div>
           </div>
         </div>
+        {catalog && (
+          <section className="mt-12" aria-labelledby="onsite-catalog-title">
+            <div className="mb-7 text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Promo Paket</p>
+              <h2 id="onsite-catalog-title" className="mt-2 text-3xl font-bold text-neutral-900">Katalog Layanan Asesmen Onsite</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-neutral-600">Pilih layanan yang paling sesuai dengan kebutuhan Anda. Tim kami akan membantu proses pendaftaran dan penjadwalan.</p>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {catalog.map((service) => {
+                const serviceMessage = encodeURIComponent(`Halo PI, saya ingin mendaftar layanan Asesmen Onsite: ${service.title}. Mohon informasi selanjutnya.`);
+                return (
+                  <Card key={service.title} className="group overflow-hidden border-neutral-200 bg-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                    <CardContent className="flex h-full flex-col p-0">
+                      <div className="bg-gradient-to-r from-emerald-700 to-green-500 px-5 py-3 text-white">
+                        <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em]">
+                          <Sparkles className="h-4 w-4" />
+                          Best Deals
+                        </span>
+                      </div>
+                      <div className="flex flex-1 flex-col p-6">
+                        <h3 className="text-xl font-bold leading-snug text-neutral-900">{service.title}</h3>
+                        <p className="mt-3 flex-1 leading-relaxed text-neutral-600">{service.description}</p>
+                        <div className="mt-6 border-t border-neutral-100 pt-5">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Harga layanan</p>
+                          <p className="mt-1 text-2xl font-extrabold text-emerald-700">{formatRupiah(service.price)}</p>
+                        </div>
+                        <a
+                          href={`https://wa.me/6285117658242?text=${serviceMessage}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-5"
+                        >
+                          <Button className="w-full bg-emerald-700 font-semibold hover:bg-emerald-800">
+                            <MessageCircle className="mr-2 h-4 w-4" />
+                            Daftar Sekarang
+                          </Button>
+                        </a>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
       <Footer />
     </div>
@@ -218,6 +326,7 @@ export function OnsiteAssessments() {
       description="Layanan asesmen psikologi yang dilaksanakan secara langsung dan disesuaikan dengan kebutuhan individu maupun institusi."
       icon={Building2}
       highlights={["Pelaksanaan terjadwal di lokasi", "Pendampingan tim profesional", "Pilihan layanan dapat disesuaikan dengan kebutuhan"]}
+      catalog={onsiteAssessmentServices}
       details={{
         buttonLabel: "Tentang Asesmen Onsite",
         title: "Deskripsi Asesmen Onsite",
