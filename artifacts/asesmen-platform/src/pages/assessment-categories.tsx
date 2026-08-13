@@ -1,10 +1,11 @@
 import type { ComponentType } from "react";
-import { ArrowLeft, ArrowRight, Building2, ClipboardList, MonitorCheck, PackageSearch } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CheckCircle2, ClipboardList, Info, MonitorCheck, PackageSearch } from "lucide-react";
 import { Link } from "wouter";
 import Footer from "@/components/layout/footer";
 import Header from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 type AssessmentCategory = {
   title: string;
@@ -103,11 +104,21 @@ function InformationPage({
   description,
   icon: Icon,
   highlights,
+  details,
 }: {
   title: string;
   description: string;
   icon: ComponentType<{ className?: string }>;
   highlights: string[];
+  details?: {
+    buttonLabel: string;
+    title: string;
+    subtitle: string;
+    introduction: string;
+    sectionTitle: string;
+    items: Array<{ title: string; description: string }>;
+    note?: string;
+  };
 }) {
   const whatsappMessage = encodeURIComponent(`Halo PI, saya ingin mendapatkan informasi mengenai ${title}.`);
 
@@ -136,9 +147,54 @@ function InformationPage({
                   </li>
                 ))}
               </ul>
-              <a href={`https://wa.me/6285117658242?text=${whatsappMessage}`} target="_blank" rel="noopener noreferrer">
-                <Button size="lg" className="mt-9 bg-emerald-700 hover:bg-emerald-800">Hubungi Hotline PI</Button>
-              </a>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                {details && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="lg" variant="outline" className="border-emerald-300 text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900">
+                        <Info className="mr-2 h-4 w-4" />
+                        {details.buttonLabel}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto p-0">
+                      <div className="bg-gradient-to-r from-sky-800 to-blue-600 px-6 py-7 text-white sm:px-8">
+                        <DialogHeader>
+                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/15">
+                            <Icon className="h-6 w-6" />
+                          </div>
+                          <DialogTitle className="text-left text-2xl text-white">{details.title}</DialogTitle>
+                          <DialogDescription className="text-left text-sky-50/90">{details.subtitle}</DialogDescription>
+                        </DialogHeader>
+                      </div>
+                      <div className="space-y-6 px-6 pb-7 pt-7 sm:px-8">
+                        <p className="text-left leading-relaxed text-neutral-700">{details.introduction}</p>
+                        <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-5 text-left">
+                          <h3 className="font-semibold text-sky-950">{details.sectionTitle}</h3>
+                          <ol className="mt-4 space-y-4">
+                            {details.items.map((item, index) => (
+                              <li key={item.title} className="flex items-start gap-3">
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-700 text-xs font-bold text-white">{index + 1}</span>
+                                <div className="flex-1 text-sm leading-relaxed text-neutral-700 sm:text-base">
+                                  <strong className="text-neutral-900">{item.title}:</strong> {item.description}
+                                </div>
+                                <CheckCircle2 className="mt-0.5 hidden h-5 w-5 shrink-0 text-sky-600 sm:block" />
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                        {details.note && (
+                          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-left text-sm leading-relaxed text-amber-950 sm:text-base">
+                            <strong>Catatan:</strong> {details.note}
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                <a href={`https://wa.me/6285117658242?text=${whatsappMessage}`} target="_blank" rel="noopener noreferrer">
+                  <Button size="lg" className="w-full bg-emerald-700 hover:bg-emerald-800 sm:w-auto">Hubungi Hotline PI</Button>
+                </a>
+              </div>
             </div>
             <div className="flex min-h-[320px] items-center justify-center bg-gradient-to-br from-emerald-800 to-green-500 p-10 text-white">
               <div className="text-center">
@@ -162,6 +218,18 @@ export function OnsiteAssessments() {
       description="Layanan asesmen psikologi yang dilaksanakan secara langsung dan disesuaikan dengan kebutuhan individu maupun institusi."
       icon={Building2}
       highlights={["Pelaksanaan terjadwal di lokasi", "Pendampingan tim profesional", "Pilihan layanan dapat disesuaikan dengan kebutuhan"]}
+      details={{
+        buttonLabel: "Tentang Asesmen Onsite",
+        title: "Deskripsi Asesmen Onsite",
+        subtitle: "Layanan asesmen psikologi tatap muka dari Pelangi Indonesia.",
+        introduction: "Kami percaya bahwa setiap individu memiliki kebutuhan yang unik. Oleh karena itu, layanan Asesmen Onsite kami dilakukan secara tatap muka langsung dengan tenaga ahli profesional untuk memastikan proses pengambilan data yang valid, observasi yang mendalam, dan hasil yang presisi.",
+        sectionTitle: "Kami ingin memastikan",
+        items: [
+          { title: "Kebutuhan yang tepat", description: "Kami akan membantu mencocokkan keluhan atau kebutuhan Anda dengan jenis asesmen yang paling sesuai." },
+          { title: "Tenaga ahli yang sesuai", description: "Kami akan menugaskan psikolog atau asisten ahli yang memiliki spesialisasi tepat untuk kasus Anda." },
+          { title: "Fleksibilitas Jadwal", description: "Menyesuaikan waktu terbaik antara Anda dan tim ahli kami agar proses asesmen berjalan tanpa terburu-buru." },
+        ],
+      }}
     />
   );
 }
@@ -173,6 +241,19 @@ export function PsychologyTestTools() {
       description="Informasi alat tes psikologi untuk mendukung kebutuhan praktisi, lembaga pendidikan, perusahaan, dan organisasi."
       icon={ClipboardList}
       highlights={["Informasi fungsi dan sasaran penggunaan", "Dukungan pemilihan alat sesuai kebutuhan", "Pemesanan dan ketersediaan melalui Hotline PI"]}
+      details={{
+        buttonLabel: "Tentang Alat Tes Psikologi",
+        title: "Deskripsi Alat Tes Psikologi",
+        subtitle: "Instrumen tes psikologi profesional dari Pelangi Indonesia.",
+        introduction: "Menyediakan berbagai instrumen tes psikologi yang valid dan terstandar untuk mendukung kebutuhan profesional Anda, mulai dari kebutuhan deteksi tumbuh kembang, pendidikan, klinis, hingga manajemen sumber daya manusia.",
+        sectionTitle: "Mengapa Memilih Instrumen dari Pelangi Indonesia?",
+        items: [
+          { title: "Valid & Terstandar", description: "Menjamin kualitas hasil asesmen yang dapat dipertanggungjawabkan secara ilmiah." },
+          { title: "Koleksi Lengkap", description: "Tersedia berbagai macam alat tes dalam satu pintu." },
+          { title: "Konsultasi Ahli", description: "Kami membantu Anda merekomendasikan alat tes yang paling sesuai dengan tujuan asesmen Anda." },
+        ],
+        note: "Pembelian alat tes tertentu memerlukan bukti kualifikasi profesi (Psikolog/Sertifikasi Terkait) sesuai dengan kode etik yang berlaku.",
+      }}
     />
   );
 }
