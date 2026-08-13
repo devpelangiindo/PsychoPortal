@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Assessments from "@/pages/assessments";
+import AssessmentCategories, { OnsiteAssessments, PsychologyTestTools } from "@/pages/assessment-categories";
 import Cart from "@/pages/cart";
 import Checkout from "@/pages/checkout";
 import Dashboard from "@/pages/dashboard";
@@ -55,7 +56,10 @@ function Router() {
       <Route path="/" component={isLoading || !isAuthenticated ? Landing : Home} />
       
       {/* Public routes - always available */}
-      <Route path="/assessments" component={Assessments} />
+      <Route path="/assessments/online" component={Assessments} />
+      <Route path="/assessments/onsite" component={OnsiteAssessments} />
+      <Route path="/assessments/alat-tes" component={PsychologyTestTools} />
+      <Route path="/assessments" component={AssessmentCategories} />
       <Route path="/layanan" component={Layanan} />
       <Route path="/layanan/:slug" component={LayananDetail} />
       <Route path="/artikel" component={Artikel} />

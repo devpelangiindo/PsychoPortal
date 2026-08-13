@@ -1,19 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ShoppingCart, Brain, GraduationCap, Clock, Users, Shield, Lock, IdCard, InfoIcon, UserPlus, LogIn, ArrowRight } from "lucide-react";
+import { ShoppingCart, Brain, Lock, IdCard, UserPlus, LogIn, ArrowRight } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import AssessmentCard from "@/components/assessment-card";
-import type { Assessment } from "@shared/schema";
+import { AssessmentCategoryGrid } from "@/pages/assessment-categories";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
 
 export default function Landing() {
-  const { data: assessments, isLoading } = useQuery<Assessment[]>({
-    queryKey: ["/api/assessments"],
-  });
   const [, setLocation] = useLocation();
 
   const handleGetStarted = () => {
@@ -25,14 +18,7 @@ export default function Landing() {
   };
 
   const handleStartAssessment = () => {
-    setLocation("/assessments");
-  };
-
-  const handleLearnMore = () => {
-    const assessmentsSection = document.getElementById('assessments');
-    if (assessmentsSection) {
-      assessmentsSection.scrollIntoView({ behavior: 'smooth' });
-    }
+    setLocation("/assessments/online");
   };
 
   return (
@@ -90,40 +76,16 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Featured Assessments as Hero */}
+          {/* Assessment Categories */}
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Coba Asesmen Kami Sekarang!
+              Pilih Kategori Asesmen
             </h2>
             <p className="text-lg text-green-50/85 max-w-2xl mx-auto">
-              Pilih asesmen di bawah dan coba beberapa pertanyaan sample untuk merasakan pengalaman sebelum mendaftar
+              Temukan asesmen online, layanan asesmen onsite, dan alat tes psikologi sesuai kebutuhan Anda
             </p>
           </div>
-          
-          {isLoading ? (
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {[1, 2].map((i) => (
-                <Card key={i} className="assessment-card-hover">
-                  <div className="h-48 bg-muted animate-pulse" />
-                  <CardContent className="p-8">
-                    <div className="h-6 bg-muted rounded mb-4 animate-pulse" />
-                    <div className="h-4 bg-muted rounded mb-2 animate-pulse" />
-                    <div className="h-4 bg-muted rounded mb-6 animate-pulse" />
-                    <div className="flex justify-between items-center">
-                      <div className="h-8 w-20 bg-muted rounded animate-pulse" />
-                      <div className="h-10 w-32 bg-muted rounded animate-pulse" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {assessments?.map((assessment) => (
-                <AssessmentCard key={assessment.id} assessment={assessment} showAddToCart={true} />
-              ))}
-            </div>
-          )}
+          <AssessmentCategoryGrid />
         </div>
       </section>
       {/* About Us Section with Video */}

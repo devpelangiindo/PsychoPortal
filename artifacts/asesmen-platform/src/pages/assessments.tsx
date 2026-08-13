@@ -4,6 +4,8 @@ import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Assessment } from "@shared/schema";
+import { ArrowLeft, MonitorCheck } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Assessments() {
   const { data: assessments, isLoading, error } = useQuery<Assessment[]>({
@@ -14,11 +16,18 @@ export default function Assessments() {
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <Link href="/assessments" className="mb-8 inline-flex items-center text-sm font-semibold text-emerald-800 hover:text-emerald-600">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Kembali ke Kategori Asesmen
+        </Link>
         <div className="text-center mb-12">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <MonitorCheck className="h-8 w-8" />
+          </div>
           <h1 className="text-4xl font-bold text-neutral-900 dark:text-foreground mb-4">
-            Asesmen Psikologi
+            Asesmen Online
           </h1>
-          <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-3xl mx-auto">Pilih dari alat asesmen psikologi yang telah divalidasi berikut ini. Setiap asesmen dirancang untuk memberikan wawasan yang akurat.</p>
+          <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-3xl mx-auto">Pilih asesmen psikologi yang dapat dikerjakan secara daring. Setiap asesmen dirancang untuk memberikan pengalaman yang praktis, aman, dan mudah diakses.</p>
         </div>
 
         {error && (

@@ -68,13 +68,18 @@ export default function Footer() {
             <h4 className="text-lg font-semibold mb-4">Asesmen</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/assessments" className="text-green-50 hover:text-white transition-colors">
-                  Profil Sensori
+                <Link href="/assessments/online" className="text-green-50 hover:text-white transition-colors">
+                  Asesmen Online
                 </Link>
               </li>
               <li>
-                <Link href="/assessments" className="text-green-50 hover:text-white transition-colors">
-                  Inventori Gaya Belajar
+                <Link href="/assessments/onsite" className="text-green-50 hover:text-white transition-colors">
+                  Asesmen Onsite
+                </Link>
+              </li>
+              <li>
+                <Link href="/assessments/alat-tes" className="text-green-50 hover:text-white transition-colors">
+                  Alat Tes Psikologi
                 </Link>
               </li>
             </ul>

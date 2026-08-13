@@ -17,7 +17,7 @@ const services: Array<{
   href: string;
   external?: boolean;
 }> = [
-  { label: "Asesmen", href: "/" },
+  { label: "Asesmen", href: "/assessments" },
   { label: "Konseling", href: "/booking" },
   { label: "Terapi", href: withMainSitePath("/produk-layanan/terapi") },
   { label: "Pelatihan", href: withMainSitePath("/produk-layanan/pelatihan") },

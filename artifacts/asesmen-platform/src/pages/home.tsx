@@ -158,11 +158,14 @@ export default function Home() {
         <div className="mt-12">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-neutral-900 dark:text-foreground mb-4">
-              Asesmen yang Tersedia
+              Asesmen Online yang Tersedia
             </h2>
             <p className="text-lg text-neutral-500 dark:text-muted-foreground max-w-2xl mx-auto">
-              Jelajahi berbagai asesmen psikologi yang tersedia dan tambahkan ke keranjang Anda
+              Jelajahi asesmen psikologi yang dapat dikerjakan secara online dan tambahkan ke keranjang Anda
             </p>
+            <Link href="/assessments">
+              <Button variant="outline" className="mt-5">Lihat Semua Kategori Asesmen</Button>
+            </Link>
           </div>
 
           {isLoadingAssessments ? (
