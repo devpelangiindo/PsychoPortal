@@ -137,6 +137,7 @@ export interface IStorage {
   getAssessments(): Promise<Assessment[]>;
   getAssessment(id: number): Promise<Assessment | undefined>;
   createAssessment(assessment: InsertAssessment): Promise<Assessment>;
+  updateAssessment(id: number, updates: Partial<InsertAssessment>): Promise<Assessment>;
 
   // Psychologist booking operations
   getBookingServices(): Promise<BookingService[]>;
@@ -330,6 +331,15 @@ export class DatabaseStorage implements IStorage {
       .values(assessment)
       .returning();
     return newAssessment;
+  }
+
+  async updateAssessment(id: number, updates: Partial<InsertAssessment>): Promise<Assessment> {
+    const [updatedAssessment] = await db
+      .update(assessments)
+      .set(updates)
+      .where(eq(assessments.id, id))
+      .returning();
+    return updatedAssessment;
   }
 
   // Psychologist booking operations

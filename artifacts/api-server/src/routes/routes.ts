@@ -5060,7 +5060,7 @@ async function initializeAssessments() {
       await storage.createAssessment({
         name: "Asesmen Profil Sensori",
         description: "Tes pola respon anak dan dewasa terhadap rangsangan sensorik, yang berkaitan dengan cara belajar dan cara hidup. Follow-up bersama psikolog klinis ternama bersama tim.",
-        price: "400000",
+        price: "200000",
         duration: "30-45 menit",
         ageRange: "Usia 3-65+",
         type: "sensory",
@@ -5080,6 +5080,12 @@ async function initializeAssessments() {
       console.log("Asesmen default berhasil dibuat");
     } else {
       console.log(`Found ${existingAssessments.length} existing assessments`);
+    }
+
+    const sensoryAssessment = existingAssessments.find((assessment) => assessment.type === "sensory");
+    if (sensoryAssessment && Number(sensoryAssessment.price) !== 200000) {
+      await storage.updateAssessment(sensoryAssessment.id, { price: "200000" });
+      console.log("Harga Asesmen Profil Sensori diperbarui menjadi Rp200.000");
     }
 
     const mentalHealthAssessment = existingAssessments.find((assessment) => assessment.type === "mental-health");
