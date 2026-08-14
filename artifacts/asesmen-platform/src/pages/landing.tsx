@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Brain, Lock, IdCard, UserPlus, LogIn, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, Brain, Lock, IdCard, UserPlus, LogIn, ArrowRight } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { AssessmentCategoryGrid } from "@/pages/assessment-categories";
@@ -30,14 +30,6 @@ export default function Landing() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const showPreviousSlide = () => {
-    setCurrentSlide((slide) => (slide - 1 + landingSlides.length) % landingSlides.length);
-  };
-
-  const showNextSlide = () => {
-    setCurrentSlide((slide) => (slide + 1) % landingSlides.length);
-  };
-
   const handleGetStarted = () => {
     setLocation("/register");
   };
@@ -54,9 +46,25 @@ export default function Landing() {
     <div className="min-h-screen bg-background">
       <Header />
       {/* Hero Section - Assessments as Primary Focus */}
-      <section className="gradient-hero py-20 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+      <section className="relative isolate min-h-[680px] overflow-hidden bg-[#123f2f] py-20 md:py-24">
+        <div className="absolute inset-0 -z-20" aria-hidden="true">
+          {landingSlides.map((slide, index) => (
+            <img
+              key={slide.src}
+              src={slide.src}
+              alt=""
+              loading={index === 0 ? "eager" : "lazy"}
+              className={`absolute inset-0 h-full w-full object-cover transition-all duration-1000 ease-in-out ${
+                index === currentSlide ? "scale-100 opacity-100" : "scale-105 opacity-0"
+              }`}
+            />
+          ))}
+        </div>
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(13,57,42,0.90)_0%,rgba(15,72,52,0.84)_55%,rgba(10,54,39,0.94)_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-gradient-to-b from-black/20 to-transparent" />
+
+        <div className="relative mx-auto flex min-h-[520px] max-w-7xl flex-col justify-center px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
             <div className="flex justify-center mb-8">
               <div className="rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-white/60">
                 <img 
@@ -87,7 +95,7 @@ export default function Landing() {
             </div>
 
             {/* Authentication Options */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
               <Button 
                 size="lg" 
                 variant="outline"
@@ -104,56 +112,25 @@ export default function Landing() {
               </Button>
             </div>
           </div>
+        </div>
 
-          <div className="relative mx-auto mb-16 aspect-[4/3] max-w-6xl overflow-hidden rounded-3xl bg-emerald-950 shadow-2xl ring-1 ring-white/25 sm:aspect-[16/8] lg:aspect-[16/7]">
-            {landingSlides.map((slide, index) => (
-              <img
-                key={slide.src}
-                src={slide.src}
-                alt={slide.alt}
-                loading={index === 0 ? "eager" : "lazy"}
-                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
-                  index === currentSlide ? "opacity-100" : "pointer-events-none opacity-0"
-                }`}
-                aria-hidden={index !== currentSlide}
-              />
-            ))}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
-            <Button
+        <div className="absolute bottom-7 left-1/2 z-10 flex -translate-x-1/2 gap-2" role="tablist" aria-label="Pilih foto landing page">
+          {landingSlides.map((slide, index) => (
+            <button
+              key={slide.alt}
               type="button"
-              size="icon"
-              variant="secondary"
-              onClick={showPreviousSlide}
-              aria-label="Tampilkan foto sebelumnya"
-              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 text-emerald-900 shadow-lg hover:bg-white sm:left-5"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="secondary"
-              onClick={showNextSlide}
-              aria-label="Tampilkan foto berikutnya"
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 text-emerald-900 shadow-lg hover:bg-white sm:right-5"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2" role="tablist" aria-label="Pilih foto landing page">
-              {landingSlides.map((slide, index) => (
-                <button
-                  key={slide.alt}
-                  type="button"
-                  role="tab"
-                  aria-selected={index === currentSlide}
-                  aria-label={`Tampilkan foto ${index + 1}`}
-                  onClick={() => setCurrentSlide(index)}
-                  className={`h-2.5 rounded-full shadow-sm transition-all ${index === currentSlide ? "w-8 bg-white" : "w-2.5 bg-white/60 hover:bg-white/85"}`}
-                />
-              ))}
-            </div>
-          </div>
+              role="tab"
+              aria-selected={index === currentSlide}
+              aria-label={`Tampilkan foto ${index + 1}`}
+              onClick={() => setCurrentSlide(index)}
+              className={`h-2.5 rounded-full border border-white/35 shadow-sm transition-all ${index === currentSlide ? "w-8 bg-white" : "w-2.5 bg-white/45 hover:bg-white/80"}`}
+            />
+          ))}
+        </div>
+      </section>
 
+      <section className="gradient-hero py-16 md:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Assessment Categories */}
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
