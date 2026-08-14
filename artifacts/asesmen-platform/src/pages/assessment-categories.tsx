@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import onsiteAssessmentTopImage from "@assets/asesmen-onsite-1.png";
 import onsiteAssessmentBottomImage from "@assets/asesmen-onsite-2.png";
+import psychologyTestToolsTopImage from "@assets/alat-tes-psikologi-1.png";
+import psychologyTestToolsBottomImage from "@assets/alat-tes-psikologi-2.png";
 
 type AssessmentCategory = {
   title: string;
@@ -379,6 +381,10 @@ export function PsychologyTestTools() {
       description="Informasi alat tes psikologi untuk mendukung kebutuhan praktisi, lembaga pendidikan, perusahaan, dan organisasi."
       icon={ClipboardList}
       highlights={["Informasi fungsi dan sasaran penggunaan", "Dukungan pemilihan alat sesuai kebutuhan", "Pemesanan dan ketersediaan melalui Hotline PI"]}
+      panelImages={{
+        top: { src: psychologyTestToolsTopImage, alt: "Profesional menelaah hasil pengukuran psikologis" },
+        bottom: { src: psychologyTestToolsBottomImage, alt: "Referensi dan materi alat tes psikologi" },
+      }}
       details={{
         buttonLabel: "Tentang Alat Tes Psikologi",
         title: "Deskripsi Alat Tes Psikologi",
