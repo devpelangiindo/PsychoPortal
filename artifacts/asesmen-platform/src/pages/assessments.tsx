@@ -18,10 +18,19 @@ const onlineAssessmentBenefits = [
   "Tes dapat berlaku untuk klien individu dan klasikal (akan ada harga khusus)",
 ];
 
+const hiddenOnlineAssessmentTypes = new Set([
+  "mental-health",
+  "student-potential",
+  "career-potential",
+]);
+
 export default function Assessments() {
   const { data: assessments, isLoading, error } = useQuery<Assessment[]>({
     queryKey: ["/api/assessments"],
   });
+  const visibleAssessments = assessments?.filter(
+    (assessment) => !hiddenOnlineAssessmentTypes.has(assessment.type),
+  );
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
@@ -111,10 +120,10 @@ export default function Assessments() {
               </div>
             ))}
           </div>
-        ) : assessments && assessments.length > 0 ? (
+        ) : visibleAssessments && visibleAssessments.length > 0 ? (
           <div className="flex justify-center">
             <div className="grid md:grid-cols-2 gap-8 max-w-4xl">
-              {assessments.map((assessment) => (
+              {visibleAssessments.map((assessment) => (
                 <AssessmentCard 
                   key={assessment.id} 
                   assessment={assessment} 
