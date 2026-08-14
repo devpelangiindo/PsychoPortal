@@ -1,13 +1,42 @@
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Brain, Lock, IdCard, UserPlus, LogIn, ArrowRight } from "lucide-react";
+import { ShoppingCart, Brain, Lock, IdCard, UserPlus, LogIn, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { AssessmentCategoryGrid } from "@/pages/assessment-categories";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
+import assessmentFrontOne from "@assets/asesmen-depan-1.png";
+import assessmentFrontTwo from "@assets/asesmen-depan-2.png";
+import assessmentFrontThree from "@assets/asesmen-depan-3.png";
+
+const landingSlides = [
+  { src: assessmentFrontOne, alt: "Buku asesmen dan evaluasi psikologi" },
+  { src: assessmentFrontTwo, alt: "Gedung Pelangi Indonesia" },
+  { src: assessmentFrontThree, alt: "Formulir asesmen profesional" },
+];
 
 export default function Landing() {
   const [, setLocation] = useLocation();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const interval = window.setInterval(() => {
+      setCurrentSlide((slide) => (slide + 1) % landingSlides.length);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const showPreviousSlide = () => {
+    setCurrentSlide((slide) => (slide - 1 + landingSlides.length) % landingSlides.length);
+  };
+
+  const showNextSlide = () => {
+    setCurrentSlide((slide) => (slide + 1) % landingSlides.length);
+  };
 
   const handleGetStarted = () => {
     setLocation("/register");
@@ -73,6 +102,55 @@ export default function Landing() {
                 <LogIn className="w-4 h-4 mr-2" />
                 Masuk jika sudah punya akun
               </Button>
+            </div>
+          </div>
+
+          <div className="relative mx-auto mb-16 aspect-[4/3] max-w-6xl overflow-hidden rounded-3xl bg-emerald-950 shadow-2xl ring-1 ring-white/25 sm:aspect-[16/8] lg:aspect-[16/7]">
+            {landingSlides.map((slide, index) => (
+              <img
+                key={slide.src}
+                src={slide.src}
+                alt={slide.alt}
+                loading={index === 0 ? "eager" : "lazy"}
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+                  index === currentSlide ? "opacity-100" : "pointer-events-none opacity-0"
+                }`}
+                aria-hidden={index !== currentSlide}
+              />
+            ))}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              onClick={showPreviousSlide}
+              aria-label="Tampilkan foto sebelumnya"
+              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 text-emerald-900 shadow-lg hover:bg-white sm:left-5"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              onClick={showNextSlide}
+              aria-label="Tampilkan foto berikutnya"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 text-emerald-900 shadow-lg hover:bg-white sm:right-5"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2" role="tablist" aria-label="Pilih foto landing page">
+              {landingSlides.map((slide, index) => (
+                <button
+                  key={slide.alt}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === currentSlide}
+                  aria-label={`Tampilkan foto ${index + 1}`}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`h-2.5 rounded-full shadow-sm transition-all ${index === currentSlide ? "w-8 bg-white" : "w-2.5 bg-white/60 hover:bg-white/85"}`}
+                />
+              ))}
             </div>
           </div>
 
