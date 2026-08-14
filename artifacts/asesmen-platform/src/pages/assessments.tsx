@@ -27,6 +27,7 @@ const hiddenOnlineAssessmentTypes = new Set([
 const onlineAssessmentOrder = new Map([
   ["learning", 0],
   ["sensory", 1],
+  ["external-mental-health", 2],
 ]);
 
 export default function Assessments() {

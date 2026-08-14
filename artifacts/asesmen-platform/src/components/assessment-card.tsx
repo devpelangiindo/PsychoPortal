@@ -52,6 +52,8 @@ export default function AssessmentCard({ assessment, showAddToCart, showCatalogI
       return <Lightbulb className="w-12 h-12 text-purple-600" />;
     } else if (type === 'mental-health') {
       return <HeartPulse className="w-12 h-12 text-rose-600" />;
+    } else if (type === 'external-mental-health') {
+      return <HeartPulse className="w-12 h-12 text-rose-600" />;
     } else if (type === 'student-potential') {
       return <BrainCircuit className="w-12 h-12 text-indigo-600" />;
     } else if (type === 'career-potential') {
@@ -67,6 +69,8 @@ export default function AssessmentCard({ assessment, showAddToCart, showCatalogI
       return 'bg-purple-100 dark:bg-purple-900/20';
     } else if (type === 'mental-health') {
       return 'bg-rose-100 dark:bg-rose-950/30';
+    } else if (type === 'external-mental-health') {
+      return 'bg-gradient-to-br from-rose-100 to-orange-100 dark:from-rose-950/30 dark:to-orange-950/30';
     } else if (type === 'student-potential') {
       return 'bg-gradient-to-br from-indigo-100 to-cyan-100 dark:from-indigo-950/30 dark:to-cyan-950/30';
     } else if (type === 'career-potential') {
@@ -81,6 +85,8 @@ export default function AssessmentCard({ assessment, showAddToCart, showCatalogI
     } else if (type === 'intelligence') {
       return 'Kecerdasan Majemuk';
     } else if (type === 'mental-health') {
+      return 'Kesehatan Mental';
+    } else if (type === 'external-mental-health') {
       return 'Kesehatan Mental';
     } else if (type === 'student-potential') {
       return 'Potensi Siswa SMA';
@@ -214,6 +220,26 @@ export default function AssessmentCard({ assessment, showAddToCart, showCatalogI
     directAccessMutation.mutate(assessment.id);
   };
 
+  const handleExternalCheckout = () => {
+    if (!isInCart) {
+      addItem({
+        id: assessment.id,
+        name: assessment.name,
+        price: assessment.price,
+        description: assessment.description,
+        duration: assessment.duration,
+        ageRange: assessment.ageRange,
+        type: assessment.type,
+      });
+    }
+    if (!user) {
+      toast({ title: "Login Diperlukan", description: "Produk sudah disimpan di keranjang. Silakan login untuk melanjutkan transaksi." });
+      setLocation("/login");
+      return;
+    }
+    setLocation("/cart");
+  };
+
   return (
     <Card className="assessment-card-hover bg-white dark:bg-card rounded-2xl shadow-lg border border-gray-100 dark:border-border overflow-hidden">
       {/* Professional assessment illustration */}
@@ -290,6 +316,22 @@ export default function AssessmentCard({ assessment, showAddToCart, showCatalogI
           </div>
         )}
 
+        {assessment.type === 'external-mental-health' && (
+          <div className="mb-4 space-y-3">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/20 dark:text-rose-200">
+              Setelah pembayaran berhasil, nomor token, link pengerjaan, dan ketentuan tes akan tersedia di dashboard Anda.
+            </div>
+            <a
+              href="https://wa.me/6285117658242?text=Halo%20PI%2C%20saya%20ingin%20mengetahui%20lebih%20lanjut%20tentang%20Mental%20Health%20Check%20Up."
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center rounded-md border-2 border-green-600 px-4 py-2 text-sm font-semibold text-green-700 transition-colors hover:bg-green-50"
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />MORE INFO ...
+            </a>
+          </div>
+        )}
+
         {assessment.type === 'student-potential' && (
           <div className="mb-4 space-y-3">
             <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900 dark:border-indigo-900 dark:bg-indigo-950/20 dark:text-indigo-200">
@@ -313,7 +355,7 @@ export default function AssessmentCard({ assessment, showAddToCart, showCatalogI
         )}
 
         {/* Try Sample Button - Always Visible */}
-        {assessment.type !== 'mental-health' && assessment.type !== 'student-potential' && assessment.type !== 'career-potential' && <div className="mb-4">
+        {assessment.type !== 'mental-health' && assessment.type !== 'external-mental-health' && assessment.type !== 'student-potential' && assessment.type !== 'career-potential' && <div className="mb-4">
           <Button
             onClick={handleTrySample}
             variant="outline"
@@ -344,12 +386,11 @@ export default function AssessmentCard({ assessment, showAddToCart, showCatalogI
                   <span className="rounded-full bg-green-100 px-2 py-1 text-[11px] font-bold text-green-700">GRATIS SEMENTARA</span>
                 </div>
               </div>
-            ) : assessment.type === 'mental-health' ? (
+            ) : assessment.type === 'mental-health' || assessment.type === 'external-mental-health' ? (
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-gray-500 line-through">Rp 200.000</span>
                 <div className="mt-1 flex items-center gap-2">
                   <span className="text-2xl font-bold text-rose-600">Rp 129.000</span>
-                  <span className="rounded-full bg-green-100 px-2 py-1 text-[11px] font-bold text-green-700">GRATIS SEMENTARA</span>
                 </div>
               </div>
             ) : parseFloat(assessment.price) === 0 ? (
@@ -381,7 +422,16 @@ export default function AssessmentCard({ assessment, showAddToCart, showCatalogI
           </div>
           {showAddToCart && (
             <>
-              {isFree || isAdmin || isInternal ? (
+              {assessment.type === 'external-mental-health' ? (
+                <Button
+                  onClick={handleExternalCheckout}
+                  size="sm"
+                  className="bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                  data-testid={`button-register-${assessment.id}`}
+                >
+                  DAFTAR SEKARANG
+                </Button>
+              ) : isFree || isAdmin || isInternal ? (
                 <Button
                   onClick={handleDirectAccess}
                   disabled={directAccessMutation.isPending}

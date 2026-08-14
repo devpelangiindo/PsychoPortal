@@ -30,6 +30,7 @@ import AdminUsers from "@/pages/admin-users";
 import AdminAssessments from "@/pages/admin-assessments";
 import AdminReports from "@/pages/admin-reports";
 import AdminAssessmentResult from "@/pages/admin-assessment-result";
+import AdminExternalAssessments from "@/pages/admin-external-assessments";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailed from "@/pages/payment-failed";
 import PaymentReturn from "@/pages/payment-return";
@@ -103,6 +104,8 @@ function Router() {
       <Route path="/admin/assessments" component={AdminAssessments} />
       <Route path="/admin/reports" component={AdminReports} />
       <Route path="/admin/assessment-result/:userAssessmentId" component={AdminAssessmentResult} />
+      <Route path="/admin/external-assessments" component={AdminExternalAssessments} />
+      <Route path="/cso/external-assessments" component={AdminExternalAssessments} />
       
       {/* 404 fallback */}
       <Route component={NotFound} />

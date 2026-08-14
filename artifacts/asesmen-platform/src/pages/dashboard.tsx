@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
@@ -45,6 +45,21 @@ type DassEligibilityResponse = {
 };
 
 type SrqEligibilityResponse = DassEligibilityResponse;
+
+type ExternalAssessmentAccess = {
+  orderId: number;
+  assessmentName: string;
+  description: string;
+  websiteName: string | null;
+  websiteUrl: string | null;
+  workHours: string;
+  resultEtaText: string;
+  hasInstructions: boolean;
+  token: string | null;
+  hasResult: boolean;
+  resultFileName: string | null;
+  resultUploadedAt: string | null;
+};
 
 const PAYMENT_EXPIRY_MINUTES = 15;
 
@@ -301,6 +316,12 @@ export default function Dashboard() {
     refetchInterval: 5000,
   });
 
+  const { data: externalAssessmentAccess = [] } = useQuery<ExternalAssessmentAccess[]>({
+    queryKey: ["/api/external-assessments/access"],
+    enabled: isAuthenticated,
+    refetchInterval: 5000,
+  });
+
   const settlePaymentMutation = useMutation({
     mutationFn: async (orderId: number) => {
       const response = await apiRequest("POST", "/api/payments/create", {
@@ -529,6 +550,52 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {externalAssessmentAccess.map((access) => (
+          <Card key={access.orderId} className="mb-8 overflow-hidden border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50">
+            <CardHeader>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-rose-700">Asesmen eksternal · Pesanan #{access.orderId}</p>
+                  <CardTitle className="mt-1">{access.assessmentName}</CardTitle>
+                  <p className="mt-2 text-sm text-neutral-600">{access.description}</p>
+                </div>
+                <Badge className={access.token ? "bg-green-700" : "bg-amber-600"}>
+                  {access.token ? "Siap dikerjakan" : "Menunggu token"}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {access.token ? (
+                <div className="grid gap-3 rounded-xl border border-rose-100 bg-white p-4 sm:grid-cols-2">
+                  <div><p className="text-xs text-neutral-500">Nomor token</p><p className="mt-1 font-mono text-lg font-bold text-rose-700">{access.token}</p></div>
+                  <div><p className="text-xs text-neutral-500">Website pengerjaan</p><p className="mt-1 font-semibold">{access.websiteName || "Menunggu informasi Admin/CSO"}</p></div>
+                  <div><p className="text-xs text-neutral-500">Jam pengerjaan</p><p className="mt-1 font-semibold">{access.workHours}</p></div>
+                  <div><p className="text-xs text-neutral-500">Informasi hasil</p><p className="mt-1 font-semibold">{access.resultEtaText}</p></div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  Pembayaran sudah diterima, tetapi stok kode sedang dipersiapkan. Admin/CSO telah dapat melihat pesanan ini.
+                </div>
+              )}
+              <div className="flex flex-wrap gap-3">
+                {access.websiteUrl && access.token && (
+                  <a href={access.websiteUrl} target="_blank" rel="noreferrer"><Button><ExternalLink className="mr-2 h-4 w-4" />Buka Website Tes</Button></a>
+                )}
+                {access.hasInstructions && (
+                  <Button variant="outline" onClick={() => downloadProtectedFile(`/api/external-assessments/${access.orderId}/instructions.pdf`, `ketentuan-${access.orderId}.pdf`, true)}>
+                    <FileText className="mr-2 h-4 w-4" />Lihat Ketentuan PDF
+                  </Button>
+                )}
+                {access.hasResult && (
+                  <Button variant="outline" onClick={() => downloadProtectedFile(`/api/external-assessments/${access.orderId}/result.pdf`, access.resultFileName || `hasil-${access.orderId}.pdf`)}>
+                    <Download className="mr-2 h-4 w-4" />Download Hasil
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
 
         {activeDassScreening && (
           <Card className="mb-12 overflow-hidden border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
@@ -966,7 +1033,7 @@ export default function Dashboard() {
                 </div>
               ) : assessments && assessments.length > 0 ? (
                 <div className="grid md:grid-cols-2 gap-6">
-                  {assessments.map((assessment) => (
+                  {assessments.filter((assessment) => ["learning", "sensory", "external-mental-health"].includes(assessment.type)).map((assessment) => (
                     <AssessmentCard
                       key={assessment.id}
                       assessment={assessment}
@@ -1020,6 +1087,24 @@ async function downloadClientReportPdf(booking: Booking) {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = `laporan-konseling-${booking.clientName}-${booking.id}.pdf`.replace(/[^a-z0-9.-]+/gi, "-").toLowerCase();
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadProtectedFile(endpoint: string, fileName: string, openInline = false) {
+  const token = getAuthToken();
+  const response = await fetch(endpoint, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+  if (!response.ok) return;
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  if (openInline) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
 }

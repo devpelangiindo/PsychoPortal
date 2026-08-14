@@ -10,6 +10,7 @@ import {
   integer,
   boolean,
   uniqueIndex,
+  customType,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -230,6 +231,53 @@ export const userAssessments = pgTable("user_assessments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+// Configuration and fulfillment data for assessments completed on a partner website.
+export const externalAssessmentConfigs = pgTable("external_assessment_configs", {
+  assessmentId: integer("assessment_id").primaryKey().references(() => assessments.id),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }).notNull(),
+  websiteName: varchar("website_name", { length: 255 }),
+  websiteUrl: varchar("website_url", { length: 1000 }),
+  workHours: varchar("work_hours", { length: 100 }).notNull().default("08.00-17.00 WIB"),
+  resultEtaText: varchar("result_eta_text", { length: 255 }).notNull().default("Hasil akan dikirimkan dalam waktu 2x24 jam hari kerja"),
+  instructionsPdf: bytea("instructions_pdf"),
+  instructionsFileName: varchar("instructions_file_name", { length: 255 }),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const externalAssessmentCodes = pgTable("external_assessment_codes", {
+  id: serial("id").primaryKey(),
+  assessmentId: integer("assessment_id").notNull().references(() => assessments.id),
+  code: varchar("code", { length: 255 }).notNull(),
+  status: varchar("status", { length: 30 }).notNull().default("available"),
+  orderId: integer("order_id").references(() => orders.id),
+  userId: varchar("user_id").references(() => users.id),
+  allocatedAt: timestamp("allocated_at"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("external_assessment_code_unique").on(table.assessmentId, table.code),
+  uniqueIndex("external_assessment_code_order_unique").on(table.orderId),
+  index("external_assessment_code_status_idx").on(table.assessmentId, table.status),
+]);
+
+export const externalAssessmentResults = pgTable("external_assessment_results", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  fileData: bytea("file_data").notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  mimeType: varchar("mime_type", { length: 100 }).notNull().default("application/pdf"),
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("external_assessment_result_order_unique").on(table.orderId),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
@@ -237,6 +285,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   psychologistBookings: many(psychologistBookings),
   dassScreenings: many(dassScreenings),
   srqScreenings: many(srqScreenings),
+  externalAssessmentCodes: many(externalAssessmentCodes),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -306,6 +355,7 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 export const assessmentsRelations = relations(assessments, ({ many }) => ({
   orderItems: many(orderItems),
   userAssessments: many(userAssessments),
+  externalAssessmentCodes: many(externalAssessmentCodes),
 }));
 
 export const userAssessmentsRelations = relations(userAssessments, ({ one }) => ({
@@ -335,6 +385,9 @@ export const insertSrqScreeningSchema = createInsertSchema(srqScreenings);
 export const insertOrderSchema = createInsertSchema(orders);
 export const insertOrderItemSchema = createInsertSchema(orderItems);
 export const insertUserAssessmentSchema = createInsertSchema(userAssessments);
+export const insertExternalAssessmentConfigSchema = createInsertSchema(externalAssessmentConfigs);
+export const insertExternalAssessmentCodeSchema = createInsertSchema(externalAssessmentCodes);
+export const insertExternalAssessmentResultSchema = createInsertSchema(externalAssessmentResults);
 export const insertOtpVerificationSchema = createInsertSchema(otpVerifications);
 
 // Custom validation schemas
@@ -418,6 +471,9 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type UserAssessment = typeof userAssessments.$inferSelect;
 export type InsertUserAssessment = z.infer<typeof insertUserAssessmentSchema>;
+export type ExternalAssessmentConfig = typeof externalAssessmentConfigs.$inferSelect;
+export type ExternalAssessmentCode = typeof externalAssessmentCodes.$inferSelect;
+export type ExternalAssessmentResult = typeof externalAssessmentResults.$inferSelect;
 
 // Custom auth types
 export type RegisterRequest = z.infer<typeof registerSchema>;

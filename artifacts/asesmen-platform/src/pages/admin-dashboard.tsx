@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -339,7 +339,7 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
         </div>}
 
         {/* Quick Actions */}
-        <div className={`grid grid-cols-1 ${isCsoMode ? "md:grid-cols-2" : "md:grid-cols-5"} gap-6`}>
+        <div className={`grid grid-cols-1 ${isCsoMode ? "md:grid-cols-3" : "md:grid-cols-3 lg:grid-cols-6"} gap-6`}>
           {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
@@ -360,6 +360,18 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             </CardContent>
           </Card>
           )}
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-rose-600" />Tes Eksternal</CardTitle>
+              <CardDescription>Kelola token tes dan unggah hasil klien</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={isCsoMode ? "/cso/external-assessments" : "/admin/external-assessments"}>
+                <Button className="w-full bg-rose-600 hover:bg-rose-700">Kelola Tes</Button>
+              </Link>
+            </CardContent>
+          </Card>
 
           {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">

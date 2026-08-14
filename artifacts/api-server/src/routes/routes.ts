@@ -11,6 +11,8 @@ import { AuthUtils } from "../authUtils";
 import { emailService } from "../emailService";
 import path from "path";
 import fs from "fs";
+import express from "express";
+import { pool } from "../db";
 // Using Midtrans payment gateway
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "../midtrans";
 
@@ -199,6 +201,100 @@ const srqSubmissionSchema = z.object({
 
 function sumDassItems(answers: number[], items: readonly number[]) {
   return items.reduce((total, itemNumber) => total + answers[itemNumber - 1], 0);
+}
+
+function canManageExternalAssessmentsRole(role?: string | null) {
+  return role === "admin" || role === "internal" || role === "cso";
+}
+
+const EXTERNAL_ASSESSMENT_TYPE = "external-mental-health";
+
+async function ensureExternalAssessmentInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS external_assessment_configs (
+      assessment_id integer PRIMARY KEY REFERENCES assessments(id),
+      original_price numeric(10,2) NOT NULL,
+      website_name varchar(255),
+      website_url varchar(1000),
+      work_hours varchar(100) NOT NULL DEFAULT '08.00-17.00 WIB',
+      result_eta_text varchar(255) NOT NULL DEFAULT 'Hasil akan dikirimkan dalam waktu 2x24 jam hari kerja',
+      instructions_pdf bytea,
+      instructions_file_name varchar(255),
+      updated_at timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS external_assessment_codes (
+      id serial PRIMARY KEY,
+      assessment_id integer NOT NULL REFERENCES assessments(id),
+      code varchar(255) NOT NULL,
+      status varchar(30) NOT NULL DEFAULT 'available',
+      order_id integer UNIQUE REFERENCES orders(id),
+      user_id varchar REFERENCES users(id),
+      allocated_at timestamp,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      UNIQUE (assessment_id, code)
+    );
+    CREATE INDEX IF NOT EXISTS external_assessment_code_status_idx ON external_assessment_codes(assessment_id, status);
+    CREATE TABLE IF NOT EXISTS external_assessment_results (
+      id serial PRIMARY KEY,
+      order_id integer NOT NULL UNIQUE REFERENCES orders(id),
+      file_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL DEFAULT 'application/pdf',
+      uploaded_by varchar NOT NULL REFERENCES users(id),
+      uploaded_at timestamp DEFAULT now()
+    );
+  `);
+}
+
+async function allocateExternalAssessmentCodes(orderId: number) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Serialize fulfillment for the same order while still allowing different orders in parallel.
+    await client.query("SELECT pg_advisory_xact_lock($1)", [orderId]);
+    const orderResult = await client.query(
+      `SELECT o.user_id, oi.assessment_id
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       JOIN assessments a ON a.id = oi.assessment_id
+       WHERE o.id = $1 AND a.type = $2`,
+      [orderId, EXTERNAL_ASSESSMENT_TYPE],
+    );
+
+    for (const item of orderResult.rows) {
+      const existing = await client.query(
+        "SELECT id FROM external_assessment_codes WHERE order_id = $1 LIMIT 1",
+        [orderId],
+      );
+      if (existing.rowCount) continue;
+
+      const allocation = await client.query(
+        `WITH candidate AS (
+           SELECT id FROM external_assessment_codes
+           WHERE assessment_id = $1 AND status = 'available' AND order_id IS NULL
+           ORDER BY id
+           FOR UPDATE SKIP LOCKED
+           LIMIT 1
+         )
+         UPDATE external_assessment_codes c
+         SET status = 'allocated', order_id = $2, user_id = $3, allocated_at = now()
+         FROM candidate
+         WHERE c.id = candidate.id
+         RETURNING c.id`,
+        [item.assessment_id, orderId, item.user_id],
+      );
+      if (!allocation.rowCount) {
+        console.warn(`No available external assessment code for paid order ${orderId}`);
+      }
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function getDassCategory(scale: "depression" | "anxiety" | "stress", score: number) {
@@ -2311,6 +2407,9 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
   let assessmentsCreated = 0;
   if (order.orderItems.length > 0) {
     for (const item of order.orderItems) {
+      if (item.assessment.type === EXTERNAL_ASSESSMENT_TYPE) {
+        continue;
+      }
       const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, order.id);
       if (!existingAssessment) {
         await storage.createUserAssessment({
@@ -2323,6 +2422,8 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
         console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
       }
     }
+
+    await allocateExternalAssessmentCodes(orderId);
 
     return { assessmentsCreated, bookingUpdated: false };
   }
@@ -2346,6 +2447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.use(getSession());
 
     // Initialize default assessments
+    await ensureExternalAssessmentInfrastructure();
     await initializeAssessments();
     await initializeBookingServices();
     await ensureDefaultAdminUser();
@@ -4343,6 +4445,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   }
 
+  function canManageExternalAssessments(req: any, res: any, next: any) {
+    if (!req.user || !canManageExternalAssessmentsRole(req.user.role)) {
+      return res.status(403).json({ message: 'Akses hanya untuk Admin atau CSO.' });
+    }
+    next();
+  }
+
+  app.get('/api/external-assessments/access', isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT o.id AS "orderId", o.status AS "orderStatus", o.payment_status AS "paymentStatus",
+                a.id AS "assessmentId", a.name AS "assessmentName", a.description,
+                c.website_name AS "websiteName", c.website_url AS "websiteUrl",
+                c.work_hours AS "workHours", c.result_eta_text AS "resultEtaText",
+                c.instructions_pdf IS NOT NULL AS "hasInstructions", code.code AS token,
+                r.file_data IS NOT NULL AS "hasResult", r.file_name AS "resultFileName",
+                r.uploaded_at AS "resultUploadedAt"
+         FROM orders o
+         JOIN order_items oi ON oi.order_id = o.id
+         JOIN assessments a ON a.id = oi.assessment_id AND a.type = $2
+         LEFT JOIN external_assessment_configs c ON c.assessment_id = a.id
+         LEFT JOIN external_assessment_codes code ON code.order_id = o.id
+         LEFT JOIN external_assessment_results r ON r.order_id = o.id
+         WHERE o.user_id = $1 AND (o.status = 'completed' OR o.payment_status = 'paid')
+         ORDER BY o.paid_at DESC NULLS LAST, o.id DESC`,
+        [req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPE],
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching external assessment access:', error);
+      res.status(500).json({ message: 'Gagal memuat akses asesmen eksternal' });
+    }
+  });
+
+  app.get('/api/external-assessments/:orderId/instructions.pdf', isAuthenticated, async (req: any, res) => {
+    const result = await pool.query(
+      `SELECT c.instructions_pdf, c.instructions_file_name
+       FROM orders o JOIN order_items oi ON oi.order_id = o.id
+       JOIN assessments a ON a.id = oi.assessment_id AND a.type = $3
+       JOIN external_assessment_configs c ON c.assessment_id = a.id
+       WHERE o.id = $1 AND (o.user_id = $2 OR $4 = true) AND (o.status = 'completed' OR o.payment_status = 'paid') LIMIT 1`,
+      [Number(req.params.orderId), req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPE, canManageExternalAssessmentsRole(req.user.role)],
+    );
+    if (!result.rows[0]?.instructions_pdf) return res.status(404).json({ message: 'PDF ketentuan belum tersedia' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${String(result.rows[0].instructions_file_name || 'ketentuan-pengerjaan.pdf').replace(/["\r\n]/g, '')}"`);
+    res.send(result.rows[0].instructions_pdf);
+  });
+
+  app.get('/api/external-assessments/:orderId/result.pdf', isAuthenticated, async (req: any, res) => {
+    const result = await pool.query(
+      `SELECT r.file_data, r.file_name, r.mime_type FROM external_assessment_results r JOIN orders o ON o.id = r.order_id
+       WHERE r.order_id = $1 AND (o.user_id = $2 OR $3 = true)`,
+      [Number(req.params.orderId), req.user.claims.sub, canManageExternalAssessmentsRole(req.user.role)],
+    );
+    if (!result.rows[0]) return res.status(404).json({ message: 'Hasil belum tersedia' });
+    res.setHeader('Content-Type', result.rows[0].mime_type || 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${String(result.rows[0].file_name).replace(/["\r\n]/g, '')}"`);
+    res.send(result.rows[0].file_data);
+  });
+
+  app.get('/api/admin/external-assessments', isAuthenticated, canManageExternalAssessments, async (_req, res) => {
+    try {
+      const products = await pool.query(
+        `SELECT a.id, a.name, a.description, a.price, c.original_price AS "originalPrice",
+                c.website_name AS "websiteName", c.website_url AS "websiteUrl", c.work_hours AS "workHours",
+                c.result_eta_text AS "resultEtaText", c.instructions_file_name AS "instructionsFileName",
+                COUNT(code.id) FILTER (WHERE code.status = 'available')::int AS "availableCodes",
+                COUNT(code.id) FILTER (WHERE code.status = 'allocated')::int AS "allocatedCodes"
+         FROM assessments a JOIN external_assessment_configs c ON c.assessment_id = a.id
+         LEFT JOIN external_assessment_codes code ON code.assessment_id = a.id
+         WHERE a.type = $1 GROUP BY a.id, c.assessment_id ORDER BY a.id`,
+        [EXTERNAL_ASSESSMENT_TYPE],
+      );
+      const orders = await pool.query(
+        `SELECT o.id AS "orderId", o.user_id AS "userId", o.paid_at AS "paidAt", o.created_at AS "createdAt",
+                u.email, u.first_name AS "firstName", u.last_name AS "lastName", a.id AS "assessmentId",
+                code.code AS token, code.status AS "tokenStatus", r.file_name AS "resultFileName", r.uploaded_at AS "resultUploadedAt"
+         FROM orders o JOIN users u ON u.id = o.user_id JOIN order_items oi ON oi.order_id = o.id
+         JOIN assessments a ON a.id = oi.assessment_id AND a.type = $1
+         LEFT JOIN external_assessment_codes code ON code.order_id = o.id
+         LEFT JOIN external_assessment_results r ON r.order_id = o.id
+         WHERE o.status = 'completed' OR o.payment_status = 'paid'
+         ORDER BY o.paid_at DESC NULLS LAST, o.id DESC`,
+        [EXTERNAL_ASSESSMENT_TYPE],
+      );
+      res.json({ products: products.rows, orders: orders.rows });
+    } catch (error) {
+      console.error('Error fetching external assessment admin data:', error);
+      res.status(500).json({ message: 'Gagal memuat pengelolaan asesmen eksternal' });
+    }
+  });
+
+  app.post('/api/admin/external-assessments/:assessmentId/codes', isAuthenticated, canManageExternalAssessments, async (req: any, res) => {
+    const assessmentId = Number(req.params.assessmentId);
+    const rawCodes = Array.isArray(req.body.codes) ? req.body.codes : String(req.body.codes || '').split(/[\n,;]/);
+    const codes = Array.from(new Set(rawCodes.map((value: unknown) => String(value).trim()).filter(Boolean))).slice(0, 500);
+    if (!codes.length) return res.status(400).json({ message: 'Masukkan minimal satu kode tes' });
+    let added = 0;
+    for (const code of codes) {
+      const result = await pool.query(
+        `INSERT INTO external_assessment_codes (assessment_id, code, created_by)
+         SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM assessments WHERE id = $1 AND type = $4)
+         ON CONFLICT (assessment_id, code) DO NOTHING RETURNING id`,
+        [assessmentId, code, req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPE],
+      );
+      added += result.rowCount || 0;
+    }
+    if (added > 0) {
+      const waitingOrders = await pool.query(
+        `SELECT DISTINCT o.id FROM orders o JOIN order_items oi ON oi.order_id = o.id
+         JOIN assessments a ON a.id = oi.assessment_id AND a.id = $1
+         LEFT JOIN external_assessment_codes code ON code.order_id = o.id
+         WHERE (o.status = 'completed' OR o.payment_status = 'paid') AND code.id IS NULL ORDER BY o.id`,
+        [assessmentId],
+      );
+      for (const order of waitingOrders.rows) await allocateExternalAssessmentCodes(order.id);
+    }
+    res.json({ added, duplicates: codes.length - added });
+  });
+
+  app.put('/api/admin/external-assessments/:assessmentId/config', isAuthenticated, canManageExternalAssessments, async (req, res) => {
+    const parsed = z.object({
+      websiteName: z.string().trim().max(255).nullable().optional(),
+      websiteUrl: z.union([z.string().url(), z.literal('')]).nullable().optional(),
+      workHours: z.string().trim().min(3).max(100),
+      resultEtaText: z.string().trim().min(3).max(255),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Konfigurasi tidak valid', errors: parsed.error.flatten() });
+    await pool.query(
+      `UPDATE external_assessment_configs SET website_name = $2, website_url = $3, work_hours = $4, result_eta_text = $5, updated_at = now()
+       WHERE assessment_id = $1`,
+      [Number(req.params.assessmentId), parsed.data.websiteName || null, parsed.data.websiteUrl || null, parsed.data.workHours, parsed.data.resultEtaText],
+    );
+    res.json({ message: 'Konfigurasi tersimpan' });
+  });
+
+  app.put('/api/admin/external-assessments/:assessmentId/instructions.pdf', isAuthenticated, canManageExternalAssessments, express.raw({ type: 'application/pdf', limit: '10mb' }), async (req: any, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length < 5 || req.body.subarray(0, 4).toString() !== '%PDF') {
+      return res.status(400).json({ message: 'File harus berupa PDF yang valid' });
+    }
+    const fileName = String(req.headers['x-file-name'] || 'ketentuan-pengerjaan.pdf').slice(0, 255);
+    await pool.query('UPDATE external_assessment_configs SET instructions_pdf = $2, instructions_file_name = $3, updated_at = now() WHERE assessment_id = $1', [Number(req.params.assessmentId), req.body, fileName]);
+    res.json({ message: 'PDF ketentuan berhasil diunggah' });
+  });
+
+  app.put('/api/admin/external-assessments/orders/:orderId/result.pdf', isAuthenticated, canManageExternalAssessments, express.raw({ type: 'application/pdf', limit: '10mb' }), async (req: any, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length < 5 || req.body.subarray(0, 4).toString() !== '%PDF') {
+      return res.status(400).json({ message: 'File harus berupa PDF yang valid' });
+    }
+    const orderId = Number(req.params.orderId);
+    const eligible = await pool.query(
+      `SELECT o.id FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN assessments a ON a.id = oi.assessment_id
+       WHERE o.id = $1 AND a.type = $2 AND (o.status = 'completed' OR o.payment_status = 'paid')`,
+      [orderId, EXTERNAL_ASSESSMENT_TYPE],
+    );
+    if (!eligible.rowCount) return res.status(404).json({ message: 'Pesanan lunas tidak ditemukan' });
+    const fileName = String(req.headers['x-file-name'] || `hasil-asesmen-${orderId}.pdf`).slice(0, 255);
+    await pool.query(
+      `INSERT INTO external_assessment_results (order_id, file_data, file_name, mime_type, uploaded_by)
+       VALUES ($1, $2, $3, 'application/pdf', $4)
+       ON CONFLICT (order_id) DO UPDATE SET file_data = EXCLUDED.file_data, file_name = EXCLUDED.file_name,
+       mime_type = EXCLUDED.mime_type, uploaded_by = EXCLUDED.uploaded_by, uploaded_at = now()`,
+      [orderId, req.body, fileName, req.user.claims.sub],
+    );
+    res.json({ message: 'Hasil asesmen berhasil diunggah' });
+  });
+
   // Admin login route
   app.post('/api/admin/login', async (req, res) => {
     try {
@@ -4824,6 +5094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create user assessments if they don't exist for this specific order
         if (order.orderItems) {
           for (const item of order.orderItems) {
+            if (item.assessment.type === EXTERNAL_ASSESSMENT_TYPE) continue;
             // Check if assessment exists for THIS SPECIFIC ORDER (not just user+assessment combo)
             const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, orderId);
             if (!existingAssessment) {
@@ -5101,6 +5372,27 @@ async function initializeAssessments() {
       });
       console.log("Mental Health Check Up berhasil dibuat dengan free access sementara");
     }
+
+    let externalMentalHealthAssessment = existingAssessments.find((assessment) => assessment.type === EXTERNAL_ASSESSMENT_TYPE);
+    if (!externalMentalHealthAssessment) {
+      externalMentalHealthAssessment = await storage.createAssessment({
+        name: "Mental Health Check Up",
+        description: "Skrining kecemasan, stress, depresi, burnout",
+        price: "129000",
+        duration: "Sesuai ketentuan pengerjaan",
+        ageRange: "Dewasa",
+        type: EXTERNAL_ASSESSMENT_TYPE,
+        isActive: true,
+      });
+      console.log("Produk eksternal Mental Health Check Up berhasil dibuat");
+    } else if (Number(externalMentalHealthAssessment.price) !== 129000) {
+      await storage.updateAssessment(externalMentalHealthAssessment.id, { price: "129000", isActive: true });
+    }
+    await pool.query(
+      `INSERT INTO external_assessment_configs (assessment_id, original_price)
+       VALUES ($1, 200000) ON CONFLICT (assessment_id) DO NOTHING`,
+      [externalMentalHealthAssessment.id],
+    );
 
     const studentPotentialAssessment = existingAssessments.find((assessment) => assessment.type === "student-potential");
     if (!studentPotentialAssessment) {
