@@ -6,6 +6,8 @@ import Header from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import onsiteAssessmentTopImage from "@assets/asesmen-onsite-1.png";
+import onsiteAssessmentBottomImage from "@assets/asesmen-onsite-2.png";
 
 type AssessmentCategory = {
   title: string;
@@ -163,6 +165,7 @@ function InformationPage({
   highlights,
   details,
   catalog,
+  panelImages,
 }: {
   title: string;
   description: string;
@@ -178,6 +181,10 @@ function InformationPage({
     note?: string;
   };
   catalog?: AssessmentService[];
+  panelImages?: {
+    top: { src: string; alt: string };
+    bottom: { src: string; alt: string };
+  };
 }) {
   const whatsappMessage = encodeURIComponent(`Halo PI, saya ingin mendapatkan informasi mengenai ${title}.`);
 
@@ -255,16 +262,34 @@ function InformationPage({
                 </a>
               </div>
             </div>
-            <div className="flex min-h-[320px] items-center justify-center bg-gradient-to-br from-emerald-800 to-green-500 p-10 text-white">
-              <div className="text-center">
-                <PackageSearch className="mx-auto h-20 w-20 opacity-90" />
-                <h2 className="mt-6 text-2xl font-bold">{catalog ? `${catalog.length} Layanan Tersedia` : "Katalog sedang disiapkan"}</h2>
-                <p className="mt-3 max-w-sm text-green-50/90">
-                  {catalog
-                    ? "Pilih layanan asesmen yang sesuai dan hubungi Hotline PI untuk mengatur jadwal pelaksanaan."
-                    : "Tim kami siap membantu memberikan informasi layanan dan produk yang tersedia saat ini."}
-                </p>
-              </div>
+            <div className="min-h-[320px] bg-gradient-to-br from-emerald-800 to-green-500 text-white">
+              {panelImages ? (
+                <div className="grid h-full min-h-[620px] grid-rows-[minmax(170px,1fr)_auto_minmax(170px,1fr)] lg:min-h-full">
+                  <img src={panelImages.top.src} alt={panelImages.top.alt} className="h-full min-h-0 w-full object-cover" />
+                  <div className="px-8 py-8 text-center">
+                    <PackageSearch className="mx-auto h-14 w-14 opacity-90" />
+                    <h2 className="mt-4 text-2xl font-bold">{catalog ? `${catalog.length} Layanan Tersedia` : "Katalog sedang disiapkan"}</h2>
+                    <p className="mx-auto mt-3 max-w-sm text-green-50/90">
+                      {catalog
+                        ? "Pilih layanan asesmen yang sesuai dan hubungi Hotline PI untuk mengatur jadwal pelaksanaan."
+                        : "Tim kami siap membantu memberikan informasi layanan dan produk yang tersedia saat ini."}
+                    </p>
+                  </div>
+                  <img src={panelImages.bottom.src} alt={panelImages.bottom.alt} className="h-full min-h-0 w-full object-cover" />
+                </div>
+              ) : (
+                <div className="flex min-h-[320px] items-center justify-center p-10">
+                  <div className="text-center">
+                    <PackageSearch className="mx-auto h-20 w-20 opacity-90" />
+                    <h2 className="mt-6 text-2xl font-bold">{catalog ? `${catalog.length} Layanan Tersedia` : "Katalog sedang disiapkan"}</h2>
+                    <p className="mt-3 max-w-sm text-green-50/90">
+                      {catalog
+                        ? "Pilih layanan asesmen yang sesuai dan hubungi Hotline PI untuk mengatur jadwal pelaksanaan."
+                        : "Tim kami siap membantu memberikan informasi layanan dan produk yang tersedia saat ini."}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -327,6 +352,10 @@ export function OnsiteAssessments() {
       icon={Building2}
       highlights={["Pelaksanaan terjadwal di lokasi", "Pendampingan tim profesional", "Pilihan layanan dapat disesuaikan dengan kebutuhan"]}
       catalog={onsiteAssessmentServices}
+      panelImages={{
+        top: { src: onsiteAssessmentTopImage, alt: "Anak menjalani asesmen onsite dengan tenaga profesional" },
+        bottom: { src: onsiteAssessmentBottomImage, alt: "Proses observasi dan asesmen profesional" },
+      }}
       details={{
         buttonLabel: "Tentang Asesmen Onsite",
         title: "Deskripsi Asesmen Onsite",
