@@ -24,13 +24,22 @@ const hiddenOnlineAssessmentTypes = new Set([
   "career-potential",
 ]);
 
+const onlineAssessmentOrder = new Map([
+  ["learning", 0],
+  ["sensory", 1],
+]);
+
 export default function Assessments() {
   const { data: assessments, isLoading, error } = useQuery<Assessment[]>({
     queryKey: ["/api/assessments"],
   });
-  const visibleAssessments = assessments?.filter(
-    (assessment) => !hiddenOnlineAssessmentTypes.has(assessment.type),
-  );
+  const visibleAssessments = assessments
+    ?.filter((assessment) => !hiddenOnlineAssessmentTypes.has(assessment.type))
+    .sort(
+      (first, second) =>
+        (onlineAssessmentOrder.get(first.type) ?? Number.MAX_SAFE_INTEGER) -
+        (onlineAssessmentOrder.get(second.type) ?? Number.MAX_SAFE_INTEGER),
+    );
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-background">
