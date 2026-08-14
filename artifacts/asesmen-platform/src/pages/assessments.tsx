@@ -137,6 +137,7 @@ export default function Assessments() {
                   key={assessment.id} 
                   assessment={assessment} 
                   showAddToCart={true} 
+                  showCatalogImage={true}
                 />
               ))}
             </div>

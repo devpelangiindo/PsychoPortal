@@ -11,13 +11,27 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import SampleQuestions, { SampleResults } from "@/components/sample-questions";
 import type { Assessment } from "@shared/schema";
+import sensoryProfileImage from "@assets/asesmen-profil-sensori.png";
+import learningStyleImage from "@assets/inventory-gaya-belajar.png";
+
+const catalogImages: Record<string, { src: string; alt: string }> = {
+  sensory: {
+    src: sensoryProfileImage,
+    alt: "Anak melakukan aktivitas permainan sensoris",
+  },
+  learning: {
+    src: learningStyleImage,
+    alt: "Ilustrasi Inventory Gaya Belajar",
+  },
+};
 
 interface AssessmentCardProps {
   assessment: Assessment;
   showAddToCart: boolean;
+  showCatalogImage?: boolean;
 }
 
-export default function AssessmentCard({ assessment, showAddToCart }: AssessmentCardProps) {
+export default function AssessmentCard({ assessment, showAddToCart, showCatalogImage = false }: AssessmentCardProps) {
   const { toast } = useToast();
   const { addItem, items } = useCart();
   const { user } = useAuth();
@@ -29,6 +43,7 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
   const isFree = parseFloat(assessment.price) === 0;
   const isAdmin = user?.role === 'admin';
   const isInternal = user?.role === 'internal';
+  const catalogImage = showCatalogImage ? catalogImages[assessment.type] : undefined;
 
   const getIcon = (type: string) => {
     if (type === 'sensory') {
@@ -202,14 +217,29 @@ export default function AssessmentCard({ assessment, showAddToCart }: Assessment
   return (
     <Card className="assessment-card-hover bg-white dark:bg-card rounded-2xl shadow-lg border border-gray-100 dark:border-border overflow-hidden">
       {/* Professional assessment illustration */}
-      <div className={`h-48 ${getGradientClass(assessment.type)} flex items-center justify-center`}>
-        <div className="text-center">
-          {getIcon(assessment.type)}
-          <h3 className="text-lg font-semibold text-neutral-900 dark:text-foreground mt-4">
+      {catalogImage ? (
+        <div className="relative h-52 overflow-hidden bg-neutral-100">
+          <img
+            src={catalogImage.src}
+            alt={catalogImage.alt}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
+          <h3 className="absolute bottom-4 left-5 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-neutral-900 shadow-md">
             {getIconLabel(assessment.type)}
           </h3>
         </div>
-      </div>
+      ) : (
+        <div className={`h-48 ${getGradientClass(assessment.type)} flex items-center justify-center`}>
+          <div className="text-center">
+            {getIcon(assessment.type)}
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-foreground mt-4">
+              {getIconLabel(assessment.type)}
+            </h3>
+          </div>
+        </div>
+      )}
       
       <CardContent className="p-8">
         <h3 className="text-2xl font-bold text-neutral-900 dark:text-foreground mb-4">
