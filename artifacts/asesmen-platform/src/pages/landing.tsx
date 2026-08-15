@@ -60,7 +60,7 @@ export default function Landing() {
             />
           ))}
         </div>
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(13,57,42,0.90)_0%,rgba(15,72,52,0.84)_55%,rgba(10,54,39,0.94)_100%)]" />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(13,57,42,0.78)_0%,rgba(15,72,52,0.70)_55%,rgba(10,54,39,0.84)_100%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-gradient-to-b from-black/20 to-transparent" />
 
         <div className="relative mx-auto flex min-h-[520px] max-w-7xl flex-col justify-center px-4 sm:px-6 lg:px-8">
