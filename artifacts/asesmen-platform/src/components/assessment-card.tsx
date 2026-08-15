@@ -13,6 +13,7 @@ import SampleQuestions, { SampleResults } from "@/components/sample-questions";
 import type { Assessment } from "@shared/schema";
 import sensoryProfileImage from "@assets/asesmen-profil-sensori.png";
 import learningStyleImage from "@assets/inventory-gaya-belajar.png";
+import mentalHealthCheckUpImage from "@assets/mental-health-check-up.png";
 
 const catalogImages: Record<string, { src: string; alt: string }> = {
   sensory: {
@@ -22,6 +23,10 @@ const catalogImages: Record<string, { src: string; alt: string }> = {
   learning: {
     src: learningStyleImage,
     alt: "Ilustrasi Inventory Gaya Belajar",
+  },
+  "external-mental-health": {
+    src: mentalHealthCheckUpImage,
+    alt: "Sesi pemeriksaan awal kesehatan mental bersama tenaga profesional",
   },
 };
 
