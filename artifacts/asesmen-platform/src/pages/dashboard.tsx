@@ -1038,6 +1038,7 @@ export default function Dashboard() {
                       key={assessment.id}
                       assessment={assessment}
                       showAddToCart={true}
+                      showCatalogImage={true}
                     />
                   ))}
                 </div>
