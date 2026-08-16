@@ -84,10 +84,10 @@ export default function Kontak() {
         {/* Hero */}
         <section className="gradient-hero py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-[#248f59] mb-4">
+            <h1 className="mb-4 text-4xl font-bold text-white drop-shadow-md md:text-5xl">
               Hubungi Kami
             </h1>
-            <p className="text-lg text-neutral-600 dark:text-muted-foreground max-w-2xl mx-auto">
+            <p className="mx-auto max-w-2xl text-lg font-medium text-white/95 drop-shadow-sm">
               Ada pertanyaan atau ingin berkonsultasi? Kami siap membantu Anda.
             </p>
           </div>
