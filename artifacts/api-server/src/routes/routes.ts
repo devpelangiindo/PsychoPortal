@@ -4483,7 +4483,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 a.id AS "assessmentId", a.name AS "assessmentName", a.description,
                 c.website_name AS "websiteName", c.website_url AS "websiteUrl",
                 c.work_hours AS "workHours", c.result_eta_text AS "resultEtaText",
-                c.instructions_pdf IS NOT NULL AS "hasInstructions", code.code AS token,
+                COALESCE(octet_length(c.instructions_pdf), 0) > 0 AS "hasInstructions",
+                c.instructions_file_name AS "instructionsFileName", c.updated_at AS "instructionsUpdatedAt",
+                code.code AS token,
                 r.file_data IS NOT NULL AS "hasResult", r.file_name AS "resultFileName",
                 r.uploaded_at AS "resultUploadedAt"
          FROM orders o
@@ -4496,6 +4498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
          ORDER BY o.paid_at DESC NULLS LAST, o.id DESC`,
         [req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPES],
       );
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
       res.json(result.rows);
     } catch (error) {
       console.error('Error fetching external assessment access:', error);
@@ -4686,9 +4689,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!Buffer.isBuffer(req.body) || req.body.length < 5 || req.body.subarray(0, 4).toString() !== '%PDF') {
       return res.status(400).json({ message: 'File harus berupa PDF yang valid' });
     }
+    const assessmentId = Number(req.params.assessmentId);
+    if (!Number.isInteger(assessmentId) || assessmentId < 1) {
+      return res.status(400).json({ message: 'ID asesmen tidak valid' });
+    }
     const fileName = String(req.headers['x-file-name'] || 'ketentuan-pengerjaan.pdf').slice(0, 255);
-    await pool.query('UPDATE external_assessment_configs SET instructions_pdf = $2, instructions_file_name = $3, updated_at = now() WHERE assessment_id = $1', [Number(req.params.assessmentId), req.body, fileName]);
-    res.json({ message: 'PDF ketentuan berhasil diunggah' });
+    const updated = await pool.query(
+      `UPDATE external_assessment_configs config
+       SET instructions_pdf = $2, instructions_file_name = $3, updated_at = now()
+       FROM assessments assessment
+       WHERE config.assessment_id = $1 AND assessment.id = config.assessment_id
+         AND assessment.type = ANY($4::text[])
+       RETURNING config.instructions_file_name AS "instructionsFileName",
+                 octet_length(config.instructions_pdf)::int AS "fileSize",
+                 config.updated_at AS "updatedAt"`,
+      [assessmentId, req.body, fileName, EXTERNAL_ASSESSMENT_TYPES],
+    );
+    if (!updated.rowCount || !updated.rows[0]?.fileSize) {
+      return res.status(404).json({ message: 'Konfigurasi produk asesmen eksternal tidak ditemukan' });
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ message: 'PDF ketentuan berhasil diunggah', ...updated.rows[0] });
   });
 
   app.put('/api/admin/external-assessments/orders/:orderId/:assessmentId/result.pdf', isAuthenticated, canManageExternalAssessments, express.raw({ type: 'application/pdf', limit: '10mb' }), async (req: any, res) => {

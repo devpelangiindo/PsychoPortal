@@ -56,6 +56,8 @@ type ExternalAssessmentAccess = {
   workHours: string;
   resultEtaText: string;
   hasInstructions: boolean;
+  instructionsFileName: string | null;
+  instructionsUpdatedAt: string | null;
   token: string | null;
   hasResult: boolean;
   resultFileName: string | null;
@@ -321,6 +323,7 @@ export default function Dashboard() {
     queryKey: ["/api/external-assessments/access"],
     enabled: isAuthenticated,
     refetchInterval: 5000,
+    refetchOnMount: "always",
   });
 
   const settlePaymentMutation = useMutation({
@@ -584,7 +587,7 @@ export default function Dashboard() {
                   <a href={access.websiteUrl} target="_blank" rel="noreferrer"><Button><ExternalLink className="mr-2 h-4 w-4" />Buka Website Tes</Button></a>
                 )}
                 {access.hasInstructions && (
-                  <Button variant="outline" onClick={() => downloadProtectedFile(`/api/external-assessments/${access.orderId}/${access.assessmentId}/instructions.pdf`, `ketentuan-${access.orderId}-${access.assessmentId}.pdf`, true)}>
+                  <Button variant="outline" onClick={() => downloadProtectedFile(`/api/external-assessments/${access.orderId}/${access.assessmentId}/instructions.pdf`, access.instructionsFileName || `ketentuan-${access.orderId}-${access.assessmentId}.pdf`, true)}>
                     <FileText className="mr-2 h-4 w-4" />Lihat Ketentuan PDF
                   </Button>
                 )}
