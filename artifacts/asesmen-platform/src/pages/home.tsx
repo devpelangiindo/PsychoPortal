@@ -188,7 +188,7 @@ export default function Home() {
           ) : allAssessments && allAssessments.length > 0 ? (
             <div className="flex justify-center">
               <div className="grid md:grid-cols-2 gap-6 max-w-4xl">
-                {allAssessments.filter((assessment) => ["learning", "sensory", "external-mental-health"].includes(assessment.type)).map((assessment) => (
+                {allAssessments.filter((assessment) => ["learning", "sensory", "external-mental-health", "external-student-potential"].includes(assessment.type)).map((assessment) => (
                   <AssessmentCard 
                     key={assessment.id} 
                     assessment={assessment} 

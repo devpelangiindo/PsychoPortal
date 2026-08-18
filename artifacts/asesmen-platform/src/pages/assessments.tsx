@@ -28,6 +28,7 @@ const onlineAssessmentOrder = new Map([
   ["learning", 0],
   ["sensory", 1],
   ["external-mental-health", 2],
+  ["external-student-potential", 3],
 ]);
 
 export default function Assessments() {

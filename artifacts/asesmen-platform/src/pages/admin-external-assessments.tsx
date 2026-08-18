@@ -85,11 +85,22 @@ export default function AdminExternalAssessments() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [codes, setCodes] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [editingCode, setEditingCode] = useState<TestCode | null>(null);
   const [editedCodeValue, setEditedCodeValue] = useState("");
   const [config, setConfig] = useState({ websiteName: "", websiteUrl: "", workHours: "08.00-17.00 WIB", resultEtaText: "Hasil akan dikirimkan dalam waktu 2x24 jam hari kerja" });
+  const dashboardPath = window.location.pathname.includes("/cso/") ? "/cso/dashboard" : "/admin/dashboard";
   const { data, isLoading } = useQuery<AdminData>({ queryKey: ["/api/admin/external-assessments"] });
-  const product = data?.products[0];
+  const product = data?.products.find((item) => item.id === selectedProductId) || data?.products[0];
+  const productOrders = (data?.orders || []).filter((order) => order.assessmentId === product?.id);
+  const productCodes = (data?.codes || []).filter((code) => code.assessmentId === product?.id);
+
+  useEffect(() => {
+    if (!data?.products.length) return;
+    if (!selectedProductId || !data.products.some((item) => item.id === selectedProductId)) {
+      setSelectedProductId(data.products[0].id);
+    }
+  }, [data?.products, selectedProductId]);
 
   useEffect(() => {
     if (!product) return;
@@ -139,10 +150,33 @@ export default function AdminExternalAssessments() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <Link href="/admin/dashboard"><Button variant="ghost"><ArrowLeft className="mr-2 h-4 w-4" />Kembali ke Dashboard</Button></Link>
+        <Link href={dashboardPath}><Button variant="ghost"><ArrowLeft className="mr-2 h-4 w-4" />Kembali ke Dashboard</Button></Link>
         <div>
-          <h1 className="text-3xl font-bold">Mental Health Check Up</h1>
-          <p className="mt-1 text-gray-600">Kelola informasi pengerjaan, bank kode tes, dan PDF hasil klien.</p>
+          <h1 className="text-3xl font-bold">Pengelolaan Asesmen Eksternal</h1>
+          <p className="mt-1 text-gray-600">Kelola informasi pengerjaan, bank kode tes, dan PDF hasil klien untuk setiap produk.</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(data?.products || []).map((item) => (
+            <Button
+              key={item.id}
+              variant={product?.id === item.id ? "default" : "outline"}
+              className="h-auto min-h-14 justify-start whitespace-normal px-4 py-3 text-left"
+              onClick={() => {
+                setSelectedProductId(item.id);
+                setCodes("");
+                setEditingCode(null);
+                setEditedCodeValue("");
+              }}
+            >
+              {item.name}
+            </Button>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-indigo-100 bg-white px-5 py-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Produk yang sedang dikelola</p>
+          <h2 className="mt-1 text-xl font-bold text-gray-900">{product.name}</h2>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -198,7 +232,7 @@ export default function AdminExternalAssessments() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data?.codes || []).map((testCode) => {
+                {productCodes.map((testCode) => {
                   const isAvailable = testCode.status === "available" && !testCode.orderId;
                   const clientName = `${testCode.firstName || ""} ${testCode.lastName || ""}`.trim();
                   return (
@@ -277,7 +311,7 @@ export default function AdminExternalAssessments() {
                     </TableRow>
                   );
                 })}
-                {!(data?.codes || []).length && (
+                {!productCodes.length && (
                   <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-500">Belum ada kode tes di bank data.</TableCell></TableRow>
                 )}
               </TableBody>
@@ -291,7 +325,7 @@ export default function AdminExternalAssessments() {
             <Table>
               <TableHeader><TableRow><TableHead>Pesanan</TableHead><TableHead>Klien</TableHead><TableHead>Token</TableHead><TableHead>Pembayaran</TableHead><TableHead>Hasil PDF</TableHead></TableRow></TableHeader>
               <TableBody>
-                {(data?.orders || []).map((order) => (
+                {productOrders.map((order) => (
                   <TableRow key={order.orderId}>
                     <TableCell className="font-mono">#{order.orderId}</TableCell>
                     <TableCell><p className="font-medium">{`${order.firstName || ""} ${order.lastName || ""}`.trim() || "-"}</p><p className="text-xs text-gray-500">{order.email}</p></TableCell>
@@ -303,7 +337,7 @@ export default function AdminExternalAssessments() {
                         <FileUp className="mr-2 h-4 w-4" />{order.resultFileName ? "Ganti PDF" : "Upload PDF"}
                         <input className="hidden" type="file" accept="application/pdf" onChange={async (event) => {
                           const file = event.target.files?.[0]; if (!file) return;
-                          try { await uploadPdf(`/api/admin/external-assessments/orders/${order.orderId}/result.pdf`, file); refresh(); toast({ title: "Hasil klien berhasil diunggah" }); }
+                          try { await uploadPdf(`/api/admin/external-assessments/orders/${order.orderId}/${order.assessmentId}/result.pdf`, file); refresh(); toast({ title: "Hasil klien berhasil diunggah" }); }
                           catch (error) { toast({ title: "Upload gagal", description: String(error), variant: "destructive" }); }
                           event.target.value = "";
                         }} />
@@ -311,7 +345,7 @@ export default function AdminExternalAssessments() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {!data?.orders.length && <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-500">Belum ada pesanan lunas.</TableCell></TableRow>}
+                {!productOrders.length && <TableRow><TableCell colSpan={5} className="py-8 text-center text-gray-500">Belum ada pesanan lunas untuk produk ini.</TableCell></TableRow>}
               </TableBody>
             </Table>
           </CardContent>

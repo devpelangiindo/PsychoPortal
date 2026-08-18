@@ -22,6 +22,7 @@ export default function Cart() {
   const [, setLocation] = useLocation();
   const [showPayment, setShowPayment] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
+  const externalItems = items.filter((item) => ["external-mental-health", "external-student-potential"].includes(item.type));
 
   // Create order mutation
   const createOrderMutation = useMutation({
@@ -195,14 +196,14 @@ export default function Cart() {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
-              {items.some((item) => item.type === "external-mental-health") && user && (
+              {externalItems.length > 0 && user && (
                 <Card className="border-rose-200 bg-rose-50/60">
                   <CardHeader><CardTitle className="text-lg">Data Diri Pemesan</CardTitle></CardHeader>
                   <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
                     <div><p className="text-gray-500">Nama</p><p className="font-medium">{`${user.firstName || ""} ${user.lastName || ""}`.trim() || "-"}</p></div>
                     <div><p className="text-gray-500">Email</p><p className="font-medium">{user.email}</p></div>
                     <div><p className="text-gray-500">WhatsApp</p><p className="font-medium">{user.whatsappNumber || "Belum diisi"}</p></div>
-                    <div><p className="text-gray-500">Produk</p><p className="font-medium">Mental Health Check Up</p></div>
+                    <div><p className="text-gray-500">Produk</p><p className="font-medium">{externalItems.map((item) => item.name).join(", ")}</p></div>
                     <p className="sm:col-span-2 text-xs text-gray-500">Data ini akan digunakan untuk transaksi dan pengiriman akses tes.</p>
                   </CardContent>
                 </Card>

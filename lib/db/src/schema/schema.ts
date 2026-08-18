@@ -262,20 +262,21 @@ export const externalAssessmentCodes = pgTable("external_assessment_codes", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   uniqueIndex("external_assessment_code_unique").on(table.assessmentId, table.code),
-  uniqueIndex("external_assessment_code_order_unique").on(table.orderId),
+  uniqueIndex("external_assessment_code_order_assessment_unique").on(table.orderId, table.assessmentId),
   index("external_assessment_code_status_idx").on(table.assessmentId, table.status),
 ]);
 
 export const externalAssessmentResults = pgTable("external_assessment_results", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id").notNull().references(() => orders.id),
+  assessmentId: integer("assessment_id").references(() => assessments.id),
   fileData: bytea("file_data").notNull(),
   fileName: varchar("file_name", { length: 255 }).notNull(),
   mimeType: varchar("mime_type", { length: 100 }).notNull().default("application/pdf"),
   uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
   uploadedAt: timestamp("uploaded_at").defaultNow(),
 }, (table) => [
-  uniqueIndex("external_assessment_result_order_unique").on(table.orderId),
+  uniqueIndex("external_assessment_result_order_assessment_unique").on(table.orderId, table.assessmentId),
 ]);
 
 // Relations

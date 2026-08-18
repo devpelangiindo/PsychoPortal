@@ -48,6 +48,7 @@ type SrqEligibilityResponse = DassEligibilityResponse;
 
 type ExternalAssessmentAccess = {
   orderId: number;
+  assessmentId: number;
   assessmentName: string;
   description: string;
   websiteName: string | null;
@@ -552,7 +553,7 @@ export default function Dashboard() {
         </div>
 
         {externalAssessmentAccess.map((access) => (
-          <Card key={access.orderId} className="mb-8 overflow-hidden border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50">
+          <Card key={`${access.orderId}-${access.assessmentId}`} className="mb-8 overflow-hidden border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50">
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -583,12 +584,12 @@ export default function Dashboard() {
                   <a href={access.websiteUrl} target="_blank" rel="noreferrer"><Button><ExternalLink className="mr-2 h-4 w-4" />Buka Website Tes</Button></a>
                 )}
                 {access.hasInstructions && (
-                  <Button variant="outline" onClick={() => downloadProtectedFile(`/api/external-assessments/${access.orderId}/instructions.pdf`, `ketentuan-${access.orderId}.pdf`, true)}>
+                  <Button variant="outline" onClick={() => downloadProtectedFile(`/api/external-assessments/${access.orderId}/${access.assessmentId}/instructions.pdf`, `ketentuan-${access.orderId}-${access.assessmentId}.pdf`, true)}>
                     <FileText className="mr-2 h-4 w-4" />Lihat Ketentuan PDF
                   </Button>
                 )}
                 {access.hasResult && (
-                  <Button variant="outline" onClick={() => downloadProtectedFile(`/api/external-assessments/${access.orderId}/result.pdf`, access.resultFileName || `hasil-${access.orderId}.pdf`)}>
+                  <Button variant="outline" onClick={() => downloadProtectedFile(`/api/external-assessments/${access.orderId}/${access.assessmentId}/result.pdf`, access.resultFileName || `hasil-${access.orderId}-${access.assessmentId}.pdf`)}>
                     <Download className="mr-2 h-4 w-4" />Download Hasil
                   </Button>
                 )}
@@ -1033,7 +1034,7 @@ export default function Dashboard() {
                 </div>
               ) : assessments && assessments.length > 0 ? (
                 <div className="grid md:grid-cols-2 gap-6">
-                  {assessments.filter((assessment) => ["learning", "sensory", "external-mental-health"].includes(assessment.type)).map((assessment) => (
+                  {assessments.filter((assessment) => ["learning", "sensory", "external-mental-health", "external-student-potential"].includes(assessment.type)).map((assessment) => (
                     <AssessmentCard
                       key={assessment.id}
                       assessment={assessment}

@@ -207,7 +207,11 @@ function canManageExternalAssessmentsRole(role?: string | null) {
   return role === "admin" || role === "internal" || role === "cso";
 }
 
-const EXTERNAL_ASSESSMENT_TYPE = "external-mental-health";
+const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential"] as const;
+
+function isExternalAssessmentType(type?: string | null) {
+  return Boolean(type && EXTERNAL_ASSESSMENT_TYPES.includes(type as (typeof EXTERNAL_ASSESSMENT_TYPES)[number]));
+}
 
 async function ensureExternalAssessmentInfrastructure() {
   await pool.query(`
@@ -227,7 +231,7 @@ async function ensureExternalAssessmentInfrastructure() {
       assessment_id integer NOT NULL REFERENCES assessments(id),
       code varchar(255) NOT NULL,
       status varchar(30) NOT NULL DEFAULT 'available',
-      order_id integer UNIQUE REFERENCES orders(id),
+      order_id integer REFERENCES orders(id),
       user_id varchar REFERENCES users(id),
       allocated_at timestamp,
       created_by varchar REFERENCES users(id),
@@ -237,13 +241,33 @@ async function ensureExternalAssessmentInfrastructure() {
     CREATE INDEX IF NOT EXISTS external_assessment_code_status_idx ON external_assessment_codes(assessment_id, status);
     CREATE TABLE IF NOT EXISTS external_assessment_results (
       id serial PRIMARY KEY,
-      order_id integer NOT NULL UNIQUE REFERENCES orders(id),
+      order_id integer NOT NULL REFERENCES orders(id),
+      assessment_id integer REFERENCES assessments(id),
       file_data bytea NOT NULL,
       file_name varchar(255) NOT NULL,
       mime_type varchar(100) NOT NULL DEFAULT 'application/pdf',
       uploaded_by varchar NOT NULL REFERENCES users(id),
       uploaded_at timestamp DEFAULT now()
     );
+    ALTER TABLE external_assessment_codes DROP CONSTRAINT IF EXISTS external_assessment_codes_order_id_key;
+    DROP INDEX IF EXISTS external_assessment_code_order_unique;
+    CREATE UNIQUE INDEX IF NOT EXISTS external_assessment_code_order_assessment_unique
+      ON external_assessment_codes(order_id, assessment_id);
+    ALTER TABLE external_assessment_results ADD COLUMN IF NOT EXISTS assessment_id integer REFERENCES assessments(id);
+    UPDATE external_assessment_results result
+      SET assessment_id = code.assessment_id
+      FROM external_assessment_codes code
+      WHERE result.assessment_id IS NULL AND code.order_id = result.order_id;
+    UPDATE external_assessment_results result
+      SET assessment_id = item.assessment_id
+      FROM order_items item
+      JOIN assessments assessment ON assessment.id = item.assessment_id
+      WHERE result.assessment_id IS NULL AND item.order_id = result.order_id
+        AND assessment.type IN ('external-mental-health', 'external-student-potential');
+    ALTER TABLE external_assessment_results DROP CONSTRAINT IF EXISTS external_assessment_results_order_id_key;
+    DROP INDEX IF EXISTS external_assessment_result_order_unique;
+    CREATE UNIQUE INDEX IF NOT EXISTS external_assessment_result_order_assessment_unique
+      ON external_assessment_results(order_id, assessment_id);
   `);
 }
 
@@ -258,14 +282,14 @@ async function allocateExternalAssessmentCodes(orderId: number) {
        FROM orders o
        JOIN order_items oi ON oi.order_id = o.id
        JOIN assessments a ON a.id = oi.assessment_id
-       WHERE o.id = $1 AND a.type = $2`,
-      [orderId, EXTERNAL_ASSESSMENT_TYPE],
+       WHERE o.id = $1 AND a.type = ANY($2::text[])`,
+      [orderId, EXTERNAL_ASSESSMENT_TYPES],
     );
 
     for (const item of orderResult.rows) {
       const existing = await client.query(
-        "SELECT id FROM external_assessment_codes WHERE order_id = $1 LIMIT 1",
-        [orderId],
+        "SELECT id FROM external_assessment_codes WHERE order_id = $1 AND assessment_id = $2 LIMIT 1",
+        [orderId, item.assessment_id],
       );
       if (existing.rowCount) continue;
 
@@ -2407,7 +2431,7 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
   let assessmentsCreated = 0;
   if (order.orderItems.length > 0) {
     for (const item of order.orderItems) {
-      if (item.assessment.type === EXTERNAL_ASSESSMENT_TYPE) {
+      if (isExternalAssessmentType(item.assessment.type)) {
         continue;
       }
       const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, order.id);
@@ -4464,13 +4488,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 r.uploaded_at AS "resultUploadedAt"
          FROM orders o
          JOIN order_items oi ON oi.order_id = o.id
-         JOIN assessments a ON a.id = oi.assessment_id AND a.type = $2
+         JOIN assessments a ON a.id = oi.assessment_id AND a.type = ANY($2::text[])
          LEFT JOIN external_assessment_configs c ON c.assessment_id = a.id
-         LEFT JOIN external_assessment_codes code ON code.order_id = o.id
-         LEFT JOIN external_assessment_results r ON r.order_id = o.id
+         LEFT JOIN external_assessment_codes code ON code.order_id = o.id AND code.assessment_id = a.id
+         LEFT JOIN external_assessment_results r ON r.order_id = o.id AND r.assessment_id = a.id
          WHERE o.user_id = $1 AND (o.status = 'completed' OR o.payment_status = 'paid')
          ORDER BY o.paid_at DESC NULLS LAST, o.id DESC`,
-        [req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPE],
+        [req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPES],
       );
       res.json(result.rows);
     } catch (error) {
@@ -4479,14 +4503,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/external-assessments/:orderId/instructions.pdf', isAuthenticated, async (req: any, res) => {
+  app.get('/api/external-assessments/:orderId/:assessmentId/instructions.pdf', isAuthenticated, async (req: any, res) => {
     const result = await pool.query(
       `SELECT c.instructions_pdf, c.instructions_file_name
        FROM orders o JOIN order_items oi ON oi.order_id = o.id
-       JOIN assessments a ON a.id = oi.assessment_id AND a.type = $3
+       JOIN assessments a ON a.id = oi.assessment_id AND a.id = $2 AND a.type = ANY($5::text[])
        JOIN external_assessment_configs c ON c.assessment_id = a.id
-       WHERE o.id = $1 AND (o.user_id = $2 OR $4 = true) AND (o.status = 'completed' OR o.payment_status = 'paid') LIMIT 1`,
-      [Number(req.params.orderId), req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPE, canManageExternalAssessmentsRole(req.user.role)],
+       WHERE o.id = $1 AND (o.user_id = $3 OR $4 = true) AND (o.status = 'completed' OR o.payment_status = 'paid') LIMIT 1`,
+      [Number(req.params.orderId), Number(req.params.assessmentId), req.user.claims.sub, canManageExternalAssessmentsRole(req.user.role), EXTERNAL_ASSESSMENT_TYPES],
     );
     if (!result.rows[0]?.instructions_pdf) return res.status(404).json({ message: 'PDF ketentuan belum tersedia' });
     res.setHeader('Content-Type', 'application/pdf');
@@ -4494,11 +4518,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(result.rows[0].instructions_pdf);
   });
 
-  app.get('/api/external-assessments/:orderId/result.pdf', isAuthenticated, async (req: any, res) => {
+  app.get('/api/external-assessments/:orderId/:assessmentId/result.pdf', isAuthenticated, async (req: any, res) => {
     const result = await pool.query(
       `SELECT r.file_data, r.file_name, r.mime_type FROM external_assessment_results r JOIN orders o ON o.id = r.order_id
-       WHERE r.order_id = $1 AND (o.user_id = $2 OR $3 = true)`,
-      [Number(req.params.orderId), req.user.claims.sub, canManageExternalAssessmentsRole(req.user.role)],
+       WHERE r.order_id = $1 AND r.assessment_id = $2 AND (o.user_id = $3 OR $4 = true)`,
+      [Number(req.params.orderId), Number(req.params.assessmentId), req.user.claims.sub, canManageExternalAssessmentsRole(req.user.role)],
     );
     if (!result.rows[0]) return res.status(404).json({ message: 'Hasil belum tersedia' });
     res.setHeader('Content-Type', result.rows[0].mime_type || 'application/pdf');
@@ -4516,31 +4540,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 COUNT(code.id) FILTER (WHERE code.status = 'allocated')::int AS "allocatedCodes"
          FROM assessments a JOIN external_assessment_configs c ON c.assessment_id = a.id
          LEFT JOIN external_assessment_codes code ON code.assessment_id = a.id
-         WHERE a.type = $1 GROUP BY a.id, c.assessment_id ORDER BY a.id`,
-        [EXTERNAL_ASSESSMENT_TYPE],
+         WHERE a.type = ANY($1::text[]) GROUP BY a.id, c.assessment_id ORDER BY a.id`,
+        [EXTERNAL_ASSESSMENT_TYPES],
       );
       const orders = await pool.query(
         `SELECT o.id AS "orderId", o.user_id AS "userId", o.paid_at AS "paidAt", o.created_at AS "createdAt",
                 u.email, u.first_name AS "firstName", u.last_name AS "lastName", a.id AS "assessmentId",
                 code.code AS token, code.status AS "tokenStatus", r.file_name AS "resultFileName", r.uploaded_at AS "resultUploadedAt"
          FROM orders o JOIN users u ON u.id = o.user_id JOIN order_items oi ON oi.order_id = o.id
-         JOIN assessments a ON a.id = oi.assessment_id AND a.type = $1
-         LEFT JOIN external_assessment_codes code ON code.order_id = o.id
-         LEFT JOIN external_assessment_results r ON r.order_id = o.id
+         JOIN assessments a ON a.id = oi.assessment_id AND a.type = ANY($1::text[])
+         LEFT JOIN external_assessment_codes code ON code.order_id = o.id AND code.assessment_id = a.id
+         LEFT JOIN external_assessment_results r ON r.order_id = o.id AND r.assessment_id = a.id
          WHERE o.status = 'completed' OR o.payment_status = 'paid'
          ORDER BY o.paid_at DESC NULLS LAST, o.id DESC`,
-        [EXTERNAL_ASSESSMENT_TYPE],
+        [EXTERNAL_ASSESSMENT_TYPES],
       );
       const codes = await pool.query(
         `SELECT code.id, code.assessment_id AS "assessmentId", code.code, code.status,
                 code.order_id AS "orderId", code.user_id AS "userId", code.allocated_at AS "allocatedAt",
                 code.created_at AS "createdAt", u.email, u.first_name AS "firstName", u.last_name AS "lastName"
          FROM external_assessment_codes code
-         JOIN assessments a ON a.id = code.assessment_id AND a.type = $1
+         JOIN assessments a ON a.id = code.assessment_id AND a.type = ANY($1::text[])
          LEFT JOIN orders o ON o.id = code.order_id
          LEFT JOIN users u ON u.id = COALESCE(code.user_id, o.user_id)
          ORDER BY code.created_at DESC NULLS LAST, code.id DESC`,
-        [EXTERNAL_ASSESSMENT_TYPE],
+        [EXTERNAL_ASSESSMENT_TYPES],
       );
       res.json({ products: products.rows, orders: orders.rows, codes: codes.rows });
     } catch (error) {
@@ -4558,9 +4582,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     for (const code of codes) {
       const result = await pool.query(
         `INSERT INTO external_assessment_codes (assessment_id, code, created_by)
-         SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM assessments WHERE id = $1 AND type = $4)
+         SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM assessments WHERE id = $1 AND type = ANY($4::text[]))
          ON CONFLICT (assessment_id, code) DO NOTHING RETURNING id`,
-        [assessmentId, code, req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPE],
+        [assessmentId, code, req.user.claims.sub, EXTERNAL_ASSESSMENT_TYPES],
       );
       added += result.rowCount || 0;
     }
@@ -4568,7 +4592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const waitingOrders = await pool.query(
         `SELECT DISTINCT o.id FROM orders o JOIN order_items oi ON oi.order_id = o.id
          JOIN assessments a ON a.id = oi.assessment_id AND a.id = $1
-         LEFT JOIN external_assessment_codes code ON code.order_id = o.id
+         LEFT JOIN external_assessment_codes code ON code.order_id = o.id AND code.assessment_id = a.id
          WHERE (o.status = 'completed' OR o.payment_status = 'paid') AND code.id IS NULL ORDER BY o.id`,
         [assessmentId],
       );
@@ -4591,16 +4615,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `UPDATE external_assessment_codes code
          SET code = $3
          WHERE code.assessment_id = $1 AND code.id = $2 AND code.status = 'available' AND code.order_id IS NULL
-           AND EXISTS (SELECT 1 FROM assessments a WHERE a.id = code.assessment_id AND a.type = $4)
+           AND EXISTS (SELECT 1 FROM assessments a WHERE a.id = code.assessment_id AND a.type = ANY($4::text[]))
          RETURNING code.id, code.code, code.status`,
-        [assessmentId, codeId, parsed.data.code, EXTERNAL_ASSESSMENT_TYPE],
+        [assessmentId, codeId, parsed.data.code, EXTERNAL_ASSESSMENT_TYPES],
       );
       if (updated.rowCount) return res.json({ message: 'Kode tes berhasil diperbarui', code: updated.rows[0] });
 
       const existing = await pool.query(
         `SELECT code.id FROM external_assessment_codes code JOIN assessments a ON a.id = code.assessment_id
-         WHERE code.assessment_id = $1 AND code.id = $2 AND a.type = $3`,
-        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPE],
+         WHERE code.assessment_id = $1 AND code.id = $2 AND a.type = ANY($3::text[])`,
+        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPES],
       );
       if (!existing.rowCount) return res.status(404).json({ message: 'Kode tes tidak ditemukan' });
       return res.status(409).json({ message: 'Kode yang sudah dialokasikan tidak dapat diedit' });
@@ -4623,16 +4647,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `DELETE FROM external_assessment_codes code
          USING assessments a
          WHERE code.assessment_id = $1 AND code.id = $2 AND code.status = 'available' AND code.order_id IS NULL
-           AND a.id = code.assessment_id AND a.type = $3
+           AND a.id = code.assessment_id AND a.type = ANY($3::text[])
          RETURNING code.id`,
-        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPE],
+        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPES],
       );
       if (deleted.rowCount) return res.json({ message: 'Kode tes berhasil dihapus' });
 
       const existing = await pool.query(
         `SELECT code.id FROM external_assessment_codes code JOIN assessments a ON a.id = code.assessment_id
-         WHERE code.assessment_id = $1 AND code.id = $2 AND a.type = $3`,
-        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPE],
+         WHERE code.assessment_id = $1 AND code.id = $2 AND a.type = ANY($3::text[])`,
+        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPES],
       );
       if (!existing.rowCount) return res.status(404).json({ message: 'Kode tes tidak ditemukan' });
       return res.status(409).json({ message: 'Kode yang sudah dialokasikan tidak dapat dihapus' });
@@ -4667,24 +4691,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: 'PDF ketentuan berhasil diunggah' });
   });
 
-  app.put('/api/admin/external-assessments/orders/:orderId/result.pdf', isAuthenticated, canManageExternalAssessments, express.raw({ type: 'application/pdf', limit: '10mb' }), async (req: any, res) => {
+  app.put('/api/admin/external-assessments/orders/:orderId/:assessmentId/result.pdf', isAuthenticated, canManageExternalAssessments, express.raw({ type: 'application/pdf', limit: '10mb' }), async (req: any, res) => {
     if (!Buffer.isBuffer(req.body) || req.body.length < 5 || req.body.subarray(0, 4).toString() !== '%PDF') {
       return res.status(400).json({ message: 'File harus berupa PDF yang valid' });
     }
     const orderId = Number(req.params.orderId);
+    const assessmentId = Number(req.params.assessmentId);
     const eligible = await pool.query(
       `SELECT o.id FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN assessments a ON a.id = oi.assessment_id
-       WHERE o.id = $1 AND a.type = $2 AND (o.status = 'completed' OR o.payment_status = 'paid')`,
-      [orderId, EXTERNAL_ASSESSMENT_TYPE],
+       WHERE o.id = $1 AND a.id = $2 AND a.type = ANY($3::text[]) AND (o.status = 'completed' OR o.payment_status = 'paid')`,
+      [orderId, assessmentId, EXTERNAL_ASSESSMENT_TYPES],
     );
     if (!eligible.rowCount) return res.status(404).json({ message: 'Pesanan lunas tidak ditemukan' });
     const fileName = String(req.headers['x-file-name'] || `hasil-asesmen-${orderId}.pdf`).slice(0, 255);
     await pool.query(
-      `INSERT INTO external_assessment_results (order_id, file_data, file_name, mime_type, uploaded_by)
-       VALUES ($1, $2, $3, 'application/pdf', $4)
-       ON CONFLICT (order_id) DO UPDATE SET file_data = EXCLUDED.file_data, file_name = EXCLUDED.file_name,
+      `INSERT INTO external_assessment_results (order_id, assessment_id, file_data, file_name, mime_type, uploaded_by)
+       VALUES ($1, $2, $3, $4, 'application/pdf', $5)
+       ON CONFLICT (order_id, assessment_id) DO UPDATE SET file_data = EXCLUDED.file_data, file_name = EXCLUDED.file_name,
        mime_type = EXCLUDED.mime_type, uploaded_by = EXCLUDED.uploaded_by, uploaded_at = now()`,
-      [orderId, req.body, fileName, req.user.claims.sub],
+      [orderId, assessmentId, req.body, fileName, req.user.claims.sub],
     );
     res.json({ message: 'Hasil asesmen berhasil diunggah' });
   });
@@ -5170,7 +5195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create user assessments if they don't exist for this specific order
         if (order.orderItems) {
           for (const item of order.orderItems) {
-            if (item.assessment.type === EXTERNAL_ASSESSMENT_TYPE) continue;
+            if (isExternalAssessmentType(item.assessment.type)) continue;
             // Check if assessment exists for THIS SPECIFIC ORDER (not just user+assessment combo)
             const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, orderId);
             if (!existingAssessment) {
@@ -5449,7 +5474,7 @@ async function initializeAssessments() {
       console.log("Mental Health Check Up berhasil dibuat dengan free access sementara");
     }
 
-    let externalMentalHealthAssessment = existingAssessments.find((assessment) => assessment.type === EXTERNAL_ASSESSMENT_TYPE);
+    let externalMentalHealthAssessment = existingAssessments.find((assessment) => assessment.type === "external-mental-health");
     if (!externalMentalHealthAssessment) {
       externalMentalHealthAssessment = await storage.createAssessment({
         name: "Mental Health Check Up",
@@ -5457,7 +5482,7 @@ async function initializeAssessments() {
         price: "129000",
         duration: "Sesuai ketentuan pengerjaan",
         ageRange: "Dewasa",
-        type: EXTERNAL_ASSESSMENT_TYPE,
+        type: "external-mental-health",
         isActive: true,
       });
       console.log("Produk eksternal Mental Health Check Up berhasil dibuat");
@@ -5468,6 +5493,27 @@ async function initializeAssessments() {
       `INSERT INTO external_assessment_configs (assessment_id, original_price)
        VALUES ($1, 200000) ON CONFLICT (assessment_id) DO NOTHING`,
       [externalMentalHealthAssessment.id],
+    );
+
+    let externalStudentPotentialAssessment = existingAssessments.find((assessment) => assessment.type === "external-student-potential");
+    if (!externalStudentPotentialAssessment) {
+      externalStudentPotentialAssessment = await storage.createAssessment({
+        name: "Paket Tes Intelegensi & Potensi Siswa (SMA)",
+        description: "Tes IQ, EQ, gambaran kepribadian dan jurusan serta saran aktivitas yang sesuai.",
+        price: "190000",
+        duration: "Sesuai ketentuan pengerjaan",
+        ageRange: "Siswa SMA / sederajat",
+        type: "external-student-potential",
+        isActive: true,
+      });
+      console.log("Produk eksternal Paket Tes Intelegensi & Potensi Siswa (SMA) berhasil dibuat");
+    } else if (Number(externalStudentPotentialAssessment.price) !== 190000) {
+      await storage.updateAssessment(externalStudentPotentialAssessment.id, { price: "190000", isActive: true });
+    }
+    await pool.query(
+      `INSERT INTO external_assessment_configs (assessment_id, original_price)
+       VALUES ($1, 350000) ON CONFLICT (assessment_id) DO NOTHING`,
+      [externalStudentPotentialAssessment.id],
     );
 
     const studentPotentialAssessment = existingAssessments.find((assessment) => assessment.type === "student-potential");
