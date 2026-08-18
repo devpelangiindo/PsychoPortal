@@ -4531,7 +4531,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
          ORDER BY o.paid_at DESC NULLS LAST, o.id DESC`,
         [EXTERNAL_ASSESSMENT_TYPE],
       );
-      res.json({ products: products.rows, orders: orders.rows });
+      const codes = await pool.query(
+        `SELECT code.id, code.assessment_id AS "assessmentId", code.code, code.status,
+                code.order_id AS "orderId", code.user_id AS "userId", code.allocated_at AS "allocatedAt",
+                code.created_at AS "createdAt", u.email, u.first_name AS "firstName", u.last_name AS "lastName"
+         FROM external_assessment_codes code
+         JOIN assessments a ON a.id = code.assessment_id AND a.type = $1
+         LEFT JOIN orders o ON o.id = code.order_id
+         LEFT JOIN users u ON u.id = COALESCE(code.user_id, o.user_id)
+         ORDER BY code.created_at DESC NULLS LAST, code.id DESC`,
+        [EXTERNAL_ASSESSMENT_TYPE],
+      );
+      res.json({ products: products.rows, orders: orders.rows, codes: codes.rows });
     } catch (error) {
       console.error('Error fetching external assessment admin data:', error);
       res.status(500).json({ message: 'Gagal memuat pengelolaan asesmen eksternal' });
@@ -4564,6 +4575,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const order of waitingOrders.rows) await allocateExternalAssessmentCodes(order.id);
     }
     res.json({ added, duplicates: codes.length - added });
+  });
+
+  app.put('/api/admin/external-assessments/:assessmentId/codes/:codeId', isAuthenticated, canManageExternalAssessments, async (req: any, res) => {
+    const assessmentId = Number(req.params.assessmentId);
+    const codeId = Number(req.params.codeId);
+    const parsed = z.object({ code: z.string().trim().min(1).max(255) }).safeParse(req.body);
+    if (!Number.isInteger(assessmentId) || !Number.isInteger(codeId) || assessmentId < 1 || codeId < 1) {
+      return res.status(400).json({ message: 'ID kode tes tidak valid' });
+    }
+    if (!parsed.success) return res.status(400).json({ message: 'Kode tes wajib diisi dan maksimal 255 karakter' });
+
+    try {
+      const updated = await pool.query(
+        `UPDATE external_assessment_codes code
+         SET code = $3
+         WHERE code.assessment_id = $1 AND code.id = $2 AND code.status = 'available' AND code.order_id IS NULL
+           AND EXISTS (SELECT 1 FROM assessments a WHERE a.id = code.assessment_id AND a.type = $4)
+         RETURNING code.id, code.code, code.status`,
+        [assessmentId, codeId, parsed.data.code, EXTERNAL_ASSESSMENT_TYPE],
+      );
+      if (updated.rowCount) return res.json({ message: 'Kode tes berhasil diperbarui', code: updated.rows[0] });
+
+      const existing = await pool.query(
+        `SELECT code.id FROM external_assessment_codes code JOIN assessments a ON a.id = code.assessment_id
+         WHERE code.assessment_id = $1 AND code.id = $2 AND a.type = $3`,
+        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPE],
+      );
+      if (!existing.rowCount) return res.status(404).json({ message: 'Kode tes tidak ditemukan' });
+      return res.status(409).json({ message: 'Kode yang sudah dialokasikan tidak dapat diedit' });
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Kode tes tersebut sudah tersedia di bank kode' });
+      console.error('Error updating external assessment code:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui kode tes' });
+    }
+  });
+
+  app.delete('/api/admin/external-assessments/:assessmentId/codes/:codeId', isAuthenticated, canManageExternalAssessments, async (req: any, res) => {
+    const assessmentId = Number(req.params.assessmentId);
+    const codeId = Number(req.params.codeId);
+    if (!Number.isInteger(assessmentId) || !Number.isInteger(codeId) || assessmentId < 1 || codeId < 1) {
+      return res.status(400).json({ message: 'ID kode tes tidak valid' });
+    }
+
+    try {
+      const deleted = await pool.query(
+        `DELETE FROM external_assessment_codes code
+         USING assessments a
+         WHERE code.assessment_id = $1 AND code.id = $2 AND code.status = 'available' AND code.order_id IS NULL
+           AND a.id = code.assessment_id AND a.type = $3
+         RETURNING code.id`,
+        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPE],
+      );
+      if (deleted.rowCount) return res.json({ message: 'Kode tes berhasil dihapus' });
+
+      const existing = await pool.query(
+        `SELECT code.id FROM external_assessment_codes code JOIN assessments a ON a.id = code.assessment_id
+         WHERE code.assessment_id = $1 AND code.id = $2 AND a.type = $3`,
+        [assessmentId, codeId, EXTERNAL_ASSESSMENT_TYPE],
+      );
+      if (!existing.rowCount) return res.status(404).json({ message: 'Kode tes tidak ditemukan' });
+      return res.status(409).json({ message: 'Kode yang sudah dialokasikan tidak dapat dihapus' });
+    } catch (error) {
+      console.error('Error deleting external assessment code:', error);
+      return res.status(500).json({ message: 'Gagal menghapus kode tes' });
+    }
   });
 
   app.put('/api/admin/external-assessments/:assessmentId/config', isAuthenticated, canManageExternalAssessments, async (req, res) => {

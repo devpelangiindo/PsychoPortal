@@ -1,13 +1,25 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ArrowLeft, FileUp, KeyRound, Save, Upload } from "lucide-react";
+import { ArrowLeft, FileUp, KeyRound, Pencil, Save, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import { formatDisplayDateTime } from "@/lib/date-format";
@@ -38,7 +50,21 @@ type PaidOrder = {
   resultFileName: string | null;
 };
 
-type AdminData = { products: Product[]; orders: PaidOrder[] };
+type TestCode = {
+  id: number;
+  assessmentId: number;
+  code: string;
+  status: string;
+  orderId: number | null;
+  userId: string | null;
+  allocatedAt: string | null;
+  createdAt: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+};
+
+type AdminData = { products: Product[]; orders: PaidOrder[]; codes: TestCode[] };
 
 async function uploadPdf(url: string, file: File) {
   const token = getAuthToken();
@@ -59,6 +85,8 @@ export default function AdminExternalAssessments() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [codes, setCodes] = useState("");
+  const [editingCode, setEditingCode] = useState<TestCode | null>(null);
+  const [editedCodeValue, setEditedCodeValue] = useState("");
   const [config, setConfig] = useState({ websiteName: "", websiteUrl: "", workHours: "08.00-17.00 WIB", resultEtaText: "Hasil akan dikirimkan dalam waktu 2x24 jam hari kerja" });
   const { data, isLoading } = useQuery<AdminData>({ queryKey: ["/api/admin/external-assessments"] });
   const product = data?.products[0];
@@ -83,6 +111,26 @@ export default function AdminExternalAssessments() {
     mutationFn: async () => (await apiRequest("POST", `/api/admin/external-assessments/${product!.id}/codes`, { codes })).json(),
     onSuccess: (result) => { setCodes(""); refresh(); toast({ title: `${result.added} kode ditambahkan`, description: result.duplicates ? `${result.duplicates} kode duplikat dilewati.` : undefined }); },
     onError: (error) => toast({ title: "Gagal menambahkan kode", description: String(error), variant: "destructive" }),
+  });
+  const editCode = useMutation({
+    mutationFn: async ({ id, code }: { id: number; code: string }) =>
+      (await apiRequest("PUT", `/api/admin/external-assessments/${product!.id}/codes/${id}`, { code })).json(),
+    onSuccess: () => {
+      setEditingCode(null);
+      setEditedCodeValue("");
+      refresh();
+      toast({ title: "Kode tes berhasil diperbarui" });
+    },
+    onError: (error) => toast({ title: "Gagal mengedit kode", description: String(error), variant: "destructive" }),
+  });
+  const deleteCode = useMutation({
+    mutationFn: async (id: number) =>
+      (await apiRequest("DELETE", `/api/admin/external-assessments/${product!.id}/codes/${id}`)).json(),
+    onSuccess: () => {
+      refresh();
+      toast({ title: "Kode tes berhasil dihapus" });
+    },
+    onError: (error) => toast({ title: "Gagal menghapus kode", description: String(error), variant: "destructive" }),
   });
 
   if (isLoading) return <div className="flex min-h-screen items-center justify-center">Memuat pengelolaan produk...</div>;
@@ -133,6 +181,111 @@ export default function AdminExternalAssessments() {
         </div>
 
         <Card>
+          <CardHeader>
+            <CardTitle>Daftar dan Penempatan Kode Tes</CardTitle>
+            <p className="text-sm text-gray-600">Kode yang sudah diberikan kepada klien tetap dapat dilihat, tetapi dikunci agar token pada dashboard klien tidak berubah.</p>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kode Tes</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Penempatan</TableHead>
+                  <TableHead>Dialokasikan</TableHead>
+                  <TableHead>Dibuat</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(data?.codes || []).map((testCode) => {
+                  const isAvailable = testCode.status === "available" && !testCode.orderId;
+                  const clientName = `${testCode.firstName || ""} ${testCode.lastName || ""}`.trim();
+                  return (
+                    <TableRow key={testCode.id}>
+                      <TableCell><span className="font-mono font-semibold">{testCode.code}</span></TableCell>
+                      <TableCell>
+                        {isAvailable ? (
+                          <Badge className="bg-green-700 hover:bg-green-700">Tersedia</Badge>
+                        ) : testCode.status === "allocated" ? (
+                          <Badge className="bg-blue-700 hover:bg-blue-700">Sudah digunakan</Badge>
+                        ) : (
+                          <Badge variant="secondary">{testCode.status}</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {testCode.orderId ? (
+                          <div>
+                            <p className="font-medium">Pesanan #{testCode.orderId}</p>
+                            <p className="text-sm text-gray-700">{clientName || "Klien"}</p>
+                            <p className="text-xs text-gray-500">{testCode.email || "-"}</p>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-500">Belum ditempatkan</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">{testCode.allocatedAt ? formatDisplayDateTime(testCode.allocatedAt) : "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">{testCode.createdAt ? formatDisplayDateTime(testCode.createdAt) : "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!isAvailable}
+                            title={isAvailable ? "Edit kode tes" : "Kode yang sudah digunakan tidak dapat diedit"}
+                            onClick={() => {
+                              setEditingCode(testCode);
+                              setEditedCodeValue(testCode.code);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Edit kode {testCode.code}</span>
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={!isAvailable || deleteCode.isPending}
+                                title={isAvailable ? "Hapus kode tes" : "Kode yang sudah digunakan tidak dapat dihapus"}
+                                className="text-red-700 hover:bg-red-50 hover:text-red-800"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Hapus kode {testCode.code}</span>
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Hapus kode tes?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Kode <span className="font-mono font-semibold text-foreground">{testCode.code}</span> akan dihapus dari bank kode. Tindakan ini tidak dapat dibatalkan.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 text-white hover:bg-red-700"
+                                  onClick={() => deleteCode.mutate(testCode.id)}
+                                >
+                                  Hapus Kode
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {!(data?.codes || []).length && (
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-500">Belum ada kode tes di bank data.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader><CardTitle>Pesanan Lunas dan Hasil Klien</CardTitle></CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>
@@ -163,6 +316,47 @@ export default function AdminExternalAssessments() {
             </Table>
           </CardContent>
         </Card>
+
+        <Dialog open={Boolean(editingCode)} onOpenChange={(open) => {
+          if (!open && !editCode.isPending) {
+            setEditingCode(null);
+            setEditedCodeValue("");
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Kode Tes</DialogTitle>
+              <DialogDescription>Kode hanya dapat diubah selama belum diberikan kepada klien.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <label htmlFor="edit-test-code" className="text-sm font-medium">Kode tes</label>
+              <Input
+                id="edit-test-code"
+                value={editedCodeValue}
+                maxLength={255}
+                autoComplete="off"
+                onChange={(event) => setEditedCodeValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && editingCode && editedCodeValue.trim() && editedCodeValue.trim() !== editingCode.code) {
+                    editCode.mutate({ id: editingCode.id, code: editedCodeValue.trim() });
+                  }
+                }}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" disabled={editCode.isPending} onClick={() => {
+                setEditingCode(null);
+                setEditedCodeValue("");
+              }}>Batal</Button>
+              <Button
+                disabled={!editingCode || !editedCodeValue.trim() || editedCodeValue.trim() === editingCode.code || editCode.isPending}
+                onClick={() => editingCode && editCode.mutate({ id: editingCode.id, code: editedCodeValue.trim() })}
+              >
+                <Save className="mr-2 h-4 w-4" />{editCode.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
