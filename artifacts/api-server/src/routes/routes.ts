@@ -207,7 +207,7 @@ function canManageExternalAssessmentsRole(role?: string | null) {
   return role === "admin" || role === "internal" || role === "cso";
 }
 
-const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential"] as const;
+const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential", "external-career-potential"] as const;
 
 function isExternalAssessmentType(type?: string | null) {
   return Boolean(type && EXTERNAL_ASSESSMENT_TYPES.includes(type as (typeof EXTERNAL_ASSESSMENT_TYPES)[number]));
@@ -263,7 +263,7 @@ async function ensureExternalAssessmentInfrastructure() {
       FROM order_items item
       JOIN assessments assessment ON assessment.id = item.assessment_id
       WHERE result.assessment_id IS NULL AND item.order_id = result.order_id
-        AND assessment.type IN ('external-mental-health', 'external-student-potential');
+        AND assessment.type IN ('external-mental-health', 'external-student-potential', 'external-career-potential');
     ALTER TABLE external_assessment_results DROP CONSTRAINT IF EXISTS external_assessment_results_order_id_key;
     DROP INDEX IF EXISTS external_assessment_result_order_unique;
     CREATE UNIQUE INDEX IF NOT EXISTS external_assessment_result_order_assessment_unique
@@ -5529,6 +5529,27 @@ async function initializeAssessments() {
       });
       console.log("Paket Tes Intelegensi & Potensi Siswa berhasil dibuat dengan free access sementara");
     }
+
+    let externalCareerPotentialAssessment = existingAssessments.find((assessment) => assessment.type === "external-career-potential");
+    if (!externalCareerPotentialAssessment) {
+      externalCareerPotentialAssessment = await storage.createAssessment({
+        name: "Tes Potensi Karir (Perusahaan)",
+        description: "Promosi jabatan, pengembangan karyawan, evaluasi kinerja, dan rekrutmen karyawan",
+        price: "450000",
+        duration: "Sesuai ketentuan pengerjaan",
+        ageRange: "Karyawan & kandidat kerja",
+        type: "external-career-potential",
+        isActive: true,
+      });
+      console.log("Produk eksternal Tes Potensi Karir (Perusahaan) berhasil dibuat");
+    } else if (Number(externalCareerPotentialAssessment.price) !== 450000) {
+      await storage.updateAssessment(externalCareerPotentialAssessment.id, { price: "450000", isActive: true });
+    }
+    await pool.query(
+      `INSERT INTO external_assessment_configs (assessment_id, original_price)
+       VALUES ($1, 600000) ON CONFLICT (assessment_id) DO NOTHING`,
+      [externalCareerPotentialAssessment.id],
+    );
 
     const careerPotentialAssessment = existingAssessments.find((assessment) => assessment.type === "career-potential");
     if (!careerPotentialAssessment) {

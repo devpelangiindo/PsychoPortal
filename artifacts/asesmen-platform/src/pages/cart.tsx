@@ -22,7 +22,7 @@ export default function Cart() {
   const [, setLocation] = useLocation();
   const [showPayment, setShowPayment] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
-  const externalItems = items.filter((item) => ["external-mental-health", "external-student-potential"].includes(item.type));
+  const externalItems = items.filter((item) => ["external-mental-health", "external-student-potential", "external-career-potential"].includes(item.type));
 
   // Create order mutation
   const createOrderMutation = useMutation({

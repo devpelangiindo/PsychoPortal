@@ -1034,7 +1034,7 @@ export default function Dashboard() {
                 </div>
               ) : assessments && assessments.length > 0 ? (
                 <div className="grid md:grid-cols-2 gap-6">
-                  {assessments.filter((assessment) => ["learning", "sensory", "external-mental-health", "external-student-potential"].includes(assessment.type)).map((assessment) => (
+                  {assessments.filter((assessment) => ["learning", "sensory", "external-mental-health", "external-student-potential", "external-career-potential"].includes(assessment.type)).map((assessment) => (
                     <AssessmentCard
                       key={assessment.id}
                       assessment={assessment}
