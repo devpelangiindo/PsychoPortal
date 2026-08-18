@@ -15,6 +15,7 @@ import sensoryProfileImage from "@assets/asesmen-profil-sensori.png";
 import learningStyleImage from "@assets/inventory-gaya-belajar.png";
 import mentalHealthCheckUpImage from "@assets/mental-health-check-up.png";
 import studentPotentialImage from "@assets/tes-intelegensi-potensi-siswa-sma.png";
+import careerPotentialImage from "@assets/tes-potensi-karir-perusahaan.png";
 
 const catalogImages: Record<string, { src: string; alt: string }> = {
   sensory: {
@@ -32,6 +33,10 @@ const catalogImages: Record<string, { src: string; alt: string }> = {
   "external-student-potential": {
     src: studentPotentialImage,
     alt: "Siswa mengerjakan tes intelegensi dan potensi",
+  },
+  "external-career-potential": {
+    src: careerPotentialImage,
+    alt: "Proses seleksi dan asesmen potensi karir di perusahaan",
   },
 };
 
