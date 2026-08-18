@@ -14,6 +14,7 @@ import type { Assessment } from "@shared/schema";
 import sensoryProfileImage from "@assets/asesmen-profil-sensori.png";
 import learningStyleImage from "@assets/inventory-gaya-belajar.png";
 import mentalHealthCheckUpImage from "@assets/mental-health-check-up.png";
+import studentPotentialImage from "@assets/tes-intelegensi-potensi-siswa-sma.png";
 
 const catalogImages: Record<string, { src: string; alt: string }> = {
   sensory: {
@@ -27,6 +28,10 @@ const catalogImages: Record<string, { src: string; alt: string }> = {
   "external-mental-health": {
     src: mentalHealthCheckUpImage,
     alt: "Sesi pemeriksaan awal kesehatan mental bersama tenaga profesional",
+  },
+  "external-student-potential": {
+    src: studentPotentialImage,
+    alt: "Siswa mengerjakan tes intelegensi dan potensi",
   },
 };
 
