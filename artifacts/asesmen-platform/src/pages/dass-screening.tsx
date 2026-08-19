@@ -21,6 +21,8 @@ type DassEligibility = {
   preferredTime: string;
   completed: boolean;
   completedAt: string | null;
+  canAccess: boolean;
+  accessStatus: "available" | "upcoming" | "expired";
 };
 
 type DassEligibilityResponse = {
@@ -172,6 +174,27 @@ export default function DassScreening() {
             <h1 className="text-2xl font-semibold">Tes DASS telah selesai</h1>
             <p className="mt-3 text-neutral-600">Jawaban Anda sudah tersimpan dan hanya dapat ditinjau oleh psikolog yang menangani konseling Anda.</p>
             <p className="mt-2 text-sm text-neutral-500">Hasil screening akan dibahas oleh psikolog dalam konteks konseling dan bukan merupakan diagnosis.</p>
+            <Button className="mt-6" onClick={() => setLocation("/dashboard")}>Kembali ke Dashboard</Button>
+          </CardContent>
+        </Card>
+      </PageShell>
+    );
+  }
+
+  if (!eligibility.canAccess) {
+    return (
+      <PageShell>
+        <Card className="mx-auto max-w-xl">
+          <CardContent className="py-12 text-center">
+            <LockKeyhole className="mx-auto mb-4 h-10 w-10 text-amber-600" />
+            <h1 className="text-xl font-semibold">
+              {eligibility.accessStatus === "upcoming" ? "Tes belum dapat diakses" : "Periode akses tes telah berakhir"}
+            </h1>
+            <p className="mt-3 text-neutral-600">
+              {eligibility.accessStatus === "upcoming"
+                ? `Tes DASS hanya dapat dikerjakan pada tanggal konseling, ${formatDisplayDate(eligibility.preferredDate)}.`
+                : `Tes DASS hanya tersedia pada tanggal konseling, ${formatDisplayDate(eligibility.preferredDate)}.`}
+            </p>
             <Button className="mt-6" onClick={() => setLocation("/dashboard")}>Kembali ke Dashboard</Button>
           </CardContent>
         </Card>

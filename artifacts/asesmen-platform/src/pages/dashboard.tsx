@@ -38,6 +38,8 @@ type DassEligibility = {
   preferredTime: string;
   completed: boolean;
   completedAt: string | null;
+  canAccess: boolean;
+  accessStatus: "available" | "upcoming" | "expired";
 };
 
 type DassEligibilityResponse = {
@@ -614,7 +616,11 @@ export default function Dashboard() {
                   <p className="mt-2 text-sm text-neutral-600">
                     {activeDassScreening.completed
                       ? "Tes telah selesai dan hasilnya sudah tersedia untuk psikolog yang menangani Anda."
-                      : "Isi 42 pernyataan mengenai kondisi satu minggu terakhir sebagai data pendukung konseling."}
+                      : activeDassScreening.canAccess
+                        ? "Isi 42 pernyataan mengenai kondisi satu minggu terakhir sebagai data pendukung konseling."
+                        : activeDassScreening.accessStatus === "upcoming"
+                          ? `Tes dapat diakses pada tanggal konseling, ${formatDisplayDate(activeDassScreening.preferredDate)}.`
+                          : "Periode akses tes untuk jadwal konseling ini telah berakhir."}
                   </p>
                   <p className="mt-1 text-xs text-neutral-500">
                     Psikolog: {activeDassScreening.psychologistName || "-"} · Jadwal {formatDisplayDate(activeDassScreening.preferredDate)}, {activeDassScreening.preferredTime}
@@ -623,10 +629,14 @@ export default function Dashboard() {
               </div>
               {activeDassScreening.completed ? (
                 <Badge className="self-start bg-green-700 md:self-center">Sudah diisi</Badge>
-              ) : (
+              ) : activeDassScreening.canAccess ? (
                 <Link href={`/dass-screening/${activeDassScreening.orderId}`}>
                   <Button className="w-full whitespace-nowrap md:w-auto">Mulai Tes DASS</Button>
                 </Link>
+              ) : (
+                <Button className="w-full whitespace-nowrap md:w-auto" disabled>
+                  {activeDassScreening.accessStatus === "upcoming" ? "Belum dapat diakses" : "Akses berakhir"}
+                </Button>
               )}
             </CardContent>
           </Card>
@@ -645,7 +655,11 @@ export default function Dashboard() {
                   <p className="mt-2 text-sm text-neutral-600">
                     {activeSrqScreening.completed
                       ? "Tes telah selesai dan hasilnya sudah tersedia untuk psikolog yang menangani Anda."
-                      : "Jawab 29 pertanyaan mengenai kondisi 30 hari terakhir sebagai data pendukung konseling."}
+                      : activeSrqScreening.canAccess
+                        ? "Jawab 29 pertanyaan mengenai kondisi 30 hari terakhir sebagai data pendukung konseling."
+                        : activeSrqScreening.accessStatus === "upcoming"
+                          ? `Tes dapat diakses pada tanggal konseling, ${formatDisplayDate(activeSrqScreening.preferredDate)}.`
+                          : "Periode akses tes untuk jadwal konseling ini telah berakhir."}
                   </p>
                   <p className="mt-1 text-xs text-neutral-500">
                     Psikolog: {activeSrqScreening.psychologistName || "-"} · Jadwal {formatDisplayDate(activeSrqScreening.preferredDate)}, {activeSrqScreening.preferredTime}
@@ -654,10 +668,14 @@ export default function Dashboard() {
               </div>
               {activeSrqScreening.completed ? (
                 <Badge className="self-start bg-sky-700 md:self-center">Sudah diisi</Badge>
-              ) : (
+              ) : activeSrqScreening.canAccess ? (
                 <Link href={`/srq-screening/${activeSrqScreening.orderId}`}>
                   <Button className="w-full whitespace-nowrap bg-sky-700 hover:bg-sky-800 md:w-auto">Mulai Tes SRQ</Button>
                 </Link>
+              ) : (
+                <Button className="w-full whitespace-nowrap md:w-auto" disabled>
+                  {activeSrqScreening.accessStatus === "upcoming" ? "Belum dapat diakses" : "Akses berakhir"}
+                </Button>
               )}
             </CardContent>
           </Card>

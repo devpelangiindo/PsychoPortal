@@ -609,6 +609,20 @@ function getJakartaDateString(date = new Date()) {
   }).format(date);
 }
 
+function getScreeningDateAccess(preferredDate: string) {
+  const today = getJakartaDateString();
+  if (preferredDate === today) return { canAccess: true, accessStatus: "available" as const };
+  if (preferredDate > today) return { canAccess: false, accessStatus: "upcoming" as const };
+  return { canAccess: false, accessStatus: "expired" as const };
+}
+
+function screeningDateAccessMessage(testName: string, preferredDate: string) {
+  const { accessStatus } = getScreeningDateAccess(preferredDate);
+  return accessStatus === "upcoming"
+    ? `${testName} hanya dapat diakses pada tanggal konseling, yaitu ${preferredDate}`
+    : `Masa akses ${testName} untuk jadwal konseling ${preferredDate} telah berakhir`;
+}
+
 function addDaysToDateString(dateString: string, days: number) {
   const [year, month, day] = dateString.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day + days));
@@ -3345,6 +3359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredTime: string;
         completed: boolean;
         completedAt: Date | null;
+        canAccess: boolean;
+        accessStatus: "available" | "upcoming" | "expired";
       }>();
 
       const latestPaidBooking = bookings
@@ -3358,6 +3374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .forEach((booking) => {
           if (eligibleOrders.has(booking.orderId)) return;
           const screening = screeningByOrder.get(booking.orderId);
+          const dateAccess = getScreeningDateAccess(booking.preferredDate);
           eligibleOrders.set(booking.orderId, {
             orderId: booking.orderId,
             psychologistName: booking.psychologistName,
@@ -3365,6 +3382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             preferredTime: booking.preferredTime,
             completed: Boolean(screening),
             completedAt: screening?.completedAt ?? null,
+            ...dateAccess,
           });
         });
 
@@ -3389,6 +3407,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (!isPaidCounselingBooking(booking)) {
         return res.status(403).json({ message: "Tes DASS hanya tersedia setelah pembayaran konseling selesai" });
+      }
+      if (!getScreeningDateAccess(booking.preferredDate).canAccess) {
+        return res.status(403).json({ message: screeningDateAccessMessage("Tes DASS", booking.preferredDate) });
       }
       const latestPaidBooking = (await storage.getUserPsychologistBookings(userId))
         .filter(isPaidCounselingBooking)
@@ -3520,6 +3541,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredTime: string;
         completed: boolean;
         completedAt: Date | null;
+        canAccess: boolean;
+        accessStatus: "available" | "upcoming" | "expired";
       }>();
 
       bookings
@@ -3529,6 +3552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .forEach((booking) => {
           if (eligibleOrders.has(booking.orderId)) return;
           const screening = screeningByOrder.get(booking.orderId);
+          const dateAccess = getScreeningDateAccess(booking.preferredDate);
           eligibleOrders.set(booking.orderId, {
             orderId: booking.orderId,
             psychologistName: booking.psychologistName,
@@ -3536,6 +3560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             preferredTime: booking.preferredTime,
             completed: Boolean(screening),
             completedAt: screening?.completedAt ?? null,
+            ...dateAccess,
           });
         });
 
@@ -3560,6 +3585,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (!isPaidCounselingBooking(booking)) {
         return res.status(403).json({ message: "Tes SRQ hanya tersedia setelah pembayaran konseling selesai" });
+      }
+      if (!getScreeningDateAccess(booking.preferredDate).canAccess) {
+        return res.status(403).json({ message: screeningDateAccessMessage("Tes SRQ", booking.preferredDate) });
       }
       const latestPaidBooking = (await storage.getUserPsychologistBookings(userId))
         .filter(isPaidCounselingBooking)
