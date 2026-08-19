@@ -91,6 +91,31 @@ type SrqScreeningResult = {
   affirmativeItems: number[];
 };
 
+type OnlineAssessmentResult = {
+  source: "internal" | "external";
+  recordId: number;
+  orderId: number;
+  userId: string;
+  clientName: string;
+  email: string;
+  whatsappNumber: string | null;
+  assessmentId: number;
+  assessmentName: string;
+  assessmentType: string;
+  status: string;
+  completedAt: string | null;
+  createdAt: string | null;
+  hasReport: boolean;
+  resultFileName: string | null;
+};
+
+type OnlineAssessmentResultResponse = {
+  items: OnlineAssessmentResult[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 type AvailabilitySlot = {
   id?: number;
   dayOfWeek: number;
@@ -465,6 +490,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
             {!isAdminMode && <TabsTrigger value="perubahan-jadwal">Perubahan Jadwal</TabsTrigger>}
             <TabsTrigger value="konseling">Konseling</TabsTrigger>
             {isAdminMode && <TabsTrigger value="jadwal-psikolog">Perubahan Jadwal Psikolog</TabsTrigger>}
+            {!isAdminMode && <TabsTrigger value="hasil-asesmen-online">Hasil Asesmen Online</TabsTrigger>}
             <TabsTrigger value="laporan">Laporan</TabsTrigger>
           </TabsList>
 
@@ -591,6 +617,17 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
             </TabsContent>
           )}
 
+          {!isAdminMode && (
+            <TabsContent value="hasil-asesmen-online" className="space-y-6">
+              <SectionTitle
+                icon={<ClipboardCheck className="h-5 w-5" />}
+                title="Hasil Asesmen Online"
+                description="Lihat hasil asesmen online seluruh klien. Setiap akses PDF tercatat untuk keamanan data."
+              />
+              <OnlineAssessmentResultsPanel />
+            </TabsContent>
+          )}
+
           <TabsContent value="laporan" className="space-y-6">
             <SectionTitle icon={<FileText className="w-5 h-5" />} title="Laporan" description="Seluruh psikolog dapat mencari laporan berdasarkan nama klien." />
             <div className="relative max-w-xl">
@@ -686,6 +723,196 @@ function SectionTitle({ icon, title, description }: { icon: ReactNode; title: st
         <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
         <p className="text-sm text-neutral-500 mt-1">{description}</p>
       </div>
+    </div>
+  );
+}
+
+const onlineAssessmentTypeOptions = [
+  { value: "learning", label: "Inventory Gaya Belajar" },
+  { value: "sensory", label: "Asesmen Profil Sensori" },
+  { value: "intelligence", label: "Kecerdasan Majemuk" },
+  { value: "mental-health", label: "Mental Health Check Up (Internal)" },
+  { value: "student-potential", label: "Potensi Siswa SMA (Internal)" },
+  { value: "career-potential", label: "Potensi Karir (Internal)" },
+  { value: "external-mental-health", label: "Mental Health Check Up" },
+  { value: "external-student-potential", label: "Tes Intelegensi & Potensi Siswa SMA" },
+  { value: "external-career-potential", label: "Tes Potensi Karir Perusahaan" },
+];
+
+function OnlineAssessmentResultsPanel() {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [assessmentType, setAssessmentType] = useState("");
+  const [reportStatus, setReportStatus] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [page, setPage] = useState(1);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [openingKey, setOpeningKey] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery<OnlineAssessmentResultResponse>({
+    queryKey: ["/api/psychologist/online-assessment-results", search, assessmentType, reportStatus, startDate, endDate, page],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: String(page), pageSize: "12" });
+      if (search.trim()) params.set("search", search.trim());
+      if (assessmentType) params.set("assessmentType", assessmentType);
+      if (reportStatus) params.set("reportStatus", reportStatus);
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+      const response = await apiRequest("GET", `/api/psychologist/online-assessment-results?${params.toString()}`);
+      return response.json();
+    },
+    refetchOnMount: "always",
+  });
+
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / (data?.pageSize ?? 12)));
+  const resetPage = () => setPage(1);
+
+  const openReport = async (item: OnlineAssessmentResult) => {
+    const key = `${item.source}-${item.recordId}-${item.orderId}-${item.assessmentId}`;
+    setOpeningKey(key);
+    try {
+      const endpoint = item.source === "internal"
+        ? `/api/psychologist/online-assessment-results/internal/${item.recordId}/pdf`
+        : `/api/psychologist/online-assessment-results/external/${item.orderId}/${item.assessmentId}/pdf`;
+      const token = getAuthToken();
+      const response = await fetch(endpoint, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+      if (!response.ok) throw new Error("Hasil asesmen belum tersedia");
+      const url = URL.createObjectURL(await response.blob());
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      toast({
+        title: "Hasil belum dapat dibuka",
+        description: error instanceof Error ? error.message : "Silakan coba kembali.",
+        variant: "destructive",
+      });
+    } finally {
+      setOpeningKey(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-5">
+          <div className="relative md:col-span-2 xl:col-span-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Input
+              value={search}
+              onChange={(event) => { setSearch(event.target.value); resetPage(); }}
+              placeholder="Cari klien atau asesmen"
+              className="pl-9"
+            />
+          </div>
+          <select
+            value={assessmentType}
+            onChange={(event) => { setAssessmentType(event.target.value); resetPage(); }}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            aria-label="Filter jenis asesmen"
+          >
+            <option value="">Semua jenis asesmen</option>
+            {onlineAssessmentTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <select
+            value={reportStatus}
+            onChange={(event) => { setReportStatus(event.target.value); resetPage(); }}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            aria-label="Filter status hasil"
+          >
+            <option value="">Semua status</option>
+            <option value="ready">Hasil tersedia</option>
+            <option value="pending">Hasil belum tersedia</option>
+          </select>
+          <Input
+            type="date"
+            value={startDate}
+            max={endDate || undefined}
+            onChange={(event) => { setStartDate(event.target.value); resetPage(); }}
+            aria-label="Tanggal hasil mulai"
+          />
+          <Input
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(event) => { setEndDate(event.target.value); resetPage(); }}
+            aria-label="Tanggal hasil akhir"
+          />
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <LoadingState label="Memuat hasil asesmen online..." compact />
+      ) : !data?.items.length ? (
+        <Card><CardContent className="py-12 text-center text-neutral-500">Tidak ada hasil asesmen yang cocok.</CardContent></Card>
+      ) : (
+        <div className="space-y-3">
+          {data.items.map((item) => {
+            const key = `${item.source}-${item.recordId}-${item.orderId}-${item.assessmentId}`;
+            const expanded = expandedKey === key;
+            const resultDate = item.completedAt || item.createdAt;
+            return (
+              <Card key={key} className="overflow-hidden">
+                <button
+                  type="button"
+                  className="flex w-full flex-col gap-3 p-5 text-left sm:flex-row sm:items-center sm:justify-between"
+                  onClick={() => setExpandedKey(expanded ? null : key)}
+                  aria-expanded={expanded}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-neutral-900">{item.clientName}</p>
+                    <p className="mt-1 text-sm text-neutral-600">{item.assessmentName}</p>
+                    <p className="mt-1 text-xs text-neutral-500">{resultDate ? formatDisplayDateTime(resultDate) : "Tanggal belum tersedia"}</p>
+                  </div>
+                  <div className="flex items-center gap-3 self-start sm:self-center">
+                    <Badge className={item.hasReport ? "bg-green-700" : "bg-amber-600"}>
+                      {item.hasReport ? "Hasil tersedia" : "Belum tersedia"}
+                    </Badge>
+                    <ChevronDown className={`h-5 w-5 text-neutral-500 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                  </div>
+                </button>
+                {expanded && (
+                  <CardContent className="border-t bg-neutral-50/60 p-5">
+                    <div className="grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
+                      <div><p className="text-xs text-neutral-500">Email klien</p><p className="mt-1 break-all font-medium">{item.email}</p></div>
+                      <div><p className="text-xs text-neutral-500">WhatsApp</p><p className="mt-1 font-medium">{item.whatsappNumber || "-"}</p></div>
+                      <div><p className="text-xs text-neutral-500">Sumber asesmen</p><p className="mt-1 font-medium">{item.source === "internal" ? "Dikerjakan di platform" : "Asesmen eksternal"}</p></div>
+                      <div><p className="text-xs text-neutral-500">Nomor pesanan</p><p className="mt-1 font-medium">#{item.orderId}</p></div>
+                    </div>
+                    <div className="mt-5 flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={!item.hasReport || openingKey === key}
+                        onClick={() => openReport(item)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        {openingKey === key ? "Membuka..." : item.hasReport ? "Lihat Hasil PDF" : "Hasil belum tersedia"}
+                      </Button>
+                      {item.resultFileName && <span className="text-xs text-neutral-500">{item.resultFileName}</span>}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {(data?.total ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-white px-4 py-3">
+          <p className="text-sm text-neutral-500">Menampilkan halaman {page} dari {totalPages} · {data?.total ?? 0} data</p>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+              <ChevronLeft className="mr-1 h-4 w-4" />Sebelumnya
+            </Button>
+            <Button type="button" size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+              Berikutnya<ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

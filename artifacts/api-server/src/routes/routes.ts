@@ -249,6 +249,19 @@ async function ensureExternalAssessmentInfrastructure() {
       uploaded_by varchar NOT NULL REFERENCES users(id),
       uploaded_at timestamp DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS psychologist_assessment_result_audits (
+      id serial PRIMARY KEY,
+      psychologist_user_id varchar NOT NULL REFERENCES users(id),
+      source_type varchar(20) NOT NULL,
+      user_assessment_id integer REFERENCES user_assessments(id),
+      order_id integer REFERENCES orders(id),
+      assessment_id integer NOT NULL REFERENCES assessments(id),
+      viewed_at timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS psychologist_assessment_result_audit_psychologist_idx
+      ON psychologist_assessment_result_audits(psychologist_user_id, viewed_at);
+    CREATE INDEX IF NOT EXISTS psychologist_assessment_result_audit_assessment_idx
+      ON psychologist_assessment_result_audits(assessment_id, viewed_at);
     ALTER TABLE external_assessment_codes DROP CONSTRAINT IF EXISTS external_assessment_codes_order_id_key;
     DROP INDEX IF EXISTS external_assessment_code_order_unique;
     CREATE UNIQUE INDEX IF NOT EXISTS external_assessment_code_order_assessment_unique
@@ -4559,6 +4572,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader('Content-Type', result.rows[0].mime_type || 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${String(result.rows[0].file_name).replace(/["\r\n]/g, '')}"`);
     res.send(result.rows[0].file_data);
+  });
+
+  app.get('/api/psychologist/online-assessment-results', isAuthenticated, async (req: any, res) => {
+    try {
+      const psychologist = await storage.getUser(req.user.claims.sub);
+      if (!psychologist || psychologist.role !== 'psychologist' || !psychologist.isActive) {
+        return res.status(403).json({ message: 'Akses hanya untuk akun psikolog aktif' });
+      }
+
+      const parsed = z.object({
+        search: z.string().trim().max(120).optional().default(''),
+        assessmentType: z.string().trim().max(100).optional().default(''),
+        reportStatus: z.enum(['ready', 'pending']).optional(),
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        page: z.coerce.number().int().min(1).optional().default(1),
+        pageSize: z.coerce.number().int().min(1).max(50).optional().default(12),
+      }).safeParse(req.query);
+      if (!parsed.success) return res.status(400).json({ message: 'Filter hasil asesmen tidak valid' });
+
+      const { search, assessmentType, reportStatus, startDate, endDate, page, pageSize } = parsed.data;
+      const result = await pool.query(
+        `WITH online_results AS (
+           SELECT 'internal'::text AS source, ua.id AS "recordId", ua.order_id AS "orderId",
+                  ua.user_id AS "userId", u.email, u.whatsapp_number AS "whatsappNumber",
+                  COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email) AS "clientName",
+                  a.id AS "assessmentId", a.name AS "assessmentName", a.type AS "assessmentType",
+                  ua.status, ua.completed_at AS "completedAt", ua.created_at AS "createdAt",
+                  (ua.status = 'completed') AS "hasReport", NULL::varchar AS "resultFileName"
+           FROM user_assessments ua
+           JOIN users u ON u.id = ua.user_id
+           JOIN assessments a ON a.id = ua.assessment_id
+           WHERE NOT (a.type = ANY($1::text[]))
+           UNION ALL
+           SELECT 'external'::text AS source, COALESCE(r.id, 0) AS "recordId", o.id AS "orderId",
+                  o.user_id AS "userId", u.email, u.whatsapp_number AS "whatsappNumber",
+                  COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email) AS "clientName",
+                  a.id AS "assessmentId", a.name AS "assessmentName", a.type AS "assessmentType",
+                  CASE WHEN r.id IS NOT NULL THEN 'completed' ELSE 'processing' END AS status,
+                  r.uploaded_at AS "completedAt", COALESCE(o.paid_at, o.created_at) AS "createdAt",
+                  (r.id IS NOT NULL) AS "hasReport", r.file_name AS "resultFileName"
+           FROM orders o
+           JOIN users u ON u.id = o.user_id
+           JOIN order_items oi ON oi.order_id = o.id
+           JOIN assessments a ON a.id = oi.assessment_id AND a.type = ANY($1::text[])
+           LEFT JOIN external_assessment_results r ON r.order_id = o.id AND r.assessment_id = a.id
+           WHERE o.status = 'completed' OR o.payment_status = 'paid'
+         )
+         SELECT online_results.*, COUNT(*) OVER()::int AS total
+         FROM online_results
+         WHERE ($2::text = '' OR LOWER(CONCAT_WS(' ', "clientName", email, "assessmentName")) LIKE LOWER('%' || $2 || '%'))
+           AND ($3::text = '' OR "assessmentType" = $3)
+           AND ($4::text = '' OR ($4 = 'ready' AND "hasReport") OR ($4 = 'pending' AND NOT "hasReport"))
+           AND ($5::date IS NULL OR COALESCE("completedAt", "createdAt")::date >= $5::date)
+           AND ($6::date IS NULL OR COALESCE("completedAt", "createdAt")::date <= $6::date)
+         ORDER BY COALESCE("completedAt", "createdAt") DESC NULLS LAST, "orderId" DESC, "recordId" DESC
+         LIMIT $7 OFFSET $8`,
+        [
+          EXTERNAL_ASSESSMENT_TYPES,
+          search,
+          assessmentType,
+          reportStatus || '',
+          startDate || null,
+          endDate || null,
+          pageSize,
+          (page - 1) * pageSize,
+        ],
+      );
+
+      const total = result.rows[0]?.total ?? 0;
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+      return res.json({ items: result.rows.map(({ total: _total, ...item }) => item), total, page, pageSize });
+    } catch (error) {
+      console.error('Error fetching psychologist online assessment results:', error);
+      return res.status(500).json({ message: 'Gagal memuat hasil asesmen online' });
+    }
+  });
+
+  app.get('/api/psychologist/online-assessment-results/internal/:id/pdf', isAuthenticated, async (req: any, res) => {
+    try {
+      const psychologist = await storage.getUser(req.user.claims.sub);
+      if (!psychologist || psychologist.role !== 'psychologist' || !psychologist.isActive) {
+        return res.status(403).json({ message: 'Akses hanya untuk akun psikolog aktif' });
+      }
+      const userAssessmentId = Number(req.params.id);
+      if (!Number.isInteger(userAssessmentId) || userAssessmentId < 1) {
+        return res.status(400).json({ message: 'ID hasil asesmen tidak valid' });
+      }
+      const userAssessment = (await storage.getAllUserAssessments()).find((item) => item.id === userAssessmentId);
+      if (!userAssessment || userAssessment.status !== 'completed' || isExternalAssessmentType(userAssessment.assessment.type)) {
+        return res.status(404).json({ message: 'Hasil asesmen tidak ditemukan atau belum selesai' });
+      }
+
+      const pdfBuffer = await generatePdfContent(userAssessment);
+      await pool.query(
+        `INSERT INTO psychologist_assessment_result_audits
+           (psychologist_user_id, source_type, user_assessment_id, order_id, assessment_id)
+         VALUES ($1, 'internal', $2, $3, $4)`,
+        [psychologist.id, userAssessment.id, userAssessment.orderId, userAssessment.assessmentId],
+      );
+      const safeName = userAssessment.assessment.name.replace(/[^a-z0-9_-]+/gi, '_');
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="Hasil_${safeName}.pdf"`);
+      return res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error opening internal assessment result for psychologist:', error);
+      return res.status(500).json({ message: 'Gagal membuka hasil asesmen' });
+    }
+  });
+
+  app.get('/api/psychologist/online-assessment-results/external/:orderId/:assessmentId/pdf', isAuthenticated, async (req: any, res) => {
+    try {
+      const psychologist = await storage.getUser(req.user.claims.sub);
+      if (!psychologist || psychologist.role !== 'psychologist' || !psychologist.isActive) {
+        return res.status(403).json({ message: 'Akses hanya untuk akun psikolog aktif' });
+      }
+      const orderId = Number(req.params.orderId);
+      const assessmentId = Number(req.params.assessmentId);
+      if (!Number.isInteger(orderId) || orderId < 1 || !Number.isInteger(assessmentId) || assessmentId < 1) {
+        return res.status(400).json({ message: 'ID hasil asesmen tidak valid' });
+      }
+      const result = await pool.query(
+        `SELECT r.file_data, r.file_name, r.mime_type
+         FROM external_assessment_results r
+         JOIN assessments a ON a.id = r.assessment_id AND a.type = ANY($3::text[])
+         WHERE r.order_id = $1 AND r.assessment_id = $2`,
+        [orderId, assessmentId, EXTERNAL_ASSESSMENT_TYPES],
+      );
+      if (!result.rows[0]) return res.status(404).json({ message: 'Hasil asesmen belum tersedia' });
+
+      await pool.query(
+        `INSERT INTO psychologist_assessment_result_audits
+           (psychologist_user_id, source_type, order_id, assessment_id)
+         VALUES ($1, 'external', $2, $3)`,
+        [psychologist.id, orderId, assessmentId],
+      );
+      const safeFileName = String(result.rows[0].file_name || `hasil-${orderId}.pdf`).replace(/["\r\n]/g, '');
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+      res.setHeader('Content-Type', result.rows[0].mime_type || 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${safeFileName}"`);
+      return res.send(result.rows[0].file_data);
+    } catch (error) {
+      console.error('Error opening external assessment result for psychologist:', error);
+      return res.status(500).json({ message: 'Gagal membuka hasil asesmen' });
+    }
   });
 
   app.get('/api/admin/external-assessments', isAuthenticated, canManageExternalAssessments, async (_req, res) => {

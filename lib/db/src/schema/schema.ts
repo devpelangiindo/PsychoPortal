@@ -279,6 +279,19 @@ export const externalAssessmentResults = pgTable("external_assessment_results", 
   uniqueIndex("external_assessment_result_order_assessment_unique").on(table.orderId, table.assessmentId),
 ]);
 
+export const psychologistAssessmentResultAudits = pgTable("psychologist_assessment_result_audits", {
+  id: serial("id").primaryKey(),
+  psychologistUserId: varchar("psychologist_user_id").notNull().references(() => users.id),
+  sourceType: varchar("source_type", { length: 20 }).notNull(),
+  userAssessmentId: integer("user_assessment_id").references(() => userAssessments.id),
+  orderId: integer("order_id").references(() => orders.id),
+  assessmentId: integer("assessment_id").notNull().references(() => assessments.id),
+  viewedAt: timestamp("viewed_at").defaultNow(),
+}, (table) => [
+  index("psychologist_assessment_result_audit_psychologist_idx").on(table.psychologistUserId, table.viewedAt),
+  index("psychologist_assessment_result_audit_assessment_idx").on(table.assessmentId, table.viewedAt),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
