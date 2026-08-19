@@ -13,12 +13,13 @@ import { apiUrl } from "@/lib/api-base";
 
 type Product = {
   id: number; slug: string; name: string; shortDescription: string; description: string; price: string;
+  promoPrice: string | null; effectivePrice: string;
   isActive: boolean; hasDeliveryFile: boolean; hasDeliveryUrl: boolean; deliveryFileName: string | null;
   deliveryUrl: string | null;
   images: { id: number; fileName: string }[];
 };
-type FormState = { name: string; slug: string; shortDescription: string; description: string; price: string; deliveryUrl: string; isActive: boolean };
-const emptyForm: FormState = { name: "", slug: "", shortDescription: "", description: "", price: "", deliveryUrl: "", isActive: true };
+type FormState = { name: string; slug: string; shortDescription: string; description: string; price: string; promoPrice: string; deliveryUrl: string; isActive: boolean };
+const emptyForm: FormState = { name: "", slug: "", shortDescription: "", description: "", price: "", promoPrice: "", deliveryUrl: "", isActive: true };
 
 async function uploadBinary(path: string, file: File, method = "POST", preserveMimeType = true) {
   const response = await fetch(apiUrl(path), {
@@ -45,12 +46,16 @@ export default function AdminDigitalProducts() {
 
   useEffect(() => {
     if (!editing) return setForm(emptyForm);
-    setForm({ name: editing.name, slug: editing.slug, shortDescription: editing.shortDescription, description: editing.description, price: editing.price, deliveryUrl: editing.deliveryUrl || "", isActive: editing.isActive });
+    setForm({ name: editing.name, slug: editing.slug, shortDescription: editing.shortDescription, description: editing.description, price: editing.price, promoPrice: editing.promoPrice || "", deliveryUrl: editing.deliveryUrl || "", isActive: editing.isActive });
   }, [editing]);
 
   const save = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest(editing ? "PUT" : "POST", editing ? `/api/admin/digital-products/${editing.id}` : "/api/admin/digital-products", { ...form, price: Number(form.price) });
+      const response = await apiRequest(editing ? "PUT" : "POST", editing ? `/api/admin/digital-products/${editing.id}` : "/api/admin/digital-products", {
+        ...form,
+        price: Number(form.price),
+        promoPrice: form.promoPrice === "" ? null : Number(form.promoPrice),
+      });
       return response.json();
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/digital-products"] }); setEditing(null); setForm(emptyForm); toast({ title: "Produk tersimpan" }); },
@@ -78,7 +83,8 @@ export default function AdminDigitalProducts() {
               <div><Label>Slug (opsional)</Label><Input value={form.slug} onChange={(event) => update("slug", event.target.value)} placeholder="dibuat otomatis dari nama" /></div>
               <div><Label>Deskripsi singkat</Label><Textarea value={form.shortDescription} onChange={(event) => update("shortDescription", event.target.value)} /></div>
               <div><Label>Deskripsi lengkap</Label><Textarea rows={6} value={form.description} onChange={(event) => update("description", event.target.value)} /></div>
-              <div><Label>Harga</Label><Input type="number" min="0" value={form.price} onChange={(event) => update("price", event.target.value)} /></div>
+              <div><Label>Harga Reguler</Label><Input type="number" min="0" value={form.price} onChange={(event) => update("price", event.target.value)} /></div>
+              <div><Label>Harga Promo (opsional)</Label><Input type="number" min="0" value={form.promoPrice} onChange={(event) => update("promoPrice", event.target.value)} placeholder="Harus lebih rendah dari harga reguler" /></div>
               <div><Label>Link produk (opsional)</Label><Input type="url" value={form.deliveryUrl} onChange={(event) => update("deliveryUrl", event.target.value)} placeholder="https://..." /></div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={(event) => update("isActive", event.target.checked)} /> Tampilkan di katalog</label>
               <div className="flex gap-2"><Button className="flex-1 bg-green-700 hover:bg-green-800" disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan</Button>{editing && <Button variant="outline" onClick={() => setEditing(null)}>Batal</Button>}</div>
@@ -104,7 +110,11 @@ export default function AdminDigitalProducts() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">{product.name}</h2><p className="text-sm text-gray-500">/{product.slug}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${product.isActive ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-700"}`}>{product.isActive ? "Aktif" : "Nonaktif"}</span></div>
                       <p className="mt-3 text-sm leading-6 text-gray-600">{product.shortDescription}</p>
-                      <p className="mt-2 font-extrabold text-green-700">Rp {new Intl.NumberFormat("id-ID").format(Number(product.price))}</p>
+                      <div className="mt-2 flex flex-wrap items-baseline gap-2">
+                        {product.promoPrice && <span className="text-sm text-gray-500 line-through">Rp {new Intl.NumberFormat("id-ID").format(Number(product.price))}</span>}
+                        <span className="font-extrabold text-green-700">Rp {new Intl.NumberFormat("id-ID").format(Number(product.effectivePrice))}</span>
+                        {product.promoPrice && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">Promo</span>}
+                      </div>
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         <Button size="sm" variant="outline" onClick={() => setEditing(product)}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
                         <label className="inline-flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-gray-50"><FileUp className="mr-2 h-4 w-4" />{product.hasDeliveryFile ? "Ganti file" : "Unggah file"}<input className="hidden" type="file" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; try { await uploadBinary(`/api/admin/digital-products/${product.id}/file`, file, "PUT", false); refresh(); toast({ title: "File produk tersimpan" }); } catch (error) { toast({ title: "Gagal mengunggah file", description: String(error), variant: "destructive" }); } event.target.value = ""; }} /></label>

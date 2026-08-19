@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
 
-type Product = { id: number; slug: string; name: string; shortDescription: string; price: string; images: { id: number }[] };
+type Product = { id: number; slug: string; name: string; shortDescription: string; price: string; promoPrice: string | null; effectivePrice: string; images: { id: number }[] };
 const CART_KEY = "digitalProductCart";
 
 function money(value: string | number) {
@@ -54,7 +54,7 @@ export default function DigitalProductCheckout() {
 
   const { data: allProducts = [], isLoading } = useQuery<Product[]>({ queryKey: ["/api/digital-products"] });
   const products = useMemo(() => allProducts.filter((product) => cartSlugs.includes(product.slug)), [allProducts, cartSlugs]);
-  const total = products.reduce((sum, product) => sum + Number(product.price), 0);
+  const total = products.reduce((sum, product) => sum + Number(product.effectivePrice), 0);
 
   const checkout = useMutation({
     mutationFn: async () => {
@@ -93,7 +93,13 @@ export default function DigitalProductCheckout() {
                   <div className="h-20 w-24 overflow-hidden rounded-lg bg-green-50">
                     {product.images?.[0] && <img src={apiUrl(`/api/digital-products/images/${product.images[0].id}`)} alt="" className="h-full w-full object-cover" />}
                   </div>
-                  <div className="min-w-0 flex-1"><p className="font-bold">{product.name}</p><p className="text-sm font-semibold text-green-700">{money(product.price)}</p></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold">{product.name}</p>
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      {product.promoPrice && <span className="text-xs text-gray-400 line-through">{money(product.price)}</span>}
+                      <span className="text-sm font-semibold text-green-700">{money(product.effectivePrice)}</span>
+                    </div>
+                  </div>
                   <Button variant="ghost" size="icon" aria-label="Hapus produk" onClick={() => setCartSlugs((current) => current.filter((item) => item !== product.slug))}><Trash2 size={18} /></Button>
                 </div>
               ))}

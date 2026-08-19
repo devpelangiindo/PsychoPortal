@@ -14,6 +14,8 @@ type DigitalProduct = {
   shortDescription: string;
   description: string;
   price: string;
+  promoPrice: string | null;
+  effectivePrice: string;
   images: ProductImage[];
 };
 
@@ -28,6 +30,16 @@ function imageUrl(id: number) {
 
 function formatCurrency(value: string) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
+}
+
+function ProductPrice({ product, large = false }: { product: DigitalProduct; large?: boolean }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-2">
+      {product.promoPrice && <span className={`${large ? "text-base" : "text-sm"} text-gray-400 line-through`}>{formatCurrency(product.price)}</span>}
+      <span className={`${large ? "text-2xl" : "text-xl"} font-extrabold text-green-800`}>{formatCurrency(product.effectivePrice)}</span>
+      {product.promoPrice && <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-rose-700">Promo</span>}
+    </div>
+  );
 }
 
 function checkoutUrl(product: DigitalProduct) {
@@ -84,7 +96,7 @@ function DigitalProductDetail({ slug }: { slug: string }) {
               <div className="flex flex-col p-7 sm:p-10">
                 <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">Produk Digital</span>
                 <h1 className="text-3xl font-extrabold leading-tight text-gray-900 lg:text-4xl">{product.name}</h1>
-                <p className="mt-4 text-2xl font-extrabold text-green-800">{formatCurrency(product.price)}</p>
+                <div className="mt-4"><ProductPrice product={product} large /></div>
                 <p className="mt-6 whitespace-pre-line leading-7 text-gray-600">{product.description}</p>
                 <a href={checkoutUrl(product)} className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-green-800 px-6 py-3.5 font-bold text-white transition hover:bg-green-900"><ShoppingCart size={19} /> Tambahkan ke Keranjang</a>
                 <p className="mt-3 text-center text-xs text-gray-500">Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.</p>
@@ -133,7 +145,7 @@ export default function DigitalProducts() {
                   <div className="flex flex-1 flex-col p-6">
                     <h2 className="text-xl font-extrabold text-gray-900">{product.name}</h2>
                     <p className="mt-2 flex-1 text-sm leading-6 text-gray-600">{product.shortDescription}</p>
-                    <p className="mt-5 text-xl font-extrabold text-green-800">{formatCurrency(product.price)}</p>
+                    <div className="mt-5"><ProductPrice product={product} /></div>
                     <div className="mt-5 grid grid-cols-2 gap-3">
                       <Link href={`/produk-layanan/produk-digital/${product.slug}`} className="rounded-xl border border-green-800 px-4 py-2.5 text-center text-sm font-bold text-green-800">Detail</Link>
                       <a href={checkoutUrl(product)} className="rounded-xl bg-green-800 px-4 py-2.5 text-center text-sm font-bold text-white">Beli</a>

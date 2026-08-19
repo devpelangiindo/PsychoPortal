@@ -220,6 +220,7 @@ async function ensureDigitalProductInfrastructure() {
       short_description varchar(500) NOT NULL,
       description text NOT NULL,
       price numeric(10,2) NOT NULL CHECK (price >= 0),
+      promo_price numeric(10,2),
       is_active boolean NOT NULL DEFAULT true,
       delivery_file bytea,
       delivery_file_name varchar(255),
@@ -267,6 +268,18 @@ async function ensureDigitalProductInfrastructure() {
       access_type varchar(30) NOT NULL,
       accessed_at timestamp DEFAULT now()
     );
+    ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS promo_price numeric(10,2);
+    UPDATE digital_products SET promo_price = NULL
+      WHERE promo_price IS NOT NULL AND (promo_price < 0 OR promo_price >= price);
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'digital_products_promo_price_check'
+      ) THEN
+        ALTER TABLE digital_products ADD CONSTRAINT digital_products_promo_price_check
+          CHECK (promo_price IS NULL OR (promo_price >= 0 AND promo_price < price));
+      END IF;
+    END $$;
   `);
 }
 
@@ -286,11 +299,16 @@ const digitalProductSchema = z.object({
   shortDescription: z.string().trim().min(5).max(500),
   description: z.string().trim().min(5).max(20000),
   price: z.coerce.number().min(0).max(99999999),
+  promoPrice: z.union([z.number().min(0).max(99999999), z.null()]).optional().default(null),
   isActive: z.boolean().optional().default(true),
   deliveryUrl: z.union([
     z.string().trim().url().max(2000).refine((value) => /^https?:\/\//i.test(value), "Link harus menggunakan http atau https"),
     z.literal(""),
   ]).optional(),
+}).superRefine((value, ctx) => {
+  if (value.promoPrice !== null && value.promoPrice >= value.price) {
+    ctx.addIssue({ code: "custom", path: ["promoPrice"], message: "Harga promo harus lebih rendah dari harga reguler" });
+  }
 });
 
 const digitalOrderSchema = z.object({
@@ -4647,7 +4665,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const digitalProductSelect = `
     SELECT p.id, p.slug, p.name, p.short_description AS "shortDescription",
-           p.description, p.price, p.is_active AS "isActive",
+           p.description, p.price, p.promo_price AS "promoPrice",
+           COALESCE(p.promo_price, p.price) AS "effectivePrice", p.is_active AS "isActive",
            p.delivery_url IS NOT NULL AND p.delivery_url <> '' AS "hasDeliveryUrl",
            p.delivery_file IS NOT NULL AS "hasDeliveryFile",
            p.delivery_file_name AS "deliveryFileName",
@@ -4711,7 +4730,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await client.query('BEGIN');
       const productIds = [...new Set(parsed.data.productIds)];
       const products = await client.query(
-        `SELECT id, name, price FROM digital_products WHERE id = ANY($1::int[]) AND is_active = true FOR SHARE`,
+        `SELECT id, name, COALESCE(promo_price, price) AS price
+         FROM digital_products WHERE id = ANY($1::int[]) AND is_active = true FOR SHARE`,
         [productIds],
       );
       if (products.rowCount !== productIds.length) {
@@ -4837,9 +4857,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!slug) return res.status(400).json({ message: 'Slug produk tidak valid' });
     try {
       const result = await pool.query(
-        `INSERT INTO digital_products (slug, name, short_description, description, price, is_active, delivery_url, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8) RETURNING id, slug`,
-        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, parsed.data.price, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub],
+        `INSERT INTO digital_products (slug, name, short_description, description, price, promo_price, is_active, delivery_url, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9) RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub],
       );
       res.status(201).json(result.rows[0]);
     } catch (error: any) {
@@ -4856,9 +4876,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const result = await pool.query(
         `UPDATE digital_products SET slug = $1, name = $2, short_description = $3, description = $4,
-           price = $5, is_active = $6, delivery_url = NULLIF($7, ''), updated_at = now()
-         WHERE id = $8 RETURNING id, slug`,
-        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, parsed.data.price, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId)],
+           price = $5, promo_price = $6, is_active = $7, delivery_url = NULLIF($8, ''), updated_at = now()
+         WHERE id = $9 RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId)],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Produk tidak ditemukan' });
       res.json(result.rows[0]);
