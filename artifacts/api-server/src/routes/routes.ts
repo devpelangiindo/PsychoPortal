@@ -207,6 +207,102 @@ function canManageExternalAssessmentsRole(role?: string | null) {
   return role === "admin" || role === "internal" || role === "cso";
 }
 
+function canManageDigitalProductsRole(role?: string | null) {
+  return role === "admin" || role === "internal" || role === "cso";
+}
+
+async function ensureDigitalProductInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS digital_products (
+      id serial PRIMARY KEY,
+      slug varchar(255) NOT NULL UNIQUE,
+      name varchar(255) NOT NULL,
+      short_description varchar(500) NOT NULL,
+      description text NOT NULL,
+      price numeric(10,2) NOT NULL CHECK (price >= 0),
+      is_active boolean NOT NULL DEFAULT true,
+      delivery_file bytea,
+      delivery_file_name varchar(255),
+      delivery_mime_type varchar(150),
+      delivery_file_size integer,
+      delivery_url varchar(2000),
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS digital_product_images (
+      id serial PRIMARY KEY,
+      product_id integer NOT NULL REFERENCES digital_products(id) ON DELETE CASCADE,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      created_at timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS digital_product_images_product_idx
+      ON digital_product_images(product_id, sort_order, id);
+    CREATE TABLE IF NOT EXISTS digital_order_items (
+      id serial PRIMARY KEY,
+      order_id integer NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      product_id integer NOT NULL REFERENCES digital_products(id),
+      product_name varchar(255) NOT NULL,
+      price numeric(10,2) NOT NULL,
+      created_at timestamp DEFAULT now(),
+      UNIQUE(order_id, product_id)
+    );
+    CREATE INDEX IF NOT EXISTS digital_order_items_order_idx ON digital_order_items(order_id);
+    CREATE TABLE IF NOT EXISTS digital_order_customer_info (
+      order_id integer PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+      full_name varchar(255) NOT NULL,
+      email varchar(255) NOT NULL,
+      phone varchar(50) NOT NULL,
+      notes text,
+      created_at timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS digital_product_access_logs (
+      id serial PRIMARY KEY,
+      user_id varchar NOT NULL REFERENCES users(id),
+      product_id integer NOT NULL REFERENCES digital_products(id),
+      order_id integer NOT NULL REFERENCES orders(id),
+      access_type varchar(30) NOT NULL,
+      accessed_at timestamp DEFAULT now()
+    );
+  `);
+}
+
+function makeDigitalProductSlug(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 220);
+}
+
+const digitalProductSchema = z.object({
+  name: z.string().trim().min(2).max(255),
+  slug: z.string().trim().max(255).optional(),
+  shortDescription: z.string().trim().min(5).max(500),
+  description: z.string().trim().min(5).max(20000),
+  price: z.coerce.number().min(0).max(99999999),
+  isActive: z.boolean().optional().default(true),
+  deliveryUrl: z.union([
+    z.string().trim().url().max(2000).refine((value) => /^https?:\/\//i.test(value), "Link harus menggunakan http atau https"),
+    z.literal(""),
+  ]).optional(),
+});
+
+const digitalOrderSchema = z.object({
+  productIds: z.array(z.number().int().positive()).min(1).max(20),
+  customer: z.object({
+    fullName: z.string().trim().min(2).max(255),
+    email: z.string().trim().email().max(255),
+    phone: z.string().trim().min(7).max(50),
+    notes: z.string().trim().max(2000).optional().default(""),
+  }),
+});
+
 const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential", "external-career-potential"] as const;
 
 function isExternalAssessmentType(type?: string | null) {
@@ -2479,6 +2575,14 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
     return { assessmentsCreated, bookingUpdated: false };
   }
 
+  const digitalItems = await pool.query(
+    `SELECT id FROM digital_order_items WHERE order_id = $1 LIMIT 1`,
+    [orderId],
+  );
+  if (digitalItems.rowCount) {
+    return { assessmentsCreated: 0, bookingUpdated: false };
+  }
+
   const bookings = await storage.getPsychologistBookingsByOrder(orderId);
   const unpaidBookings = bookings.filter((booking) => booking.status !== 'paid');
   for (const booking of unpaidBookings) {
@@ -2499,6 +2603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Initialize default assessments
     await ensureExternalAssessmentInfrastructure();
+    await ensureDigitalProductInfrastructure();
     await initializeAssessments();
     await initializeBookingServices();
     await ensureDefaultAdminUser();
@@ -4126,6 +4231,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : [];
       const booking = bookings[0];
 
+      const digitalItemsResult = order.orderItems.length === 0 && !booking
+        ? await pool.query(
+            `SELECT product_id, product_name, price FROM digital_order_items WHERE order_id = $1 ORDER BY id`,
+            [order.id],
+          )
+        : { rows: [] as any[] };
+      const digitalCustomerResult = digitalItemsResult.rows.length
+        ? await pool.query(`SELECT full_name, email, phone FROM digital_order_customer_info WHERE order_id = $1`, [order.id])
+        : { rows: [] as any[] };
+      const digitalCustomer = digitalCustomerResult.rows[0];
+
       const itemDetails = order.orderItems.length > 0 ? order.orderItems.map(item => ({
         id: `assessment_${item.assessmentId}`,
         name: item.assessment.name,
@@ -4136,7 +4252,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: `${booking.service.name}${bookings.length > 1 ? ` (${bookings.length} sesi)` : ""}`,
         price: parseInt(booking.psychologistFee || booking.service.price),
         quantity: bookings.length,
-      }] : [];
+      }] : digitalItemsResult.rows.map((item: any) => ({
+        id: `digital_product_${item.product_id}`,
+        name: item.product_name,
+        price: parseInt(item.price),
+        quantity: 1,
+      }));
 
       if (itemDetails.length === 0) {
         return res.status(400).json({ message: "Order has no payable items" });
@@ -4147,10 +4268,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: parseInt(order.totalAmount),
         expiryMinutes: PAYMENT_EXPIRY_MINUTES,
         customerDetails: {
-          first_name: user.firstName || 'Customer',
-          last_name: user.lastName || '',
-          email: user.email,
-          phone: user.whatsappNumber || ''
+          first_name: digitalCustomer?.full_name || user.firstName || 'Customer',
+          last_name: digitalCustomer ? '' : (user.lastName || ''),
+          email: digitalCustomer?.email || user.email,
+          phone: digitalCustomer?.phone || user.whatsappNumber || ''
         },
         itemDetails
       };
@@ -4516,6 +4637,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   }
+
+  function canManageDigitalProducts(req: any, res: any, next: any) {
+    if (!req.user || !canManageDigitalProductsRole(req.user.role)) {
+      return res.status(403).json({ message: 'Akses hanya untuk Admin atau CSO.' });
+    }
+    next();
+  }
+
+  const digitalProductSelect = `
+    SELECT p.id, p.slug, p.name, p.short_description AS "shortDescription",
+           p.description, p.price, p.is_active AS "isActive",
+           p.delivery_url IS NOT NULL AND p.delivery_url <> '' AS "hasDeliveryUrl",
+           p.delivery_file IS NOT NULL AS "hasDeliveryFile",
+           p.delivery_file_name AS "deliveryFileName",
+           p.delivery_file_size AS "deliveryFileSize",
+           p.created_at AS "createdAt", p.updated_at AS "updatedAt",
+           COALESCE(json_agg(
+             json_build_object('id', image.id, 'fileName', image.file_name, 'sortOrder', image.sort_order)
+             ORDER BY image.sort_order, image.id
+           ) FILTER (WHERE image.id IS NOT NULL), '[]'::json) AS images
+    FROM digital_products p
+    LEFT JOIN digital_product_images image ON image.product_id = p.id`;
+
+  app.get('/api/digital-products', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${digitalProductSelect} WHERE p.is_active = true GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`,
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching digital products:', error);
+      res.status(500).json({ message: 'Gagal memuat produk digital' });
+    }
+  });
+
+  app.get('/api/digital-products/:slug', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `${digitalProductSelect} WHERE p.slug = $1 AND p.is_active = true GROUP BY p.id LIMIT 1`,
+        [req.params.slug],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Produk digital tidak ditemukan' });
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error fetching digital product:', error);
+      res.status(500).json({ message: 'Gagal memuat produk digital' });
+    }
+  });
+
+  app.get('/api/digital-products/images/:imageId', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT image_data, mime_type, file_name FROM digital_product_images WHERE id = $1`,
+        [Number(req.params.imageId)],
+      );
+      if (!result.rowCount) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].mime_type);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(result.rows[0].image_data);
+    } catch (error) {
+      console.error('Error fetching digital product image:', error);
+      res.status(500).end();
+    }
+  });
+
+  app.post('/api/digital-products/orders', isAuthenticated, async (req: any, res) => {
+    const parsed = digitalOrderSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pesanan tidak valid', errors: parsed.error.flatten() });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const productIds = [...new Set(parsed.data.productIds)];
+      const products = await client.query(
+        `SELECT id, name, price FROM digital_products WHERE id = ANY($1::int[]) AND is_active = true FOR SHARE`,
+        [productIds],
+      );
+      if (products.rowCount !== productIds.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Satu atau lebih produk tidak tersedia' });
+      }
+
+      const totalAmount = products.rows.reduce((sum, product) => sum + Number(product.price), 0);
+      const orderResult = await client.query(
+        `INSERT INTO orders (user_id, total_amount, status, payment_status, created_at, updated_at)
+         VALUES ($1, $2, 'pending', 'pending', now(), now()) RETURNING *`,
+        [req.user.claims.sub, totalAmount],
+      );
+      const order = orderResult.rows[0];
+      for (const product of products.rows) {
+        await client.query(
+          `INSERT INTO digital_order_items (order_id, product_id, product_name, price) VALUES ($1, $2, $3, $4)`,
+          [order.id, product.id, product.name, product.price],
+        );
+      }
+      await client.query(
+        `INSERT INTO digital_order_customer_info (order_id, full_name, email, phone, notes)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [order.id, parsed.data.customer.fullName, parsed.data.customer.email, parsed.data.customer.phone, parsed.data.customer.notes || null],
+      );
+      await client.query('COMMIT');
+      res.status(201).json({ id: order.id, totalAmount: String(totalAmount), status: 'pending' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error creating digital product order:', error);
+      res.status(500).json({ message: 'Gagal membuat pesanan produk digital' });
+    } finally {
+      client.release();
+    }
+  });
+
+  app.get('/api/digital-products/purchases/me', isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT DISTINCT ON (p.id) p.id AS "productId", p.slug, p.name,
+                p.short_description AS "shortDescription", p.price,
+                o.id AS "orderId", o.paid_at AS "paidAt",
+                p.delivery_file IS NOT NULL AS "hasFile",
+                p.delivery_url IS NOT NULL AND p.delivery_url <> '' AS "hasLink",
+                p.delivery_file_name AS "fileName",
+                (SELECT image.id FROM digital_product_images image
+                 WHERE image.product_id = p.id ORDER BY image.sort_order, image.id LIMIT 1) AS "imageId"
+         FROM orders o
+         JOIN digital_order_items item ON item.order_id = o.id
+         JOIN digital_products p ON p.id = item.product_id
+         WHERE o.user_id = $1 AND (o.status = 'completed' OR o.payment_status = 'paid')
+         ORDER BY p.id, o.paid_at DESC NULLS LAST, o.id DESC`,
+        [req.user.claims.sub],
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching digital purchases:', error);
+      res.status(500).json({ message: 'Gagal memuat produk digital Anda' });
+    }
+  });
+
+  async function getOwnedDigitalProduct(userId: string, productId: number) {
+    return pool.query(
+      `SELECT p.*, o.id AS order_id FROM orders o
+       JOIN digital_order_items item ON item.order_id = o.id
+       JOIN digital_products p ON p.id = item.product_id
+       WHERE o.user_id = $1 AND p.id = $2 AND (o.status = 'completed' OR o.payment_status = 'paid')
+       ORDER BY o.paid_at DESC NULLS LAST, o.id DESC LIMIT 1`,
+      [userId, productId],
+    );
+  }
+
+  app.get('/api/digital-products/purchases/:productId/download', isAuthenticated, async (req: any, res) => {
+    try {
+      const productId = Number(req.params.productId);
+      const result = await getOwnedDigitalProduct(req.user.claims.sub, productId);
+      if (!result.rowCount || !result.rows[0].delivery_file) return res.status(404).json({ message: 'File produk tidak tersedia' });
+      const product = result.rows[0];
+      await pool.query(
+        `INSERT INTO digital_product_access_logs (user_id, product_id, order_id, access_type) VALUES ($1, $2, $3, 'download')`,
+        [req.user.claims.sub, productId, product.order_id],
+      );
+      res.setHeader('Content-Type', product.delivery_mime_type || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${String(product.delivery_file_name || 'produk-digital').replace(/["\\\r\n]/g, '_')}"`);
+      res.send(product.delivery_file);
+    } catch (error) {
+      console.error('Error downloading digital product:', error);
+      res.status(500).json({ message: 'Gagal mengunduh produk digital' });
+    }
+  });
+
+  app.get('/api/digital-products/purchases/:productId/link', isAuthenticated, async (req: any, res) => {
+    try {
+      const productId = Number(req.params.productId);
+      const result = await getOwnedDigitalProduct(req.user.claims.sub, productId);
+      if (!result.rowCount || !result.rows[0].delivery_url) return res.status(404).json({ message: 'Link produk tidak tersedia' });
+      const product = result.rows[0];
+      await pool.query(
+        `INSERT INTO digital_product_access_logs (user_id, product_id, order_id, access_type) VALUES ($1, $2, $3, 'link')`,
+        [req.user.claims.sub, productId, product.order_id],
+      );
+      res.json({ url: product.delivery_url });
+    } catch (error) {
+      console.error('Error opening digital product link:', error);
+      res.status(500).json({ message: 'Gagal membuka link produk digital' });
+    }
+  });
+
+  app.get('/api/admin/digital-products', isAuthenticated, canManageDigitalProducts, async (_req, res) => {
+    try {
+      const result = await pool.query(`${digitalProductSelect.replace('p.delivery_url IS NOT NULL', 'p.delivery_url AS "deliveryUrl", p.delivery_url IS NOT NULL')} GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin digital products:', error);
+      res.status(500).json({ message: 'Gagal memuat produk digital' });
+    }
+  });
+
+  app.post('/api/admin/digital-products', isAuthenticated, canManageDigitalProducts, async (req: any, res) => {
+    const parsed = digitalProductSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data produk tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.name);
+    if (!slug) return res.status(400).json({ message: 'Slug produk tidak valid' });
+    try {
+      const result = await pool.query(
+        `INSERT INTO digital_products (slug, name, short_description, description, price, is_active, delivery_url, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8) RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, parsed.data.price, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub],
+      );
+      res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug produk sudah digunakan' });
+      console.error('Error creating digital product:', error);
+      res.status(500).json({ message: 'Gagal menambahkan produk digital' });
+    }
+  });
+
+  app.put('/api/admin/digital-products/:productId', isAuthenticated, canManageDigitalProducts, async (req, res) => {
+    const parsed = digitalProductSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data produk tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.name);
+    try {
+      const result = await pool.query(
+        `UPDATE digital_products SET slug = $1, name = $2, short_description = $3, description = $4,
+           price = $5, is_active = $6, delivery_url = NULLIF($7, ''), updated_at = now()
+         WHERE id = $8 RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, parsed.data.price, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Produk tidak ditemukan' });
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug produk sudah digunakan' });
+      console.error('Error updating digital product:', error);
+      res.status(500).json({ message: 'Gagal memperbarui produk digital' });
+    }
+  });
+
+  app.delete('/api/admin/digital-products/:productId', isAuthenticated, canManageDigitalProducts, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `UPDATE digital_products SET is_active = false, updated_at = now() WHERE id = $1 RETURNING id`,
+        [Number(req.params.productId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Produk tidak ditemukan' });
+      res.json({ message: 'Produk dinonaktifkan' });
+    } catch (error) {
+      console.error('Error deleting digital product:', error);
+      res.status(500).json({ message: 'Gagal menghapus produk digital' });
+    }
+  });
+
+  app.post('/api/admin/digital-products/:productId/images', isAuthenticated, canManageDigitalProducts,
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '8mb' }), async (req: any, res) => {
+      try {
+        if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File gambar wajib dipilih' });
+        const result = await pool.query(
+          `INSERT INTO digital_product_images (product_id, image_data, file_name, mime_type, sort_order)
+           VALUES ($1, $2, $3, $4, COALESCE((SELECT max(sort_order) + 1 FROM digital_product_images WHERE product_id = $1), 0)) RETURNING id`,
+          [Number(req.params.productId), req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'gambar-produk')), req.headers['content-type']],
+        );
+        res.status(201).json(result.rows[0]);
+      } catch (error) {
+        console.error('Error uploading digital product image:', error);
+        res.status(500).json({ message: 'Gagal mengunggah gambar' });
+      }
+    });
+
+  app.delete('/api/admin/digital-products/:productId/images/:imageId', isAuthenticated, canManageDigitalProducts, async (req, res) => {
+    const result = await pool.query(`DELETE FROM digital_product_images WHERE id = $1 AND product_id = $2 RETURNING id`, [Number(req.params.imageId), Number(req.params.productId)]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Gambar tidak ditemukan' });
+    res.json({ message: 'Gambar dihapus' });
+  });
+
+  app.put('/api/admin/digital-products/:productId/file', isAuthenticated, canManageDigitalProducts,
+    express.raw({ type: () => true, limit: '50mb' }), async (req: any, res) => {
+      try {
+        if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File produk wajib dipilih' });
+        await pool.query(
+          `UPDATE digital_products SET delivery_file = $1, delivery_file_name = $2, delivery_mime_type = $3,
+             delivery_file_size = $4, updated_at = now() WHERE id = $5`,
+          [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'produk-digital')), req.headers['x-original-mime-type'] || req.headers['content-type'] || 'application/octet-stream', req.body.length, Number(req.params.productId)],
+        );
+        res.json({ message: 'File produk berhasil diunggah' });
+      } catch (error) {
+        console.error('Error uploading digital product file:', error);
+        res.status(500).json({ message: 'Gagal mengunggah file produk' });
+      }
+    });
+
+  app.delete('/api/admin/digital-products/:productId/file', isAuthenticated, canManageDigitalProducts, async (req, res) => {
+    await pool.query(
+      `UPDATE digital_products SET delivery_file = NULL, delivery_file_name = NULL, delivery_mime_type = NULL,
+       delivery_file_size = NULL, updated_at = now() WHERE id = $1`,
+      [Number(req.params.productId)],
+    );
+    res.json({ message: 'File produk dihapus' });
+  });
 
   app.get('/api/external-assessments/access', isAuthenticated, async (req: any, res) => {
     try {
@@ -5467,6 +5880,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
 
+      const digitalItems = order.orderItems?.length ? [] : (await pool.query(
+        `SELECT product_id AS "productId", product_name AS "productName", price FROM digital_order_items WHERE order_id = $1 ORDER BY id`,
+        [orderId],
+      )).rows;
+
       res.json({
         orderId: order.id,
         status: order.status,
@@ -5477,7 +5895,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         items: order.orderItems?.map(item => ({
           assessmentName: item.assessment.name,
           price: item.price
-        }))
+        })),
+        digitalItems,
       });
     } catch (error) {
       console.error("Error getting payment status:", error);

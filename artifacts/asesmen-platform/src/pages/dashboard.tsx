@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
+import { apiUrl } from "@/lib/api-base";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
@@ -64,6 +65,19 @@ type ExternalAssessmentAccess = {
   hasResult: boolean;
   resultFileName: string | null;
   resultUploadedAt: string | null;
+};
+
+type DigitalPurchase = {
+  productId: number;
+  slug: string;
+  name: string;
+  shortDescription: string;
+  orderId: number;
+  paidAt: string | null;
+  hasFile: boolean;
+  hasLink: boolean;
+  fileName: string | null;
+  imageId: number | null;
 };
 
 const PAYMENT_EXPIRY_MINUTES = 15;
@@ -328,6 +342,12 @@ export default function Dashboard() {
     refetchOnMount: "always",
   });
 
+  const { data: digitalPurchases = [] } = useQuery<DigitalPurchase[]>({
+    queryKey: ["/api/digital-products/purchases/me"],
+    enabled: isAuthenticated,
+    refetchInterval: 5000,
+  });
+
   const settlePaymentMutation = useMutation({
     mutationFn: async (orderId: number) => {
       const response = await apiRequest("POST", "/api/payments/create", {
@@ -556,6 +576,34 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {digitalPurchases.length > 0 && (
+          <section className="mb-10">
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div><p className="text-sm font-bold uppercase tracking-wider text-green-700">Pembelian Anda</p><h2 className="text-2xl font-extrabold">Produk Digital Saya</h2></div>
+              <a href="https://pi-psychology.com/produk-layanan/produk-digital" className="text-sm font-semibold text-green-700 hover:underline">Lihat katalog</a>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {digitalPurchases.map((product) => (
+                <Card key={product.productId} className="overflow-hidden">
+                  <div className="h-40 bg-green-50">
+                    {product.imageId ? <img src={apiUrl(`/api/digital-products/images/${product.imageId}`)} alt={product.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center font-semibold text-green-800">Produk Digital</div>}
+                  </div>
+                  <CardContent className="p-5">
+                    <p className="text-xs font-bold uppercase tracking-wide text-green-700">Pesanan #{product.orderId}</p>
+                    <h3 className="mt-1 text-lg font-bold">{product.name}</h3>
+                    <p className="mt-2 text-sm leading-6 text-gray-600">{product.shortDescription}</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {product.hasFile && <Button size="sm" onClick={() => downloadProtectedFile(`/api/digital-products/purchases/${product.productId}/download`, product.fileName || product.name)}><Download className="mr-2 h-4 w-4" />Download</Button>}
+                      {product.hasLink && <Button size="sm" variant="outline" onClick={async () => { try { const response = await apiRequest("GET", `/api/digital-products/purchases/${product.productId}/link`); const data = await response.json(); window.open(data.url, "_blank", "noopener,noreferrer"); } catch (error) { toast({ title: "Link tidak dapat dibuka", description: error instanceof Error ? error.message : "Silakan hubungi admin.", variant: "destructive" }); } }}><ExternalLink className="mr-2 h-4 w-4" />Buka Link</Button>}
+                      {!product.hasFile && !product.hasLink && <Badge variant="secondary">Konten sedang disiapkan</Badge>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
         {externalAssessmentAccess.map((access) => (
           <Card key={`${access.orderId}-${access.assessmentId}`} className="mb-8 overflow-hidden border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50">

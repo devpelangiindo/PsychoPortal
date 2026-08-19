@@ -31,6 +31,8 @@ import AdminAssessments from "@/pages/admin-assessments";
 import AdminReports from "@/pages/admin-reports";
 import AdminAssessmentResult from "@/pages/admin-assessment-result";
 import AdminExternalAssessments from "@/pages/admin-external-assessments";
+import AdminDigitalProducts from "@/pages/admin-digital-products";
+import DigitalProductCheckout from "@/pages/digital-product-checkout";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailed from "@/pages/payment-failed";
 import PaymentReturn from "@/pages/payment-return";
@@ -78,6 +80,7 @@ function Router() {
       <Route path="/cart" component={Cart} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/digital-products/checkout" component={DigitalProductCheckout} />
       <Route path="/psychologist/dashboard" component={PsychologistDashboard} />
       <Route path="/assessment/:id" component={AssessmentDetail} />
       <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
@@ -106,6 +109,8 @@ function Router() {
       <Route path="/admin/assessment-result/:userAssessmentId" component={AdminAssessmentResult} />
       <Route path="/admin/external-assessments" component={AdminExternalAssessments} />
       <Route path="/cso/external-assessments" component={AdminExternalAssessments} />
+      <Route path="/admin/digital-products" component={AdminDigitalProducts} />
+      <Route path="/cso/digital-products" component={AdminDigitalProducts} />
       
       {/* 404 fallback */}
       <Route component={NotFound} />

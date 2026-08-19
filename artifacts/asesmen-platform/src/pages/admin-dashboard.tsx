@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -369,6 +369,18 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             <CardContent>
               <Link href={isCsoMode ? "/cso/external-assessments" : "/admin/external-assessments"}>
                 <Button className="w-full bg-rose-600 hover:bg-rose-700">Kelola Tes</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-amber-600" />Produk Digital</CardTitle>
+              <CardDescription>Kelola katalog, gambar, file, dan link produk</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={isCsoMode ? "/cso/digital-products" : "/admin/digital-products"}>
+                <Button className="w-full bg-amber-600 hover:bg-amber-700">Kelola Produk</Button>
               </Link>
             </CardContent>
           </Card>

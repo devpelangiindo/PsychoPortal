@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import TentangKami from "@/pages/TentangKami";
 import ProdukLayanan from "@/pages/ProdukLayanan";
+import DigitalProducts from "@/pages/DigitalProducts";
 import Artikel from "@/pages/Artikel";
 import Kontak from "@/pages/Kontak";
 
@@ -18,6 +19,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/tentang-kami" component={TentangKami} />
       <Route path="/produk-layanan" component={ProdukLayanan} />
+      <Route path="/produk-layanan/produk-digital/:productSlug" component={DigitalProducts} />
+      <Route path="/produk-layanan/produk-digital" component={DigitalProducts} />
       <Route path="/produk-layanan/:slug" component={ProdukLayanan} />
       <Route path="/artikel" component={Artikel} />
       <Route path="/artikel/:slug" component={Artikel} />
