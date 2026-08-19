@@ -56,6 +56,8 @@ services:
         value: production
       - key: VITE_ASESMEN_PLATFORM_URL
         value: https://asesmen.pi-psychology.com
+      - key: VITE_ASESMEN_API_URL
+        value: https://psychoportal-api.onrender.com
     routes:
       - type: rewrite
         source: /*
