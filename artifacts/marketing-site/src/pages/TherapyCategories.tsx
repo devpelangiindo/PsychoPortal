@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, HeartHandshake, Puzzle } from "lucide-react";
+import { Activity, ArrowLeft, ArrowRight, Brain, CheckCircle2, ChevronDown, ChevronRight, HeartHandshake, MessagesSquare, Puzzle } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { Link, useRoute } from "wouter";
 import Footer from "@/components/Footer";
@@ -17,12 +17,52 @@ type TherapyCategory = {
   services: string[];
 };
 
+type DevelopmentTherapy = {
+  title: string;
+  price: string;
+  focus: string;
+  target: string;
+  benefits: string[];
+  icon: ComponentType<{ className?: string }>;
+  accent: string;
+};
+
+const developmentTherapies: DevelopmentTherapy[] = [
+  {
+    title: "Terapi Otak Bugar",
+    price: "Rp 150.000/sesi",
+    focus: "Meningkatkan kemampuan fisik (motorik dan postural), sensoris, dan fokus anak.",
+    target: "Cocok untuk anak dengan ADHD, disleksia, masalah konsentrasi, dan kebutuhan terkait lainnya.",
+    benefits: ["Meningkatkan respons terhadap rangsangan sensorik", "Meningkatkan fokus dan perhatian", "Mengurangi kecemasan dan stres", "Meningkatkan keterampilan motorik"],
+    icon: Brain,
+    accent: "from-emerald-500 to-green-700",
+  },
+  {
+    title: "Terapi Perilaku",
+    price: "Rp 200.000/sesi",
+    focus: "Meningkatkan kepatuhan serta membentuk perilaku adaptif dan fungsional pada anak.",
+    target: "Cocok untuk anak dengan Autisme (ASD), ADHD, atau tantrum berlebihan.",
+    benefits: ["Meningkatkan keterampilan sosial", "Mengurangi perilaku bermasalah", "Mengembangkan keterampilan komunikasi", "Meningkatkan adaptasi dalam kehidupan sehari-hari"],
+    icon: Activity,
+    accent: "from-sky-500 to-blue-700",
+  },
+  {
+    title: "Terapi Bicara dan Bahasa",
+    price: "Rp 150.000/sesi",
+    focus: "Meningkatkan kemampuan bicara dan bahasa pada anak.",
+    target: "Cocok untuk anak dengan speech delay, gangguan artikulasi, gangguan pendengaran, atau feeding issues.",
+    benefits: ["Mengembangkan bahasa ekspresif dan reseptif", "Mengurangi frustrasi dan tantrum", "Mendukung kesiapan akademis", "Membangun kepercayaan diri", "Meningkatkan kejelasan komunikasi", "Melatih keterampilan motorik oral"],
+    icon: MessagesSquare,
+    accent: "from-amber-500 to-orange-600",
+  },
+];
+
 const therapyCategories: TherapyCategory[] = [
   {
     slug: "tumbuh-kembang",
     title: "Terapi Tumbuh Kembang",
-    description: "Program terapi terstruktur untuk mendukung kemampuan komunikasi, perilaku, sensori, serta perkembangan anak.",
-    introduction: "Program pendampingan untuk anak berkebutuhan khusus dan anak dengan tantangan perkembangan. Rencana terapi disusun berdasarkan kebutuhan setiap anak dan dievaluasi secara berkala.",
+    description: "Layanan terapi kami dirancang untuk mendukung setiap individu dalam melewati fase perkembangan dengan optimal. Kami menghadirkan intervensi yang disesuaikan dengan kebutuhan unik setiap anak melalui metode yang telah teruji secara ilmiah dan dilakukan oleh tenaga profesional.",
+    introduction: "Layanan terapi yang disesuaikan dengan kebutuhan unik setiap anak dan didampingi oleh tenaga profesional.",
     icon: Puzzle,
     accent: "from-emerald-500 to-green-700",
     iconStyle: "bg-emerald-100 text-emerald-700",
@@ -99,10 +139,65 @@ function TherapyDetail({ category }: { category: TherapyCategory }) {
   );
 }
 
+function DevelopmentTherapyDetail({ category }: { category: TherapyCategory }) {
+  const whatsappHref = (therapyName: string) => `https://wa.me/6285117658242?text=${encodeURIComponent(`Halo Pelangi Indonesia, saya ingin mengetahui informasi lebih lanjut mengenai ${therapyName}.`)}`;
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+      <TherapyHero title={category.title} description={category.description} detail />
+      <main className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+        <Link href="/produk-layanan/terapi" className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Kategori Terapi</Link>
+        <div className="mb-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-green-700">Layanan yang tersedia</p>
+          <h2 className="mt-2 text-3xl font-extrabold text-gray-900">Jenis Terapi Perkembangan</h2>
+          <p className="mt-3 max-w-3xl leading-7 text-gray-600">Pilih layanan yang sesuai untuk melihat fokus terapi, target pendampingan, manfaat, dan informasi biaya setiap sesi.</p>
+        </div>
+        <div className="grid items-start gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {developmentTherapies.map((therapy) => {
+            const Icon = therapy.icon;
+            return (
+              <article key={therapy.title} className="overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-black/5">
+                <div className={`relative flex h-48 items-center justify-center overflow-hidden bg-gradient-to-br ${therapy.accent}`}>
+                  <img src="/services/terapi.png" alt="" aria-hidden="true" className="absolute -right-5 -top-5 h-44 w-44 rounded-full bg-white/90 p-8 opacity-25" />
+                  <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-white/95 text-green-800 shadow-lg"><Icon className="h-10 w-10" /></div>
+                </div>
+                <div className="p-6 sm:p-7">
+                  <h3 className="text-2xl font-extrabold text-gray-900">{therapy.title}</h3>
+                  <span className="mt-4 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-extrabold text-green-800">{therapy.price}</span>
+                  <p className="mt-5 text-sm leading-6 text-gray-600"><strong className="text-gray-900">Fokus utama:</strong> {therapy.focus}</p>
+                  <details className="group mt-5 border-t border-gray-100 pt-1">
+                    <summary className="flex cursor-pointer list-none items-center justify-between py-4 font-bold text-green-800 marker:content-none">
+                      Lihat Selengkapnya
+                      <ChevronDown className="h-5 w-5 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="pb-1">
+                      <p className="text-sm leading-6 text-gray-600"><strong className="text-gray-900">Target:</strong> {therapy.target}</p>
+                      <h4 className="mt-5 font-bold text-gray-900">Manfaat</h4>
+                      <ul className="mt-3 space-y-3">
+                        {therapy.benefits.map((benefit) => (
+                          <li key={benefit} className="flex items-start gap-2 text-sm leading-6 text-gray-600"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-700" />{benefit}</li>
+                        ))}
+                      </ul>
+                      <a href={whatsappHref(therapy.title)} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 font-bold text-white transition hover:bg-[#1fb85a]"><SiWhatsapp size={18} /> Info Selengkapnya</a>
+                    </div>
+                  </details>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
 export default function TherapyCategories() {
   const [detailMatch, detailParams] = useRoute("/produk-layanan/terapi/:categorySlug");
   const selectedCategory = detailMatch ? therapyCategories.find((category) => category.slug === detailParams.categorySlug) : undefined;
 
+  if (selectedCategory?.slug === "tumbuh-kembang") return <DevelopmentTherapyDetail category={selectedCategory} />;
   if (selectedCategory) return <TherapyDetail category={selectedCategory} />;
 
   return (
