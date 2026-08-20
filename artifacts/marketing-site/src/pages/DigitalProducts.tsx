@@ -47,7 +47,7 @@ function checkoutUrl(product: DigitalProduct) {
   return `${base}/digital-products/checkout?product=${encodeURIComponent(product.slug)}`;
 }
 
-function ProductGallery({ product, height = "h-56" }: { product: DigitalProduct; height?: string }) {
+function ProductGallery({ product, height = "h-56", fit = "cover" }: { product: DigitalProduct; height?: string; fit?: "cover" | "contain" }) {
   const [active, setActive] = useState(0);
   const images = product.images ?? [];
   const move = (direction: number) => setActive((current) => (current + direction + images.length) % images.length);
@@ -58,17 +58,26 @@ function ProductGallery({ product, height = "h-56" }: { product: DigitalProduct;
 
   return (
     <div className={`relative overflow-hidden bg-gray-100 ${height}`}>
+      {fit === "contain" && (
+        <img
+          src={imageUrl(images[active].id)}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-xl"
+          style={{ objectPosition: `${images[active].focusX ?? 50}% ${images[active].focusY ?? 50}%` }}
+        />
+      )}
       <img
         src={imageUrl(images[active].id)}
         alt={`${product.name} ${active + 1}`}
-        className="h-full w-full object-cover"
+        className={`relative h-full w-full ${fit === "contain" ? "object-contain p-3 sm:p-5" : "object-cover"}`}
         style={{ objectPosition: `${images[active].focusX ?? 50}% ${images[active].focusY ?? 50}%` }}
       />
       {images.length > 1 && (
         <>
-          <button type="button" aria-label="Gambar sebelumnya" onClick={() => move(-1)} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow"><ChevronLeft size={18} /></button>
-          <button type="button" aria-label="Gambar berikutnya" onClick={() => move(1)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow"><ChevronRight size={18} /></button>
-          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+          <button type="button" aria-label="Gambar sebelumnya" onClick={() => move(-1)} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow"><ChevronLeft size={18} /></button>
+          <button type="button" aria-label="Gambar berikutnya" onClick={() => move(1)} className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow"><ChevronRight size={18} /></button>
+          <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
             {images.map((image, index) => <button key={image.id} type="button" aria-label={`Tampilkan gambar ${index + 1}`} onClick={() => setActive(index)} className={`h-2 rounded-full transition-all ${index === active ? "w-6 bg-white" : "w-2 bg-white/60"}`} />)}
           </div>
         </>
@@ -97,7 +106,7 @@ function DigitalProductDetail({ slug }: { slug: string }) {
         ) : (
           <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
             <div className="grid lg:grid-cols-2">
-              <ProductGallery product={product} height="h-80 lg:h-full lg:min-h-[520px]" />
+              <ProductGallery product={product} height="h-80 lg:h-full lg:min-h-[520px]" fit="contain" />
               <div className="flex flex-col p-7 sm:p-10">
                 <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">Produk Digital</span>
                 <h1 className="text-3xl font-extrabold leading-tight text-gray-900 lg:text-4xl">{product.name}</h1>
