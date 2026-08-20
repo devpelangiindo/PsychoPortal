@@ -27,6 +27,11 @@ type DevelopmentTherapy = {
   accent: string;
 };
 
+type PsychotherapyMethod = {
+  title: string;
+  description: string;
+};
+
 const developmentTherapies: DevelopmentTherapy[] = [
   {
     title: "Terapi Otak Bugar",
@@ -57,6 +62,73 @@ const developmentTherapies: DevelopmentTherapy[] = [
   },
 ];
 
+const psychotherapyMethods: PsychotherapyMethod[] = [
+  {
+    title: "Cognitive Behavior Therapy (CBT)",
+    description: "Pendekatan psikoterapi yang berfokus pada hubungan antara pikiran, perasaan, dan perilaku. CBT umumnya digunakan untuk membantu menangani kecemasan, depresi, trauma dan PTSD, serta Obsessive Compulsive Disorder (OCD).",
+  },
+  {
+    title: "Dialectical Behavior Therapy (DBT)",
+    description: "Terapi bicara turunan CBT yang dirancang untuk membantu individu dengan emosi sangat intens melalui keseimbangan antara penerimaan diri dan perubahan perilaku positif. Pendekatan ini dapat digunakan pada BPD, bipolar, depresi berat, gangguan makan, PTSD, dan OCD.",
+  },
+  {
+    title: "Rational Emotive Behavior Therapy (REBT)",
+    description: "Pendekatan perilaku kognitif yang membantu mengenali dan mengubah pemikiran irasional yang memengaruhi emosi serta perilaku. REBT dapat digunakan untuk kecemasan, depresi, masalah regulasi emosi, perilaku adiktif, dan trauma.",
+  },
+  {
+    title: "Mind Over Mood (MOM)",
+    description: "Program yang membantu memperbaiki suasana hati dengan mengidentifikasi, mengevaluasi, dan mengubah pikiran negatif. Metode ini dapat mendukung penanganan bipolar, PTSD, masalah kemarahan, dan stres.",
+  },
+  {
+    title: "Eye Movement Desensitization and Reprocessing (EMDR)",
+    description: "Psikoterapi interaktif yang menggunakan stimulasi bilateral, termasuk gerakan mata, untuk membantu pemrosesan memori traumatis secara lebih adaptif. EMDR digunakan terutama untuk PTSD serta dapat diterapkan pada fobia, kecemasan, dan depresi.",
+  },
+  {
+    title: "Brainspotting",
+    description: "Teknik psikoterapi berbasis pikiran dan tubuh yang memanfaatkan arah pandangan mata untuk membantu memproses trauma, emosi negatif, stres, dan pengalaman yang sulit dijangkau melalui kata-kata. Pendekatan ini dapat digunakan pada PTSD, depresi, kecemasan, fobia, dan OCD.",
+  },
+  {
+    title: "Clinical Hypnotherapy",
+    description: "Metode terapi psikologis yang menggunakan kondisi relaksasi mendalam untuk membantu individu lebih terbuka terhadap sugesti positif. Pendekatan ini dapat digunakan untuk kecemasan, trauma dan PTSD, fobia, depresi, kebiasaan adiktif, insomnia, serta keluhan psikosomatis.",
+  },
+  {
+    title: "Mindfulness Based Stress Reduction (MBSR)",
+    description: "Program pelatihan mindfulness terstruktur selama delapan minggu untuk membantu individu hadir pada masa kini dengan penuh kesadaran tanpa menghakimi. MBSR dapat mendukung pengelolaan stres, kecemasan, depresi, nyeri kronis, burnout, gangguan tidur, dan depresi postpartum.",
+  },
+  {
+    title: "Mindfulness Based Cognitive Therapy (MBCT)",
+    description: "Psikoterapi yang menggabungkan CBT dengan meditasi mindfulness untuk membantu individu mengenali pikiran negatif tanpa menghakiminya. MBCT digunakan untuk membantu mencegah kekambuhan depresi serta menangani kecemasan dan stres kronis.",
+  },
+  {
+    title: "Art Therapy",
+    description: "Bentuk psikoterapi yang menggunakan media seni sebagai sarana mengekspresikan dan memahami emosi yang sulit disampaikan melalui kata-kata. Art Therapy dapat digunakan dalam penanganan trauma, PTSD, depresi, kecemasan, stres kronis, dan adiksi.",
+  },
+  {
+    title: "Emotional Freedom Technique (EFT)",
+    description: "Metode yang dikenal sebagai tapping dan menggabungkan pendekatan psikologis dengan stimulasi titik tertentu pada tubuh sambil melafalkan afirmasi. EFT digunakan sebagai pendekatan pendamping untuk trauma, PTSD, kecemasan, depresi, dan stres.",
+  },
+  {
+    title: "Touch For Health (TFH)",
+    description: "Pendekatan komplementer yang memadukan prinsip akupresur, meridian, dan kinesiologi melalui muscle testing sebagai biofeedback. TFH digunakan untuk mendukung manajemen stres serta membantu keluhan kecemasan, depresi ringan, dan burnout.",
+  },
+  {
+    title: "Meridian/PACE/PMR",
+    description: "Gabungan pendekatan integratif: Meridian menggunakan stimulasi titik tubuh untuk mendukung regulasi emosi; PACE membangun rasa aman melalui playfulness, acceptance, curiosity, dan empathy; sedangkan PMR menggunakan relaksasi otot progresif untuk mengurangi kecemasan, stres, depresi, dan gangguan tidur.",
+  },
+  {
+    title: "Tension & Trauma Releasing Exercises (TRE)",
+    description: "Serangkaian latihan fisik yang dirancang untuk membantu tubuh melepaskan stres, ketegangan, dan trauma yang tersimpan dalam otot. Teknik ini digunakan untuk membantu meredakan gejala stres, kecemasan, dan dampak trauma secara fisik.",
+  },
+  {
+    title: "Brain Gym",
+    description: "Serangkaian gerakan fisik sederhana untuk mendukung koordinasi tubuh serta kemampuan kognitif seperti fokus dan daya ingat. Latihan ini dapat digunakan untuk membantu mengelola stres, kecemasan, dan mendukung rehabilitasi gangguan jiwa berat.",
+  },
+  {
+    title: "Psikologi Positif",
+    description: "Pendekatan yang berfokus pada pengembangan kekuatan karakter, emosi positif, kebahagiaan, dan makna hidup. Dalam psikoterapi, pendekatan ini dapat membantu individu menghadapi kecemasan, trauma dan PTSD, serta stres kronis.",
+  },
+];
+
 const therapyCategories: TherapyCategory[] = [
   {
     slug: "tumbuh-kembang",
@@ -72,8 +144,8 @@ const therapyCategories: TherapyCategory[] = [
   {
     slug: "psikoterapi",
     title: "Psikoterapi",
-    description: "Pendampingan psikologis profesional untuk membantu mengelola masalah emosional, perilaku, dan kesehatan mental.",
-    introduction: "Layanan intervensi psikologis yang dilakukan secara profesional dan disesuaikan dengan kebutuhan, kondisi, serta tujuan terapi setiap klien.",
+    description: "Layanan psikoterapi untuk dewasa di Pelangi Indonesia (RPPI) dirancang untuk membantu individu menghadapi tekanan hidup, hambatan emosional, hingga pengembangan potensi diri.",
+    introduction: "Layanan psikoterapi untuk dewasa yang disesuaikan dengan kebutuhan, kondisi, serta tujuan setiap klien.",
     icon: HeartHandshake,
     accent: "from-sky-500 to-blue-700",
     iconStyle: "bg-sky-100 text-sky-700",
@@ -193,11 +265,47 @@ function DevelopmentTherapyDetail({ category }: { category: TherapyCategory }) {
   );
 }
 
+function PsychotherapyDetail({ category }: { category: TherapyCategory }) {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+      <TherapyHero title={category.title} description={category.description} detail />
+      <main className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+        <Link href="/produk-layanan/terapi" className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Kategori Terapi</Link>
+        <div className="mb-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-green-700">Pendekatan yang tersedia</p>
+          <h2 className="mt-2 text-3xl font-extrabold text-gray-900">Jenis Psikoterapi</h2>
+          <p className="mt-3 max-w-3xl leading-7 text-gray-600">Setiap pendekatan memiliki fokus dan teknik yang berbeda. Tim profesional kami akan membantu menyesuaikannya dengan kebutuhan setiap klien.</p>
+        </div>
+        <div className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {psychotherapyMethods.map((method, index) => (
+            <article key={method.title} className="relative overflow-hidden rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-7">
+              <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-500 to-green-700" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100 text-sm font-extrabold text-green-800">{String(index + 1).padStart(2, "0")}</span>
+              <h3 className="mt-5 text-xl font-extrabold leading-snug text-gray-900">{method.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-gray-600">{method.description}</p>
+            </article>
+          ))}
+        </div>
+        <section className="mt-10 flex flex-col items-start justify-between gap-6 rounded-3xl bg-gradient-to-r from-[#1B4332] to-[#2D6A4F] p-7 text-white sm:flex-row sm:items-center sm:p-9">
+          <div>
+            <h2 className="text-2xl font-extrabold">Butuh bantuan memilih pendekatan?</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-green-50/90">Konsultasikan kebutuhan Anda bersama tim Pelangi Indonesia untuk mendapatkan informasi layanan yang sesuai.</p>
+          </div>
+          <a href="https://wa.me/6285117658242?text=Halo%20Pelangi%20Indonesia%2C%20saya%20ingin%20mengetahui%20informasi%20lebih%20lanjut%20mengenai%20layanan%20psikoterapi." target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-6 py-3 font-bold text-white transition hover:bg-[#1fb85a]"><SiWhatsapp size={18} /> Info Selengkapnya</a>
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
 export default function TherapyCategories() {
   const [detailMatch, detailParams] = useRoute("/produk-layanan/terapi/:categorySlug");
   const selectedCategory = detailMatch ? therapyCategories.find((category) => category.slug === detailParams.categorySlug) : undefined;
 
   if (selectedCategory?.slug === "tumbuh-kembang") return <DevelopmentTherapyDetail category={selectedCategory} />;
+  if (selectedCategory?.slug === "psikoterapi") return <PsychotherapyDetail category={selectedCategory} />;
   if (selectedCategory) return <TherapyDetail category={selectedCategory} />;
 
   return (
