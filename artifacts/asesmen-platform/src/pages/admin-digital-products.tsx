@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FileUp, ImagePlus, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Crosshair, FileUp, ImagePlus, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,12 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
 
+type ProductImage = { id: number; fileName: string; focusX: number; focusY: number };
 type Product = {
   id: number; slug: string; name: string; shortDescription: string; description: string; price: string;
   promoPrice: string | null; effectivePrice: string;
   isActive: boolean; hasDeliveryFile: boolean; hasDeliveryUrl: boolean; deliveryFileName: string | null;
   deliveryUrl: string | null;
-  images: { id: number; fileName: string }[];
+  images: ProductImage[];
 };
 type FormState = { name: string; slug: string; shortDescription: string; description: string; price: string; promoPrice: string; deliveryUrl: string; isActive: boolean };
 const emptyForm: FormState = { name: "", slug: "", shortDescription: "", description: "", price: "", promoPrice: "", deliveryUrl: "", isActive: true };
@@ -41,6 +42,8 @@ export default function AdminDigitalProducts() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [focusEditor, setFocusEditor] = useState<{ productId: number; image: ProductImage; focusX: number; focusY: number } | null>(null);
+  const [isSavingFocus, setIsSavingFocus] = useState(false);
   const isCso = window.location.pathname.startsWith("/cso");
   const { data: products = [], isLoading } = useQuery<Product[]>({ queryKey: ["/api/admin/digital-products"] });
 
@@ -69,6 +72,30 @@ export default function AdminDigitalProducts() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/digital-products"] });
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((current) => ({ ...current, [key]: value }));
+  const setFocusPreset = (focusX: number, focusY: number) => setFocusEditor((current) => current ? { ...current, focusX, focusY } : current);
+  const handleFocusClick = (event: MouseEvent<HTMLButtonElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const focusX = Math.max(0, Math.min(100, Math.round(((event.clientX - bounds.left) / bounds.width) * 100)));
+    const focusY = Math.max(0, Math.min(100, Math.round(((event.clientY - bounds.top) / bounds.height) * 100)));
+    setFocusPreset(focusX, focusY);
+  };
+  const saveImageFocus = async () => {
+    if (!focusEditor) return;
+    setIsSavingFocus(true);
+    try {
+      await apiRequest("PUT", `/api/admin/digital-products/${focusEditor.productId}/images/${focusEditor.image.id}/focus`, {
+        focusX: focusEditor.focusX,
+        focusY: focusEditor.focusY,
+      });
+      await refresh();
+      toast({ title: "Titik fokus gambar tersimpan" });
+      setFocusEditor(null);
+    } catch (error) {
+      toast({ title: "Gagal menyimpan titik fokus", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+    } finally {
+      setIsSavingFocus(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -96,16 +123,38 @@ export default function AdminDigitalProducts() {
               <Card key={product.id} className={!product.isActive ? "opacity-65" : ""}>
                 <CardContent className="p-5">
                   <div className="flex flex-col gap-5 xl:flex-row">
-                    <div className="grid w-full grid-cols-3 gap-2 xl:w-64">
-                      {product.images.map((image) => (
-                        <div key={image.id} className="group relative aspect-square overflow-hidden rounded-lg bg-gray-100">
-                          <img src={apiUrl(`/api/digital-products/images/${image.id}`)} alt="" className="h-full w-full object-cover" />
-                          <button type="button" className="absolute right-1 top-1 rounded bg-red-600 p-1 text-white opacity-0 group-hover:opacity-100" onClick={async () => { await apiRequest("DELETE", `/api/admin/digital-products/${product.id}/images/${image.id}`); refresh(); }}><Trash2 size={13} /></button>
+                    <div className="w-full xl:w-64">
+                      <div className="grid grid-cols-3 gap-2">
+                        {product.images.map((image) => (
+                          <div key={image.id} className="group relative aspect-square overflow-hidden rounded-lg bg-gray-100">
+                            <img src={apiUrl(`/api/digital-products/images/${image.id}`)} alt="" className="h-full w-full object-cover" style={{ objectPosition: `${image.focusX}% ${image.focusY}%` }} />
+                            <button type="button" className="absolute bottom-1 left-1 rounded bg-black/70 p-1 text-white" aria-label="Atur fokus gambar" onClick={() => setFocusEditor({ productId: product.id, image, focusX: image.focusX, focusY: image.focusY })}><Crosshair size={13} /></button>
+                            <button type="button" className="absolute right-1 top-1 rounded bg-red-600 p-1 text-white opacity-0 group-hover:opacity-100" onClick={async () => { await apiRequest("DELETE", `/api/admin/digital-products/${product.id}/images/${image.id}`); refresh(); }}><Trash2 size={13} /></button>
+                          </div>
+                        ))}
+                        <label className="flex aspect-square cursor-pointer items-center justify-center rounded-lg border-2 border-dashed text-gray-500 hover:border-green-500 hover:text-green-700">
+                          <ImagePlus size={22} /><input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; try { await uploadBinary(`/api/admin/digital-products/${product.id}/images`, file); refresh(); } catch (error) { toast({ title: "Gagal mengunggah gambar", description: String(error), variant: "destructive" }); } event.target.value = ""; }} />
+                        </label>
+                      </div>
+                      {focusEditor?.productId === product.id && (
+                        <div className="mt-3 rounded-xl border bg-white p-3 shadow-sm">
+                          <p className="mb-2 text-xs font-bold text-gray-700">Klik bagian gambar yang ingin diprioritaskan</p>
+                          <button type="button" className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-gray-100" onClick={handleFocusClick}>
+                            <img src={apiUrl(`/api/digital-products/images/${focusEditor.image.id}`)} alt="Preview titik fokus" className="h-full w-full object-cover" style={{ objectPosition: `${focusEditor.focusX}% ${focusEditor.focusY}%` }} />
+                            <span className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-green-600 shadow" style={{ left: `${focusEditor.focusX}%`, top: `${focusEditor.focusY}%` }} />
+                          </button>
+                          <div className="mt-2 grid grid-cols-3 gap-1 text-xs">
+                            <Button type="button" size="sm" variant="outline" onClick={() => setFocusPreset(50, 0)}>Atas</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => setFocusPreset(50, 50)}>Tengah</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => setFocusPreset(50, 100)}>Bawah</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => setFocusPreset(0, 50)}>Kiri</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => setFocusPreset(100, 50)}>Kanan</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => setFocusEditor(null)}>Batal</Button>
+                          </div>
+                          <Button type="button" size="sm" className="mt-2 w-full bg-green-700 hover:bg-green-800" disabled={isSavingFocus} onClick={saveImageFocus}>{isSavingFocus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan Fokus</Button>
+                          <p className="mt-2 text-center text-[11px] text-gray-500">Posisi: {focusEditor.focusX}% × {focusEditor.focusY}%</p>
                         </div>
-                      ))}
-                      <label className="flex aspect-square cursor-pointer items-center justify-center rounded-lg border-2 border-dashed text-gray-500 hover:border-green-500 hover:text-green-700">
-                        <ImagePlus size={22} /><input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; try { await uploadBinary(`/api/admin/digital-products/${product.id}/images`, file); refresh(); } catch (error) { toast({ title: "Gagal mengunggah gambar", description: String(error), variant: "destructive" }); } event.target.value = ""; }} />
-                      </label>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">{product.name}</h2><p className="text-sm text-gray-500">/{product.slug}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${product.isActive ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-700"}`}>{product.isActive ? "Aktif" : "Nonaktif"}</span></div>

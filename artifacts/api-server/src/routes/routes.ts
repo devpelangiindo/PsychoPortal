@@ -238,6 +238,8 @@ async function ensureDigitalProductInfrastructure() {
       file_name varchar(255) NOT NULL,
       mime_type varchar(100) NOT NULL,
       sort_order integer NOT NULL DEFAULT 0,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
       created_at timestamp DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS digital_product_images_product_idx
@@ -269,6 +271,8 @@ async function ensureDigitalProductInfrastructure() {
       accessed_at timestamp DEFAULT now()
     );
     ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS promo_price numeric(10,2);
+    ALTER TABLE digital_product_images ADD COLUMN IF NOT EXISTS focus_x smallint NOT NULL DEFAULT 50;
+    ALTER TABLE digital_product_images ADD COLUMN IF NOT EXISTS focus_y smallint NOT NULL DEFAULT 50;
     UPDATE digital_products SET promo_price = NULL
       WHERE promo_price IS NOT NULL AND (promo_price < 0 OR promo_price >= price);
     DO $$
@@ -278,6 +282,15 @@ async function ensureDigitalProductInfrastructure() {
       ) THEN
         ALTER TABLE digital_products ADD CONSTRAINT digital_products_promo_price_check
           CHECK (promo_price IS NULL OR (promo_price >= 0 AND promo_price < price));
+      END IF;
+    END $$;
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'digital_product_images_focus_check'
+      ) THEN
+        ALTER TABLE digital_product_images ADD CONSTRAINT digital_product_images_focus_check
+          CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100);
       END IF;
     END $$;
   `);
@@ -319,6 +332,11 @@ const digitalOrderSchema = z.object({
     phone: z.string().trim().min(7).max(50),
     notes: z.string().trim().max(2000).optional().default(""),
   }),
+});
+
+const digitalProductImageFocusSchema = z.object({
+  focusX: z.number().int().min(0).max(100),
+  focusY: z.number().int().min(0).max(100),
 });
 
 const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential", "external-career-potential"] as const;
@@ -4673,7 +4691,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
            p.delivery_file_size AS "deliveryFileSize",
            p.created_at AS "createdAt", p.updated_at AS "updatedAt",
            COALESCE(json_agg(
-             json_build_object('id', image.id, 'fileName', image.file_name, 'sortOrder', image.sort_order)
+             json_build_object(
+               'id', image.id,
+               'fileName', image.file_name,
+               'sortOrder', image.sort_order,
+               'focusX', image.focus_x,
+               'focusY', image.focus_y
+             )
              ORDER BY image.sort_order, image.id
            ) FILTER (WHERE image.id IS NOT NULL), '[]'::json) AS images
     FROM digital_products p
@@ -4778,7 +4802,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 p.delivery_url IS NOT NULL AND p.delivery_url <> '' AS "hasLink",
                 p.delivery_file_name AS "fileName",
                 (SELECT image.id FROM digital_product_images image
-                 WHERE image.product_id = p.id ORDER BY image.sort_order, image.id LIMIT 1) AS "imageId"
+                 WHERE image.product_id = p.id ORDER BY image.sort_order, image.id LIMIT 1) AS "imageId",
+                (SELECT image.focus_x FROM digital_product_images image
+                 WHERE image.product_id = p.id ORDER BY image.sort_order, image.id LIMIT 1) AS "imageFocusX",
+                (SELECT image.focus_y FROM digital_product_images image
+                 WHERE image.product_id = p.id ORDER BY image.sort_order, image.id LIMIT 1) AS "imageFocusY"
          FROM orders o
          JOIN digital_order_items item ON item.order_id = o.id
          JOIN digital_products p ON p.id = item.product_id
@@ -4923,6 +4951,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const result = await pool.query(`DELETE FROM digital_product_images WHERE id = $1 AND product_id = $2 RETURNING id`, [Number(req.params.imageId), Number(req.params.productId)]);
     if (!result.rowCount) return res.status(404).json({ message: 'Gambar tidak ditemukan' });
     res.json({ message: 'Gambar dihapus' });
+  });
+
+  app.put('/api/admin/digital-products/:productId/images/:imageId/focus', isAuthenticated, canManageDigitalProducts, async (req, res) => {
+    const parsed = digitalProductImageFocusSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Posisi fokus tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE digital_product_images SET focus_x = $1, focus_y = $2
+         WHERE id = $3 AND product_id = $4 RETURNING id, focus_x AS "focusX", focus_y AS "focusY"`,
+        [parsed.data.focusX, parsed.data.focusY, Number(req.params.imageId), Number(req.params.productId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Gambar tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating digital product image focus:', error);
+      return res.status(500).json({ message: 'Gagal menyimpan posisi fokus gambar' });
+    }
   });
 
   app.put('/api/admin/digital-products/:productId/file', isAuthenticated, canManageDigitalProducts,

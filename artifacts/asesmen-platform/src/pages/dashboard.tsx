@@ -78,6 +78,8 @@ type DigitalPurchase = {
   hasLink: boolean;
   fileName: string | null;
   imageId: number | null;
+  imageFocusX: number | null;
+  imageFocusY: number | null;
 };
 
 const PAYMENT_EXPIRY_MINUTES = 15;
@@ -587,7 +589,7 @@ export default function Dashboard() {
               {digitalPurchases.map((product) => (
                 <Card key={product.productId} className="overflow-hidden">
                   <div className="h-40 bg-green-50">
-                    {product.imageId ? <img src={apiUrl(`/api/digital-products/images/${product.imageId}`)} alt={product.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center font-semibold text-green-800">Produk Digital</div>}
+                    {product.imageId ? <img src={apiUrl(`/api/digital-products/images/${product.imageId}`)} alt={product.name} className="h-full w-full object-cover" style={{ objectPosition: `${product.imageFocusX ?? 50}% ${product.imageFocusY ?? 50}%` }} /> : <div className="flex h-full items-center justify-center font-semibold text-green-800">Produk Digital</div>}
                   </div>
                   <CardContent className="p-5">
                     <p className="text-xs font-bold uppercase tracking-wide text-green-700">Pesanan #{product.orderId}</p>

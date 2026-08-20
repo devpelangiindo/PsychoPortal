@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
 
-type Product = { id: number; slug: string; name: string; shortDescription: string; price: string; promoPrice: string | null; effectivePrice: string; images: { id: number }[] };
+type Product = { id: number; slug: string; name: string; shortDescription: string; price: string; promoPrice: string | null; effectivePrice: string; images: { id: number; focusX: number; focusY: number }[] };
 const CART_KEY = "digitalProductCart";
 
 function money(value: string | number) {
@@ -91,7 +91,7 @@ export default function DigitalProductCheckout() {
               {isLoading ? <Loader2 className="animate-spin" /> : products.length === 0 ? <p className="text-gray-500">Keranjang masih kosong.</p> : products.map((product) => (
                 <div key={product.id} className="flex items-center gap-4 rounded-xl border p-3">
                   <div className="h-20 w-24 overflow-hidden rounded-lg bg-green-50">
-                    {product.images?.[0] && <img src={apiUrl(`/api/digital-products/images/${product.images[0].id}`)} alt="" className="h-full w-full object-cover" />}
+                    {product.images?.[0] && <img src={apiUrl(`/api/digital-products/images/${product.images[0].id}`)} alt="" className="h-full w-full object-cover" style={{ objectPosition: `${product.images[0].focusX ?? 50}% ${product.images[0].focusY ?? 50}%` }} />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-bold">{product.name}</p>

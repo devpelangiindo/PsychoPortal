@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getAsesmenPlatformHref } from "@/lib/platform-links";
 
-type ProductImage = { id: number; fileName: string; sortOrder: number };
+type ProductImage = { id: number; fileName: string; sortOrder: number; focusX: number; focusY: number };
 type DigitalProduct = {
   id: number;
   slug: string;
@@ -58,7 +58,12 @@ function ProductGallery({ product, height = "h-56" }: { product: DigitalProduct;
 
   return (
     <div className={`relative overflow-hidden bg-gray-100 ${height}`}>
-      <img src={imageUrl(images[active].id)} alt={`${product.name} ${active + 1}`} className="h-full w-full object-cover" />
+      <img
+        src={imageUrl(images[active].id)}
+        alt={`${product.name} ${active + 1}`}
+        className="h-full w-full object-cover"
+        style={{ objectPosition: `${images[active].focusX ?? 50}% ${images[active].focusY ?? 50}%` }}
+      />
       {images.length > 1 && (
         <>
           <button type="button" aria-label="Gambar sebelumnya" onClick={() => move(-1)} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow"><ChevronLeft size={18} /></button>
