@@ -105,16 +105,18 @@ function DigitalProductDetail({ slug }: { slug: string }) {
           <div className="flex justify-center py-24"><Loader2 className="animate-spin text-green-800" /></div>
         ) : (
           <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
-            <div className="grid lg:grid-cols-2">
-              <ProductGallery product={product} height="h-80 lg:h-full lg:min-h-[520px]" fit="contain" />
-              <div className="flex flex-col p-7 sm:p-10">
+            <div className="grid items-start lg:grid-cols-2">
+              <section className="p-7 sm:p-10">
+                <ProductGallery product={product} height="aspect-[4/3]" fit="contain" />
+                <a href={checkoutUrl(product)} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-800 px-6 py-3.5 font-bold text-white transition hover:bg-green-900"><ShoppingCart size={19} /> Tambahkan ke Keranjang</a>
+                <p className="mt-3 text-center text-xs text-gray-500">Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.</p>
+              </section>
+              <section className="flex flex-col border-t border-gray-100 p-7 sm:p-10 lg:border-l lg:border-t-0">
                 <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">Produk Digital</span>
                 <h1 className="text-3xl font-extrabold leading-tight text-gray-900 lg:text-4xl">{product.name}</h1>
                 <div className="mt-4"><ProductPrice product={product} large /></div>
                 <p className="mt-6 whitespace-pre-line leading-7 text-gray-600">{product.description}</p>
-                <a href={checkoutUrl(product)} className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-green-800 px-6 py-3.5 font-bold text-white transition hover:bg-green-900"><ShoppingCart size={19} /> Tambahkan ke Keranjang</a>
-                <p className="mt-3 text-center text-xs text-gray-500">Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.</p>
-              </div>
+              </section>
             </div>
           </div>
         )}
