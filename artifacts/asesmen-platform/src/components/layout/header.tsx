@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownCloseTimer = useRef<number | null>(null);
   const [location, setLocation] = useLocation();
   const dashboardHref = user?.role === "admin"
     ? "/admin/dashboard"
@@ -47,9 +48,27 @@ export default function Header() {
       ? "/psychologist/dashboard"
       : "/dashboard";
 
+  const cancelDropdownClose = () => {
+    if (dropdownCloseTimer.current !== null) {
+      window.clearTimeout(dropdownCloseTimer.current);
+      dropdownCloseTimer.current = null;
+    }
+  };
+
+  const scheduleDropdownClose = () => {
+    cancelDropdownClose();
+    dropdownCloseTimer.current = window.setTimeout(() => {
+      setDropdownOpen(false);
+      dropdownCloseTimer.current = null;
+    }, 400);
+  };
+
   useEffect(() => {
+    cancelDropdownClose();
     setIsMenuOpen(false);
     setDropdownOpen(false);
+
+    return cancelDropdownClose;
   }, [location]);
 
   const handleSignIn = () => {
@@ -102,12 +121,21 @@ export default function Header() {
                   Berita
                 </a>
 
-                <div className="relative">
-                  <div
-                    onMouseEnter={() => setDropdownOpen(true)}
-                    onMouseLeave={() => setDropdownOpen(false)}
-                    className="flex items-center rounded-md text-gray-700 hover:text-green-800 transition-colors"
-                  >
+                <div
+                  className="relative"
+                  onMouseEnter={() => {
+                    cancelDropdownClose();
+                    setDropdownOpen(true);
+                  }}
+                  onMouseLeave={scheduleDropdownClose}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      cancelDropdownClose();
+                      setDropdownOpen(false);
+                    }
+                  }}
+                >
+                  <div className="flex items-center rounded-md text-gray-700 hover:text-green-800 transition-colors">
                     <a
                       href={withMainSitePath("/produk-layanan")}
                       className="px-3 py-2 text-sm font-medium hover:bg-green-50 rounded-l-md transition-colors"
@@ -115,9 +143,14 @@ export default function Header() {
                       Produk & Layanan
                     </a>
                     <button
-                      onClick={() => setDropdownOpen((open) => !open)}
+                      onClick={() => {
+                        cancelDropdownClose();
+                        setDropdownOpen((open) => !open);
+                      }}
                       className="px-1 py-2 hover:bg-green-50 rounded-r-md transition-colors"
                       aria-label="Buka menu layanan"
+                      aria-expanded={dropdownOpen}
+                      aria-controls="desktop-services-menu"
                     >
                       <ChevronDown
                         size={14}
@@ -128,27 +161,28 @@ export default function Header() {
 
                   {dropdownOpen && (
                     <div
-                      onMouseEnter={() => setDropdownOpen(true)}
-                      onMouseLeave={() => setDropdownOpen(false)}
-                      className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
+                      id="desktop-services-menu"
+                      className="absolute top-full left-0 w-56 pt-1 z-50"
                     >
-                      {services.map((service) => (
-                        service.href.startsWith("/") && !service.external ? (
-                          <Link key={service.label} href={service.href} className={marketingDropdownLinkClass}>
-                            {service.label}
-                          </Link>
-                        ) : (
-                          <a
-                            key={service.label}
-                            href={service.href}
-                            target={service.external ? "_blank" : undefined}
-                            rel={service.external ? "noopener noreferrer" : undefined}
-                            className={marketingDropdownLinkClass}
-                          >
-                            {service.label}
-                          </a>
-                        )
-                      ))}
+                      <div className="bg-white rounded-xl shadow-lg border border-gray-100 py-2">
+                        {services.map((service) => (
+                          service.href.startsWith("/") && !service.external ? (
+                            <Link key={service.label} href={service.href} className={marketingDropdownLinkClass}>
+                              {service.label}
+                            </Link>
+                          ) : (
+                            <a
+                              key={service.label}
+                              href={service.href}
+                              target={service.external ? "_blank" : undefined}
+                              rel={service.external ? "noopener noreferrer" : undefined}
+                              className={marketingDropdownLinkClass}
+                            >
+                              {service.label}
+                            </a>
+                          )
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
