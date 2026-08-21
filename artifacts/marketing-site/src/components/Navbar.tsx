@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, ChevronDown, ShoppingCart } from "lucide-react";
 import { getAsesmenPlatformHref, getBookingHref } from "@/lib/platform-links";
@@ -22,7 +22,28 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const dropdownCloseTimer = useRef<number | null>(null);
   const [location] = useLocation();
+
+  const cancelDropdownClose = () => {
+    if (dropdownCloseTimer.current !== null) {
+      window.clearTimeout(dropdownCloseTimer.current);
+      dropdownCloseTimer.current = null;
+    }
+  };
+
+  const openDropdown = () => {
+    cancelDropdownClose();
+    setDropdownOpen(true);
+  };
+
+  const scheduleDropdownClose = () => {
+    cancelDropdownClose();
+    dropdownCloseTimer.current = window.setTimeout(() => {
+      setDropdownOpen(false);
+      dropdownCloseTimer.current = null;
+    }, 400);
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -31,9 +52,12 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
+    cancelDropdownClose();
     setMenuOpen(false);
     setDropdownOpen(false);
   }, [location]);
+
+  useEffect(() => () => cancelDropdownClose(), []);
 
   return (
     <header
@@ -76,10 +100,21 @@ export default function Navbar() {
             </Link>
 
             {/* Dropdown */}
-            <div className="relative">
+            <div
+              className="relative"
+              onMouseEnter={openDropdown}
+              onMouseLeave={scheduleDropdownClose}
+              onBlurCapture={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) scheduleDropdownClose();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  cancelDropdownClose();
+                  setDropdownOpen(false);
+                }
+              }}
+            >
               <div
-                onMouseEnter={() => setDropdownOpen(true)}
-                onMouseLeave={() => setDropdownOpen(false)}
                 className="flex items-center rounded-md text-gray-700 hover:text-green-800 transition-colors"
               >
                 <Link
@@ -89,9 +124,14 @@ export default function Navbar() {
                   Produk & Layanan
                 </Link>
                 <button
-                  onClick={() => setDropdownOpen((o) => !o)}
+                  onClick={() => {
+                    cancelDropdownClose();
+                    setDropdownOpen((open) => !open);
+                  }}
                   className="px-1 py-2 hover:bg-green-50 rounded-r-md transition-colors"
                   aria-label="Buka menu layanan"
+                  aria-expanded={dropdownOpen}
+                  aria-controls="desktop-services-menu"
                 >
                   <ChevronDown
                     size={14}
@@ -101,34 +141,32 @@ export default function Navbar() {
               </div>
 
               {dropdownOpen && (
-                <div
-                  onMouseEnter={() => setDropdownOpen(true)}
-                  onMouseLeave={() => setDropdownOpen(false)}
-                  className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
-                >
-                  {services.map((s) => {
-                    const href = s.href === "__BOOKING__"
-                      ? getBookingHref()
-                      : s.href === "__ASESMEN_PLATFORM__"
-                        ? getAsesmenPlatformHref()
-                        : s.href;
-                    const cls = "block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
-                    const wrapper = (child: React.ReactNode) => (
-                      <div key={s.href}>
-                        {child}
-                      </div>
-                    );
-                    if (s.external || s.href === "__BOOKING__" || s.href === "__ASESMEN_PLATFORM__") {
-                      return wrapper(
-                        <a href={href} target={s.external ? "_blank" : undefined} rel={s.external ? "noopener noreferrer" : undefined} className={cls}>
-                          {s.label}
-                        </a>
+                <div className="absolute left-0 top-full z-50 w-56 pt-1">
+                  <div id="desktop-services-menu" className="rounded-xl border border-gray-100 bg-white py-2 shadow-lg">
+                    {services.map((s) => {
+                      const href = s.href === "__BOOKING__"
+                        ? getBookingHref()
+                        : s.href === "__ASESMEN_PLATFORM__"
+                          ? getAsesmenPlatformHref()
+                          : s.href;
+                      const cls = "block px-4 py-2 text-sm text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
+                      const wrapper = (child: React.ReactNode) => (
+                        <div key={s.href}>
+                          {child}
+                        </div>
                       );
-                    }
-                    return wrapper(
-                      <Link href={href} className={cls}>{s.label}</Link>
-                    );
-                  })}
+                      if (s.external || s.href === "__BOOKING__" || s.href === "__ASESMEN_PLATFORM__") {
+                        return wrapper(
+                          <a href={href} target={s.external ? "_blank" : undefined} rel={s.external ? "noopener noreferrer" : undefined} className={cls}>
+                            {s.label}
+                          </a>
+                        );
+                      }
+                      return wrapper(
+                        <Link href={href} className={cls}>{s.label}</Link>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
