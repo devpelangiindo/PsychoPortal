@@ -9,6 +9,7 @@ import TentangKami from "@/pages/TentangKami";
 import ProdukLayanan from "@/pages/ProdukLayanan";
 import DigitalProducts from "@/pages/DigitalProducts";
 import TherapyCategories from "@/pages/TherapyCategories";
+import CoursePage from "@/pages/CoursePage";
 import Artikel from "@/pages/Artikel";
 import Kontak from "@/pages/Kontak";
 
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/produk-layanan/produk-digital" component={DigitalProducts} />
       <Route path="/produk-layanan/terapi/:categorySlug" component={TherapyCategories} />
       <Route path="/produk-layanan/terapi" component={TherapyCategories} />
+      <Route path="/produk-layanan/kursus" component={CoursePage} />
       <Route path="/produk-layanan/:slug" component={ProdukLayanan} />
       <Route path="/artikel" component={Artikel} />
       <Route path="/artikel/:slug" component={Artikel} />
