@@ -33,6 +33,7 @@ import AdminAssessmentResult from "@/pages/admin-assessment-result";
 import AdminExternalAssessments from "@/pages/admin-external-assessments";
 import AdminDigitalProducts from "@/pages/admin-digital-products";
 import AdminCourses from "@/pages/admin-courses";
+import AdminArticles from "@/pages/admin-articles";
 import DigitalProductCheckout from "@/pages/digital-product-checkout";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailed from "@/pages/payment-failed";
@@ -113,6 +114,7 @@ function Router() {
       <Route path="/admin/digital-products" component={AdminDigitalProducts} />
       <Route path="/cso/digital-products" component={AdminDigitalProducts} />
       <Route path="/admin/courses" component={AdminCourses} />
+      <Route path="/admin/articles" component={AdminArticles} />
       
       {/* 404 fallback */}
       <Route component={NotFound} />

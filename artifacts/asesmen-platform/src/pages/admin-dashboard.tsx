@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -394,6 +394,20 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             <CardContent>
               <Link href="/admin/courses">
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Kelola Kursus</Button>
+              </Link>
+            </CardContent>
+          </Card>
+          )}
+
+          {!isCsoMode && (
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Newspaper className="w-5 h-5 text-cyan-700" />Artikel</CardTitle>
+              <CardDescription>Kelola tulisan, status terbit, dan gambar artikel</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/articles">
+                <Button className="w-full bg-cyan-700 hover:bg-cyan-800">Kelola Artikel</Button>
               </Link>
             </CardContent>
           </Card>

@@ -349,6 +349,46 @@ async function ensureCourseInfrastructure() {
   }
 }
 
+async function ensureArticleInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS managed_articles (
+      id serial PRIMARY KEY,
+      slug varchar(255) NOT NULL UNIQUE,
+      title varchar(255) NOT NULL,
+      excerpt varchar(1000) NOT NULL,
+      content text NOT NULL,
+      category varchar(100) NOT NULL DEFAULT 'berita',
+      author_name varchar(255),
+      status varchar(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+      published_at timestamp,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp
+    );
+    CREATE TABLE IF NOT EXISTS managed_article_images (
+      id serial PRIMARY KEY,
+      article_id integer NOT NULL REFERENCES managed_articles(id) ON DELETE CASCADE,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      alt_text varchar(500),
+      caption varchar(1000),
+      placement varchar(30) NOT NULL DEFAULT 'end' CHECK (placement IN ('cover', 'after-first', 'middle', 'end')),
+      sort_order integer NOT NULL DEFAULT 0,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT managed_article_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
+    CREATE INDEX IF NOT EXISTS managed_articles_public_idx
+      ON managed_articles(status, published_at DESC, id DESC) WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS managed_article_images_article_idx
+      ON managed_article_images(article_id, sort_order, id);
+  `);
+}
+
 function makeDigitalProductSlug(value: string) {
   return value
     .toLowerCase()
@@ -401,6 +441,29 @@ const courseSchema = z.object({
   specialNote: z.string().trim().max(2000).optional().default(""),
   sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
   isActive: z.boolean().optional().default(true),
+});
+
+const ARTICLE_CATEGORIES = ["psikologi", "pendidikan", "parenting", "kesehatan-mental", "tips", "berita"] as const;
+const ARTICLE_IMAGE_PLACEMENTS = ["cover", "after-first", "middle", "end"] as const;
+
+const managedArticleSchema = z.object({
+  title: z.string().trim().min(3).max(255),
+  slug: z.string().trim().max(255).optional(),
+  excerpt: z.string().trim().min(10).max(1000),
+  content: z.string().trim().min(20).max(100000),
+  category: z.enum(ARTICLE_CATEGORIES).optional().default("berita"),
+  authorName: z.string().trim().max(255).optional().default(""),
+  status: z.enum(["draft", "published"]).optional().default("draft"),
+  publishedAt: z.union([z.string().datetime(), z.literal(""), z.null()]).optional().default(null),
+});
+
+const managedArticleImageSchema = z.object({
+  altText: z.string().trim().max(500).optional().default(""),
+  caption: z.string().trim().max(1000).optional().default(""),
+  placement: z.enum(ARTICLE_IMAGE_PLACEMENTS).optional().default("end"),
+  sortOrder: z.coerce.number().int().min(0).max(2).optional().default(0),
+  focusX: z.coerce.number().int().min(0).max(100).optional().default(50),
+  focusY: z.coerce.number().int().min(0).max(100).optional().default(50),
 });
 
 const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential", "external-career-potential"] as const;
@@ -2705,6 +2768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureExternalAssessmentInfrastructure();
     await ensureDigitalProductInfrastructure();
     await ensureCourseInfrastructure();
+    await ensureArticleInfrastructure();
     await initializeAssessments();
     await initializeBookingServices();
     await ensureDefaultAdminUser();
@@ -5206,6 +5270,229 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating course image focus:', error);
       return res.status(500).json({ message: 'Gagal menyimpan posisi fokus gambar' });
+    }
+  });
+
+  const managedArticleSelect = `
+    SELECT article.id, article.slug, article.title, article.excerpt, article.content,
+           article.category, article.author_name AS "authorName", article.status,
+           article.published_at AS "publishedAt", article.created_at AS "createdAt",
+           article.updated_at AS "updatedAt",
+           COALESCE(json_agg(
+             json_build_object(
+               'id', image.id,
+               'fileName', image.file_name,
+               'altText', image.alt_text,
+               'caption', image.caption,
+               'placement', image.placement,
+               'sortOrder', image.sort_order,
+               'focusX', image.focus_x,
+               'focusY', image.focus_y
+             ) ORDER BY image.sort_order, image.id
+           ) FILTER (WHERE image.id IS NOT NULL), '[]'::json) AS images
+    FROM managed_articles article
+    LEFT JOIN managed_article_images image ON image.article_id = article.id`;
+
+  app.get('/api/articles', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${managedArticleSelect}
+         WHERE article.deleted_at IS NULL AND article.status = 'published'
+         GROUP BY article.id
+         ORDER BY COALESCE(article.published_at, article.created_at) DESC, article.id DESC`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching managed articles:', error);
+      return res.status(500).json({ message: 'Gagal memuat artikel' });
+    }
+  });
+
+  app.get('/api/articles/:slug', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `${managedArticleSelect}
+         WHERE article.slug = $1 AND article.deleted_at IS NULL AND article.status = 'published'
+         GROUP BY article.id LIMIT 1`,
+        [req.params.slug],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Artikel tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error fetching managed article:', error);
+      return res.status(500).json({ message: 'Gagal memuat artikel' });
+    }
+  });
+
+  app.get('/api/articles/images/:imageId', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT image_data, mime_type FROM managed_article_images WHERE id = $1`,
+        [Number(req.params.imageId)],
+      );
+      if (!result.rowCount) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].mime_type);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(result.rows[0].image_data);
+    } catch (error) {
+      console.error('Error fetching managed article image:', error);
+      return res.status(500).end();
+    }
+  });
+
+  app.get('/api/admin/articles', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${managedArticleSelect}
+         WHERE article.deleted_at IS NULL
+         GROUP BY article.id
+         ORDER BY article.updated_at DESC, article.id DESC`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin articles:', error);
+      return res.status(500).json({ message: 'Gagal memuat data artikel' });
+    }
+  });
+
+  app.post('/api/admin/articles', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = managedArticleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data artikel tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title);
+    if (!slug) return res.status(400).json({ message: 'Slug artikel tidak valid' });
+    const publishedAt = parsed.data.publishedAt || (parsed.data.status === 'published' ? new Date().toISOString() : null);
+    try {
+      const result = await pool.query(
+        `INSERT INTO managed_articles (slug, title, excerpt, content, category, author_name, status, published_at, created_by)
+         VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), $7, $8, $9)
+         RETURNING id, slug`,
+        [slug, parsed.data.title, parsed.data.excerpt, parsed.data.content, parsed.data.category, parsed.data.authorName, parsed.data.status, publishedAt, req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug artikel sudah digunakan' });
+      console.error('Error creating managed article:', error);
+      return res.status(500).json({ message: 'Gagal menambahkan artikel' });
+    }
+  });
+
+  app.put('/api/admin/articles/:articleId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = managedArticleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data artikel tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title);
+    if (!slug) return res.status(400).json({ message: 'Slug artikel tidak valid' });
+    const publishedAt = parsed.data.publishedAt || (parsed.data.status === 'published' ? new Date().toISOString() : null);
+    try {
+      const result = await pool.query(
+        `UPDATE managed_articles SET slug = $1, title = $2, excerpt = $3, content = $4,
+           category = $5, author_name = NULLIF($6, ''), status = $7, published_at = $8,
+           updated_at = now()
+         WHERE id = $9 AND deleted_at IS NULL RETURNING id, slug`,
+        [slug, parsed.data.title, parsed.data.excerpt, parsed.data.content, parsed.data.category, parsed.data.authorName, parsed.data.status, publishedAt, Number(req.params.articleId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Artikel tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug artikel sudah digunakan' });
+      console.error('Error updating managed article:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui artikel' });
+    }
+  });
+
+  app.delete('/api/admin/articles/:articleId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `UPDATE managed_articles SET deleted_at = now(), status = 'draft', updated_at = now()
+         WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
+        [Number(req.params.articleId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Artikel tidak ditemukan' });
+      return res.json({ message: 'Artikel dihapus' });
+    } catch (error) {
+      console.error('Error deleting managed article:', error);
+      return res.status(500).json({ message: 'Gagal menghapus artikel' });
+    }
+  });
+
+  app.post('/api/admin/articles/:articleId/images', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File gambar wajib dipilih' });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const articleId = Number(req.params.articleId);
+        const article = await client.query(`SELECT id FROM managed_articles WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [articleId]);
+        if (!article.rowCount) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ message: 'Artikel tidak ditemukan' });
+        }
+        const count = await client.query(`SELECT count(*)::int AS total FROM managed_article_images WHERE article_id = $1`, [articleId]);
+        if (Number(count.rows[0].total) >= 3) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ message: 'Maksimal tiga gambar untuk setiap artikel' });
+        }
+        const result = await client.query(
+          `INSERT INTO managed_article_images (article_id, image_data, file_name, mime_type, sort_order, placement)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          [articleId, req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'gambar-artikel')), req.headers['content-type'], Number(count.rows[0].total), Number(count.rows[0].total) === 0 ? 'cover' : 'end'],
+        );
+        await client.query('COMMIT');
+        return res.status(201).json(result.rows[0]);
+      } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error uploading managed article image:', error);
+        return res.status(500).json({ message: 'Gagal mengunggah gambar artikel' });
+      } finally {
+        client.release();
+      }
+    });
+
+  app.put('/api/admin/articles/:articleId/images/:imageId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = managedArticleImageSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data gambar tidak valid', errors: parsed.error.flatten() });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (parsed.data.placement === 'cover') {
+        await client.query(
+          `UPDATE managed_article_images SET placement = 'end', updated_at = now()
+           WHERE article_id = $1 AND id <> $2 AND placement = 'cover'`,
+          [Number(req.params.articleId), Number(req.params.imageId)],
+        );
+      }
+      const result = await client.query(
+        `UPDATE managed_article_images SET alt_text = NULLIF($1, ''), caption = NULLIF($2, ''),
+           placement = $3, sort_order = $4, focus_x = $5, focus_y = $6, updated_at = now()
+         WHERE id = $7 AND article_id = $8
+         RETURNING id`,
+        [parsed.data.altText, parsed.data.caption, parsed.data.placement, parsed.data.sortOrder, parsed.data.focusX, parsed.data.focusY, Number(req.params.imageId), Number(req.params.articleId)],
+      );
+      if (!result.rowCount) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Gambar tidak ditemukan' });
+      }
+      await client.query('COMMIT');
+      return res.json(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error updating managed article image:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui gambar artikel' });
+    } finally {
+      client.release();
+    }
+  });
+
+  app.delete('/api/admin/articles/:articleId/images/:imageId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `DELETE FROM managed_article_images WHERE id = $1 AND article_id = $2 RETURNING id`,
+        [Number(req.params.imageId), Number(req.params.articleId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Gambar tidak ditemukan' });
+      return res.json({ message: 'Gambar artikel dihapus' });
+    } catch (error) {
+      console.error('Error deleting managed article image:', error);
+      return res.status(500).json({ message: 'Gagal menghapus gambar artikel' });
     }
   });
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
@@ -11,6 +11,52 @@ import {
   CATEGORY_LABELS,
   type CMSPost,
 } from "@/lib/cms";
+
+type ManagedArticleImage = {
+  id: number;
+  altText: string | null;
+  caption: string | null;
+  placement: "cover" | "after-first" | "middle" | "end";
+  sortOrder: number;
+  focusX: number;
+  focusY: number;
+};
+
+type ManagedArticle = {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  authorName: string | null;
+  status: "published";
+  publishedAt: string | null;
+  createdAt: string;
+  images: ManagedArticleImage[];
+};
+
+function articleApiBase() {
+  if (import.meta.env.VITE_ASESMEN_API_URL) return String(import.meta.env.VITE_ASESMEN_API_URL).replace(/\/$/, "");
+  return window.location.hostname === "localhost" ? "http://localhost:5001" : "https://asesmen.pi-psychology.com";
+}
+
+function managedArticleImageUrl(imageId: number) {
+  return `${articleApiBase()}/api/articles/images/${imageId}`;
+}
+
+async function fetchManagedArticles(): Promise<ManagedArticle[]> {
+  const response = await fetch(`${articleApiBase()}/api/articles`);
+  if (!response.ok) throw new Error("Gagal memuat artikel dari dashboard");
+  return response.json();
+}
+
+async function fetchManagedArticle(slug: string): Promise<ManagedArticle | null> {
+  const response = await fetch(`${articleApiBase()}/api/articles/${encodeURIComponent(slug)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("Gagal memuat artikel dari dashboard");
+  return response.json();
+}
 
 // ─── Fallback data (shown while CMS is empty) ────────────────────────────────
 
@@ -109,10 +155,89 @@ function PromoSidebar() {
   );
 }
 
+function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
+  const pattern = /(\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^)]+\))/g;
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let index = 0;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
+    const token = match[0];
+    if (token.startsWith("**")) {
+      nodes.push(<strong key={`${keyPrefix}-strong-${index}`}>{token.slice(2, -2)}</strong>);
+    } else {
+      const linkMatch = token.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+      if (linkMatch) nodes.push(<a key={`${keyPrefix}-link-${index}`} href={linkMatch[2]} target="_blank" rel="noopener noreferrer">{linkMatch[1]}</a>);
+    }
+    cursor = match.index + token.length;
+    index += 1;
+  }
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return nodes;
+}
+
+function ArticleFigure({ image }: { image: ManagedArticleImage }) {
+  return (
+    <figure className="my-8">
+      <img
+        src={managedArticleImageUrl(image.id)}
+        alt={image.altText || "Gambar artikel"}
+        className="max-h-[32rem] w-full rounded-2xl object-cover shadow-sm"
+        style={{ objectPosition: `${image.focusX}% ${image.focusY}%` }}
+      />
+      {image.caption && <figcaption className="mt-2 text-center text-sm text-gray-500">{image.caption}</figcaption>}
+    </figure>
+  );
+}
+
+function ManagedArticleContent({ article }: { article: ManagedArticle }) {
+  const blocks = article.content.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+  const cover = article.images.find((image) => image.placement === "cover") ?? article.images[0];
+  const inlineImages = article.images.filter((image) => image.id !== cover?.id).sort((first, second) => first.sortOrder - second.sortOrder);
+  const imageBlockIndex = (image: ManagedArticleImage) => {
+    if (image.placement === "after-first") return 0;
+    if (image.placement === "middle") return Math.max(0, Math.floor((blocks.length - 1) / 2));
+    return Math.max(0, blocks.length - 1);
+  };
+
+  const renderBlock = (block: string, index: number) => {
+    if (block.startsWith("### ")) return <h3 className="text-xl font-extrabold text-green-950">{renderInlineMarkdown(block.slice(4), `block-${index}`)}</h3>;
+    if (block.startsWith("## ")) return <h2 className="text-2xl font-extrabold text-green-950">{renderInlineMarkdown(block.slice(3), `block-${index}`)}</h2>;
+    const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+    if (lines.length && lines.every((line) => /^[-*]\s+/.test(line))) {
+      return <ul className="list-disc space-y-2 pl-6">{lines.map((line, lineIndex) => <li key={lineIndex}>{renderInlineMarkdown(line.replace(/^[-*]\s+/, ""), `block-${index}-${lineIndex}`)}</li>)}</ul>;
+    }
+    if (lines.length && lines.every((line) => /^\d+\.\s+/.test(line))) {
+      return <ol className="list-decimal space-y-2 pl-6">{lines.map((line, lineIndex) => <li key={lineIndex}>{renderInlineMarkdown(line.replace(/^\d+\.\s+/, ""), `block-${index}-${lineIndex}`)}</li>)}</ol>;
+    }
+    return <p>{lines.map((line, lineIndex) => <span key={lineIndex}>{renderInlineMarkdown(line, `block-${index}-${lineIndex}`)}{lineIndex < lines.length - 1 && <br />}</span>)}</p>;
+  };
+
+  return (
+    <div className="prose prose-lg max-w-none prose-headings:text-green-950 prose-a:text-green-700 prose-p:leading-8">
+      {blocks.map((block, index) => (
+        <div key={index}>
+          {renderBlock(block, index)}
+          {inlineImages.filter((image) => imageBlockIndex(image) === index).map((image) => <ArticleFigure key={image.id} image={image} />)}
+        </div>
+      ))}
+      {blocks.length === 0 && inlineImages.map((image) => <ArticleFigure key={image.id} image={image} />)}
+    </div>
+  );
+}
+
 // ─── Article Detail ───────────────────────────────────────────────────────────
 
 function ArticleDetail({ slug }: { slug: string }) {
-  const { data: cmsPost, isLoading } = useQuery({
+  const { data: managedPost, isLoading: managedLoading } = useQuery({
+    queryKey: ["managed-article", slug],
+    queryFn: () => fetchManagedArticle(slug),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const { data: cmsPost, isLoading: cmsLoading } = useQuery({
     queryKey: ["cms-post", slug],
     queryFn: () => fetchPostBySlug(slug),
     staleTime: 5 * 60 * 1000,
@@ -120,13 +245,16 @@ function ArticleDetail({ slug }: { slug: string }) {
   });
 
   const fallback = FALLBACK_ARTICLES.find((a) => a.slug === slug);
-  const color = cmsPost ? articleColor(cmsPost.category) : (fallback?.color ?? "#2D6A4F");
-  const title = cmsPost?.title ?? fallback?.title ?? "Berita";
-  const excerpt = cmsPost?.excerpt ?? fallback?.excerpt ?? "";
-  const category = cmsPost?.category ?? fallback?.category;
+  const color = articleColor(managedPost?.category ?? cmsPost?.category) || fallback?.color || "#2D6A4F";
+  const title = managedPost?.title ?? cmsPost?.title ?? fallback?.title ?? "Berita";
+  const excerpt = managedPost?.excerpt ?? cmsPost?.excerpt ?? fallback?.excerpt ?? "";
+  const category = managedPost?.category ?? cmsPost?.category ?? fallback?.category;
   const categoryLabel = category ? (CATEGORY_LABELS[category] ?? category) : "";
-  const date = cmsPost?.publishedAt ? formatDate(cmsPost.publishedAt) : (fallback?.publishedAt ? formatDate(fallback.publishedAt) : "");
-  const imageUrl = (cmsPost?.featuredImage as { url?: string } | undefined)?.url;
+  const publishedAt = managedPost?.publishedAt ?? cmsPost?.publishedAt ?? fallback?.publishedAt;
+  const date = publishedAt ? formatDate(publishedAt) : "";
+  const managedCover = managedPost?.images.find((image) => image.placement === "cover") ?? managedPost?.images[0];
+  const imageUrl = managedCover ? managedArticleImageUrl(managedCover.id) : (cmsPost?.featuredImage as { url?: string } | undefined)?.url;
+  const isLoading = managedLoading && cmsLoading;
 
   return (
     <div className="min-h-screen bg-white">
@@ -164,14 +292,16 @@ function ArticleDetail({ slug }: { slug: string }) {
           <div className="grid lg:grid-cols-3 gap-10">
             <div className="lg:col-span-2">
               {imageUrl ? (
-                <img src={imageUrl} alt={title} className="w-full h-64 object-cover rounded-2xl mb-8" />
+                <img src={imageUrl} alt={managedCover?.altText || title} className="mb-8 h-64 w-full rounded-2xl object-cover" style={managedCover ? { objectPosition: `${managedCover.focusX}% ${managedCover.focusY}%` } : undefined} />
               ) : (
                 <div className="w-full h-64 rounded-2xl mb-8 flex items-center justify-center" style={{ background: `${color}22` }}>
                   <span className="text-sm font-medium" style={{ color }}>Foto Berita</span>
                 </div>
               )}
 
-              {cmsPost?.contentHtml ? (
+              {managedPost ? (
+                <ManagedArticleContent article={managedPost} />
+              ) : cmsPost?.contentHtml ? (
                 <div
                   className="prose prose-lg max-w-none prose-headings:text-green-900 prose-a:text-green-700"
                   dangerouslySetInnerHTML={{ __html: cmsPost.contentHtml }}
@@ -218,7 +348,13 @@ export default function Artikel() {
     return <ArticleDetail slug={paramsDetail.slug} />;
   }
 
-  const { data: cmsPosts, isLoading } = useQuery({
+  const { data: managedPosts, isLoading: managedPostsLoading } = useQuery({
+    queryKey: ["managed-articles"],
+    queryFn: fetchManagedArticles,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const { data: cmsPosts, isLoading: cmsPostsLoading } = useQuery({
     queryKey: ["cms-posts"],
     queryFn: () => fetchPosts({ limit: 20 }),
     staleTime: 5 * 60 * 1000,
@@ -233,19 +369,45 @@ export default function Artikel() {
     publishedAt?: string
     category?: string
     color: string
+    imageUrl?: string
+    imageAlt?: string
+    imageFocusX?: number
+    imageFocusY?: number
   }
 
-  const articles: ArticleItem[] =
-    (cmsPosts?.docs?.length ?? 0) > 0
-      ? cmsPosts!.docs.map((p: CMSPost) => ({
+  const managedItems: ArticleItem[] = (managedPosts ?? []).map((article) => {
+    const cover = article.images.find((image) => image.placement === "cover") ?? article.images[0];
+    return {
+      slug: article.slug,
+      title: article.title,
+      excerpt: article.excerpt,
+      publishedAt: article.publishedAt ?? article.createdAt,
+      category: article.category,
+      color: articleColor(article.category),
+      imageUrl: cover ? managedArticleImageUrl(cover.id) : undefined,
+      imageAlt: cover?.altText || article.title,
+      imageFocusX: cover?.focusX,
+      imageFocusY: cover?.focusY,
+    };
+  });
+  const managedSlugs = new Set(managedItems.map((article) => article.slug));
+  const cmsItems: ArticleItem[] = (cmsPosts?.docs ?? [])
+    .filter((post: CMSPost) => !managedSlugs.has(post.slug))
+    .map((p: CMSPost) => ({
           slug: p.slug,
           title: p.title,
           excerpt: p.excerpt ?? "",
           publishedAt: p.publishedAt,
           category: p.category,
           color: articleColor(p.category),
-        }))
-      : FALLBACK_ARTICLES;
+          imageUrl: (p.featuredImage as { url?: string } | undefined)?.url,
+          imageAlt: (p.featuredImage as { alt?: string } | undefined)?.alt || p.title,
+        }));
+  const combinedArticles = [...managedItems, ...cmsItems].sort((first, second) =>
+    new Date(second.publishedAt ?? 0).getTime() - new Date(first.publishedAt ?? 0).getTime(),
+  );
+  const articles: ArticleItem[] = combinedArticles.length > 0 ? combinedArticles : FALLBACK_ARTICLES;
+  const isLoading = managedPostsLoading && cmsPostsLoading;
 
   const filtered = articles.filter(
     (a) =>
@@ -294,11 +456,8 @@ export default function Artikel() {
                         href={`/artikel/${a.slug}`}
                         className="flex gap-5 p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group"
                       >
-                        <div
-                          className="w-28 h-24 shrink-0 rounded-xl flex items-center justify-center text-white text-xs font-medium"
-                          style={{ background: `${a.color}cc` }}
-                        >
-                          Foto
+                        <div className="flex h-24 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl text-xs font-medium text-white" style={{ background: `${a.color}cc` }}>
+                          {a.imageUrl ? <img src={a.imageUrl} alt={a.imageAlt || a.title} className="h-full w-full object-cover" style={{ objectPosition: `${a.imageFocusX ?? 50}% ${a.imageFocusY ?? 50}%` }} /> : "Foto"}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
