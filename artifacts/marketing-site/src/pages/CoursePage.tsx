@@ -34,7 +34,7 @@ const courses: Course[] = [
   },
   {
     title: "Bimbingan Belajar Privat",
-    price: "Rp 250.000/4 pertemuan",
+    price: "Rp 250.000/bulan",
     description: "Program bimbingan belajar privat memberikan pendampingan sesuai kebutuhan akademik anak. Perhatian yang lebih terfokus membantu proses belajar menjadi lebih optimal dan terarah.",
     details: ["4 kali pertemuan", "Tersedia home visit atau belajar onsite di Pelangi Indonesia"],
     icon: GraduationCap,
