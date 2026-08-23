@@ -1,8 +1,9 @@
-import type { ComponentType } from "react";
-import { Activity, BookOpen, Calculator, Camera, CheckCircle2, GraduationCap, Medal, Music2, Sparkles, Users, Video, Waves } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import { Activity, ArrowRight, BookOpen, Calculator, Camera, CheckCircle2, GraduationCap, Medal, Music2, Sparkles, Users, Video, Waves } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Course = {
   title: string;
@@ -95,6 +96,8 @@ function whatsappHref(courseName: string) {
 }
 
 export default function CoursePage() {
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
@@ -144,17 +147,20 @@ export default function CoursePage() {
                       <img src="/services/kursus.png" alt="" aria-hidden="true" className="absolute -right-6 -top-8 h-40 w-40 rounded-full bg-white/90 p-8 opacity-20" />
                       <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-white/95 text-green-800 shadow-lg"><Icon className="h-10 w-10" /></div>
                     </div>
-                    <div className="flex flex-1 flex-col p-6 sm:p-7">
-                      <h3 className="text-2xl font-extrabold text-gray-900">{course.title}</h3>
-                      <p className="mt-3 text-3xl font-extrabold tracking-tight text-green-800">{course.price}</p>
-                      <p className="mt-4 text-sm leading-6 text-gray-600">{course.description}</p>
-                      <ul className="mt-5 space-y-3">
-                        {course.details.map((detail) => (
-                          <li key={detail} className="flex items-start gap-2 text-sm leading-6 text-gray-600"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-green-700" />{detail}</li>
-                        ))}
-                      </ul>
-                      {course.specialNote && <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-900">{course.specialNote}</p>}
-                      <a href={whatsappHref(course.title)} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 font-bold text-white transition hover:bg-[#1fb85a]"><SiWhatsapp size={18} /> Daftar Sekarang</a>
+                    <div className="flex min-w-0 flex-1 flex-col p-6 sm:p-7">
+                      <h3 className="line-clamp-2 min-h-14 text-2xl font-extrabold leading-7 text-gray-900">{course.title}</h3>
+                      <p className="mt-3 whitespace-nowrap text-[clamp(1.125rem,5.5vw,1.875rem)] font-extrabold tracking-tight text-green-800 md:text-[clamp(1.125rem,2.5vw,1.5rem)] xl:text-[clamp(1.125rem,1.55vw,1.5rem)]">{course.price}</p>
+                      <p className="mt-4 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-gray-600">{course.description}</p>
+                      <div className="mt-auto space-y-3 pt-6">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCourse(course)}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-green-700 px-5 py-3 font-bold text-green-800 transition hover:bg-green-50"
+                        >
+                          Selengkapnya <ArrowRight className="h-4 w-4" />
+                        </button>
+                        <a href={whatsappHref(course.title)} target="_blank" rel="noopener noreferrer" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 font-bold text-white transition hover:bg-[#1fb85a]"><SiWhatsapp size={18} /> Daftar Sekarang</a>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -163,6 +169,31 @@ export default function CoursePage() {
           </div>
         </section>
       </main>
+
+      <Dialog open={selectedCourse !== null} onOpenChange={(open) => !open && setSelectedCourse(null)}>
+        {selectedCourse && (
+          <DialogContent className="flex max-h-[92vh] w-[calc(100%-1rem)] max-w-2xl flex-col gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 sm:rounded-3xl">
+            <div className={`relative overflow-hidden bg-gradient-to-br px-6 py-7 pr-14 text-white sm:px-8 ${selectedCourse.accent}`}>
+              <DialogHeader className="relative text-left">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/80">Detail Kursus</p>
+                <DialogTitle className="mt-2 text-2xl font-extrabold leading-tight text-white sm:text-3xl">{selectedCourse.title}</DialogTitle>
+                <DialogDescription className="mt-3 whitespace-nowrap text-[clamp(1.125rem,5vw,1.75rem)] font-extrabold text-white sm:text-2xl">{selectedCourse.price}</DialogDescription>
+              </DialogHeader>
+            </div>
+            <div className="overflow-y-auto p-6 sm:p-8">
+              <p className="leading-7 text-gray-600">{selectedCourse.description}</p>
+              <h4 className="mt-6 font-extrabold text-gray-900">Informasi Program</h4>
+              <ul className="mt-3 space-y-3">
+                {selectedCourse.details.map((detail) => (
+                  <li key={detail} className="flex items-start gap-3 text-sm leading-6 text-gray-600"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-green-700" />{detail}</li>
+                ))}
+              </ul>
+              {selectedCourse.specialNote && <p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">{selectedCourse.specialNote}</p>}
+              <a href={whatsappHref(selectedCourse.title)} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 font-bold text-white transition hover:bg-[#1fb85a]"><SiWhatsapp size={18} /> Daftar Sekarang</a>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
       <Footer />
     </div>
   );
