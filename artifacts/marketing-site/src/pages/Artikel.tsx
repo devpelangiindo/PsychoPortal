@@ -4,13 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Search, Calendar, ChevronRight, ArrowRight, Loader2 } from "lucide-react";
-import {
-  fetchPosts,
-  fetchPostBySlug,
-  formatDate,
-  CATEGORY_LABELS,
-  type CMSPost,
-} from "@/lib/cms";
+import { formatDate, CATEGORY_LABELS } from "@/lib/cms";
 
 type ManagedArticleImage = {
   id: number;
@@ -57,59 +51,6 @@ async function fetchManagedArticle(slug: string): Promise<ManagedArticle | null>
   if (!response.ok) throw new Error("Gagal memuat artikel dari dashboard");
   return response.json();
 }
-
-// ─── Fallback data (shown while CMS is empty) ────────────────────────────────
-
-const FALLBACK_ARTICLES = [
-  {
-    slug: "memahami-asesmen-psikologi-anak",
-    title: "Memahami Asesmen Psikologi pada Anak: Panduan untuk Orang Tua",
-    excerpt: "Asesmen psikologi anak adalah proses evaluasi komprehensif yang bertujuan untuk memahami potensi, kebutuhan, dan tantangan yang dihadapi anak. Berita ini memandu orang tua memahami prosesnya.",
-    publishedAt: "2026-04-15T00:00:00.000Z",
-    category: "psikologi",
-    color: "#2D6A4F",
-  },
-  {
-    slug: "pentingnya-konseling-keluarga",
-    title: "Pentingnya Konseling Keluarga dalam Mendukung Tumbuh Kembang Anak",
-    excerpt: "Keluarga adalah fondasi utama perkembangan anak. Konseling keluarga membantu menciptakan lingkungan yang sehat, komunikatif, dan penuh dukungan untuk anak bertumbuh optimal.",
-    publishedAt: "2026-04-10T00:00:00.000Z",
-    category: "parenting",
-    color: "#3A7D58",
-  },
-  {
-    slug: "terapi-sensori-integrasi",
-    title: "Terapi Sensori Integrasi: Membantu Anak dengan Gangguan Pemrosesan Sensorik",
-    excerpt: "Gangguan pemrosesan sensorik dapat berdampak besar pada kehidupan sehari-hari anak. Terapi sensori integrasi adalah pendekatan berbasis bukti yang membantu anak mengelola sensitivitas mereka.",
-    publishedAt: "2026-04-05T00:00:00.000Z",
-    category: "psikologi",
-    color: "#52B788",
-  },
-  {
-    slug: "tips-belajar-efektif-anak",
-    title: "5 Strategi Belajar Efektif untuk Anak di Rumah",
-    excerpt: "Membantu anak belajar di rumah tidak harus membuat stres. Berikut lima strategi berbasis bukti ilmiah yang terbukti meningkatkan efektivitas belajar anak secara mandiri.",
-    publishedAt: "2026-03-28T00:00:00.000Z",
-    category: "pendidikan",
-    color: "#40916C",
-  },
-  {
-    slug: "mengenali-gejala-kecemasan-anak",
-    title: "Mengenali Gejala Kecemasan pada Anak: Kapan Harus Mencari Bantuan?",
-    excerpt: "Kecemasan adalah respons normal, tetapi kecemasan berlebihan pada anak dapat mengganggu perkembangan. Pelajari tanda-tanda yang perlu diwaspadai dan langkah yang tepat.",
-    publishedAt: "2026-03-20T00:00:00.000Z",
-    category: "kesehatan-mental",
-    color: "#1B4332",
-  },
-  {
-    slug: "manfaat-pelatihan-profesional-guru",
-    title: "Mengapa Pelatihan Berkelanjutan Penting bagi Guru dan Konselor Sekolah",
-    excerpt: "Dunia pendidikan terus berkembang. Pelatihan profesional berkelanjutan bukan sekadar kewajiban — ini adalah investasi nyata untuk kualitas layanan kepada siswa dan keluarga.",
-    publishedAt: "2026-03-12T00:00:00.000Z",
-    category: "pendidikan",
-    color: "#9A6E5E",
-  },
-];
 
 const COLOR_BY_CATEGORY: Record<string, string> = {
   psikologi: "#2D6A4F",
@@ -231,30 +172,21 @@ function ManagedArticleContent({ article }: { article: ManagedArticle }) {
 // ─── Article Detail ───────────────────────────────────────────────────────────
 
 function ArticleDetail({ slug }: { slug: string }) {
-  const { data: managedPost, isLoading: managedLoading } = useQuery({
+  const { data: managedPost, isLoading, isError } = useQuery({
     queryKey: ["managed-article", slug],
     queryFn: () => fetchManagedArticle(slug),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  const { data: cmsPost, isLoading: cmsLoading } = useQuery({
-    queryKey: ["cms-post", slug],
-    queryFn: () => fetchPostBySlug(slug),
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
 
-  const fallback = FALLBACK_ARTICLES.find((a) => a.slug === slug);
-  const color = articleColor(managedPost?.category ?? cmsPost?.category) || fallback?.color || "#2D6A4F";
-  const title = managedPost?.title ?? cmsPost?.title ?? fallback?.title ?? "Berita";
-  const excerpt = managedPost?.excerpt ?? cmsPost?.excerpt ?? fallback?.excerpt ?? "";
-  const category = managedPost?.category ?? cmsPost?.category ?? fallback?.category;
+  const color = articleColor(managedPost?.category);
+  const title = managedPost?.title ?? "Berita";
+  const category = managedPost?.category;
   const categoryLabel = category ? (CATEGORY_LABELS[category] ?? category) : "";
-  const publishedAt = managedPost?.publishedAt ?? cmsPost?.publishedAt ?? fallback?.publishedAt;
+  const publishedAt = managedPost?.publishedAt;
   const date = publishedAt ? formatDate(publishedAt) : "";
   const managedCover = managedPost?.images.find((image) => image.placement === "cover") ?? managedPost?.images[0];
-  const imageUrl = managedCover ? managedArticleImageUrl(managedCover.id) : (cmsPost?.featuredImage as { url?: string } | undefined)?.url;
-  const isLoading = managedLoading && cmsLoading;
+  const imageUrl = managedCover ? managedArticleImageUrl(managedCover.id) : undefined;
 
   return (
     <div className="min-h-screen bg-white">
@@ -288,6 +220,13 @@ function ArticleDetail({ slug }: { slug: string }) {
           <div className="flex justify-center py-20">
             <Loader2 size={32} className="animate-spin text-green-700" />
           </div>
+        ) : !managedPost || isError ? (
+          <div className="py-20 text-center">
+            <p className="mb-5 text-gray-500">Artikel tidak ditemukan.</p>
+            <Link href="/artikel" className="font-semibold text-green-700 hover:text-green-900">
+              Kembali ke daftar Berita
+            </Link>
+          </div>
         ) : (
           <div className="grid lg:grid-cols-3 gap-10">
             <div className="lg:col-span-2">
@@ -299,29 +238,8 @@ function ArticleDetail({ slug }: { slug: string }) {
                 </div>
               )}
 
-              {managedPost ? (
-                <ManagedArticleContent article={managedPost} />
-              ) : cmsPost?.contentHtml ? (
-                <div
-                  className="prose prose-lg max-w-none prose-headings:text-green-900 prose-a:text-green-700"
-                  dangerouslySetInnerHTML={{ __html: cmsPost.contentHtml }}
-                />
-              ) : (
-                <div className="prose prose-lg max-w-none text-gray-600 space-y-4">
-                  {excerpt && <p className="text-lg font-medium text-gray-800 leading-relaxed">{excerpt}</p>}
-                  <p>
-                    Dalam dunia layanan psikologi dan pendidikan, pendekatan yang tepat dapat membuat perbedaan yang signifikan bagi perkembangan individu. Di Pelangi Indonesia Group, kami berkomitmen untuk menghadirkan layanan yang tidak hanya berbasis bukti ilmiah, tetapi juga sensitif terhadap keunikan setiap individu dan konteks budaya lokal.
-                  </p>
-                  <p>
-                    Tim profesional kami terdiri dari psikolog klinis, konselor pendidikan, terapis tumbuh kembang, dan educator berpengalaman yang terus memperbarui kompetensi mereka melalui pelatihan dan supervisi berkala.
-                  </p>
-                  <div className="p-4 rounded-xl border-l-4" style={{ background: "#D8F3DC", borderColor: "#2D6A4F" }}>
-                    <p className="text-sm text-green-900 font-medium">
-                      Berita ini akan segera diperbarui dengan konten lengkap dari tim redaksi kami. Untuk informasi lebih lanjut, silakan hubungi kami melalui WhatsApp.
-                    </p>
-                  </div>
-                </div>
-              )}
+              {managedPost.excerpt && <p className="mb-8 text-lg font-medium leading-relaxed text-gray-700">{managedPost.excerpt}</p>}
+              <ManagedArticleContent article={managedPost} />
             </div>
 
             <div>
@@ -348,20 +266,13 @@ export default function Artikel() {
     return <ArticleDetail slug={paramsDetail.slug} />;
   }
 
-  const { data: managedPosts, isLoading: managedPostsLoading } = useQuery({
+  const { data: managedPosts, isLoading } = useQuery({
     queryKey: ["managed-articles"],
     queryFn: fetchManagedArticles,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  const { data: cmsPosts, isLoading: cmsPostsLoading } = useQuery({
-    queryKey: ["cms-posts"],
-    queryFn: () => fetchPosts({ limit: 20 }),
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
 
-  // Use CMS data if available, otherwise fall back to hardcoded
   type ArticleItem = {
     slug: string
     title: string
@@ -390,24 +301,9 @@ export default function Artikel() {
       imageFocusY: cover?.focusY,
     };
   });
-  const managedSlugs = new Set(managedItems.map((article) => article.slug));
-  const cmsItems: ArticleItem[] = (cmsPosts?.docs ?? [])
-    .filter((post: CMSPost) => !managedSlugs.has(post.slug))
-    .map((p: CMSPost) => ({
-          slug: p.slug,
-          title: p.title,
-          excerpt: p.excerpt ?? "",
-          publishedAt: p.publishedAt,
-          category: p.category,
-          color: articleColor(p.category),
-          imageUrl: (p.featuredImage as { url?: string } | undefined)?.url,
-          imageAlt: (p.featuredImage as { alt?: string } | undefined)?.alt || p.title,
-        }));
-  const combinedArticles = [...managedItems, ...cmsItems].sort((first, second) =>
+  const articles = managedItems.sort((first, second) =>
     new Date(second.publishedAt ?? 0).getTime() - new Date(first.publishedAt ?? 0).getTime(),
   );
-  const articles: ArticleItem[] = combinedArticles.length > 0 ? combinedArticles : FALLBACK_ARTICLES;
-  const isLoading = managedPostsLoading && cmsPostsLoading;
 
   const filtered = articles.filter(
     (a) =>
@@ -445,7 +341,9 @@ export default function Artikel() {
                   <Loader2 size={32} className="animate-spin text-green-700" />
                 </div>
               ) : filtered.length === 0 ? (
-                <p className="text-gray-500 py-10 text-center">Tidak ada berita yang ditemukan.</p>
+                <p className="text-gray-500 py-10 text-center">
+                  {search ? "Tidak ada berita yang ditemukan." : "Belum ada berita yang dipublikasikan."}
+                </p>
               ) : (
                 <div className="space-y-6">
                   {filtered.map((a) => {
