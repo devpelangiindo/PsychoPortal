@@ -91,6 +91,23 @@ const courses: Course[] = [
   },
 ];
 
+const courseDisplayOrder = [
+  "Balet",
+  "Taekwondo",
+  "Renang Privat",
+  "Musik Privat",
+  "Tari",
+  "Bimbingan Belajar Privat",
+  "Baca Tulis",
+  "Matematika",
+  "Sempoa",
+];
+
+const orderedCourses = [...courses].sort(
+  (firstCourse, secondCourse) =>
+    courseDisplayOrder.indexOf(firstCourse.title) - courseDisplayOrder.indexOf(secondCourse.title),
+);
+
 function whatsappHref(courseName: string) {
   return `https://wa.me/6285117658242?text=${encodeURIComponent(`Halo Pelangi Indonesia, saya ingin mendaftar dan mengetahui informasi lebih lanjut mengenai kursus ${courseName}.`)}`;
 }
@@ -138,7 +155,7 @@ export default function CoursePage() {
             <p className="mt-3 max-w-3xl leading-7 text-gray-600">Setiap program dirancang sesuai kebutuhan dan tahapan perkembangan peserta dengan pendampingan tenaga pengajar profesional.</p>
           </div>
           <div className="grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {courses.map((course) => {
+            {orderedCourses.map((course) => {
               const Icon = course.icon;
               return (
                 <article key={course.title} className="flex overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-black/5">
