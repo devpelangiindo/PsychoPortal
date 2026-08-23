@@ -1,4 +1,5 @@
 import { useState, type ComponentType } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Activity, ArrowRight, BookOpen, Calculator, Camera, CheckCircle2, GraduationCap, Medal, Music2, Sparkles, Users, Video, Waves } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import Footer from "@/components/Footer";
@@ -6,17 +7,23 @@ import Navbar from "@/components/Navbar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Course = {
+  id?: number;
+  slug?: string;
   title: string;
   price: string;
   description: string;
   details: string[];
   icon: ComponentType<{ className?: string }>;
   accent: string;
-  specialNote?: string;
+  specialNote?: string | null;
+  imageId?: number | null;
+  imageFocusX?: number | null;
+  imageFocusY?: number | null;
 };
 
 const courses: Course[] = [
   {
+    slug: "baca-tulis",
     title: "Baca Tulis",
     price: "Rp 325.000/bulan",
     description: "Program baca tulis dirancang untuk membantu anak mengembangkan kemampuan dasar literasi, mulai dari mengenal huruf, membaca, menulis, hingga memahami kalimat sederhana. Pembelajaran dilakukan secara interaktif dan menyenangkan sesuai tahap perkembangan anak.",
@@ -25,6 +32,7 @@ const courses: Course[] = [
     accent: "from-emerald-500 to-green-700",
   },
   {
+    slug: "matematika",
     title: "Matematika",
     price: "Rp 325.000/bulan",
     description: "Kursus matematika membantu peserta memahami konsep berhitung, logika, dan pemecahan masalah dengan metode yang mudah dipahami. Materi disesuaikan dengan usia dan tingkat kemampuan anak agar proses belajar lebih efektif.",
@@ -33,6 +41,7 @@ const courses: Course[] = [
     accent: "from-sky-500 to-blue-700",
   },
   {
+    slug: "bimbingan-belajar-privat",
     title: "Bimbingan Belajar Privat",
     price: "Rp 250.000/bulan",
     description: "Program bimbingan belajar privat memberikan pendampingan sesuai kebutuhan akademik anak. Perhatian yang lebih terfokus membantu proses belajar menjadi lebih optimal dan terarah.",
@@ -41,6 +50,7 @@ const courses: Course[] = [
     accent: "from-violet-500 to-purple-700",
   },
   {
+    slug: "sempoa",
     title: "Sempoa",
     price: "Rp 275.000/bulan",
     description: "Kursus sempoa membantu melatih kemampuan berhitung cepat, konsentrasi, dan daya ingat anak melalui metode visual dan motorik. Latihan dilakukan secara bertahap agar anak mampu menghitung dengan cepat dan tepat.",
@@ -49,6 +59,7 @@ const courses: Course[] = [
     accent: "from-amber-500 to-orange-600",
   },
   {
+    slug: "balet",
     title: "Balet",
     price: "Mulai Rp 325.000/bulan",
     description: "Kelas balet membantu anak mengembangkan kelenturan, koordinasi gerak, keseimbangan motorik, disiplin, fokus, dan rasa percaya diri. Program bekerja sama dengan Flores Balet dengan pengajar bersertifikasi RAD.",
@@ -57,6 +68,7 @@ const courses: Course[] = [
     accent: "from-rose-400 to-pink-600",
   },
   {
+    slug: "taekwondo",
     title: "Taekwondo",
     price: "Rp 250.000/bulan",
     description: "Kursus taekwondo melatih kekuatan fisik, ketahanan tubuh, dan kemampuan bela diri dasar. Anak juga belajar disiplin, tanggung jawab, pengendalian diri, serta membangun kepercayaan diri dan karakter positif.",
@@ -65,6 +77,7 @@ const courses: Course[] = [
     accent: "from-red-500 to-red-700",
   },
   {
+    slug: "renang-privat",
     title: "Renang Privat",
     price: "Rp 300.000/bulan",
     description: "Kursus renang membantu anak mempelajari teknik dasar berenang sekaligus meningkatkan kemampuan motorik dan koordinasi tubuh. Pembelajaran dilakukan secara aman dan bertahap sesuai usia serta kemampuan anak.",
@@ -74,6 +87,7 @@ const courses: Course[] = [
     specialNote: "Khusus tersedia di Pelangi Indonesia Cabang Bantul",
   },
   {
+    slug: "musik-privat",
     title: "Musik Privat",
     price: "Mulai Rp 390.000/bulan",
     description: "Kursus musik mendukung kreativitas, konsentrasi, dan kemampuan anak mengekspresikan diri melalui seni. Anak mempelajari nada, ritme, dan teknik dasar musik sesuai minat dan usianya.",
@@ -82,6 +96,7 @@ const courses: Course[] = [
     accent: "from-indigo-500 to-violet-700",
   },
   {
+    slug: "tari",
     title: "Tari",
     price: "Rp 250.000/bulan",
     description: "Kursus tari membantu anak mengeksplorasi gerak, irama, dan ekspresi diri secara menyenangkan. Program ini mendukung rasa percaya diri, kerja sama, kreativitas, perkembangan motorik, dan koordinasi tubuh.",
@@ -108,12 +123,46 @@ const orderedCourses = [...courses].sort(
     courseDisplayOrder.indexOf(firstCourse.title) - courseDisplayOrder.indexOf(secondCourse.title),
 );
 
+type ManagedCourse = Omit<Course, "icon" | "accent"> & {
+  id: number;
+  slug: string;
+  details: string[];
+};
+
+function apiBase() {
+  if (import.meta.env.VITE_ASESMEN_API_URL) return String(import.meta.env.VITE_ASESMEN_API_URL).replace(/\/$/, "");
+  return window.location.hostname === "localhost" ? "http://localhost:5001" : "https://asesmen.pi-psychology.com";
+}
+
+function courseImageUrl(imageId: number) {
+  return `${apiBase()}/api/courses/images/${imageId}`;
+}
+
 function whatsappHref(courseName: string) {
   return `https://wa.me/6285117658242?text=${encodeURIComponent(`Halo Pelangi Indonesia, saya ingin mendaftar dan mengetahui informasi lebih lanjut mengenai kursus ${courseName}.`)}`;
 }
 
 export default function CoursePage() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const { data: managedCourses } = useQuery<ManagedCourse[]>({
+    queryKey: ["courses"],
+    queryFn: async () => {
+      const response = await fetch(`${apiBase()}/api/courses`);
+      if (!response.ok) throw new Error("Gagal memuat katalog kursus");
+      return response.json();
+    },
+    retry: 1,
+  });
+  const displayedCourses: Course[] = managedCourses
+    ? managedCourses.map((course) => {
+        const visual = courses.find((fallbackCourse) => fallbackCourse.slug === course.slug);
+        return {
+          ...course,
+          icon: visual?.icon ?? GraduationCap,
+          accent: visual?.accent ?? "from-emerald-500 to-green-700",
+        };
+      })
+    : orderedCourses;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -155,14 +204,22 @@ export default function CoursePage() {
             <p className="mt-3 max-w-3xl leading-7 text-gray-600">Setiap program dirancang sesuai kebutuhan dan tahapan perkembangan peserta dengan pendampingan tenaga pengajar profesional.</p>
           </div>
           <div className="grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {orderedCourses.map((course) => {
+            {displayedCourses.length === 0 ? (
+              <div className="col-span-full rounded-2xl bg-white p-12 text-center text-gray-500 shadow-sm">Katalog kursus sedang disiapkan.</div>
+            ) : displayedCourses.map((course) => {
               const Icon = course.icon;
               return (
-                <article key={course.title} className="flex overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-black/5">
+                <article key={course.id ?? course.title} className="flex overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-black/5">
                   <div className="flex w-full flex-col">
                     <div className={`relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br ${course.accent}`}>
-                      <img src="/services/kursus.png" alt="" aria-hidden="true" className="absolute -right-6 -top-8 h-40 w-40 rounded-full bg-white/90 p-8 opacity-20" />
-                      <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-white/95 text-green-800 shadow-lg"><Icon className="h-10 w-10" /></div>
+                      {course.imageId ? (
+                        <img src={courseImageUrl(course.imageId)} alt={course.title} className="h-full w-full object-cover" style={{ objectPosition: `${course.imageFocusX ?? 50}% ${course.imageFocusY ?? 50}%` }} />
+                      ) : (
+                        <>
+                          <img src="/services/kursus.png" alt="" aria-hidden="true" className="absolute -right-6 -top-8 h-40 w-40 rounded-full bg-white/90 p-8 opacity-20" />
+                          <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-white/95 text-green-800 shadow-lg"><Icon className="h-10 w-10" /></div>
+                        </>
+                      )}
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col p-6 sm:p-7">
                       <h3 className="line-clamp-2 min-h-14 text-2xl font-extrabold leading-7 text-gray-900">{course.title}</h3>

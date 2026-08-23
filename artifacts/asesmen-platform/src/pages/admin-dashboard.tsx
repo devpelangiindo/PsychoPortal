@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -384,6 +384,20 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
               </Link>
             </CardContent>
           </Card>
+
+          {!isCsoMode && (
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-emerald-600" />Kursus</CardTitle>
+              <CardDescription>Kelola jenis, detail, urutan, dan foto kursus</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/courses">
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Kelola Kursus</Button>
+              </Link>
+            </CardContent>
+          </Card>
+          )}
 
           {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">

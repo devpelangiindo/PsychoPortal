@@ -296,6 +296,59 @@ async function ensureDigitalProductInfrastructure() {
   `);
 }
 
+const DEFAULT_COURSES = [
+  { slug: "balet", title: "Balet", price: "Mulai Rp 325.000/bulan", description: "Kelas balet membantu anak mengembangkan kelenturan, koordinasi gerak, keseimbangan motorik, disiplin, fokus, dan rasa percaya diri. Program bekerja sama dengan Flores Balet dengan pengajar bersertifikasi RAD.", details: ["Kurikulum RAD London", "4 kali pertemuan", "Free trial 1 kali", "Tersedia 7 klasifikasi kelompok", "Mulai usia 3 tahun (baby class)"], specialNote: null, sortOrder: 1 },
+  { slug: "taekwondo", title: "Taekwondo", price: "Rp 250.000/bulan", description: "Kursus taekwondo melatih kekuatan fisik, ketahanan tubuh, dan kemampuan bela diri dasar. Anak juga belajar disiplin, tanggung jawab, pengendalian diri, serta membangun kepercayaan diri dan karakter positif.", details: ["4 kali pertemuan", "Free trial 1 kali", "Mulai usia 3 tahun"], specialNote: null, sortOrder: 2 },
+  { slug: "renang-privat", title: "Renang Privat", price: "Rp 300.000/bulan", description: "Kursus renang membantu anak mempelajari teknik dasar berenang sekaligus meningkatkan kemampuan motorik dan koordinasi tubuh. Pembelajaran dilakukan secara aman dan bertahap sesuai usia serta kemampuan anak.", details: ["4 kali pertemuan", "Mulai usia 3 tahun"], specialNote: "Khusus tersedia di Pelangi Indonesia Cabang Bantul", sortOrder: 3 },
+  { slug: "musik-privat", title: "Musik Privat", price: "Mulai Rp 390.000/bulan", description: "Kursus musik mendukung kreativitas, konsentrasi, dan kemampuan anak mengekspresikan diri melalui seni. Anak mempelajari nada, ritme, dan teknik dasar musik sesuai minat dan usianya.", details: ["4 kali pertemuan", "Free trial 1 kali", "Mulai usia 3 tahun"], specialNote: null, sortOrder: 4 },
+  { slug: "tari", title: "Tari", price: "Rp 250.000/bulan", description: "Kursus tari membantu anak mengeksplorasi gerak, irama, dan ekspresi diri secara menyenangkan. Program ini mendukung rasa percaya diri, kerja sama, kreativitas, perkembangan motorik, dan koordinasi tubuh.", details: ["4 kali pertemuan", "Free trial 1 kali", "Mulai usia 3 tahun"], specialNote: null, sortOrder: 5 },
+  { slug: "bimbingan-belajar-privat", title: "Bimbingan Belajar Privat", price: "Rp 250.000/bulan", description: "Program bimbingan belajar privat memberikan pendampingan sesuai kebutuhan akademik anak. Perhatian yang lebih terfokus membantu proses belajar menjadi lebih optimal dan terarah.", details: ["4 kali pertemuan", "Tersedia home visit atau belajar onsite di Pelangi Indonesia"], specialNote: null, sortOrder: 6 },
+  { slug: "baca-tulis", title: "Baca Tulis", price: "Rp 325.000/bulan", description: "Program baca tulis dirancang untuk membantu anak mengembangkan kemampuan dasar literasi, mulai dari mengenal huruf, membaca, menulis, hingga memahami kalimat sederhana. Pembelajaran dilakukan secara interaktif dan menyenangkan sesuai tahap perkembangan anak.", details: ["8 kali pertemuan", "Maksimal 6 anak per kelas", "Free trial 1 kali", "Modul disusun oleh tim Pelangi Indonesia dan telah digunakan kurang lebih 15 tahun"], specialNote: null, sortOrder: 7 },
+  { slug: "matematika", title: "Matematika", price: "Rp 325.000/bulan", description: "Kursus matematika membantu peserta memahami konsep berhitung, logika, dan pemecahan masalah dengan metode yang mudah dipahami. Materi disesuaikan dengan usia dan tingkat kemampuan anak agar proses belajar lebih efektif.", details: ["8 kali pertemuan", "Maksimal 6 anak per kelas", "Free trial 1 kali"], specialNote: null, sortOrder: 8 },
+  { slug: "sempoa", title: "Sempoa", price: "Rp 275.000/bulan", description: "Kursus sempoa membantu melatih kemampuan berhitung cepat, konsentrasi, dan daya ingat anak melalui metode visual dan motorik. Latihan dilakukan secara bertahap agar anak mampu menghitung dengan cepat dan tepat.", details: ["8 kali pertemuan", "Maksimal 6 anak per kelas", "Free trial 1 kali"], specialNote: null, sortOrder: 9 },
+] as const;
+
+async function ensureCourseInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS courses (
+      id serial PRIMARY KEY,
+      slug varchar(255) NOT NULL UNIQUE,
+      title varchar(255) NOT NULL,
+      price varchar(100) NOT NULL,
+      description text NOT NULL,
+      details jsonb NOT NULL DEFAULT '[]'::jsonb,
+      special_note text,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS course_images (
+      id serial PRIMARY KEY,
+      course_id integer NOT NULL UNIQUE REFERENCES courses(id) ON DELETE CASCADE,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT course_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
+    CREATE INDEX IF NOT EXISTS courses_catalog_idx ON courses(is_active, sort_order, id);
+  `);
+
+  for (const course of DEFAULT_COURSES) {
+    await pool.query(
+      `INSERT INTO courses (slug, title, price, description, details, special_note, sort_order)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
+       ON CONFLICT (slug) DO NOTHING`,
+      [course.slug, course.title, course.price, course.description, JSON.stringify(course.details), course.specialNote, course.sortOrder],
+    );
+  }
+}
+
 function makeDigitalProductSlug(value: string) {
   return value
     .toLowerCase()
@@ -337,6 +390,17 @@ const digitalOrderSchema = z.object({
 const digitalProductImageFocusSchema = z.object({
   focusX: z.number().int().min(0).max(100),
   focusY: z.number().int().min(0).max(100),
+});
+
+const courseSchema = z.object({
+  title: z.string().trim().min(2).max(255),
+  slug: z.string().trim().max(255).optional(),
+  price: z.string().trim().min(2).max(100),
+  description: z.string().trim().min(5).max(20000),
+  details: z.array(z.string().trim().min(1).max(500)).max(30).optional().default([]),
+  specialNote: z.string().trim().max(2000).optional().default(""),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  isActive: z.boolean().optional().default(true),
 });
 
 const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential", "external-career-potential"] as const;
@@ -2640,6 +2704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Initialize default assessments
     await ensureExternalAssessmentInfrastructure();
     await ensureDigitalProductInfrastructure();
+    await ensureCourseInfrastructure();
     await initializeAssessments();
     await initializeBookingServices();
     await ensureDefaultAdminUser();
@@ -4993,6 +5058,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
       [Number(req.params.productId)],
     );
     res.json({ message: 'File produk dihapus' });
+  });
+
+  const courseSelect = `
+    SELECT course.id, course.slug, course.title, course.price, course.description,
+           course.details, course.special_note AS "specialNote",
+           course.sort_order AS "sortOrder", course.is_active AS "isActive",
+           course.created_at AS "createdAt", course.updated_at AS "updatedAt",
+           image.id AS "imageId", image.file_name AS "imageFileName",
+           image.focus_x AS "imageFocusX", image.focus_y AS "imageFocusY"
+    FROM courses course
+    LEFT JOIN course_images image ON image.course_id = course.id`;
+
+  app.get('/api/courses', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${courseSelect} WHERE course.is_active = true ORDER BY course.sort_order, course.id`,
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      res.status(500).json({ message: 'Gagal memuat katalog kursus' });
+    }
+  });
+
+  app.get('/api/courses/images/:imageId', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT image_data, mime_type FROM course_images WHERE id = $1`,
+        [Number(req.params.imageId)],
+      );
+      if (!result.rowCount) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].mime_type);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(result.rows[0].image_data);
+    } catch (error) {
+      console.error('Error fetching course image:', error);
+      return res.status(500).end();
+    }
+  });
+
+  app.get('/api/admin/courses', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query(`${courseSelect} ORDER BY course.sort_order, course.id`);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin courses:', error);
+      res.status(500).json({ message: 'Gagal memuat data kursus' });
+    }
+  });
+
+  app.post('/api/admin/courses', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = courseSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data kursus tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title);
+    if (!slug) return res.status(400).json({ message: 'Slug kursus tidak valid' });
+    try {
+      const result = await pool.query(
+        `INSERT INTO courses (slug, title, price, description, details, special_note, sort_order, is_active, created_by)
+         VALUES ($1, $2, $3, $4, $5::jsonb, NULLIF($6, ''), $7, $8, $9)
+         RETURNING id, slug`,
+        [slug, parsed.data.title, parsed.data.price, parsed.data.description, JSON.stringify(parsed.data.details), parsed.data.specialNote, parsed.data.sortOrder, parsed.data.isActive, req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Nama tautan kursus sudah digunakan' });
+      console.error('Error creating course:', error);
+      return res.status(500).json({ message: 'Gagal menambahkan kursus' });
+    }
+  });
+
+  app.put('/api/admin/courses/:courseId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = courseSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data kursus tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title);
+    if (!slug) return res.status(400).json({ message: 'Slug kursus tidak valid' });
+    try {
+      const result = await pool.query(
+        `UPDATE courses SET slug = $1, title = $2, price = $3, description = $4,
+           details = $5::jsonb, special_note = NULLIF($6, ''), sort_order = $7,
+           is_active = $8, updated_at = now()
+         WHERE id = $9 RETURNING id, slug`,
+        [slug, parsed.data.title, parsed.data.price, parsed.data.description, JSON.stringify(parsed.data.details), parsed.data.specialNote, parsed.data.sortOrder, parsed.data.isActive, Number(req.params.courseId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Kursus tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Nama tautan kursus sudah digunakan' });
+      console.error('Error updating course:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui kursus' });
+    }
+  });
+
+  app.delete('/api/admin/courses/:courseId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `UPDATE courses SET is_active = false, updated_at = now() WHERE id = $1 RETURNING id`,
+        [Number(req.params.courseId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Kursus tidak ditemukan' });
+      return res.json({ message: 'Kursus dinonaktifkan dari katalog' });
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      return res.status(500).json({ message: 'Gagal menghapus kursus' });
+    }
+  });
+
+  app.put('/api/admin/courses/:courseId/image', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '8mb' }), async (req: any, res) => {
+      try {
+        if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File gambar wajib dipilih' });
+        const courseId = Number(req.params.courseId);
+        const course = await pool.query(`SELECT id FROM courses WHERE id = $1`, [courseId]);
+        if (!course.rowCount) return res.status(404).json({ message: 'Kursus tidak ditemukan' });
+        const result = await pool.query(
+          `INSERT INTO course_images (course_id, image_data, file_name, mime_type)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (course_id) DO UPDATE SET image_data = EXCLUDED.image_data,
+             file_name = EXCLUDED.file_name, mime_type = EXCLUDED.mime_type, updated_at = now()
+           RETURNING id`,
+          [courseId, req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'gambar-kursus')), req.headers['content-type']],
+        );
+        return res.status(201).json(result.rows[0]);
+      } catch (error) {
+        console.error('Error uploading course image:', error);
+        return res.status(500).json({ message: 'Gagal mengunggah gambar kursus' });
+      }
+    });
+
+  app.delete('/api/admin/courses/:courseId/image', isAuthenticated, isAdmin, async (req, res) => {
+    const result = await pool.query(`DELETE FROM course_images WHERE course_id = $1 RETURNING id`, [Number(req.params.courseId)]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Gambar tidak ditemukan' });
+    return res.json({ message: 'Gambar kursus dihapus' });
+  });
+
+  app.put('/api/admin/courses/:courseId/image/focus', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = digitalProductImageFocusSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Posisi fokus tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE course_images SET focus_x = $1, focus_y = $2, updated_at = now()
+         WHERE course_id = $3 RETURNING id, focus_x AS "focusX", focus_y AS "focusY"`,
+        [parsed.data.focusX, parsed.data.focusY, Number(req.params.courseId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Gambar tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating course image focus:', error);
+      return res.status(500).json({ message: 'Gagal menyimpan posisi fokus gambar' });
+    }
   });
 
   app.get('/api/external-assessments/access', isAuthenticated, async (req: any, res) => {
