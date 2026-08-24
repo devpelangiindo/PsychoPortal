@@ -399,11 +399,37 @@ async function ensureArticleInfrastructure() {
       updated_at timestamp DEFAULT now(),
       CONSTRAINT managed_article_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
     );
+    CREATE TABLE IF NOT EXISTS article_promos (
+      id serial PRIMARY KEY,
+      title varchar(255) NOT NULL,
+      description varchar(1000) NOT NULL,
+      button_text varchar(100) NOT NULL DEFAULT 'Info lebih lanjut',
+      link_url varchar(2000) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp
+    );
     CREATE INDEX IF NOT EXISTS managed_articles_public_idx
       ON managed_articles(status, published_at DESC, id DESC) WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS managed_article_images_article_idx
       ON managed_article_images(article_id, sort_order, id);
+    CREATE INDEX IF NOT EXISTS article_promos_public_idx
+      ON article_promos(is_active, sort_order, id) WHERE deleted_at IS NULL;
   `);
+
+  const promoCount = await pool.query(`SELECT COUNT(*)::int AS total FROM article_promos`);
+  if (Number(promoCount.rows[0]?.total ?? 0) === 0) {
+    await pool.query(
+      `INSERT INTO article_promos (title, description, button_text, link_url, sort_order)
+       VALUES
+         ('Konsultasi Awal Gratis', 'Jadwalkan sesi konsultasi pertama Anda tanpa biaya.', 'Info lebih lanjut', 'https://wa.me/6285117658242', 0),
+         ('Workshop Pelangi Indonesia', 'Pelatihan Manajemen Perilaku Anak — Daftar sekarang!', 'Info lebih lanjut', 'https://wa.me/6285117658242', 1),
+         ('Paket Asesmen Lengkap', 'Dapatkan laporan komprehensif dengan rekomendasi terapi.', 'Info lebih lanjut', 'https://wa.me/6285117658242', 2)`,
+    );
+  }
 }
 
 function makeDigitalProductSlug(value: string) {
@@ -490,6 +516,18 @@ const managedArticleImageSchema = z.object({
   sortOrder: z.coerce.number().int().min(0).max(2).optional().default(0),
   focusX: z.coerce.number().int().min(0).max(100).optional().default(50),
   focusY: z.coerce.number().int().min(0).max(100).optional().default(50),
+});
+
+const articlePromoSchema = z.object({
+  title: z.string().trim().min(2).max(255),
+  description: z.string().trim().min(3).max(1000),
+  buttonText: z.string().trim().min(2).max(100).optional().default("Info lebih lanjut"),
+  linkUrl: z.string().trim().min(1).max(2000).refine(
+    (value) => (value.startsWith("/") && !value.startsWith("//")) || /^https?:\/\//i.test(value),
+    "Tautan harus berupa halaman internal atau menggunakan http/https",
+  ),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  isActive: z.boolean().optional().default(true),
 });
 
 const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential", "external-career-potential"] as const;
@@ -5404,6 +5442,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting course gallery image:', error);
       return res.status(500).json({ message: 'Gagal menghapus foto galeri' });
+    }
+  });
+
+  const articlePromoSelect = `
+    SELECT id, title, description, button_text AS "buttonText", link_url AS "linkUrl",
+           sort_order AS "sortOrder", is_active AS "isActive",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM article_promos`;
+
+  app.get('/api/article-promos', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${articlePromoSelect} WHERE deleted_at IS NULL AND is_active = true ORDER BY sort_order, id`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching article promos:', error);
+      return res.status(500).json({ message: 'Gagal memuat Promo & Info' });
+    }
+  });
+
+  app.get('/api/admin/article-promos', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${articlePromoSelect} WHERE deleted_at IS NULL ORDER BY sort_order, id`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin article promos:', error);
+      return res.status(500).json({ message: 'Gagal memuat data Promo & Info' });
+    }
+  });
+
+  app.post('/api/admin/article-promos', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = articlePromoSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data Promo & Info tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `INSERT INTO article_promos (title, description, button_text, link_url, sort_order, is_active, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [parsed.data.title, parsed.data.description, parsed.data.buttonText, parsed.data.linkUrl, parsed.data.sortOrder, parsed.data.isActive, req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    } catch (error) {
+      console.error('Error creating article promo:', error);
+      return res.status(500).json({ message: 'Gagal menambahkan Promo & Info' });
+    }
+  });
+
+  app.put('/api/admin/article-promos/:promoId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = articlePromoSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data Promo & Info tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE article_promos SET title = $1, description = $2, button_text = $3,
+           link_url = $4, sort_order = $5, is_active = $6, updated_at = now()
+         WHERE id = $7 AND deleted_at IS NULL RETURNING id`,
+        [parsed.data.title, parsed.data.description, parsed.data.buttonText, parsed.data.linkUrl, parsed.data.sortOrder, parsed.data.isActive, Number(req.params.promoId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Promo & Info tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating article promo:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui Promo & Info' });
+    }
+  });
+
+  app.delete('/api/admin/article-promos/:promoId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `UPDATE article_promos SET deleted_at = now(), is_active = false, updated_at = now()
+         WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
+        [Number(req.params.promoId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Promo & Info tidak ditemukan' });
+      return res.json({ message: 'Promo & Info berhasil dihapus' });
+    } catch (error) {
+      console.error('Error deleting article promo:', error);
+      return res.status(500).json({ message: 'Gagal menghapus Promo & Info' });
     }
   });
 

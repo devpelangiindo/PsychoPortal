@@ -67,31 +67,52 @@ function articleColor(category?: string) {
 
 // ─── Promo sidebar ────────────────────────────────────────────────────────────
 
-const promos = [
-  { title: "Konsultasi Awal Gratis", desc: "Jadwalkan sesi konsultasi pertama Anda tanpa biaya." },
-  { title: "Workshop Pelangi Indonesia", desc: "Pelatihan Manajemen Perilaku Anak — Daftar sekarang!" },
-  { title: "Paket Asesmen Lengkap", desc: "Dapatkan laporan komprehensif dengan rekomendasi terapi." },
-];
+type ArticlePromo = {
+  id: number;
+  title: string;
+  description: string;
+  buttonText: string;
+  linkUrl: string;
+  sortOrder: number;
+};
+
+async function fetchArticlePromos(): Promise<ArticlePromo[]> {
+  const response = await fetch(`${articleApiBase()}/api/article-promos`);
+  if (!response.ok) throw new Error("Gagal memuat Promo & Info");
+  return response.json();
+}
 
 function PromoSidebar() {
+  const { data: promos = [] } = useQuery({
+    queryKey: ["article-promos"],
+    queryFn: fetchArticlePromos,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  if (promos.length === 0) return null;
+
   return (
     <div className="space-y-4">
       <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Promo & Info</h3>
-      {promos.map((p, i) => (
-        <div key={i} className="p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
-          <h4 className="font-semibold text-sm mb-1" style={{ color: "#2D6A4F" }}>{p.title}</h4>
-          <p className="text-xs text-gray-500 mb-2">{p.desc}</p>
-          <a
-            href="https://wa.me/6285117658242"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-semibold flex items-center gap-1"
-            style={{ color: "#2D6A4F" }}
-          >
-            Info lebih lanjut <ArrowRight size={10} />
-          </a>
-        </div>
-      ))}
+      {promos.map((promo) => {
+        const linkClassName = "text-xs font-semibold flex items-center gap-1";
+        return (
+          <div key={promo.id} className="p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
+            <h4 className="font-semibold text-sm mb-1" style={{ color: "#2D6A4F" }}>{promo.title}</h4>
+            <p className="text-xs text-gray-500 mb-2">{promo.description}</p>
+            {promo.linkUrl.startsWith("/") ? (
+              <Link href={promo.linkUrl} className={linkClassName} style={{ color: "#2D6A4F" }}>
+                {promo.buttonText} <ArrowRight size={10} />
+              </Link>
+            ) : (
+              <a href={promo.linkUrl} target="_blank" rel="noopener noreferrer" className={linkClassName} style={{ color: "#2D6A4F" }}>
+                {promo.buttonText} <ArrowRight size={10} />
+              </a>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

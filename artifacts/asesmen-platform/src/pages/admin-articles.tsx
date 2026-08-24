@@ -1,6 +1,6 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Crosshair, ImagePlus, Loader2, Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Crosshair, ImagePlus, Loader2, Megaphone, Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +38,18 @@ type Article = {
   images: ArticleImage[];
 };
 
+type ArticlePromo = {
+  id: number;
+  title: string;
+  description: string;
+  buttonText: string;
+  linkUrl: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+type PromoFormState = Omit<ArticlePromo, "id">;
+
 type FormState = {
   title: string;
   slug: string;
@@ -58,6 +70,15 @@ const emptyForm: FormState = {
   authorName: "",
   status: "draft",
   publishedAt: "",
+};
+
+const emptyPromoForm: PromoFormState = {
+  title: "",
+  description: "",
+  buttonText: "Info lebih lanjut",
+  linkUrl: "https://wa.me/6285117658242",
+  sortOrder: 0,
+  isActive: true,
 };
 
 const categoryOptions = [
@@ -104,6 +125,9 @@ export default function AdminArticles() {
   const [editing, setEditing] = useState<Article | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [editingPromo, setEditingPromo] = useState<ArticlePromo | null>(null);
+  const [promoFormOpen, setPromoFormOpen] = useState(false);
+  const [promoForm, setPromoForm] = useState<PromoFormState>(emptyPromoForm);
   const [imageEditor, setImageEditor] = useState<{
     article: Article;
     image: ArticleImage;
@@ -116,6 +140,7 @@ export default function AdminArticles() {
   } | null>(null);
   const [isSavingImage, setIsSavingImage] = useState(false);
   const { data: articles = [], isLoading } = useQuery<Article[]>({ queryKey: ["/api/admin/articles"] });
+  const { data: promos = [], isLoading: promosLoading } = useQuery<ArticlePromo[]>({ queryKey: ["/api/admin/article-promos"] });
 
   useEffect(() => {
     if (!formOpen) return;
@@ -136,6 +161,7 @@ export default function AdminArticles() {
   }, [editing, formOpen]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
+  const refreshPromos = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/article-promos"] });
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((current) => ({ ...current, [key]: value }));
 
   const save = useMutation({
@@ -165,6 +191,30 @@ export default function AdminArticles() {
     onError: (error) => toast({ title: "Gagal menghapus artikel", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }),
   });
 
+  const savePromo = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(editingPromo ? "PUT" : "POST", editingPromo ? `/api/admin/article-promos/${editingPromo.id}` : "/api/admin/article-promos", promoForm);
+      return response.json();
+    },
+    onSuccess: async () => {
+      await refreshPromos();
+      setPromoFormOpen(false);
+      setEditingPromo(null);
+      setPromoForm(emptyPromoForm);
+      toast({ title: "Promo & Info berhasil disimpan" });
+    },
+    onError: (error) => toast({ title: "Gagal menyimpan Promo & Info", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }),
+  });
+
+  const removePromo = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/article-promos/${id}`),
+    onSuccess: async () => {
+      await refreshPromos();
+      toast({ title: "Promo & Info berhasil dihapus" });
+    },
+    onError: (error) => toast({ title: "Gagal menghapus Promo & Info", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }),
+  });
+
   const openCreate = () => {
     setEditing(null);
     setFormOpen(true);
@@ -173,6 +223,25 @@ export default function AdminArticles() {
   const openEdit = (article: Article) => {
     setEditing(article);
     setFormOpen(true);
+  };
+
+  const openCreatePromo = () => {
+    setEditingPromo(null);
+    setPromoForm(emptyPromoForm);
+    setPromoFormOpen(true);
+  };
+
+  const openEditPromo = (promo: ArticlePromo) => {
+    setEditingPromo(promo);
+    setPromoForm({
+      title: promo.title,
+      description: promo.description,
+      buttonText: promo.buttonText,
+      linkUrl: promo.linkUrl,
+      sortOrder: promo.sortOrder,
+      isActive: promo.isActive,
+    });
+    setPromoFormOpen(true);
   };
 
   const openImageEditor = (article: Article, image: ArticleImage) => setImageEditor({
@@ -220,9 +289,46 @@ export default function AdminArticles() {
       <div className="mx-auto max-w-7xl">
         <Link href="/admin/dashboard" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700"><ArrowLeft size={17} /> Kembali ke Dashboard</Link>
         <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div><h1 className="text-3xl font-extrabold text-gray-900">Pengelolaan Artikel</h1><p className="mt-2 text-gray-600">Tulis, edit, terbitkan, dan kelola maksimal tiga gambar per artikel.</p></div>
+          <div><h1 className="text-3xl font-extrabold text-gray-900">Pengelolaan Artikel</h1><p className="mt-2 text-gray-600">Kelola artikel, gambar, serta Promo & Info pada halaman Berita.</p></div>
           <Button className="bg-green-700 hover:bg-green-800" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Tambah Artikel</Button>
         </div>
+
+        <section className="mb-10 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="flex items-center gap-2 text-xl font-extrabold text-gray-900"><Megaphone className="h-5 w-5 text-green-700" />Promo & Info</h2>
+              <p className="mt-1 text-sm text-gray-500">Atur informasi yang tampil di sisi kanan halaman daftar dan detail Berita.</p>
+            </div>
+            <Button variant="outline" onClick={openCreatePromo}><Plus className="mr-2 h-4 w-4" />Tambah Promo</Button>
+          </div>
+          {promosLoading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-green-700" /></div>
+          ) : promos.length === 0 ? (
+            <div className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">Belum ada Promo & Info.</div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {promos.map((promo) => (
+                <Card key={promo.id} className={promo.isActive ? "" : "opacity-60"}>
+                  <CardContent className="flex h-full flex-col p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-extrabold text-gray-900">{promo.title}</h3>
+                        <p className="mt-1 text-xs text-gray-500">Urutan {promo.sortOrder}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${promo.isActive ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-700"}`}>{promo.isActive ? "Aktif" : "Nonaktif"}</span>
+                    </div>
+                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-gray-600">{promo.description}</p>
+                    <p className="mt-3 truncate text-xs text-green-700">{promo.buttonText} → {promo.linkUrl}</p>
+                    <div className="mt-auto flex gap-2 pt-5">
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditPromo(promo)}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
+                      <Button size="sm" variant="destructive" className="flex-1" disabled={removePromo.isPending} onClick={() => { if (confirm(`Hapus Promo & Info ${promo.title}?`)) removePromo.mutate(promo.id); }}><Trash2 className="mr-2 h-4 w-4" />Hapus</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </section>
 
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-green-700" /></div>
@@ -271,6 +377,27 @@ export default function AdminArticles() {
           </div>
         )}
       </div>
+
+      <Dialog open={promoFormOpen} onOpenChange={(open) => { setPromoFormOpen(open); if (!open) { setEditingPromo(null); setPromoForm(emptyPromoForm); } }}>
+        <DialogContent className="flex max-h-[92vh] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:rounded-2xl">
+          <DialogHeader className="border-b px-6 py-5 pr-12 text-left">
+            <DialogTitle>{editingPromo ? "Edit Promo & Info" : "Tambah Promo & Info"}</DialogTitle>
+            <DialogDescription>Informasi aktif akan tampil pada halaman daftar dan detail Berita.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 overflow-y-auto px-6 py-5">
+            <div><Label>Judul</Label><Input maxLength={255} value={promoForm.title} onChange={(event) => setPromoForm((current) => ({ ...current, title: event.target.value }))} /></div>
+            <div><Label>Deskripsi singkat</Label><Textarea rows={4} maxLength={1000} value={promoForm.description} onChange={(event) => setPromoForm((current) => ({ ...current, description: event.target.value }))} /></div>
+            <div><Label>Teks tombol</Label><Input maxLength={100} value={promoForm.buttonText} onChange={(event) => setPromoForm((current) => ({ ...current, buttonText: event.target.value }))} placeholder="Info lebih lanjut" /></div>
+            <div><Label>Tautan tujuan</Label><Input maxLength={2000} value={promoForm.linkUrl} onChange={(event) => setPromoForm((current) => ({ ...current, linkUrl: event.target.value }))} placeholder="https://wa.me/... atau /kontak" /><p className="mt-1 text-xs text-gray-500">Gunakan alamat http/https atau halaman internal yang diawali dengan /.</p></div>
+            <div><Label>Urutan tampil</Label><Input type="number" min="0" max="9999" value={promoForm.sortOrder} onChange={(event) => setPromoForm((current) => ({ ...current, sortOrder: Number(event.target.value) || 0 }))} /></div>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={promoForm.isActive} onChange={(event) => setPromoForm((current) => ({ ...current, isActive: event.target.checked }))} /> Tampilkan pada halaman Berita</label>
+          </div>
+          <div className="flex gap-2 border-t bg-white px-6 py-4">
+            <Button variant="outline" className="flex-1" onClick={() => setPromoFormOpen(false)}>Batal</Button>
+            <Button className="flex-1 bg-green-700 hover:bg-green-800" disabled={savePromo.isPending} onClick={() => savePromo.mutate()}>{savePromo.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={formOpen} onOpenChange={(open) => { setFormOpen(open); if (!open) setEditing(null); }}>
         <DialogContent className="flex max-h-[94vh] w-[calc(100%-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 sm:rounded-2xl">
