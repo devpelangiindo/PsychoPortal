@@ -1,6 +1,6 @@
-import { useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType, type FocusEvent, type TouchEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, ArrowRight, BookOpen, Calculator, Camera, CheckCircle2, GraduationCap, Maximize2, Medal, Music2, Sparkles, Users, Waves } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Calculator, Camera, CheckCircle2, ChevronLeft, ChevronRight, GraduationCap, Maximize2, Medal, Music2, Sparkles, Users, Waves } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
@@ -159,6 +159,11 @@ function whatsappHref(courseName: string) {
 export default function CoursePage() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<CourseGalleryImage | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [galleryTimerKey, setGalleryTimerKey] = useState(0);
+  const [isGalleryPaused, setIsGalleryPaused] = useState(false);
+  const galleryTouchStartX = useRef<number | null>(null);
+  const suppressGalleryClick = useRef(false);
   const { data: managedCourses } = useQuery<ManagedCourse[]>({
     queryKey: ["courses"],
     queryFn: async () => {
@@ -187,6 +192,49 @@ export default function CoursePage() {
         };
       })
     : orderedCourses;
+  const activeGalleryImage = gallery[galleryIndex];
+
+  useEffect(() => {
+    if (galleryIndex >= gallery.length) setGalleryIndex(0);
+  }, [gallery.length, galleryIndex]);
+
+  useEffect(() => {
+    if (gallery.length <= 1 || isGalleryPaused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const interval = window.setInterval(() => {
+      setGalleryIndex((current) => (current + 1) % gallery.length);
+    }, 4000);
+    return () => window.clearInterval(interval);
+  }, [gallery.length, galleryTimerKey, isGalleryPaused]);
+
+  const moveGallery = (direction: -1 | 1) => {
+    if (gallery.length <= 1) return;
+    setGalleryIndex((current) => (current + direction + gallery.length) % gallery.length);
+    setGalleryTimerKey((current) => current + 1);
+  };
+
+  const selectGallerySlide = (index: number) => {
+    setGalleryIndex(index);
+    setGalleryTimerKey((current) => current + 1);
+  };
+
+  const handleGalleryTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    galleryTouchStartX.current = event.touches[0]?.clientX ?? null;
+    setIsGalleryPaused(true);
+  };
+
+  const handleGalleryTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    setIsGalleryPaused(false);
+    if (galleryTouchStartX.current === null) return;
+    const distance = (event.changedTouches[0]?.clientX ?? galleryTouchStartX.current) - galleryTouchStartX.current;
+    galleryTouchStartX.current = null;
+    if (Math.abs(distance) < 40) return;
+    suppressGalleryClick.current = true;
+    moveGallery(distance < 0 ? 1 : -1);
+  };
+
+  const handleGalleryBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsGalleryPaused(false);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -210,26 +258,65 @@ export default function CoursePage() {
               <h2 className="mt-2 text-3xl font-extrabold text-gray-900">Belajar, bergerak, dan berkembang bersama</h2>
               <p className="mt-3 leading-7 text-gray-600">Dokumentasi kegiatan kursus Pelangi Indonesia yang mendukung anak belajar dengan nyaman, aktif, dan menyenangkan.</p>
             </div>
-            <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3">
-              {gallery.map((image, index) => (
+            {activeGalleryImage && (
+              <div
+                className="relative"
+                onMouseEnter={() => setIsGalleryPaused(true)}
+                onMouseLeave={() => setIsGalleryPaused(false)}
+                onFocusCapture={() => setIsGalleryPaused(true)}
+                onBlurCapture={handleGalleryBlur}
+                onTouchStart={handleGalleryTouchStart}
+                onTouchEnd={handleGalleryTouchEnd}
+                onTouchCancel={() => { galleryTouchStartX.current = null; setIsGalleryPaused(false); }}
+              >
                 <button
-                  key={image.id}
                   type="button"
-                  onClick={() => setSelectedGalleryImage(image)}
-                  className={`group relative aspect-[4/3] min-w-[82%] snap-center overflow-hidden rounded-2xl bg-gray-100 text-left sm:min-w-0 ${index === 0 && gallery.length > 2 ? "sm:col-span-2 sm:row-span-2 lg:col-span-2" : ""}`}
+                  onClick={() => {
+                    if (suppressGalleryClick.current) {
+                      suppressGalleryClick.current = false;
+                      return;
+                    }
+                    setSelectedGalleryImage(activeGalleryImage);
+                  }}
+                  className="group relative block aspect-[16/10] w-full touch-pan-y overflow-hidden rounded-2xl bg-gray-100 text-left sm:aspect-[16/8]"
                 >
-                  <img src={courseGalleryImageUrl(image.id)} alt={image.title || image.fileName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" style={{ objectPosition: `${image.focusX}% ${image.focusY}%` }} />
-                  <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
-                  <span className="absolute right-3 top-3 rounded-full bg-black/40 p-2 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100"><Maximize2 className="h-4 w-4" /></span>
-                  {(image.title || image.caption) && (
-                    <span className="absolute inset-x-0 bottom-0 p-4 text-white">
-                      {image.title && <span className="block font-bold">{image.title}</span>}
-                      {image.caption && <span className="mt-1 line-clamp-2 block text-xs leading-5 text-white/85">{image.caption}</span>}
+                  <img
+                    key={activeGalleryImage.id}
+                    src={courseGalleryImageUrl(activeGalleryImage.id)}
+                    alt={activeGalleryImage.title || activeGalleryImage.fileName}
+                    className="h-full w-full animate-in fade-in object-cover duration-500 group-hover:scale-[1.02]"
+                    style={{ objectPosition: `${activeGalleryImage.focusX}% ${activeGalleryImage.focusY}%` }}
+                  />
+                  <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-black/10" />
+                  <span className="absolute right-4 top-4 rounded-full bg-black/40 p-2 text-white backdrop-blur-sm"><Maximize2 className="h-4 w-4" /></span>
+                  {(activeGalleryImage.title || activeGalleryImage.caption) && (
+                    <span className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-7">
+                      {activeGalleryImage.title && <span className="block text-lg font-bold sm:text-xl">{activeGalleryImage.title}</span>}
+                      {activeGalleryImage.caption && <span className="mt-1 line-clamp-2 block max-w-3xl text-sm leading-6 text-white/85">{activeGalleryImage.caption}</span>}
                     </span>
                   )}
                 </button>
-              ))}
-            </div>
+
+                {gallery.length > 1 && (
+                  <>
+                    <button type="button" aria-label="Foto sebelumnya" onClick={() => moveGallery(-1)} className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white shadow backdrop-blur-sm transition hover:bg-black/60 sm:left-5"><ChevronLeft className="h-5 w-5" /></button>
+                    <button type="button" aria-label="Foto berikutnya" onClick={() => moveGallery(1)} className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white shadow backdrop-blur-sm transition hover:bg-black/60 sm:right-5"><ChevronRight className="h-5 w-5" /></button>
+                    <div className="mt-5 flex justify-center gap-2" aria-label="Navigasi galeri">
+                      {gallery.map((image, index) => (
+                        <button
+                          key={image.id}
+                          type="button"
+                          aria-label={`Tampilkan foto ${index + 1}`}
+                          aria-current={index === galleryIndex ? "true" : undefined}
+                          onClick={() => selectGallerySlide(index)}
+                          className={`h-2.5 rounded-full transition-all ${index === galleryIndex ? "w-7 bg-green-700" : "w-2.5 bg-gray-300 hover:bg-gray-400"}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </section>
         )}
 
