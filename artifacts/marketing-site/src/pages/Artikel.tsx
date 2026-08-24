@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
@@ -188,6 +188,10 @@ function ArticleDetail({ slug }: { slug: string }) {
   const managedCover = managedPost?.images.find((image) => image.placement === "cover") ?? managedPost?.images[0];
   const imageUrl = managedCover ? managedArticleImageUrl(managedCover.id) : undefined;
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [slug]);
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
@@ -256,15 +260,16 @@ function ArticleDetail({ slug }: { slug: string }) {
   );
 }
 
+export function ArticleDetailPage() {
+  const [matchDetail, paramsDetail] = useRoute("/artikel/:slug");
+  if (!matchDetail || !paramsDetail?.slug) return null;
+  return <ArticleDetail slug={paramsDetail.slug} />;
+}
+
 // ─── Article List ─────────────────────────────────────────────────────────────
 
 export default function Artikel() {
-  const [matchDetail, paramsDetail] = useRoute("/artikel/:slug");
   const [search, setSearch] = useState("");
-
-  if (matchDetail && paramsDetail?.slug) {
-    return <ArticleDetail slug={paramsDetail.slug} />;
-  }
 
   const { data: managedPosts, isLoading } = useQuery({
     queryKey: ["managed-articles"],
@@ -272,6 +277,10 @@ export default function Artikel() {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
 
   type ArticleItem = {
     slug: string
