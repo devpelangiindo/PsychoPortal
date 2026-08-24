@@ -1,6 +1,6 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Crosshair, ImagePlus, Loader2, Megaphone, Newspaper, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Crosshair, ImagePlus, Loader2, Megaphone, Newspaper, Pencil, Plus, Tags, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +37,16 @@ type Article = {
   updatedAt: string;
   images: ArticleImage[];
 };
+
+type ArticleCategory = {
+  id: number;
+  slug: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+type CategoryFormState = Omit<ArticleCategory, "id">;
 
 type ArticlePromo = {
   id: number;
@@ -81,14 +91,12 @@ const emptyPromoForm: PromoFormState = {
   isActive: true,
 };
 
-const categoryOptions = [
-  ["psikologi", "Psikologi"],
-  ["pendidikan", "Pendidikan"],
-  ["parenting", "Parenting"],
-  ["kesehatan-mental", "Kesehatan Mental"],
-  ["tips", "Tips & Trik"],
-  ["berita", "Berita"],
-] as const;
+const emptyCategoryForm: CategoryFormState = {
+  slug: "",
+  name: "",
+  sortOrder: 0,
+  isActive: true,
+};
 
 const placementLabels: Record<ArticleImage["placement"], string> = {
   cover: "Gambar utama",
@@ -128,6 +136,9 @@ export default function AdminArticles() {
   const [editingPromo, setEditingPromo] = useState<ArticlePromo | null>(null);
   const [promoFormOpen, setPromoFormOpen] = useState(false);
   const [promoForm, setPromoForm] = useState<PromoFormState>(emptyPromoForm);
+  const [editingCategory, setEditingCategory] = useState<ArticleCategory | null>(null);
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [categoryForm, setCategoryForm] = useState<CategoryFormState>(emptyCategoryForm);
   const [imageEditor, setImageEditor] = useState<{
     article: Article;
     image: ArticleImage;
@@ -141,11 +152,12 @@ export default function AdminArticles() {
   const [isSavingImage, setIsSavingImage] = useState(false);
   const { data: articles = [], isLoading } = useQuery<Article[]>({ queryKey: ["/api/admin/articles"] });
   const { data: promos = [], isLoading: promosLoading } = useQuery<ArticlePromo[]>({ queryKey: ["/api/admin/article-promos"] });
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<ArticleCategory[]>({ queryKey: ["/api/admin/article-categories"] });
 
   useEffect(() => {
     if (!formOpen) return;
     if (!editing) {
-      setForm(emptyForm);
+      setForm({ ...emptyForm, category: categories.find((category) => category.isActive)?.slug ?? "berita" });
       return;
     }
     setForm({
@@ -162,6 +174,7 @@ export default function AdminArticles() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/articles"] });
   const refreshPromos = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/article-promos"] });
+  const refreshCategories = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/article-categories"] });
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((current) => ({ ...current, [key]: value }));
 
   const save = useMutation({
@@ -215,6 +228,26 @@ export default function AdminArticles() {
     onError: (error) => toast({ title: "Gagal menghapus Promo & Info", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }),
   });
 
+  const saveCategory = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(editingCategory ? "PUT" : "POST", editingCategory ? `/api/admin/article-categories/${editingCategory.id}` : "/api/admin/article-categories", {
+        name: categoryForm.name,
+        slug: editingCategory ? undefined : categoryForm.slug || undefined,
+        sortOrder: categoryForm.sortOrder,
+        isActive: categoryForm.isActive,
+      });
+      return response.json();
+    },
+    onSuccess: async () => {
+      await refreshCategories();
+      setCategoryFormOpen(false);
+      setEditingCategory(null);
+      setCategoryForm(emptyCategoryForm);
+      toast({ title: "Kategori artikel berhasil disimpan" });
+    },
+    onError: (error) => toast({ title: "Gagal menyimpan kategori", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }),
+  });
+
   const openCreate = () => {
     setEditing(null);
     setFormOpen(true);
@@ -242,6 +275,18 @@ export default function AdminArticles() {
       isActive: promo.isActive,
     });
     setPromoFormOpen(true);
+  };
+
+  const openCreateCategory = () => {
+    setEditingCategory(null);
+    setCategoryForm(emptyCategoryForm);
+    setCategoryFormOpen(true);
+  };
+
+  const openEditCategory = (category: ArticleCategory) => {
+    setEditingCategory(category);
+    setCategoryForm({ slug: category.slug, name: category.name, sortOrder: category.sortOrder, isActive: category.isActive });
+    setCategoryFormOpen(true);
   };
 
   const openImageEditor = (article: Article, image: ArticleImage) => setImageEditor({
@@ -330,6 +375,36 @@ export default function AdminArticles() {
           )}
         </section>
 
+        <section className="mb-10 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="flex items-center gap-2 text-xl font-extrabold text-gray-900"><Tags className="h-5 w-5 text-green-700" />Kategori Artikel</h2>
+              <p className="mt-1 text-sm text-gray-500">Kategori aktif dapat dipilih pada form Tambah dan Edit Artikel.</p>
+            </div>
+            <Button variant="outline" onClick={openCreateCategory}><Plus className="mr-2 h-4 w-4" />Tambah Kategori</Button>
+          </div>
+          {categoriesLoading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-green-700" /></div>
+          ) : categories.length === 0 ? (
+            <div className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">Belum ada kategori artikel.</div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {categories.map((category) => (
+                <div key={category.id} className={`flex items-center justify-between gap-3 rounded-xl border p-4 ${category.isActive ? "bg-white" : "bg-gray-50 opacity-65"}`}>
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900">{category.name}</p>
+                    <p className="mt-1 truncate text-xs text-gray-500">{category.slug} · Urutan {category.sortOrder}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${category.isActive ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-700"}`}>{category.isActive ? "Aktif" : "Nonaktif"}</span>
+                    <Button size="icon" variant="outline" aria-label={`Edit kategori ${category.name}`} onClick={() => openEditCategory(category)}><Pencil className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-green-700" /></div>
         ) : articles.length === 0 ? (
@@ -347,7 +422,7 @@ export default function AdminArticles() {
                         <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${article.status === "published" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{article.status === "published" ? "Terbit" : "Draft"}</span>
                       </div>
                       <div className="flex min-w-0 flex-col p-5">
-                        <p className="text-xs font-bold uppercase tracking-wide text-green-700">{categoryOptions.find(([value]) => value === article.category)?.[1] ?? article.category}</p>
+                        <p className="text-xs font-bold uppercase tracking-wide text-green-700">{categories.find((category) => category.slug === article.category)?.name ?? article.category}</p>
                         <h2 className="mt-1 line-clamp-2 text-xl font-extrabold text-gray-900">{article.title}</h2>
                         <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-600">{article.excerpt}</p>
                         <p className="mt-2 text-xs text-gray-500">/{article.slug} · {article.images.length}/3 gambar</p>
@@ -377,6 +452,25 @@ export default function AdminArticles() {
           </div>
         )}
       </div>
+
+      <Dialog open={categoryFormOpen} onOpenChange={(open) => { setCategoryFormOpen(open); if (!open) { setEditingCategory(null); setCategoryForm(emptyCategoryForm); } }}>
+        <DialogContent className="flex max-h-[92vh] w-[calc(100%-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:rounded-2xl">
+          <DialogHeader className="border-b px-6 py-5 pr-12 text-left">
+            <DialogTitle>{editingCategory ? "Edit Kategori Artikel" : "Tambah Kategori Artikel"}</DialogTitle>
+            <DialogDescription>{editingCategory ? "Nama, urutan, dan status dapat diperbarui. Slug tetap agar artikel lama tidak rusak." : "Kategori aktif akan tersedia pada form Artikel."}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 overflow-y-auto px-6 py-5">
+            <div><Label>Nama kategori</Label><Input maxLength={255} value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} placeholder="Contoh: Perkembangan Anak" /></div>
+            <div><Label>Slug {editingCategory ? "" : "(opsional)"}</Label><Input maxLength={100} value={categoryForm.slug} disabled={Boolean(editingCategory)} onChange={(event) => setCategoryForm((current) => ({ ...current, slug: event.target.value }))} placeholder="Dibuat otomatis dari nama" />{editingCategory && <p className="mt-1 text-xs text-gray-500">Slug tidak dapat diubah setelah kategori dibuat.</p>}</div>
+            <div><Label>Urutan tampil</Label><Input type="number" min="0" max="9999" value={categoryForm.sortOrder} onChange={(event) => setCategoryForm((current) => ({ ...current, sortOrder: Number(event.target.value) || 0 }))} /></div>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={categoryForm.isActive} onChange={(event) => setCategoryForm((current) => ({ ...current, isActive: event.target.checked }))} /> Aktifkan kategori</label>
+          </div>
+          <div className="flex gap-2 border-t bg-white px-6 py-4">
+            <Button variant="outline" className="flex-1" onClick={() => setCategoryFormOpen(false)}>Batal</Button>
+            <Button className="flex-1 bg-green-700 hover:bg-green-800" disabled={saveCategory.isPending} onClick={() => saveCategory.mutate()}>{saveCategory.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={promoFormOpen} onOpenChange={(open) => { setPromoFormOpen(open); if (!open) { setEditingPromo(null); setPromoForm(emptyPromoForm); } }}>
         <DialogContent className="flex max-h-[92vh] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:rounded-2xl">
@@ -408,7 +502,7 @@ export default function AdminArticles() {
             <div><Label>Ringkasan untuk kartu Berita</Label><Textarea rows={3} maxLength={1000} value={form.excerpt} onChange={(event) => update("excerpt", event.target.value)} /></div>
             <div><Label>Isi artikel</Label><Textarea rows={16} value={form.content} onChange={(event) => update("content", event.target.value)} placeholder={"Gunakan baris kosong untuk memisahkan paragraf.\n\n## Subjudul\n**teks tebal**\n- daftar poin\n[teks tautan](https://alamat.com)"} /><p className="mt-1 text-xs leading-5 text-gray-500">Mendukung subjudul dengan ##, teks tebal dengan **teks**, daftar dengan -, dan tautan Markdown.</p></div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><Label>Kategori</Label><Select value={form.category} onValueChange={(value) => update("category", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{categoryOptions.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
+              <div><Label>Kategori</Label><Select value={form.category} onValueChange={(value) => update("category", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{categories.filter((category) => category.isActive || (Boolean(editing) && category.slug === form.category)).map((category) => <SelectItem key={category.slug} value={category.slug}>{category.name}{category.isActive ? "" : " (Nonaktif)"}</SelectItem>)}</SelectContent></Select></div>
               <div><Label>Nama penulis (opsional)</Label><Input value={form.authorName} onChange={(event) => update("authorName", event.target.value)} /></div>
               <div><Label>Status</Label><Select value={form.status} onValueChange={(value: "draft" | "published") => update("status", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="published">Terbit</SelectItem></SelectContent></Select></div>
               <div><Label>Tanggal publikasi (opsional)</Label><Input type="datetime-local" value={form.publishedAt} onChange={(event) => update("publishedAt", event.target.value)} /></div>

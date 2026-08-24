@@ -383,6 +383,17 @@ async function ensureArticleInfrastructure() {
       updated_at timestamp DEFAULT now(),
       deleted_at timestamp
     );
+    CREATE TABLE IF NOT EXISTS article_categories (
+      id serial PRIMARY KEY,
+      slug varchar(100) NOT NULL UNIQUE,
+      name varchar(255) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp
+    );
     CREATE TABLE IF NOT EXISTS managed_article_images (
       id serial PRIMARY KEY,
       article_id integer NOT NULL REFERENCES managed_articles(id) ON DELETE CASCADE,
@@ -418,10 +429,24 @@ async function ensureArticleInfrastructure() {
     );
     CREATE INDEX IF NOT EXISTS managed_articles_public_idx
       ON managed_articles(status, published_at DESC, id DESC) WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS article_categories_select_idx
+      ON article_categories(is_active, sort_order, id) WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS managed_article_images_article_idx
       ON managed_article_images(article_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS article_promos_public_idx
       ON article_promos(is_active, sort_order, id) WHERE deleted_at IS NULL;
+  `);
+
+  await pool.query(`
+    INSERT INTO article_categories (slug, name, sort_order)
+    VALUES
+      ('psikologi', 'Psikologi', 0),
+      ('pendidikan', 'Pendidikan', 1),
+      ('parenting', 'Parenting', 2),
+      ('kesehatan-mental', 'Kesehatan Mental', 3),
+      ('tips', 'Tips & Trik', 4),
+      ('berita', 'Berita', 5)
+    ON CONFLICT (slug) DO NOTHING
   `);
 
   await pool.query(`
@@ -500,7 +525,6 @@ const courseGallerySchema = z.object({
   isActive: z.boolean().optional().default(true),
 });
 
-const ARTICLE_CATEGORIES = ["psikologi", "pendidikan", "parenting", "kesehatan-mental", "tips", "berita"] as const;
 const ARTICLE_IMAGE_PLACEMENTS = ["cover", "after-first", "middle", "end"] as const;
 
 const managedArticleSchema = z.object({
@@ -508,7 +532,7 @@ const managedArticleSchema = z.object({
   slug: z.string().trim().max(255).optional(),
   excerpt: z.string().trim().min(10).max(1000),
   content: z.string().trim().min(20).max(100000),
-  category: z.enum(ARTICLE_CATEGORIES).optional().default("berita"),
+  category: z.string().trim().min(1).max(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional().default("berita"),
   authorName: z.string().trim().max(255).optional().default(""),
   status: z.enum(["draft", "published"]).optional().default("draft"),
   publishedAt: z.union([z.string().datetime(), z.literal(""), z.null()]).optional().default(null),
@@ -531,6 +555,13 @@ const articlePromoSchema = z.object({
     (value) => (value.startsWith("/") && !value.startsWith("//")) || /^https?:\/\//i.test(value),
     "Tautan harus berupa halaman internal atau menggunakan http/https",
   ),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  isActive: z.boolean().optional().default(true),
+});
+
+const articleCategorySchema = z.object({
+  name: z.string().trim().min(2).max(255),
+  slug: z.string().trim().max(100).optional(),
   sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
   isActive: z.boolean().optional().default(true),
 });
@@ -5450,6 +5481,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const articleCategorySelect = `
+    SELECT id, slug, name, sort_order AS "sortOrder", is_active AS "isActive",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM article_categories`;
+
+  app.get('/api/article-categories', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${articleCategorySelect} WHERE deleted_at IS NULL AND is_active = true ORDER BY sort_order, id`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching article categories:', error);
+      return res.status(500).json({ message: 'Gagal memuat kategori artikel' });
+    }
+  });
+
+  app.get('/api/admin/article-categories', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${articleCategorySelect} WHERE deleted_at IS NULL ORDER BY sort_order, id`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin article categories:', error);
+      return res.status(500).json({ message: 'Gagal memuat data kategori artikel' });
+    }
+  });
+
+  app.post('/api/admin/article-categories', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = articleCategorySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data kategori tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.name).slice(0, 100);
+    if (!slug) return res.status(400).json({ message: 'Slug kategori tidak valid' });
+    try {
+      const result = await pool.query(
+        `INSERT INTO article_categories (slug, name, sort_order, is_active, created_by)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.sortOrder, parsed.data.isActive, req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug kategori sudah digunakan' });
+      console.error('Error creating article category:', error);
+      return res.status(500).json({ message: 'Gagal menambahkan kategori artikel' });
+    }
+  });
+
+  app.put('/api/admin/article-categories/:categoryId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = articleCategorySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data kategori tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE article_categories SET name = $1, sort_order = $2, is_active = $3, updated_at = now()
+         WHERE id = $4 AND deleted_at IS NULL RETURNING id, slug`,
+        [parsed.data.name, parsed.data.sortOrder, parsed.data.isActive, Number(req.params.categoryId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Kategori artikel tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating article category:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui kategori artikel' });
+    }
+  });
+
   const articlePromoSelect = `
     SELECT id, title, description, button_text AS "buttonText", link_url AS "linkUrl",
            sort_order AS "sortOrder", is_active AS "isActive",
@@ -5531,7 +5627,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const managedArticleSelect = `
     SELECT article.id, article.slug, article.title, article.excerpt, article.content,
-           article.category, article.author_name AS "authorName", article.status,
+           article.category,
+           COALESCE(category.name, article.category) AS "categoryLabel",
+           article.author_name AS "authorName", article.status,
            article.published_at AS "publishedAt", article.created_at AS "createdAt",
            article.updated_at AS "updatedAt",
            COALESCE(json_agg(
@@ -5547,14 +5645,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
              ) ORDER BY image.sort_order, image.id
            ) FILTER (WHERE image.id IS NOT NULL), '[]'::json) AS images
     FROM managed_articles article
-    LEFT JOIN managed_article_images image ON image.article_id = article.id`;
+    LEFT JOIN managed_article_images image ON image.article_id = article.id
+    LEFT JOIN article_categories category ON category.slug = article.category AND category.deleted_at IS NULL`;
 
   app.get('/api/articles', async (_req, res) => {
     try {
       const result = await pool.query(
         `${managedArticleSelect}
          WHERE article.deleted_at IS NULL AND article.status = 'published'
-         GROUP BY article.id
+         GROUP BY article.id, category.name
          ORDER BY COALESCE(article.published_at, article.created_at) DESC, article.id DESC`,
       );
       return res.json(result.rows);
@@ -5569,7 +5668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await pool.query(
         `${managedArticleSelect}
          WHERE article.slug = $1 AND article.deleted_at IS NULL AND article.status = 'published'
-         GROUP BY article.id LIMIT 1`,
+         GROUP BY article.id, category.name LIMIT 1`,
         [req.params.slug],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Artikel tidak ditemukan' });
@@ -5601,7 +5700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await pool.query(
         `${managedArticleSelect}
          WHERE article.deleted_at IS NULL
-         GROUP BY article.id
+         GROUP BY article.id, category.name
          ORDER BY article.updated_at DESC, article.id DESC`,
       );
       return res.json(result.rows);
@@ -5618,6 +5717,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!slug) return res.status(400).json({ message: 'Slug artikel tidak valid' });
     const publishedAt = parsed.data.publishedAt || (parsed.data.status === 'published' ? new Date().toISOString() : null);
     try {
+      const category = await pool.query(
+        `SELECT id FROM article_categories WHERE slug = $1 AND deleted_at IS NULL AND is_active = true`,
+        [parsed.data.category],
+      );
+      if (!category.rowCount) return res.status(400).json({ message: 'Kategori artikel tidak tersedia' });
       const result = await pool.query(
         `INSERT INTO managed_articles (slug, title, excerpt, content, category, author_name, status, published_at, created_by)
          VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), $7, $8, $9)
@@ -5639,6 +5743,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!slug) return res.status(400).json({ message: 'Slug artikel tidak valid' });
     const publishedAt = parsed.data.publishedAt || (parsed.data.status === 'published' ? new Date().toISOString() : null);
     try {
+      const currentArticle = await pool.query(
+        `SELECT category FROM managed_articles WHERE id = $1 AND deleted_at IS NULL`,
+        [Number(req.params.articleId)],
+      );
+      if (!currentArticle.rowCount) return res.status(404).json({ message: 'Artikel tidak ditemukan' });
+      const category = await pool.query(
+        `SELECT id FROM article_categories
+         WHERE slug = $1 AND deleted_at IS NULL AND (is_active = true OR slug = $2)`,
+        [parsed.data.category, currentArticle.rows[0].category],
+      );
+      if (!category.rowCount) return res.status(400).json({ message: 'Kategori artikel tidak tersedia' });
       const result = await pool.query(
         `UPDATE managed_articles SET slug = $1, title = $2, excerpt = $3, content = $4,
            category = $5, author_name = NULLIF($6, ''), status = $7, published_at = $8,

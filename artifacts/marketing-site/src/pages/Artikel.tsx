@@ -23,6 +23,7 @@ type ManagedArticle = {
   excerpt: string;
   content: string;
   category: string;
+  categoryLabel?: string;
   authorName: string | null;
   status: "published";
   publishedAt: string | null;
@@ -203,7 +204,7 @@ function ArticleDetail({ slug }: { slug: string }) {
   const color = articleColor(managedPost?.category);
   const title = managedPost?.title ?? "Berita";
   const category = managedPost?.category;
-  const categoryLabel = category ? (CATEGORY_LABELS[category] ?? category) : "";
+  const categoryLabel = managedPost?.categoryLabel ?? (category ? (CATEGORY_LABELS[category] ?? category) : "");
   const publishedAt = managedPost?.publishedAt;
   const date = publishedAt ? formatDate(publishedAt) : "";
   const managedCover = managedPost?.images.find((image) => image.placement === "cover") ?? managedPost?.images[0];
@@ -309,6 +310,7 @@ export default function Artikel() {
     excerpt: string
     publishedAt?: string
     category?: string
+    categoryLabel?: string
     color: string
     imageUrl?: string
     imageAlt?: string
@@ -324,6 +326,7 @@ export default function Artikel() {
       excerpt: article.excerpt,
       publishedAt: article.publishedAt ?? article.createdAt,
       category: article.category,
+      categoryLabel: article.categoryLabel,
       color: articleColor(article.category),
       imageUrl: cover ? managedArticleImageUrl(cover.id) : undefined,
       imageAlt: cover?.altText || article.title,
@@ -377,7 +380,7 @@ export default function Artikel() {
               ) : (
                 <div className="space-y-6">
                   {filtered.map((a) => {
-                    const label = a.category ? (CATEGORY_LABELS[a.category] ?? a.category) : "";
+                    const label = a.categoryLabel ?? (a.category ? (CATEGORY_LABELS[a.category] ?? a.category) : "");
                     return (
                       <Link
                         key={a.slug}
