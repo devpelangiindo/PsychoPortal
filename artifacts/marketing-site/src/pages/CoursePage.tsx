@@ -1,6 +1,6 @@
 import { useState, type ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, ArrowRight, BookOpen, Calculator, Camera, CheckCircle2, GraduationCap, Medal, Music2, Sparkles, Users, Video, Waves } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Calculator, Camera, CheckCircle2, GraduationCap, Maximize2, Medal, Music2, Sparkles, Users, Waves } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
@@ -129,6 +129,16 @@ type ManagedCourse = Omit<Course, "icon" | "accent"> & {
   details: string[];
 };
 
+type CourseGalleryImage = {
+  id: number;
+  fileName: string;
+  title: string | null;
+  caption: string | null;
+  sortOrder: number;
+  focusX: number;
+  focusY: number;
+};
+
 function apiBase() {
   if (import.meta.env.VITE_ASESMEN_API_URL) return String(import.meta.env.VITE_ASESMEN_API_URL).replace(/\/$/, "");
   return window.location.hostname === "localhost" ? "http://localhost:5001" : "https://asesmen.pi-psychology.com";
@@ -138,17 +148,31 @@ function courseImageUrl(imageId: number) {
   return `${apiBase()}/api/courses/images/${imageId}`;
 }
 
+function courseGalleryImageUrl(imageId: number) {
+  return `${apiBase()}/api/course-gallery/images/${imageId}`;
+}
+
 function whatsappHref(courseName: string) {
   return `https://wa.me/6285117658242?text=${encodeURIComponent(`Halo Pelangi Indonesia, saya ingin mendaftar dan mengetahui informasi lebih lanjut mengenai kursus ${courseName}.`)}`;
 }
 
 export default function CoursePage() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<CourseGalleryImage | null>(null);
   const { data: managedCourses } = useQuery<ManagedCourse[]>({
     queryKey: ["courses"],
     queryFn: async () => {
       const response = await fetch(`${apiBase()}/api/courses`);
       if (!response.ok) throw new Error("Gagal memuat katalog kursus");
+      return response.json();
+    },
+    retry: 1,
+  });
+  const { data: gallery = [] } = useQuery<CourseGalleryImage[]>({
+    queryKey: ["course-gallery"],
+    queryFn: async () => {
+      const response = await fetch(`${apiBase()}/api/course-gallery`);
+      if (!response.ok) throw new Error("Gagal memuat galeri kegiatan kursus");
       return response.json();
     },
     retry: 1,
@@ -179,23 +203,35 @@ export default function CoursePage() {
       </section>
 
       <main className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
-        <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
-          <div className="grid lg:grid-cols-[1.35fr_1fr]">
-            <div className="relative flex min-h-[320px] items-center justify-center overflow-hidden bg-gradient-to-br from-green-100 via-white to-emerald-100 p-8">
-              <div className="absolute -left-16 -top-16 h-52 w-52 rounded-full bg-green-300/30 blur-2xl" />
-              <img src="/services/kursus.png" alt="Ilustrasi kegiatan kursus Pelangi Indonesia" className="relative h-52 w-52 object-contain drop-shadow-lg sm:h-60 sm:w-60" />
-            </div>
-            <div className="flex flex-col justify-center p-7 sm:p-10">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-green-700">Galeri Kegiatan</p>
+        {gallery.length > 0 && (
+          <section className="overflow-hidden rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 sm:p-8 lg:p-10">
+            <div className="mb-7 max-w-3xl">
+              <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-green-700"><Camera className="h-4 w-4" />Galeri Kegiatan</p>
               <h2 className="mt-2 text-3xl font-extrabold text-gray-900">Belajar, bergerak, dan berkembang bersama</h2>
-              <p className="mt-4 leading-7 text-gray-600">Section galeri telah disiapkan untuk menampilkan dokumentasi foto dan video dari berbagai kegiatan kursus Pelangi Indonesia.</p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <div className="flex items-center gap-3 rounded-2xl bg-green-50 p-4 text-sm font-bold text-green-900"><Camera className="h-5 w-5 text-green-700" /> Dokumentasi Foto</div>
-                <div className="flex items-center gap-3 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-900"><Video className="h-5 w-5 text-blue-700" /> Video Kegiatan</div>
-              </div>
+              <p className="mt-3 leading-7 text-gray-600">Dokumentasi kegiatan kursus Pelangi Indonesia yang mendukung anak belajar dengan nyaman, aktif, dan menyenangkan.</p>
             </div>
-          </div>
-        </section>
+            <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3">
+              {gallery.map((image, index) => (
+                <button
+                  key={image.id}
+                  type="button"
+                  onClick={() => setSelectedGalleryImage(image)}
+                  className={`group relative aspect-[4/3] min-w-[82%] snap-center overflow-hidden rounded-2xl bg-gray-100 text-left sm:min-w-0 ${index === 0 && gallery.length > 2 ? "sm:col-span-2 sm:row-span-2 lg:col-span-2" : ""}`}
+                >
+                  <img src={courseGalleryImageUrl(image.id)} alt={image.title || image.fileName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" style={{ objectPosition: `${image.focusX}% ${image.focusY}%` }} />
+                  <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+                  <span className="absolute right-3 top-3 rounded-full bg-black/40 p-2 text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100"><Maximize2 className="h-4 w-4" /></span>
+                  {(image.title || image.caption) && (
+                    <span className="absolute inset-x-0 bottom-0 p-4 text-white">
+                      {image.title && <span className="block font-bold">{image.title}</span>}
+                      {image.caption && <span className="mt-1 line-clamp-2 block text-xs leading-5 text-white/85">{image.caption}</span>}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="mt-14">
           <div className="mb-8">
@@ -265,6 +301,23 @@ export default function CoursePage() {
               {selectedCourse.specialNote && <p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">{selectedCourse.specialNote}</p>}
               <a href={whatsappHref(selectedCourse.title)} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 font-bold text-white transition hover:bg-[#1fb85a]"><SiWhatsapp size={18} /> Daftar Sekarang</a>
             </div>
+          </DialogContent>
+        )}
+      </Dialog>
+      <Dialog open={selectedGalleryImage !== null} onOpenChange={(open) => !open && setSelectedGalleryImage(null)}>
+        {selectedGalleryImage && (
+          <DialogContent className="w-[calc(100%-1rem)] max-w-5xl overflow-hidden border-0 bg-black p-0 sm:rounded-2xl">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{selectedGalleryImage.title || "Foto galeri kegiatan kursus"}</DialogTitle>
+              <DialogDescription>{selectedGalleryImage.caption || "Dokumentasi kegiatan kursus Pelangi Indonesia"}</DialogDescription>
+            </DialogHeader>
+            <img src={courseGalleryImageUrl(selectedGalleryImage.id)} alt={selectedGalleryImage.title || selectedGalleryImage.fileName} className="max-h-[78vh] w-full object-contain" />
+            {(selectedGalleryImage.title || selectedGalleryImage.caption) && (
+              <div className="bg-white p-5 sm:p-6">
+                {selectedGalleryImage.title && <h3 className="text-xl font-extrabold text-gray-900">{selectedGalleryImage.title}</h3>}
+                {selectedGalleryImage.caption && <p className="mt-2 leading-7 text-gray-600">{selectedGalleryImage.caption}</p>}
+              </div>
+            )}
           </DialogContent>
         )}
       </Dialog>

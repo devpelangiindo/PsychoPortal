@@ -1,6 +1,6 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BookOpen, Crosshair, ImagePlus, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Camera, Crosshair, ImagePlus, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +26,17 @@ type Course = {
   imageFileName: string | null;
   imageFocusX: number | null;
   imageFocusY: number | null;
+};
+
+type CourseGalleryImage = {
+  id: number;
+  fileName: string;
+  title: string | null;
+  caption: string | null;
+  sortOrder: number;
+  focusX: number;
+  focusY: number;
+  isActive: boolean;
 };
 
 type FormState = {
@@ -64,6 +75,23 @@ async function uploadCourseImage(courseId: number, file: File) {
   return response.json();
 }
 
+async function uploadGalleryImage(file: File, imageId?: number) {
+  const response = await fetch(apiUrl(imageId ? `/api/admin/course-gallery/${imageId}/file` : "/api/admin/course-gallery"), {
+    method: imageId ? "PUT" : "POST",
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+      "Content-Type": file.type || "application/octet-stream",
+      "X-File-Name": encodeURIComponent(file.name),
+    },
+    body: file,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message || `${response.status}: Gagal mengunggah foto`);
+  }
+  return response.json();
+}
+
 export default function AdminCourses() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -71,8 +99,11 @@ export default function AdminCourses() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [focusEditor, setFocusEditor] = useState<{ course: Course; focusX: number; focusY: number } | null>(null);
+  const [galleryEditor, setGalleryEditor] = useState<CourseGalleryImage | null>(null);
+  const [galleryFocus, setGalleryFocus] = useState<{ focusX: number; focusY: number } | null>(null);
   const [isSavingFocus, setIsSavingFocus] = useState(false);
   const { data: courses = [], isLoading } = useQuery<Course[]>({ queryKey: ["/api/admin/courses"] });
+  const { data: gallery = [], isLoading: galleryLoading } = useQuery<CourseGalleryImage[]>({ queryKey: ["/api/admin/course-gallery"] });
 
   useEffect(() => {
     if (!formOpen) return;
@@ -93,6 +124,7 @@ export default function AdminCourses() {
   }, [editing, formOpen]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/courses"] });
+  const refreshGallery = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/course-gallery"] });
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((current) => ({ ...current, [key]: value }));
 
   const save = useMutation({
@@ -161,6 +193,42 @@ export default function AdminCourses() {
     }
   };
 
+  const openGalleryEditor = (image: CourseGalleryImage) => {
+    setGalleryEditor({ ...image });
+    setGalleryFocus({ focusX: image.focusX, focusY: image.focusY });
+  };
+
+  const handleGalleryFocusClick = (event: MouseEvent<HTMLButtonElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setGalleryFocus({
+      focusX: Math.max(0, Math.min(100, Math.round(((event.clientX - bounds.left) / bounds.width) * 100))),
+      focusY: Math.max(0, Math.min(100, Math.round(((event.clientY - bounds.top) / bounds.height) * 100))),
+    });
+  };
+
+  const saveGalleryImage = async () => {
+    if (!galleryEditor || !galleryFocus) return;
+    setIsSavingFocus(true);
+    try {
+      await apiRequest("PUT", `/api/admin/course-gallery/${galleryEditor.id}`, {
+        title: galleryEditor.title || "",
+        caption: galleryEditor.caption || "",
+        sortOrder: galleryEditor.sortOrder,
+        focusX: galleryFocus.focusX,
+        focusY: galleryFocus.focusY,
+        isActive: galleryEditor.isActive,
+      });
+      await refreshGallery();
+      setGalleryEditor(null);
+      setGalleryFocus(null);
+      toast({ title: "Foto galeri berhasil diperbarui" });
+    } catch (error) {
+      toast({ title: "Gagal memperbarui foto galeri", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+    } finally {
+      setIsSavingFocus(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-7xl">
@@ -168,10 +236,80 @@ export default function AdminCourses() {
         <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900">Pengelolaan Kursus</h1>
-            <p className="mt-2 text-gray-600">Tambah, edit, urutkan, dan kelola foto kartu kursus.</p>
+            <p className="mt-2 text-gray-600">Tambah, edit, urutkan, serta kelola foto kartu dan galeri kegiatan kursus.</p>
           </div>
           <Button className="bg-green-700 hover:bg-green-800" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Tambah Kursus</Button>
         </div>
+
+        <section className="mb-10 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="flex items-center gap-2 text-xl font-extrabold text-gray-900"><Camera className="h-5 w-5 text-green-700" />Galeri Kegiatan</h2>
+              <p className="mt-1 text-sm text-gray-500">Kelola maksimal 12 foto yang ditampilkan pada halaman Kursus.</p>
+            </div>
+            <label className={`inline-flex cursor-pointer items-center justify-center rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 ${gallery.length >= 12 ? "pointer-events-none opacity-50" : ""}`}>
+              <ImagePlus className="mr-2 h-4 w-4" />Upload Foto
+              <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" disabled={gallery.length >= 12} onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                try {
+                  await uploadGalleryImage(file);
+                  await refreshGallery();
+                  toast({ title: "Foto galeri berhasil diunggah" });
+                } catch (error) {
+                  toast({ title: "Gagal mengunggah foto galeri", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+                }
+                event.target.value = "";
+              }} />
+            </label>
+          </div>
+          {galleryLoading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-green-700" /></div>
+          ) : gallery.length === 0 ? (
+            <div className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">Belum ada foto galeri kegiatan.</div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {gallery.map((image) => (
+                <article key={image.id} className={`overflow-hidden rounded-xl border bg-white ${image.isActive ? "" : "opacity-60"}`}>
+                  <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                    <img src={apiUrl(`/api/course-gallery/images/${image.id}`)} alt={image.title || image.fileName} className="h-full w-full object-cover" style={{ objectPosition: `${image.focusX}% ${image.focusY}%` }} />
+                    <span className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[11px] font-bold ${image.isActive ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-700"}`}>{image.isActive ? "Aktif" : "Nonaktif"}</span>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="truncate font-bold text-gray-900">{image.title || "Tanpa judul"}</h3>
+                    <p className="mt-1 line-clamp-2 min-h-10 text-xs leading-5 text-gray-500">{image.caption || "Belum ada keterangan"}</p>
+                    <p className="mt-2 text-xs text-gray-400">Urutan {image.sortOrder}</p>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openGalleryEditor(image)}><Pencil className="mr-2 h-3.5 w-3.5" />Edit</Button>
+                      <label className="inline-flex cursor-pointer items-center justify-center rounded-md border px-2 py-2 text-xs font-medium hover:bg-gray-50">Ganti Foto<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          await uploadGalleryImage(file, image.id);
+                          await refreshGallery();
+                          toast({ title: "Foto galeri berhasil diganti" });
+                        } catch (error) {
+                          toast({ title: "Gagal mengganti foto", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+                        }
+                        event.target.value = "";
+                      }} /></label>
+                      <Button size="sm" variant="destructive" className="col-span-2" onClick={async () => {
+                        if (!confirm(`Hapus foto galeri ${image.title || image.fileName}?`)) return;
+                        try {
+                          await apiRequest("DELETE", `/api/admin/course-gallery/${image.id}`);
+                          await refreshGallery();
+                          toast({ title: "Foto galeri berhasil dihapus" });
+                        } catch (error) {
+                          toast({ title: "Gagal menghapus foto", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+                        }
+                      }}><Trash2 className="mr-2 h-3.5 w-3.5" />Hapus</Button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-green-700" /></div>
@@ -230,6 +368,32 @@ export default function AdminCourses() {
             <Button className="flex-1 bg-green-700 hover:bg-green-800" disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan</Button>
           </div>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={galleryEditor !== null} onOpenChange={(open) => { if (!open) { setGalleryEditor(null); setGalleryFocus(null); } }}>
+        {galleryEditor && galleryFocus && (
+          <DialogContent className="flex max-h-[92vh] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:rounded-2xl">
+            <DialogHeader className="border-b px-6 py-5 pr-12 text-left">
+              <DialogTitle>Edit Foto Galeri</DialogTitle>
+              <DialogDescription>Atur keterangan, urutan tampil, status, dan titik fokus foto.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 overflow-y-auto px-6 py-5">
+              <button type="button" className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-gray-100" onClick={handleGalleryFocusClick}>
+                <img src={apiUrl(`/api/course-gallery/images/${galleryEditor.id}`)} alt="Preview foto galeri" className="h-full w-full object-cover" style={{ objectPosition: `${galleryFocus.focusX}% ${galleryFocus.focusY}%` }} />
+                <span className="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-green-600 shadow" style={{ left: `${galleryFocus.focusX}%`, top: `${galleryFocus.focusY}%` }} />
+              </button>
+              <p className="text-xs text-gray-500">Klik bagian foto yang harus tetap terlihat saat foto dipotong.</p>
+              <div><Label>Judul (opsional)</Label><Input value={galleryEditor.title || ""} onChange={(event) => setGalleryEditor((current) => current ? { ...current, title: event.target.value } : current)} /></div>
+              <div><Label>Keterangan (opsional)</Label><Textarea rows={3} value={galleryEditor.caption || ""} onChange={(event) => setGalleryEditor((current) => current ? { ...current, caption: event.target.value } : current)} /></div>
+              <div><Label>Urutan tampil</Label><Input type="number" min="0" max="9999" value={galleryEditor.sortOrder} onChange={(event) => setGalleryEditor((current) => current ? { ...current, sortOrder: Number(event.target.value) || 0 } : current)} /></div>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={galleryEditor.isActive} onChange={(event) => setGalleryEditor((current) => current ? { ...current, isActive: event.target.checked } : current)} /> Tampilkan di halaman Kursus</label>
+            </div>
+            <div className="flex gap-2 border-t bg-white px-6 py-4">
+              <Button variant="outline" className="flex-1" onClick={() => { setGalleryEditor(null); setGalleryFocus(null); }}>Batal</Button>
+              <Button className="flex-1 bg-green-700 hover:bg-green-800" disabled={isSavingFocus} onClick={saveGalleryImage}>{isSavingFocus && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan</Button>
+            </div>
+          </DialogContent>
+        )}
       </Dialog>
 
       <Dialog open={focusEditor !== null} onOpenChange={(open) => !open && setFocusEditor(null)}>

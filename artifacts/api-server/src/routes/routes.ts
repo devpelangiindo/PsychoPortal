@@ -336,7 +336,24 @@ async function ensureCourseInfrastructure() {
       updated_at timestamp DEFAULT now(),
       CONSTRAINT course_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
     );
+    CREATE TABLE IF NOT EXISTS course_gallery_images (
+      id serial PRIMARY KEY,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      title varchar(255),
+      caption varchar(1000),
+      sort_order integer NOT NULL DEFAULT 0,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT course_gallery_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
     CREATE INDEX IF NOT EXISTS courses_catalog_idx ON courses(is_active, sort_order, id);
+    CREATE INDEX IF NOT EXISTS course_gallery_catalog_idx ON course_gallery_images(is_active, sort_order, id);
   `);
 
   for (const course of DEFAULT_COURSES) {
@@ -440,6 +457,15 @@ const courseSchema = z.object({
   details: z.array(z.string().trim().min(1).max(500)).max(30).optional().default([]),
   specialNote: z.string().trim().max(2000).optional().default(""),
   sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  isActive: z.boolean().optional().default(true),
+});
+
+const courseGallerySchema = z.object({
+  title: z.string().trim().max(255).optional().default(""),
+  caption: z.string().trim().max(1000).optional().default(""),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  focusX: z.coerce.number().int().min(0).max(100).optional().default(50),
+  focusY: z.coerce.number().int().min(0).max(100).optional().default(50),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -5270,6 +5296,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating course image focus:', error);
       return res.status(500).json({ message: 'Gagal menyimpan posisi fokus gambar' });
+    }
+  });
+
+  const courseGallerySelect = `
+    SELECT id, file_name AS "fileName", title, caption,
+           sort_order AS "sortOrder", focus_x AS "focusX", focus_y AS "focusY",
+           is_active AS "isActive", created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM course_gallery_images`;
+
+  app.get('/api/course-gallery', async (_req, res) => {
+    try {
+      const result = await pool.query(`${courseGallerySelect} WHERE is_active = true ORDER BY sort_order, id`);
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching course gallery:', error);
+      return res.status(500).json({ message: 'Gagal memuat galeri kegiatan kursus' });
+    }
+  });
+
+  app.get('/api/course-gallery/images/:imageId', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT image_data, mime_type FROM course_gallery_images WHERE id = $1`,
+        [Number(req.params.imageId)],
+      );
+      if (!result.rowCount) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].mime_type);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(result.rows[0].image_data);
+    } catch (error) {
+      console.error('Error fetching course gallery image:', error);
+      return res.status(500).end();
+    }
+  });
+
+  app.get('/api/admin/course-gallery', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query(`${courseGallerySelect} ORDER BY sort_order, id`);
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin course gallery:', error);
+      return res.status(500).json({ message: 'Gagal memuat galeri kegiatan kursus' });
+    }
+  });
+
+  app.post('/api/admin/course-gallery', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '8mb' }), async (req: any, res) => {
+      try {
+        if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File gambar wajib dipilih' });
+        const count = await pool.query(`SELECT COUNT(*)::int AS total FROM course_gallery_images`);
+        if (Number(count.rows[0]?.total ?? 0) >= 12) return res.status(409).json({ message: 'Galeri maksimal berisi 12 foto' });
+        const nextOrder = await pool.query(`SELECT COALESCE(MAX(sort_order), -1) + 1 AS value FROM course_gallery_images`);
+        const fileName = decodeURIComponent(String(req.headers['x-file-name'] || 'foto-galeri-kursus'));
+        const result = await pool.query(
+          `INSERT INTO course_gallery_images (image_data, file_name, mime_type, title, sort_order, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          [req.body, fileName, req.headers['content-type'], fileName.replace(/\.[^.]+$/, ''), Number(nextOrder.rows[0]?.value ?? 0), req.user.claims.sub],
+        );
+        return res.status(201).json(result.rows[0]);
+      } catch (error) {
+        console.error('Error uploading course gallery image:', error);
+        return res.status(500).json({ message: 'Gagal mengunggah foto galeri' });
+      }
+    });
+
+  app.put('/api/admin/course-gallery/:imageId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = courseGallerySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data foto galeri tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE course_gallery_images SET title = NULLIF($1, ''), caption = NULLIF($2, ''),
+           sort_order = $3, focus_x = $4, focus_y = $5, is_active = $6, updated_at = now()
+         WHERE id = $7 RETURNING id`,
+        [parsed.data.title, parsed.data.caption, parsed.data.sortOrder, parsed.data.focusX, parsed.data.focusY, parsed.data.isActive, Number(req.params.imageId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating course gallery image:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui foto galeri' });
+    }
+  });
+
+  app.put('/api/admin/course-gallery/:imageId/file', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '8mb' }), async (req, res) => {
+      try {
+        if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File gambar wajib dipilih' });
+        const result = await pool.query(
+          `UPDATE course_gallery_images SET image_data = $1, file_name = $2, mime_type = $3, updated_at = now()
+           WHERE id = $4 RETURNING id`,
+          [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'foto-galeri-kursus')), req.headers['content-type'], Number(req.params.imageId)],
+        );
+        if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri tidak ditemukan' });
+        return res.json(result.rows[0]);
+      } catch (error) {
+        console.error('Error replacing course gallery image:', error);
+        return res.status(500).json({ message: 'Gagal mengganti foto galeri' });
+      }
+    });
+
+  app.delete('/api/admin/course-gallery/:imageId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(`DELETE FROM course_gallery_images WHERE id = $1 RETURNING id`, [Number(req.params.imageId)]);
+      if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri tidak ditemukan' });
+      return res.json({ message: 'Foto galeri berhasil dihapus' });
+    } catch (error) {
+      console.error('Error deleting course gallery image:', error);
+      return res.status(500).json({ message: 'Gagal menghapus foto galeri' });
     }
   });
 
