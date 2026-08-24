@@ -412,6 +412,10 @@ async function ensureArticleInfrastructure() {
       updated_at timestamp DEFAULT now(),
       deleted_at timestamp
     );
+    CREATE TABLE IF NOT EXISTS application_data_migrations (
+      migration_key varchar(255) PRIMARY KEY,
+      applied_at timestamp DEFAULT now()
+    );
     CREATE INDEX IF NOT EXISTS managed_articles_public_idx
       ON managed_articles(status, published_at DESC, id DESC) WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS managed_article_images_article_idx
@@ -420,16 +424,17 @@ async function ensureArticleInfrastructure() {
       ON article_promos(is_active, sort_order, id) WHERE deleted_at IS NULL;
   `);
 
-  const promoCount = await pool.query(`SELECT COUNT(*)::int AS total FROM article_promos`);
-  if (Number(promoCount.rows[0]?.total ?? 0) === 0) {
-    await pool.query(
-      `INSERT INTO article_promos (title, description, button_text, link_url, sort_order)
-       VALUES
-         ('Konsultasi Awal Gratis', 'Jadwalkan sesi konsultasi pertama Anda tanpa biaya.', 'Info lebih lanjut', 'https://wa.me/6285117658242', 0),
-         ('Workshop Pelangi Indonesia', 'Pelatihan Manajemen Perilaku Anak — Daftar sekarang!', 'Info lebih lanjut', 'https://wa.me/6285117658242', 1),
-         ('Paket Asesmen Lengkap', 'Dapatkan laporan komprehensif dengan rekomendasi terapi.', 'Info lebih lanjut', 'https://wa.me/6285117658242', 2)`,
-    );
-  }
+  await pool.query(`
+    WITH applied AS (
+      INSERT INTO application_data_migrations (migration_key)
+      VALUES ('clear-initial-article-promos-v1')
+      ON CONFLICT (migration_key) DO NOTHING
+      RETURNING migration_key
+    )
+    UPDATE article_promos
+       SET deleted_at = now(), is_active = false, updated_at = now()
+     WHERE deleted_at IS NULL AND EXISTS (SELECT 1 FROM applied)
+  `);
 }
 
 function makeDigitalProductSlug(value: string) {
