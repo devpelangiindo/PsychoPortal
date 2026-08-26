@@ -5329,7 +5329,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `SELECT hero_image IS NOT NULL AS "hasHero", hero_file_name AS "heroFileName",
               hero_focus_x AS "heroFocusX", hero_focus_y AS "heroFocusY" FROM training_page_settings WHERE id = 1`,
     );
-    return res.json({ trainings: result.rows, settings: settings.rows[0] });
+    const trainings = result.rows.map((training: any) => ({
+      ...training,
+      options: Array.isArray(training.options)
+        ? training.options.filter((option: any) => option.isActive)
+        : [],
+    }));
+    return res.json({ trainings, settings: settings.rows[0] });
   });
 
   app.post('/api/admin/trainings', isAuthenticated, canManageTrainings, async (req: any, res) => {
