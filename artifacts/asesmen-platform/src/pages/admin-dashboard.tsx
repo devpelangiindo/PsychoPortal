@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -381,6 +381,18 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             <CardContent>
               <Link href={isCsoMode ? "/cso/digital-products" : "/admin/digital-products"}>
                 <Button className="w-full bg-amber-600 hover:bg-amber-700">Kelola Produk</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Presentation className="w-5 h-5 text-violet-700" />Pelatihan</CardTitle>
+              <CardDescription>Kelola agenda, pilihan harga, peserta, testimoni, dan galeri</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={isCsoMode ? "/cso/trainings" : "/admin/trainings"}>
+                <Button className="w-full bg-violet-700 hover:bg-violet-800">Kelola Pelatihan</Button>
               </Link>
             </CardContent>
           </Card>

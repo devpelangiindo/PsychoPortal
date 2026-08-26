@@ -211,6 +211,125 @@ function canManageDigitalProductsRole(role?: string | null) {
   return role === "admin" || role === "internal" || role === "cso";
 }
 
+function canManageTrainingsRole(role?: string | null) {
+  return role === "admin" || role === "internal" || role === "cso";
+}
+
+async function ensureTrainingInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS training_page_settings (
+      id smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      hero_image bytea,
+      hero_file_name varchar(255),
+      hero_mime_type varchar(100),
+      hero_focus_x smallint NOT NULL DEFAULT 50,
+      hero_focus_y smallint NOT NULL DEFAULT 50,
+      updated_by varchar REFERENCES users(id),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT training_page_hero_focus_check CHECK (hero_focus_x BETWEEN 0 AND 100 AND hero_focus_y BETWEEN 0 AND 100)
+    );
+    INSERT INTO training_page_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+    CREATE TABLE IF NOT EXISTS trainings (
+      id serial PRIMARY KEY,
+      slug varchar(255) NOT NULL UNIQUE,
+      title varchar(255) NOT NULL,
+      summary varchar(1000) NOT NULL,
+      description text NOT NULL,
+      starts_at timestamp,
+      ends_at timestamp,
+      location varchar(500),
+      registration_deadline timestamp,
+      sort_order integer NOT NULL DEFAULT 0,
+      status varchar(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'closed')),
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp
+    );
+    CREATE INDEX IF NOT EXISTS trainings_public_idx ON trainings(status, sort_order, starts_at);
+    CREATE TABLE IF NOT EXISTS training_posters (
+      id serial PRIMARY KEY,
+      training_id integer NOT NULL UNIQUE REFERENCES trainings(id) ON DELETE CASCADE,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT training_posters_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
+    CREATE TABLE IF NOT EXISTS training_options (
+      id serial PRIMARY KEY,
+      training_id integer NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
+      name varchar(255) NOT NULL,
+      description varchar(1000),
+      price numeric(10,2) NOT NULL CHECK (price >= 0),
+      capacity integer CHECK (capacity IS NULL OR capacity > 0),
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS training_options_training_idx ON training_options(training_id, is_active, sort_order);
+    CREATE TABLE IF NOT EXISTS training_registrations (
+      id serial PRIMARY KEY,
+      order_id integer NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+      user_id varchar NOT NULL REFERENCES users(id),
+      training_id integer NOT NULL REFERENCES trainings(id),
+      option_id integer NOT NULL REFERENCES training_options(id),
+      training_title varchar(255) NOT NULL,
+      option_name varchar(255) NOT NULL,
+      price numeric(10,2) NOT NULL,
+      full_name varchar(255) NOT NULL,
+      birth_date varchar(20) NOT NULL,
+      gender varchar(30) NOT NULL,
+      address text NOT NULL,
+      whatsapp_number varchar(50) NOT NULL,
+      email varchar(255) NOT NULL,
+      education varchar(255) NOT NULL,
+      occupation varchar(255) NOT NULL,
+      status varchar(30) NOT NULL DEFAULT 'pending_payment',
+      payment_status varchar(30) NOT NULL DEFAULT 'pending',
+      admin_notes text,
+      paid_at timestamp,
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS training_registrations_user_idx ON training_registrations(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS training_registrations_training_idx ON training_registrations(training_id, option_id, payment_status);
+    CREATE TABLE IF NOT EXISTS training_testimonials (
+      id serial PRIMARY KEY,
+      name varchar(255) NOT NULL,
+      occupation varchar(255),
+      training_name varchar(255),
+      testimonial text NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS training_gallery_images (
+      id serial PRIMARY KEY,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      title varchar(255),
+      caption varchar(1000),
+      sort_order integer NOT NULL DEFAULT 0,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT training_gallery_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
+    CREATE INDEX IF NOT EXISTS training_gallery_public_idx ON training_gallery_images(is_active, sort_order, id);
+  `);
+}
+
 async function ensureDigitalProductInfrastructure() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS digital_products (
@@ -524,6 +643,54 @@ const courseGallerySchema = z.object({
   focusY: z.coerce.number().int().min(0).max(100).optional().default(50),
   isActive: z.boolean().optional().default(true),
 });
+
+const trainingSchema = z.object({
+  title: z.string().trim().min(3).max(255),
+  slug: z.string().trim().max(255).optional(),
+  summary: z.string().trim().min(10).max(1000),
+  description: z.string().trim().min(20).max(50000),
+  startsAt: z.union([z.string().min(10).max(40), z.literal(""), z.null()]).optional().default(null),
+  endsAt: z.union([z.string().min(10).max(40), z.literal(""), z.null()]).optional().default(null),
+  location: z.string().trim().max(500).optional().default(""),
+  registrationDeadline: z.union([z.string().min(10).max(40), z.literal(""), z.null()]).optional().default(null),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  status: z.enum(["draft", "published", "closed"]).optional().default("draft"),
+});
+
+const trainingOptionSchema = z.object({
+  name: z.string().trim().min(2).max(255),
+  description: z.string().trim().max(1000).optional().default(""),
+  price: z.coerce.number().min(0).max(99999999),
+  capacity: z.union([z.coerce.number().int().min(1).max(100000), z.null()]).optional().default(null),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  isActive: z.boolean().optional().default(true),
+});
+
+const trainingRegistrationSchema = z.object({
+  trainingId: z.number().int().positive(),
+  optionId: z.number().int().positive(),
+  participant: z.object({
+    fullName: z.string().trim().min(2).max(255),
+    birthDate: z.string().trim().min(8).max(20),
+    gender: z.string().trim().min(1).max(30),
+    address: z.string().trim().min(5).max(2000),
+    whatsappNumber: z.string().trim().min(7).max(50),
+    email: z.string().trim().email().max(255),
+    education: z.string().trim().min(2).max(255),
+    occupation: z.string().trim().min(2).max(255),
+  }),
+});
+
+const trainingTestimonialSchema = z.object({
+  name: z.string().trim().min(2).max(255),
+  occupation: z.string().trim().max(255).optional().default(""),
+  trainingName: z.string().trim().max(255).optional().default(""),
+  testimonial: z.string().trim().min(5).max(5000),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  isActive: z.boolean().optional().default(true),
+});
+
+const trainingGallerySchema = courseGallerySchema;
 
 const ARTICLE_IMAGE_PLACEMENTS = ["cover", "after-first", "middle", "end"] as const;
 
@@ -2846,6 +3013,17 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
     return { assessmentsCreated: 0, bookingUpdated: false };
   }
 
+  const trainingRegistration = await pool.query(
+    `UPDATE training_registrations
+     SET status = 'registered', payment_status = 'paid', paid_at = COALESCE(paid_at, now()), updated_at = now()
+     WHERE order_id = $1
+     RETURNING id`,
+    [orderId],
+  );
+  if (trainingRegistration.rowCount) {
+    return { assessmentsCreated: 0, bookingUpdated: false };
+  }
+
   const bookings = await storage.getPsychologistBookingsByOrder(orderId);
   const unpaidBookings = bookings.filter((booking) => booking.status !== 'paid');
   for (const booking of unpaidBookings) {
@@ -2868,6 +3046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureExternalAssessmentInfrastructure();
     await ensureDigitalProductInfrastructure();
     await ensureCourseInfrastructure();
+    await ensureTrainingInfrastructure();
     await ensureArticleInfrastructure();
     await initializeAssessments();
     await initializeBookingServices();
@@ -4507,6 +4686,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : { rows: [] as any[] };
       const digitalCustomer = digitalCustomerResult.rows[0];
 
+      const trainingResult = order.orderItems.length === 0 && !booking && digitalItemsResult.rows.length === 0
+        ? await pool.query(
+            `SELECT registration.training_title, registration.option_name, registration.price,
+                    registration.full_name, registration.email, registration.whatsapp_number
+             FROM training_registrations registration WHERE registration.order_id = $1 LIMIT 1`,
+            [order.id],
+          )
+        : { rows: [] as any[] };
+      const trainingRegistration = trainingResult.rows[0];
+
       const itemDetails = order.orderItems.length > 0 ? order.orderItems.map(item => ({
         id: `assessment_${item.assessmentId}`,
         name: item.assessment.name,
@@ -4517,12 +4706,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: `${booking.service.name}${bookings.length > 1 ? ` (${bookings.length} sesi)` : ""}`,
         price: parseInt(booking.psychologistFee || booking.service.price),
         quantity: bookings.length,
-      }] : digitalItemsResult.rows.map((item: any) => ({
+      }] : digitalItemsResult.rows.length ? digitalItemsResult.rows.map((item: any) => ({
         id: `digital_product_${item.product_id}`,
         name: item.product_name,
         price: parseInt(item.price),
         quantity: 1,
-      }));
+      })) : trainingRegistration ? [{
+        id: `training_${order.id}`,
+        name: `${trainingRegistration.training_title} - ${trainingRegistration.option_name}`,
+        price: parseInt(trainingRegistration.price),
+        quantity: 1,
+      }] : [];
 
       if (itemDetails.length === 0) {
         return res.status(400).json({ message: "Order has no payable items" });
@@ -4533,10 +4727,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: parseInt(order.totalAmount),
         expiryMinutes: PAYMENT_EXPIRY_MINUTES,
         customerDetails: {
-          first_name: digitalCustomer?.full_name || user.firstName || 'Customer',
-          last_name: digitalCustomer ? '' : (user.lastName || ''),
-          email: digitalCustomer?.email || user.email,
-          phone: digitalCustomer?.phone || user.whatsappNumber || ''
+          first_name: digitalCustomer?.full_name || trainingRegistration?.full_name || user.firstName || 'Customer',
+          last_name: digitalCustomer || trainingRegistration ? '' : (user.lastName || ''),
+          email: digitalCustomer?.email || trainingRegistration?.email || user.email,
+          phone: digitalCustomer?.phone || trainingRegistration?.whatsapp_number || user.whatsappNumber || ''
         },
         itemDetails
       };
@@ -4909,6 +5103,455 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   }
+
+  function canManageTrainings(req: any, res: any, next: any) {
+    if (!req.user || !canManageTrainingsRole(req.user.role)) {
+      return res.status(403).json({ message: 'Akses hanya untuk Admin atau CSO.' });
+    }
+    next();
+  }
+
+  const trainingSelect = `
+    SELECT training.id, training.slug, training.title, training.summary, training.description,
+           training.starts_at AS "startsAt", training.ends_at AS "endsAt", training.location,
+           training.registration_deadline AS "registrationDeadline",
+           training.sort_order AS "sortOrder", training.status,
+           training.created_at AS "createdAt", training.updated_at AS "updatedAt",
+           poster.id AS "posterId", poster.focus_x AS "posterFocusX", poster.focus_y AS "posterFocusY",
+           COALESCE(json_agg(
+             json_build_object('id', option.id, 'name', option.name, 'description', option.description,
+               'price', option.price, 'capacity', option.capacity, 'sortOrder', option.sort_order,
+               'isActive', option.is_active)
+             ORDER BY option.sort_order, option.id
+           ) FILTER (WHERE option.id IS NOT NULL), '[]'::json) AS options
+    FROM trainings training
+    LEFT JOIN training_posters poster ON poster.training_id = training.id
+    LEFT JOIN training_options option ON option.training_id = training.id`;
+
+  app.get('/api/trainings/hero', async (_req, res) => {
+    try {
+      const result = await pool.query(`SELECT hero_image, hero_mime_type FROM training_page_settings WHERE id = 1`);
+      if (!result.rows[0]?.hero_image) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].hero_mime_type || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.send(result.rows[0].hero_image);
+    } catch (error) {
+      console.error('Error fetching training hero:', error);
+      return res.status(500).end();
+    }
+  });
+
+  app.get('/api/trainings/posters/:posterId', async (req, res) => {
+    try {
+      const result = await pool.query(`SELECT image_data, mime_type FROM training_posters WHERE id = $1`, [Number(req.params.posterId)]);
+      if (!result.rowCount) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].mime_type);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(result.rows[0].image_data);
+    } catch (error) {
+      console.error('Error fetching training poster:', error);
+      return res.status(500).end();
+    }
+  });
+
+  app.get('/api/trainings/gallery/images/:imageId', async (req, res) => {
+    try {
+      const result = await pool.query(`SELECT image_data, mime_type FROM training_gallery_images WHERE id = $1`, [Number(req.params.imageId)]);
+      if (!result.rowCount) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].mime_type);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(result.rows[0].image_data);
+    } catch (error) {
+      console.error('Error fetching training gallery image:', error);
+      return res.status(500).end();
+    }
+  });
+
+  app.get('/api/trainings/testimonials', async (_req, res) => {
+    const result = await pool.query(
+      `SELECT id, name, occupation, training_name AS "trainingName", testimonial, sort_order AS "sortOrder"
+       FROM training_testimonials WHERE is_active = true ORDER BY sort_order, id`,
+    );
+    return res.json(result.rows);
+  });
+
+  app.get('/api/trainings/gallery', async (_req, res) => {
+    const result = await pool.query(
+      `SELECT id, file_name AS "fileName", title, caption, sort_order AS "sortOrder",
+              focus_x AS "focusX", focus_y AS "focusY"
+       FROM training_gallery_images WHERE is_active = true ORDER BY sort_order, id`,
+    );
+    return res.json(result.rows);
+  });
+
+  app.get('/api/trainings', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${trainingSelect}
+         WHERE training.deleted_at IS NULL AND training.status IN ('published', 'closed')
+           AND (option.is_active = true OR option.id IS NULL)
+         GROUP BY training.id, poster.id
+         ORDER BY CASE WHEN training.status = 'published' THEN 0 ELSE 1 END,
+                  training.sort_order, training.starts_at NULLS LAST, training.id DESC`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching trainings:', error);
+      return res.status(500).json({ message: 'Gagal memuat agenda pelatihan' });
+    }
+  });
+
+  app.get('/api/trainings/:slug', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `${trainingSelect}
+         WHERE training.slug = $1 AND training.deleted_at IS NULL AND training.status IN ('published', 'closed')
+           AND (option.is_active = true OR option.id IS NULL)
+         GROUP BY training.id, poster.id LIMIT 1`,
+        [req.params.slug],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Agenda pelatihan tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error fetching training:', error);
+      return res.status(500).json({ message: 'Gagal memuat agenda pelatihan' });
+    }
+  });
+
+  app.get('/api/training-registrations/profile', isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const user = await storage.getUser(userId);
+    const previous = await pool.query(
+      `SELECT full_name AS "fullName", birth_date AS "birthDate", gender, address,
+              whatsapp_number AS "whatsappNumber", email, education, occupation
+       FROM training_registrations WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [userId],
+    );
+    return res.json(previous.rows[0] || {
+      fullName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
+      birthDate: '', gender: '', address: '', whatsappNumber: user?.whatsappNumber || '',
+      email: user?.email || '', education: '', occupation: '',
+    });
+  });
+
+  app.post('/api/training-registrations', isAuthenticated, async (req: any, res) => {
+    const parsed = trainingRegistrationSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pendaftaran tidak valid', errors: parsed.error.flatten() });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const userId = req.user.claims.sub;
+      const training = await client.query(
+        `SELECT id, title, status, registration_deadline FROM trainings
+         WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+        [parsed.data.trainingId],
+      );
+      if (!training.rowCount || training.rows[0].status !== 'published') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ message: 'Pendaftaran agenda ini tidak tersedia' });
+      }
+      if (training.rows[0].registration_deadline && new Date(training.rows[0].registration_deadline).getTime() < Date.now()) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ message: 'Batas waktu pendaftaran telah berakhir' });
+      }
+      const option = await client.query(
+        `SELECT id, name, price, capacity FROM training_options
+         WHERE id = $1 AND training_id = $2 AND is_active = true FOR UPDATE`,
+        [parsed.data.optionId, parsed.data.trainingId],
+      );
+      if (!option.rowCount) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ message: 'Pilihan agenda tidak tersedia' });
+      }
+      if (option.rows[0].capacity) {
+        const used = await client.query(
+          `SELECT COUNT(*)::int AS total FROM training_registrations registration
+           JOIN orders order_data ON order_data.id = registration.order_id
+           WHERE registration.option_id = $1 AND order_data.payment_status IN ('pending', 'paid')
+             AND order_data.status <> 'cancelled'`,
+          [parsed.data.optionId],
+        );
+        if (Number(used.rows[0].total) >= Number(option.rows[0].capacity)) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ message: 'Kuota pilihan agenda sudah penuh' });
+        }
+      }
+      const order = await client.query(
+        `INSERT INTO orders (user_id, total_amount, status, payment_status, payment_method)
+         VALUES ($1, $2, 'pending', 'pending', 'midtrans') RETURNING id, total_amount AS "totalAmount"`,
+        [userId, option.rows[0].price],
+      );
+      const participant = parsed.data.participant;
+      const registration = await client.query(
+        `INSERT INTO training_registrations
+          (order_id, user_id, training_id, option_id, training_title, option_name, price,
+           full_name, birth_date, gender, address, whatsapp_number, email, education, occupation)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         RETURNING id, order_id AS "orderId"`,
+        [order.rows[0].id, userId, parsed.data.trainingId, parsed.data.optionId, training.rows[0].title,
+         option.rows[0].name, option.rows[0].price, participant.fullName, participant.birthDate,
+         participant.gender, participant.address, participant.whatsappNumber, participant.email,
+         participant.education, participant.occupation],
+      );
+      await client.query('COMMIT');
+      return res.status(201).json({ ...registration.rows[0], totalAmount: order.rows[0].totalAmount });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error creating training registration:', error);
+      return res.status(500).json({ message: 'Gagal membuat pendaftaran pelatihan' });
+    } finally {
+      client.release();
+    }
+  });
+
+  app.get('/api/training-registrations/me', isAuthenticated, async (req: any, res) => {
+    const result = await pool.query(
+      `SELECT registration.id, registration.order_id AS "orderId", registration.training_title AS "trainingTitle",
+              registration.option_name AS "optionName", registration.price, registration.status,
+              COALESCE(order_data.payment_status, registration.payment_status) AS "paymentStatus", registration.created_at AS "createdAt",
+              training.starts_at AS "startsAt", training.ends_at AS "endsAt", training.location,
+              poster.id AS "posterId", poster.focus_x AS "posterFocusX", poster.focus_y AS "posterFocusY"
+       FROM training_registrations registration
+       JOIN orders order_data ON order_data.id = registration.order_id
+       JOIN trainings training ON training.id = registration.training_id
+       LEFT JOIN training_posters poster ON poster.training_id = training.id
+       WHERE registration.user_id = $1 ORDER BY registration.created_at DESC`,
+      [req.user.claims.sub],
+    );
+    return res.json(result.rows);
+  });
+
+  app.get('/api/admin/trainings', isAuthenticated, canManageTrainings, async (_req, res) => {
+    const result = await pool.query(
+      `${trainingSelect} WHERE training.deleted_at IS NULL GROUP BY training.id, poster.id ORDER BY training.sort_order, training.id DESC`,
+    );
+    const settings = await pool.query(
+      `SELECT hero_image IS NOT NULL AS "hasHero", hero_file_name AS "heroFileName",
+              hero_focus_x AS "heroFocusX", hero_focus_y AS "heroFocusY" FROM training_page_settings WHERE id = 1`,
+    );
+    return res.json({ trainings: result.rows, settings: settings.rows[0] });
+  });
+
+  app.post('/api/admin/trainings', isAuthenticated, canManageTrainings, async (req: any, res) => {
+    const parsed = trainingSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pelatihan tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title);
+    if (!slug) return res.status(400).json({ message: 'Slug pelatihan tidak valid' });
+    try {
+      const result = await pool.query(
+        `INSERT INTO trainings (slug, title, summary, description, starts_at, ends_at, location,
+          registration_deadline, sort_order, status, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),$8,$9,$10,$11) RETURNING id, slug`,
+        [slug, parsed.data.title, parsed.data.summary, parsed.data.description, parsed.data.startsAt || null,
+         parsed.data.endsAt || null, parsed.data.location, parsed.data.registrationDeadline || null,
+         parsed.data.sortOrder, parsed.data.status, req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug pelatihan sudah digunakan' });
+      return res.status(500).json({ message: 'Gagal menambahkan pelatihan' });
+    }
+  });
+
+  app.put('/api/admin/trainings/:trainingId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = trainingSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pelatihan tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title);
+    try {
+      const result = await pool.query(
+        `UPDATE trainings SET slug=$1,title=$2,summary=$3,description=$4,starts_at=$5,ends_at=$6,
+          location=NULLIF($7,''),registration_deadline=$8,sort_order=$9,status=$10,updated_at=now()
+         WHERE id=$11 AND deleted_at IS NULL RETURNING id, slug`,
+        [slug, parsed.data.title, parsed.data.summary, parsed.data.description, parsed.data.startsAt || null,
+         parsed.data.endsAt || null, parsed.data.location, parsed.data.registrationDeadline || null,
+         parsed.data.sortOrder, parsed.data.status, Number(req.params.trainingId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Pelatihan tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug pelatihan sudah digunakan' });
+      return res.status(500).json({ message: 'Gagal memperbarui pelatihan' });
+    }
+  });
+
+  app.delete('/api/admin/trainings/:trainingId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const result = await pool.query(
+      `UPDATE trainings SET deleted_at=now(),status='draft',updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`,
+      [Number(req.params.trainingId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Pelatihan tidak ditemukan' });
+    return res.json({ message: 'Pelatihan dihapus dari katalog' });
+  });
+
+  app.post('/api/admin/trainings/:trainingId/options', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = trainingOptionSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pilihan tidak valid', errors: parsed.error.flatten() });
+    const result = await pool.query(
+      `INSERT INTO training_options (training_id,name,description,price,capacity,sort_order,is_active)
+       VALUES ($1,$2,NULLIF($3,''),$4,$5,$6,$7) RETURNING id`,
+      [Number(req.params.trainingId), parsed.data.name, parsed.data.description, parsed.data.price,
+       parsed.data.capacity, parsed.data.sortOrder, parsed.data.isActive],
+    );
+    return res.status(201).json(result.rows[0]);
+  });
+
+  app.put('/api/admin/trainings/:trainingId/options/:optionId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = trainingOptionSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pilihan tidak valid', errors: parsed.error.flatten() });
+    const result = await pool.query(
+      `UPDATE training_options SET name=$1,description=NULLIF($2,''),price=$3,capacity=$4,sort_order=$5,is_active=$6,updated_at=now()
+       WHERE id=$7 AND training_id=$8 RETURNING id`,
+      [parsed.data.name, parsed.data.description, parsed.data.price, parsed.data.capacity, parsed.data.sortOrder,
+       parsed.data.isActive, Number(req.params.optionId), Number(req.params.trainingId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Pilihan agenda tidak ditemukan' });
+    return res.json(result.rows[0]);
+  });
+
+  app.delete('/api/admin/trainings/:trainingId/options/:optionId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const result = await pool.query(
+      `UPDATE training_options SET is_active=false,updated_at=now() WHERE id=$1 AND training_id=$2 RETURNING id`,
+      [Number(req.params.optionId), Number(req.params.trainingId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Pilihan agenda tidak ditemukan' });
+    return res.json({ message: 'Pilihan agenda dinonaktifkan' });
+  });
+
+  app.put('/api/admin/trainings/:trainingId/poster', isAuthenticated, canManageTrainings,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File poster wajib dipilih' });
+      const result = await pool.query(
+        `INSERT INTO training_posters (training_id,image_data,file_name,mime_type) VALUES ($1,$2,$3,$4)
+         ON CONFLICT (training_id) DO UPDATE SET image_data=EXCLUDED.image_data,file_name=EXCLUDED.file_name,
+           mime_type=EXCLUDED.mime_type,updated_at=now() RETURNING id`,
+        [Number(req.params.trainingId), req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'poster-pelatihan')), req.headers['content-type']],
+      );
+      return res.json(result.rows[0]);
+    });
+
+  app.put('/api/admin/trainings/:trainingId/poster/focus', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = digitalProductImageFocusSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Posisi fokus tidak valid' });
+    const result = await pool.query(
+      `UPDATE training_posters SET focus_x=$1,focus_y=$2,updated_at=now() WHERE training_id=$3 RETURNING id`,
+      [parsed.data.focusX, parsed.data.focusY, Number(req.params.trainingId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Poster tidak ditemukan' });
+    return res.json(result.rows[0]);
+  });
+
+  app.put('/api/admin/trainings/hero/image', isAuthenticated, canManageTrainings,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File banner wajib dipilih' });
+      await pool.query(
+        `UPDATE training_page_settings SET hero_image=$1,hero_file_name=$2,hero_mime_type=$3,updated_by=$4,updated_at=now() WHERE id=1`,
+        [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'banner-pelatihan')), req.headers['content-type'], req.user.claims.sub],
+      );
+      return res.json({ message: 'Banner berhasil disimpan' });
+    });
+
+  app.put('/api/admin/trainings/hero/focus', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = digitalProductImageFocusSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Posisi fokus tidak valid' });
+    await pool.query(`UPDATE training_page_settings SET hero_focus_x=$1,hero_focus_y=$2,updated_at=now() WHERE id=1`, [parsed.data.focusX, parsed.data.focusY]);
+    return res.json({ message: 'Posisi fokus banner disimpan' });
+  });
+
+  app.get('/api/admin/training-testimonials', isAuthenticated, canManageTrainings, async (_req, res) => {
+    const result = await pool.query(`SELECT id,name,occupation,training_name AS "trainingName",testimonial,sort_order AS "sortOrder",is_active AS "isActive" FROM training_testimonials ORDER BY sort_order,id`);
+    return res.json(result.rows);
+  });
+
+  app.post('/api/admin/training-testimonials', isAuthenticated, canManageTrainings, async (req: any, res) => {
+    const parsed = trainingTestimonialSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data testimoni tidak valid', errors: parsed.error.flatten() });
+    const d = parsed.data;
+    const result = await pool.query(`INSERT INTO training_testimonials (name,occupation,training_name,testimonial,sort_order,is_active,created_by) VALUES ($1,NULLIF($2,''),NULLIF($3,''),$4,$5,$6,$7) RETURNING id`, [d.name,d.occupation,d.trainingName,d.testimonial,d.sortOrder,d.isActive,req.user.claims.sub]);
+    return res.status(201).json(result.rows[0]);
+  });
+
+  app.put('/api/admin/training-testimonials/:testimonialId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = trainingTestimonialSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data testimoni tidak valid', errors: parsed.error.flatten() });
+    const d = parsed.data;
+    const result = await pool.query(`UPDATE training_testimonials SET name=$1,occupation=NULLIF($2,''),training_name=NULLIF($3,''),testimonial=$4,sort_order=$5,is_active=$6,updated_at=now() WHERE id=$7 RETURNING id`, [d.name,d.occupation,d.trainingName,d.testimonial,d.sortOrder,d.isActive,Number(req.params.testimonialId)]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Testimoni tidak ditemukan' });
+    return res.json(result.rows[0]);
+  });
+
+  app.delete('/api/admin/training-testimonials/:testimonialId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const result = await pool.query(`DELETE FROM training_testimonials WHERE id=$1 RETURNING id`, [Number(req.params.testimonialId)]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Testimoni tidak ditemukan' });
+    return res.json({ message: 'Testimoni dihapus' });
+  });
+
+  app.get('/api/admin/training-gallery', isAuthenticated, canManageTrainings, async (_req, res) => {
+    const result = await pool.query(`SELECT id,file_name AS "fileName",title,caption,sort_order AS "sortOrder",focus_x AS "focusX",focus_y AS "focusY",is_active AS "isActive" FROM training_gallery_images ORDER BY sort_order,id`);
+    return res.json(result.rows);
+  });
+
+  app.post('/api/admin/training-gallery', isAuthenticated, canManageTrainings,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto wajib dipilih' });
+      const next = await pool.query(`SELECT COALESCE(MAX(sort_order),-1)+1 AS value FROM training_gallery_images`);
+      const result = await pool.query(`INSERT INTO training_gallery_images (image_data,file_name,mime_type,sort_order,created_by) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [req.body,decodeURIComponent(String(req.headers['x-file-name'] || 'galeri-pelatihan')),req.headers['content-type'],Number(next.rows[0].value),req.user.claims.sub]);
+      return res.status(201).json(result.rows[0]);
+    });
+
+  app.put('/api/admin/training-gallery/:imageId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = trainingGallerySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data galeri tidak valid', errors: parsed.error.flatten() });
+    const d = parsed.data;
+    const result = await pool.query(`UPDATE training_gallery_images SET title=NULLIF($1,''),caption=NULLIF($2,''),sort_order=$3,focus_x=$4,focus_y=$5,is_active=$6,updated_at=now() WHERE id=$7 RETURNING id`, [d.title,d.caption,d.sortOrder,d.focusX,d.focusY,d.isActive,Number(req.params.imageId)]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Foto tidak ditemukan' });
+    return res.json(result.rows[0]);
+  });
+
+  app.delete('/api/admin/training-gallery/:imageId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const result = await pool.query(`DELETE FROM training_gallery_images WHERE id=$1 RETURNING id`, [Number(req.params.imageId)]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Foto tidak ditemukan' });
+    return res.json({ message: 'Foto galeri dihapus' });
+  });
+
+  app.get('/api/admin/training-registrations', isAuthenticated, canManageTrainings, async (req, res) => {
+    const params: any[] = [];
+    let where = '';
+    if (req.query.trainingId) { params.push(Number(req.query.trainingId)); where = `WHERE registration.training_id = $${params.length}`; }
+    const result = await pool.query(
+      `SELECT registration.id,registration.order_id AS "orderId",registration.training_id AS "trainingId",
+              registration.training_title AS "trainingTitle",registration.option_name AS "optionName",registration.price,
+              registration.full_name AS "fullName",registration.birth_date AS "birthDate",registration.gender,
+              registration.address,registration.whatsapp_number AS "whatsappNumber",registration.email,
+              registration.education,registration.occupation,registration.status,
+              COALESCE(order_data.payment_status, registration.payment_status) AS "paymentStatus",registration.admin_notes AS "adminNotes",
+              registration.created_at AS "createdAt" FROM training_registrations registration
+       JOIN orders order_data ON order_data.id = registration.order_id
+       ${where} ORDER BY registration.created_at DESC`, params);
+    return res.json(result.rows);
+  });
+
+  app.put('/api/admin/training-registrations/:registrationId', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = z.object({ status: z.enum(['pending_payment','registered','cancelled','attended']), adminNotes: z.string().trim().max(5000).optional().default('') }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pendaftaran tidak valid' });
+    const result = await pool.query(`UPDATE training_registrations SET status=$1,admin_notes=NULLIF($2,''),updated_at=now() WHERE id=$3 RETURNING id`, [parsed.data.status,parsed.data.adminNotes,Number(req.params.registrationId)]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Pendaftaran tidak ditemukan' });
+    return res.json(result.rows[0]);
+  });
+
+  app.get('/api/admin/training-registrations.csv', isAuthenticated, canManageTrainings, async (_req, res) => {
+    const result = await pool.query(`SELECT registration.training_title,registration.option_name,registration.full_name,
+      registration.birth_date,registration.gender,registration.address,registration.whatsapp_number,registration.email,
+      registration.education,registration.occupation,registration.price,registration.status,
+      COALESCE(order_data.payment_status, registration.payment_status) AS payment_status,registration.created_at
+      FROM training_registrations registration JOIN orders order_data ON order_data.id=registration.order_id
+      ORDER BY registration.created_at DESC`);
+    const escape = (value: any) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const headers = ['Pelatihan','Pilihan','Nama','Tanggal Lahir','Jenis Kelamin','Alamat','WhatsApp','Email','Pendidikan','Pekerjaan','Harga','Status','Pembayaran','Tanggal Daftar'];
+    const rows = result.rows.map((row: any) => [row.training_title,row.option_name,row.full_name,row.birth_date,row.gender,row.address,row.whatsapp_number,row.email,row.education,row.occupation,row.price,row.status,row.payment_status,row.created_at].map(escape).join(','));
+    res.setHeader('Content-Type','text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition','attachment; filename="pendaftaran-pelatihan.csv"');
+    return res.send(`\ufeff${headers.map(escape).join(',')}\n${rows.join('\n')}`);
+  });
 
   const digitalProductSelect = `
     SELECT p.id, p.slug, p.name, p.short_description AS "shortDescription",

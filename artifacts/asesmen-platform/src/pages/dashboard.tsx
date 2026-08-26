@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { AlertCircle, CheckCircle2, ChevronDown, ClipboardCheck, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Printer, Search, Video } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, ClipboardCheck, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Presentation, Printer, Search, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +80,12 @@ type DigitalPurchase = {
   imageId: number | null;
   imageFocusX: number | null;
   imageFocusY: number | null;
+};
+
+type TrainingRegistration = {
+  id: number; orderId: number; trainingTitle: string; optionName: string; price: string;
+  status: string; paymentStatus: string; startsAt: string | null; endsAt: string | null;
+  location: string | null; posterId: number | null; posterFocusX: number | null; posterFocusY: number | null;
 };
 
 const PAYMENT_EXPIRY_MINUTES = 15;
@@ -350,6 +356,12 @@ export default function Dashboard() {
     refetchInterval: 5000,
   });
 
+  const { data: trainingRegistrations = [] } = useQuery<TrainingRegistration[]>({
+    queryKey: ["/api/training-registrations/me"],
+    enabled: isAuthenticated,
+    refetchInterval: 5000,
+  });
+
   const settlePaymentMutation = useMutation({
     mutationFn: async (orderId: number) => {
       const response = await apiRequest("POST", "/api/payments/create", {
@@ -578,6 +590,32 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {trainingRegistrations.length > 0 && (
+          <section className="mb-10">
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div><p className="text-sm font-bold uppercase tracking-wider text-violet-700">Pendaftaran Anda</p><h2 className="text-2xl font-extrabold">Pelatihan Saya</h2></div>
+              <a href="https://pi-psychology.com/produk-layanan/pelatihan" className="text-sm font-semibold text-violet-700 hover:underline">Lihat agenda</a>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {trainingRegistrations.map((registration) => (
+                <Card key={registration.id} className="overflow-hidden">
+                  <div className="h-40 bg-violet-50">
+                    {registration.posterId ? <img src={apiUrl(`/api/trainings/posters/${registration.posterId}`)} alt={registration.trainingTitle} className="h-full w-full object-cover" style={{ objectPosition: `${registration.posterFocusX ?? 50}% ${registration.posterFocusY ?? 50}%` }} /> : <div className="flex h-full items-center justify-center"><Presentation className="h-10 w-10 text-violet-700" /></div>}
+                  </div>
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-violet-700">Pesanan #{registration.orderId}</p><h3 className="mt-1 text-lg font-bold">{registration.trainingTitle}</h3></div><Badge className={registration.paymentStatus === "paid" ? "bg-green-700" : "bg-amber-600"}>{registration.paymentStatus === "paid" ? "Lunas" : "Menunggu bayar"}</Badge></div>
+                    <p className="mt-3 text-sm font-semibold text-gray-700">{registration.optionName}</p>
+                    {registration.startsAt && <p className="mt-2 text-sm text-gray-500">{formatDisplayDateTime(registration.startsAt)}</p>}
+                    {registration.location && <p className="mt-1 text-sm text-gray-500">{registration.location}</p>}
+                    <p className="mt-3 font-extrabold text-violet-800">{formatCurrency(registration.price)}</p>
+                    {registration.paymentStatus !== "paid" && <Button size="sm" className="mt-4 bg-violet-700 hover:bg-violet-800" disabled={settlePaymentMutation.isPending && settlingOrderId === registration.orderId} onClick={() => { setSettlingOrderId(registration.orderId); settlePaymentMutation.mutate(registration.orderId); }}>{settlePaymentMutation.isPending && settlingOrderId === registration.orderId && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Lanjutkan Pembayaran</Button>}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
         {digitalPurchases.length > 0 && (
           <section className="mb-10">
