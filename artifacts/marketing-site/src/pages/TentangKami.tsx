@@ -85,7 +85,7 @@ export default function TentangKami() {
               Bermula dari pendirian Rumah Psikologi dan Sekolah Pelangi Indonesia, komitmen kami untuk terus menghadirkan intervensi psikologis dan edukasi yang teruji mendapat respons positif dari masyarakat luas.
             </p>
             <p>
-              Seiring meningkatnya kebutuhan akan tenaga pendidik dan terapis yang kompeten di tingkat nasional, kami memperluas jangkauan melalui program pelatihan profesional dan penyediaan modul digital. Untuk menopang ekosistem yang semakin masif serta memfasilitasi kebutuhan mitra dan klien, kami mendirikan unit usaha pendukung HORECAL.
+              Seiring meningkatnya kebutuhan akan tenaga pendidik dan terapis yang kompeten di tingkat nasional, kami memperluas jangkauan melalui program pelatihan profesional dan penyediaan modul digital. Untuk menopang ekosistem yang semakin masif serta memfasilitasi kebutuhan mitra dan klien, kami mendirikan unit usaha pendukung Hospitality Services.
             </p>
             <p>
               Kini, seluruh layanan tersebut bersatu di bawah naungan Pelangi Indonesia Group, bergerak selaras menciptakan dampak nyata dari hulu ke hilir.

@@ -15,7 +15,7 @@ const services: Array<{
   { label: "Produk Digital", href: "/produk-layanan/produk-digital" },
   { label: "Kursus", href: "/produk-layanan/kursus" },
   { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
-  { label: "HORECAL", href: "/produk-layanan/horecal" },
+  { label: "Hospitality Services", href: "/produk-layanan/horecal" },
 ];
 
 export default function Navbar() {

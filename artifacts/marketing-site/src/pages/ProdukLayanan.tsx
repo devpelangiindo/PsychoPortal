@@ -18,7 +18,7 @@ const FALLBACK_SERVICES = [
   { slug: "produk-digital", name: "Produk Digital", shortDescription: "Modul digital dan e-book berkualitas untuk pengembangan diri.", longDesc: "Berbagai modul pembelajaran digital, e-book, dan materi pelatihan yang dikembangkan oleh tim ahli Pelangi Indonesia.", color: "#1B4332" },
   { slug: "kursus", name: "Kursus", shortDescription: "Kursus pengembangan minat bakat: musik, tari, olahraga, akademik.", longDesc: "Program kursus terstruktur untuk anak dan remaja: Baca Tulis, Matematika, Bimbingan Belajar Privat, Sempoa, Balet, Taekwondo, Renang, Tari, Musik, Senam, dan Yoga.", color: "#2D6A4F", highlights: ["Baca Tulis — Rp 325.000/bulan", "Matematika", "Sempoa", "Balet", "Taekwondo", "Renang", "Tari", "Musik", "Senam", "Yoga", "Bimbingan Belajar Privat"] },
   { slug: "sekolah", name: "Sekolah Pelangi Indonesia", shortDescription: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", longDesc: "Sekolah Pelangi Indonesia adalah lembaga pendidikan inklusif yang menerima semua anak termasuk Anak Berkebutuhan Khusus.", color: "#1B4332", externalHref: "https://www.pi-education.com/" },
-  { slug: "horecal", name: "HORECAL", shortDescription: "Layanan bisnis operasional untuk fasilitas edukasi dan kelembagaan.", longDesc: "HORECAL adalah unit usaha pendukung Pelangi Indonesia yang menyediakan layanan bisnis operasional komprehensif.", color: "#9A6E5E" },
+  { slug: "horecal", name: "Hospitality Services", shortDescription: "Layanan hospitality profesional untuk mendukung fasilitas edukasi, kelembagaan, dan penyelenggaraan kegiatan.", longDesc: "Hospitality Services adalah unit usaha pendukung Pelangi Indonesia yang menyediakan layanan hospitality dan operasional secara profesional bagi fasilitas edukasi, kelembagaan, dan berbagai kegiatan.", color: "#9A6E5E" },
 ];
 
 const serviceIcons: Record<string, string> = {
@@ -34,6 +34,14 @@ const serviceIcons: Record<string, string> = {
 
 function serviceColor(slug: string): string {
   return FALLBACK_SERVICES.find((s) => s.slug === slug)?.color ?? "#2D6A4F";
+}
+
+function serviceDisplayName(slug: string, name: string): string {
+  return slug === "horecal" ? "Hospitality Services" : name;
+}
+
+function serviceDisplayText(slug: string, text?: string): string | undefined {
+  return slug === "horecal" ? text?.replace(/HORECAL(?: Services)?/gi, "Hospitality Services") : text;
 }
 
 function resolveServiceHref(externalHref: string) {
@@ -83,9 +91,9 @@ function ServiceDetail({ slug }: { slug: string }) {
 
   const fallback = FALLBACK_SERVICES.find((s) => s.slug === slug);
   const color = cmsService ? serviceColor(cmsService.slug) : (fallback?.color ?? "#2D6A4F");
-  const name = cmsService?.title ?? fallback?.name ?? "Layanan";
-  const shortDesc = cmsService?.shortDescription ?? fallback?.shortDescription ?? "";
-  const descHtml = (cmsService as CMSService | null)?.descriptionHtml;
+  const name = serviceDisplayName(slug, cmsService?.title ?? fallback?.name ?? "Layanan");
+  const shortDesc = serviceDisplayText(slug, cmsService?.shortDescription ?? fallback?.shortDescription) ?? "";
+  const descHtml = serviceDisplayText(slug, (cmsService as CMSService | null)?.descriptionHtml);
   const imageUrl = (cmsService?.featuredImage as { url?: string } | undefined)?.url;
   const price = cmsService?.price;
 
@@ -216,8 +224,8 @@ export default function ProdukLayanan() {
     (cmsServices?.docs?.length ?? 0) > 0
       ? cmsServices!.docs.filter((s: CMSService) => s.slug !== "booking-psikolog" && s.slug !== "franchise").map((s: CMSService) => ({
           slug: s.slug,
-          name: s.title,
-          shortDescription: s.shortDescription,
+          name: serviceDisplayName(s.slug, s.title),
+          shortDescription: serviceDisplayText(s.slug, s.shortDescription),
           color: serviceColor(s.slug),
           externalHref: FALLBACK_SERVICES.find((f) => f.slug === s.slug)?.externalHref,
         }))

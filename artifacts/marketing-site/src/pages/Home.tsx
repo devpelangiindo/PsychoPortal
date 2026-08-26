@@ -41,7 +41,7 @@ const businessUnits = [
   { label: "Pendidikan & Akademi", icon: BookOpen },
   { label: "Pelatihan & Produk Digital", icon: Award },
   { label: "Kemitraan & Pengembangan", icon: Users },
-  { label: "HORECAL Services", icon: Star },
+  { label: "Hospitality Services", icon: Star },
 ];
 
 const services = [
@@ -52,7 +52,7 @@ const services = [
   { slug: "produk-digital", name: "Produk Digital", desc: "Modul digital dan e-book berkualitas untuk pengembangan diri.", color: "#1B4332" },
   { slug: "kursus", name: "Kursus", desc: "Kursus pengembangan minat bakat: musik, tari, olahraga, akademik.", color: "#2D6A4F" },
   { slug: "sekolah", name: "Sekolah Pelangi Indonesia", desc: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", color: "#3A7D58", externalHref: "https://www.pi-education.com/" },
-  { slug: "horecal", name: "HORECAL", desc: "Layanan bisnis operasional untuk fasilitas edukasi dan kelembagaan.", color: "#1B4332" },
+  { slug: "horecal", name: "Hospitality Services", desc: "Layanan hospitality profesional untuk mendukung fasilitas edukasi, kelembagaan, dan penyelenggaraan kegiatan.", color: "#1B4332" },
 ];
 
 const serviceIcons: Record<string, string> = {
@@ -489,15 +489,15 @@ export default function Home() {
               <div className="h-56 overflow-hidden bg-green-50">
                 <img
                   src="/homepage/horecal-unit.jpg"
-                  alt="HORECAL Services"
+                  alt="Hospitality Services"
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
               </div>
               <div className="p-6">
-                <h3 className="text-xl font-bold mb-3" style={{ color: "#1B4332" }}>HORECAL Services</h3>
+                <h3 className="text-xl font-bold mb-3" style={{ color: "#1B4332" }}>Hospitality Services</h3>
                 <p className="text-gray-600 text-sm leading-relaxed mb-5">
-                  Unit usaha pendukung yang menyediakan layanan bisnis operasional unggul untuk menunjang kelancaran fasilitas edukasi dan kegiatan kelembagaan.
+                  Unit usaha pendukung yang menyediakan layanan hospitality dan operasional profesional untuk fasilitas edukasi, kelembagaan, dan berbagai kegiatan.
                 </p>
                 <Link href="/produk-layanan/horecal" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:shadow-md" style={{ background: "#9A6E5E" }}>
                   More Information <ArrowRight size={14} />

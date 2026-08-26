@@ -24,7 +24,7 @@ const services: Array<{
   { label: "Produk Digital", href: withMainSitePath("/produk-layanan/produk-digital") },
   { label: "Kursus", href: withMainSitePath("/produk-layanan/kursus") },
   { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
-  { label: "HORECAL", href: withMainSitePath("/produk-layanan/horecal") },
+  { label: "Hospitality Services", href: withMainSitePath("/produk-layanan/horecal") },
 ];
 
 const marketingNavLinkClass = "px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:text-green-800 hover:bg-green-50 transition-colors";
