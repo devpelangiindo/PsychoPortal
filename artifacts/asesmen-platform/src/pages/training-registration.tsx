@@ -36,9 +36,14 @@ export default function TrainingRegistration() {
     }
   }, [authLoading, isAuthenticated]);
 
-  const { data: training, isLoading } = useQuery<Training>({
+  const { data: training, isLoading, isError, error, refetch } = useQuery<Training>({
     queryKey: ["training-registration", slug],
-    queryFn: async () => { const response = await fetch(apiUrl(`/api/trainings/${encodeURIComponent(slug)}`), { credentials: "include" }); if (!response.ok) throw new Error("Agenda tidak ditemukan"); return response.json(); },
+    queryFn: async () => {
+      const response = await fetch(apiUrl(`/api/trainings/${encodeURIComponent(slug)}`));
+      if (response.status === 404) throw new Error("Agenda pelatihan tidak ditemukan.");
+      if (!response.ok) throw new Error("Agenda pelatihan gagal dimuat.");
+      return response.json();
+    },
     enabled: Boolean(slug),
   });
   const { data: profile } = useQuery<Participant>({ queryKey: ["/api/training-registrations/profile"], enabled: isAuthenticated });
@@ -58,6 +63,7 @@ export default function TrainingRegistration() {
   });
 
   if (authLoading || !isAuthenticated || isLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-green-700" /></div>;
+  if (isError) return <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center"><p className="text-lg font-semibold">{error instanceof Error ? error.message : "Agenda pelatihan gagal dimuat."}</p><Button variant="outline" onClick={() => refetch()}>Coba Lagi</Button></div>;
   if (!training) return <div className="p-12 text-center">Agenda pelatihan tidak ditemukan.</div>;
   const participantValid = participant.fullName.length >= 2 && participant.birthDate && participant.gender && participant.address.length >= 5 && participant.whatsappNumber.length >= 7 && participant.email.includes("@") && participant.education.length >= 2 && participant.occupation.length >= 2;
 
