@@ -88,6 +88,7 @@ export default function TrainingPage() {
   const [matchDetail, params] = useRoute("/produk-layanan/pelatihan/:trainingSlug");
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [heroAvailable, setHeroAvailable] = useState(true);
   const timer = useRef<number | null>(null);
   const { data: trainings = [], isLoading } = useQuery<Training[]>({ queryKey: ["trainings"], queryFn: async () => (await fetch(`${apiBase()}/api/trainings`)).json(), enabled: !matchDetail });
   const { data: testimonials = [] } = useQuery<Testimonial[]>({ queryKey: ["training-testimonials"], queryFn: async () => (await fetch(`${apiBase()}/api/trainings/testimonials`)).json(), enabled: !matchDetail });
@@ -95,12 +96,15 @@ export default function TrainingPage() {
   useEffect(() => { if (gallery.length < 2) return; timer.current = window.setInterval(() => setGalleryIndex(current => (current + 1) % gallery.length), 4000); return () => { if (timer.current) window.clearInterval(timer.current); }; }, [gallery.length]);
   if (matchDetail && params?.trainingSlug) return <TrainingDetail slug={params.trainingSlug} />;
   return <div className="min-h-screen bg-white"><Navbar />
-    <header className="relative isolate flex min-h-[480px] items-center justify-center overflow-hidden pt-24 text-center text-white">
-      <img src={`${apiBase()}/api/trainings/hero`} alt="Agenda Pelatihan" className="absolute inset-0 -z-20 h-full w-full object-cover" onError={event => { event.currentTarget.style.display = "none"; }} />
-      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-green-950/90 via-green-900/75 to-emerald-700/70" />
+    <header className="relative isolate flex min-h-[420px] items-center justify-center overflow-hidden bg-gradient-to-br from-green-950 via-green-900 to-emerald-700 pt-24 text-center text-white">
       <div className="mx-auto max-w-4xl px-4"><p className="mb-4 text-sm font-bold uppercase tracking-[.3em] text-green-200">Pelangi Indonesia Group</p><h1 className="text-5xl font-black sm:text-6xl">Agenda Pelatihan</h1><p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-green-50">Workshop dan webinar profesional untuk orang tua, pendidik, terapis, serta masyarakat umum.</p></div>
     </header>
     <main>
+      {heroAvailable && <section className="bg-white px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <div className="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-gray-50 shadow-sm ring-1 ring-gray-100">
+          <img src={`${apiBase()}/api/trainings/hero`} alt="Banner Agenda Pelatihan" className="block h-auto w-full object-contain" onError={() => setHeroAvailable(false)} />
+        </div>
+      </section>}
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8"><div className="mb-10"><p className="font-bold uppercase tracking-wider text-green-700">Program Terkini</p><h2 className="mt-2 text-3xl font-extrabold text-gray-950">Pilih pelatihan yang sesuai</h2></div>
         {isLoading ? <Loader2 className="mx-auto animate-spin text-green-700" /> : trainings.length === 0 ? <div className="rounded-2xl bg-green-50 p-12 text-center text-green-900">Agenda pelatihan sedang disiapkan.</div> : <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">{trainings.map(training => <Link key={training.id} href={`/produk-layanan/pelatihan/${training.slug}`} className="group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:-translate-y-1 hover:shadow-xl"><div className="aspect-[4/5] overflow-hidden bg-green-50">{training.posterId ? <img src={posterUrl(training.posterId)} alt={`Poster ${training.title}`} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" style={{ objectPosition: `${training.posterFocusX ?? 50}% ${training.posterFocusY ?? 50}%` }} /> : <div className="flex h-full items-center justify-center font-bold text-green-800">Agenda Pelatihan</div>}</div><div className="p-5"><h3 className="text-xl font-extrabold text-gray-950 group-hover:text-green-800">{training.title}</h3></div></Link>)}</div>}
       </section>
