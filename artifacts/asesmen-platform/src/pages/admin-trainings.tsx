@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, getAuthToken, queryClient } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
 
 type Option = { id: number; name: string; description?: string | null; price: string; capacity?: number | null; sortOrder: number; isActive: boolean };
@@ -22,7 +22,15 @@ const emptyOption = { name: "", description: "", price: 0, capacity: "", sortOrd
 const emptyTestimonial = { name: "", occupation: "", trainingName: "", testimonial: "", sortOrder: 0, isActive: true };
 
 async function uploadBinary(path: string, file: File, method = "POST") {
-  const response = await fetch(apiUrl(path), { method, credentials: "include", headers: { "Content-Type": file.type, "X-File-Name": encodeURIComponent(file.name) }, body: file });
+  const response = await fetch(apiUrl(path), {
+    method,
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+      "Content-Type": file.type || "application/octet-stream",
+      "X-File-Name": encodeURIComponent(file.name),
+    },
+    body: file,
+  });
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || "Upload gagal");
   return response.json();
 }
