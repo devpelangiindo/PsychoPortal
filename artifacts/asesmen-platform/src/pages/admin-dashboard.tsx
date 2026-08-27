@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -406,6 +406,20 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             <CardContent>
               <Link href="/admin/courses">
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Kelola Kursus</Button>
+              </Link>
+            </CardContent>
+          </Card>
+          )}
+
+          {!isCsoMode && (
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Megaphone className="w-5 h-5 text-fuchsia-700" />Promo Booking</CardTitle>
+              <CardDescription>Kelola Promo & Info pada halaman Booking Konseling</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/booking-promos">
+                <Button className="w-full bg-fuchsia-700 hover:bg-fuchsia-800">Kelola Promo</Button>
               </Link>
             </CardContent>
           </Card>

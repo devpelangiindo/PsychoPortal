@@ -40,6 +40,14 @@ type BookingService = {
   duration: string;
 };
 
+type BookingPromo = {
+  id: number;
+  title: string;
+  description: string;
+  buttonText: string;
+  linkUrl: string;
+};
+
 type PreviousBooking = {
   id: number;
   birthDate: string | null;
@@ -211,12 +219,6 @@ const LOCATIONS = [
   { value: "colombo", label: "Offline Colombo", detail: "Jl. Colombo No.8, Samirono, Caturtunggal, Sleman, DIY 55281" },
   { value: "bantul", label: "Offline Bantul", detail: "Jalan Mgr. Sugiyo Pranoto No.14 Melikan Kidul, Bantul, Yogyakarta" },
 ] satisfies Array<{ value: LocationType; label: string; detail: string }>;
-
-const PROMOS = [
-  { title: "Konsultasi Awal Gratis", desc: "Jadwalkan sesi konsultasi pertama Anda tanpa biaya." },
-  { title: "Workshop Pelangi Indonesia", desc: "Pelatihan Manajemen Perilaku Anak — Daftar sekarang!" },
-  { title: "Paket Asesmen Lengkap", desc: "Dapatkan laporan komprehensif dengan rekomendasi terapi." },
-];
 
 const formatCurrency = (value: string | number) =>
   new Intl.NumberFormat("id-ID", {
@@ -1945,6 +1947,10 @@ function PsychologistProfilesSection() {
 }
 
 function PromoInfoSection() {
+  const { data: promos = [], isLoading } = useQuery<BookingPromo[]>({ queryKey: ["/api/booking-promos"] });
+
+  if (!isLoading && promos.length === 0) return null;
+
   return (
     <section className="py-20 bg-white dark:bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1961,20 +1967,23 @@ function PromoInfoSection() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-5">
-          {PROMOS.map((promo) => (
-            <div key={promo.title} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-              <h3 className="font-semibold text-base mb-2 text-[#2D6A4F]">{promo.title}</h3>
-              <p className="text-sm text-gray-500 mb-4 leading-relaxed">{promo.desc}</p>
-              <a
-                href="https://wa.me/6285117658242"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm font-semibold text-[#2D6A4F]"
-              >
-                Info lebih lanjut <ArrowRight size={13} />
-              </a>
-            </div>
-          ))}
+          {isLoading ? (
+            <div className="col-span-full flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-green-700" /></div>
+          ) : promos.map((promo) => {
+            const linkClassName = "inline-flex items-center gap-1 text-sm font-semibold text-[#2D6A4F]";
+            const linkContent = <>{promo.buttonText} <ArrowRight size={13} /></>;
+            return (
+              <div key={promo.id} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+                <h3 className="font-semibold text-base mb-2 text-[#2D6A4F]">{promo.title}</h3>
+                <p className="text-sm text-gray-500 mb-4 leading-relaxed">{promo.description}</p>
+                {promo.linkUrl.startsWith("/") ? (
+                  <Link href={promo.linkUrl} className={linkClassName}>{linkContent}</Link>
+                ) : (
+                  <a href={promo.linkUrl} target="_blank" rel="noopener noreferrer" className={linkClassName}>{linkContent}</a>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

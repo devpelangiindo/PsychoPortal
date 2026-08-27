@@ -542,6 +542,19 @@ async function ensureArticleInfrastructure() {
       updated_at timestamp DEFAULT now(),
       deleted_at timestamp
     );
+    CREATE TABLE IF NOT EXISTS booking_promos (
+      id serial PRIMARY KEY,
+      title varchar(255) NOT NULL,
+      description varchar(1000) NOT NULL,
+      button_text varchar(100) NOT NULL DEFAULT 'Info lebih lanjut',
+      link_url varchar(2000) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp
+    );
     CREATE TABLE IF NOT EXISTS application_data_migrations (
       migration_key varchar(255) PRIMARY KEY,
       applied_at timestamp DEFAULT now()
@@ -554,6 +567,8 @@ async function ensureArticleInfrastructure() {
       ON managed_article_images(article_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS article_promos_public_idx
       ON article_promos(is_active, sort_order, id) WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS booking_promos_public_idx
+      ON booking_promos(is_active, sort_order, id) WHERE deleted_at IS NULL;
   `);
 
   await pool.query(`
@@ -578,6 +593,23 @@ async function ensureArticleInfrastructure() {
     UPDATE article_promos
        SET deleted_at = now(), is_active = false, updated_at = now()
      WHERE deleted_at IS NULL AND EXISTS (SELECT 1 FROM applied)
+  `);
+
+  await pool.query(`
+    WITH applied AS (
+      INSERT INTO application_data_migrations (migration_key)
+      VALUES ('seed-booking-promos-v1')
+      ON CONFLICT (migration_key) DO NOTHING
+      RETURNING migration_key
+    )
+    INSERT INTO booking_promos (title, description, button_text, link_url, sort_order)
+    SELECT seed.title, seed.description, 'Info lebih lanjut', 'https://wa.me/6285117658242', seed.sort_order
+      FROM applied
+      CROSS JOIN (VALUES
+        ('Konsultasi Awal Gratis', 'Jadwalkan sesi konsultasi pertama Anda tanpa biaya.', 0),
+        ('Workshop Pelangi Indonesia', 'Pelatihan Manajemen Perilaku Anak — Daftar sekarang!', 1),
+        ('Paket Asesmen Lengkap', 'Dapatkan laporan komprehensif dengan rekomendasi terapi.', 2)
+      ) AS seed(title, description, sort_order)
   `);
 }
 
@@ -6271,6 +6303,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting article promo:', error);
       return res.status(500).json({ message: 'Gagal menghapus Promo & Info' });
+    }
+  });
+
+  const bookingPromoSelect = `
+    SELECT id, title, description, button_text AS "buttonText", link_url AS "linkUrl",
+           sort_order AS "sortOrder", is_active AS "isActive",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM booking_promos`;
+
+  app.get('/api/booking-promos', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${bookingPromoSelect} WHERE deleted_at IS NULL AND is_active = true ORDER BY sort_order, id`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching booking promos:', error);
+      return res.status(500).json({ message: 'Gagal memuat Promo & Info Booking' });
+    }
+  });
+
+  app.get('/api/admin/booking-promos', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `${bookingPromoSelect} WHERE deleted_at IS NULL ORDER BY sort_order, id`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin booking promos:', error);
+      return res.status(500).json({ message: 'Gagal memuat data Promo & Info Booking' });
+    }
+  });
+
+  app.post('/api/admin/booking-promos', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = articlePromoSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data Promo & Info Booking tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `INSERT INTO booking_promos (title, description, button_text, link_url, sort_order, is_active, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [parsed.data.title, parsed.data.description, parsed.data.buttonText, parsed.data.linkUrl, parsed.data.sortOrder, parsed.data.isActive, req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    } catch (error) {
+      console.error('Error creating booking promo:', error);
+      return res.status(500).json({ message: 'Gagal menambahkan Promo & Info Booking' });
+    }
+  });
+
+  app.put('/api/admin/booking-promos/:promoId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = articlePromoSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data Promo & Info Booking tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE booking_promos SET title = $1, description = $2, button_text = $3,
+           link_url = $4, sort_order = $5, is_active = $6, updated_at = now()
+         WHERE id = $7 AND deleted_at IS NULL RETURNING id`,
+        [parsed.data.title, parsed.data.description, parsed.data.buttonText, parsed.data.linkUrl, parsed.data.sortOrder, parsed.data.isActive, Number(req.params.promoId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Promo & Info Booking tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating booking promo:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui Promo & Info Booking' });
+    }
+  });
+
+  app.delete('/api/admin/booking-promos/:promoId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `UPDATE booking_promos SET deleted_at = now(), is_active = false, updated_at = now()
+         WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
+        [Number(req.params.promoId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Promo & Info Booking tidak ditemukan' });
+      return res.json({ message: 'Promo & Info Booking berhasil dihapus' });
+    } catch (error) {
+      console.error('Error deleting booking promo:', error);
+      return res.status(500).json({ message: 'Gagal menghapus Promo & Info Booking' });
     }
   });
 
