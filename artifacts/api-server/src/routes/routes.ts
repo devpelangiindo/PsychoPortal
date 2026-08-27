@@ -613,6 +613,163 @@ async function ensureArticleInfrastructure() {
   `);
 }
 
+async function ensureHospitalityInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS hospitality_page_settings (
+      id smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      intro text NOT NULL,
+      about_text text NOT NULL,
+      why_items jsonb NOT NULL DEFAULT '[]'::jsonb,
+      philosophy text NOT NULL,
+      updated_by varchar REFERENCES users(id),
+      updated_at timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS hospitality_services (
+      id serial PRIMARY KEY,
+      slug varchar(255) NOT NULL UNIQUE,
+      title varchar(255) NOT NULL,
+      summary varchar(1000) NOT NULL,
+      description text NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      image_data bytea,
+      image_file_name varchar(255),
+      image_mime_type varchar(100),
+      image_focus_x smallint NOT NULL DEFAULT 50,
+      image_focus_y smallint NOT NULL DEFAULT 50,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp,
+      CONSTRAINT hospitality_service_image_focus_check CHECK (image_focus_x BETWEEN 0 AND 100 AND image_focus_y BETWEEN 0 AND 100)
+    );
+    CREATE TABLE IF NOT EXISTS hospitality_offerings (
+      id serial PRIMARY KEY,
+      service_id integer NOT NULL REFERENCES hospitality_services(id) ON DELETE CASCADE,
+      slug varchar(255) NOT NULL,
+      title varchar(255) NOT NULL,
+      description text NOT NULL,
+      capacity varchar(255),
+      area varchar(255),
+      facilities text,
+      duration varchar(255),
+      price_options jsonb NOT NULL DEFAULT '[]'::jsonb,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      image_data bytea,
+      image_file_name varchar(255),
+      image_mime_type varchar(100),
+      image_focus_x smallint NOT NULL DEFAULT 50,
+      image_focus_y smallint NOT NULL DEFAULT 50,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp,
+      UNIQUE(service_id, slug),
+      CONSTRAINT hospitality_offering_image_focus_check CHECK (image_focus_x BETWEEN 0 AND 100 AND image_focus_y BETWEEN 0 AND 100)
+    );
+    CREATE TABLE IF NOT EXISTS hospitality_gallery_images (
+      id serial PRIMARY KEY,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      title varchar(255),
+      caption varchar(1000),
+      sort_order integer NOT NULL DEFAULT 0,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT hospitality_gallery_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
+    CREATE TABLE IF NOT EXISTS application_data_migrations (
+      migration_key varchar(255) PRIMARY KEY,
+      applied_at timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS hospitality_services_public_idx
+      ON hospitality_services(is_active, sort_order, id) WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS hospitality_offerings_public_idx
+      ON hospitality_offerings(service_id, is_active, sort_order, id) WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS hospitality_gallery_public_idx
+      ON hospitality_gallery_images(is_active, sort_order, id);
+  `);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const migration = await client.query(
+      `INSERT INTO application_data_migrations (migration_key)
+       VALUES ('seed-hospitality-services-v1')
+       ON CONFLICT (migration_key) DO NOTHING RETURNING migration_key`,
+    );
+    if (migration.rowCount) {
+      await client.query(
+        `INSERT INTO hospitality_page_settings (id, intro, about_text, why_items, philosophy)
+         VALUES (1, $1, $2, $3::jsonb, $4)
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          'Pelangi Indonesia Group menghadirkan layanan hospitality yang holistik dan terintegrasi di lingkungan Yogyakarta yang asri.',
+          'Pelangi Indonesia Group berkomitmen menghadirkan layanan hospitality yang holistik dan terintegrasi. Layanan kami mendukung ekosistem pendidikan dan pengembangan psikologi sekaligus menyambut masyarakat umum dengan keramahan yang khas, fasilitas lengkap, serta suasana alam yang menenangkan.',
+          JSON.stringify([
+            { title: 'Kenyamanan Terpadu (One-Stop Service)', description: 'Solusi menyeluruh mulai dari tempat peristirahatan, ruang pertemuan, konsumsi, hingga perawatan pakaian.' },
+            { title: 'Suasana yang Mendukung', description: 'Homestay dengan pemandangan sawah untuk ketenangan, istirahat, dan inspirasi.' },
+            { title: 'Fleksibilitas Pelayanan', description: 'Melayani perjalanan pribadi, pertemuan komunitas, hingga acara berskala besar.' },
+            { title: 'Visi yang Berdampak', description: 'Setiap layanan bergerak dan memberikan dampak positif bagi tamu dan lingkungan.' },
+          ]),
+          'Lebih dari sekadar penyedia akomodasi dan fasilitas acara, kami hadir sebagai rumah kedua yang memastikan kebutuhan logistik dan kenyamanan Anda tertangani dengan prima. Lingkungan yang nyaman, makanan bernutrisi, dan fasilitas memadai menjadi fondasi untuk melahirkan ide, kolaborasi, dan kenangan yang indah.',
+        ],
+      );
+
+      const services = [
+        { slug: 'homestay', title: 'Homestay', summary: 'Rasakan ketenangan menginap dengan pemandangan hamparan sawah yang asri.', description: 'Pilihan kamar berkapasitas 2 hingga 6 orang, cocok untuk keluarga maupun rombongan. Fasilitas meliputi dapur, akses kolam renang yang menyegarkan, dan layanan sarapan (include breakfast).', order: 0 },
+        { slug: 'sewa-gedung-ruangan', title: 'Sewa Gedung & Ruangan', summary: 'Ruang representatif untuk pertemuan, workshop, dan acara berskala besar.', description: 'Paket ruangan mencakup ruang ber-AC, projector dan screen, sound system dan mic wireless, note dan pena, air mineral, permen, Wi-Fi, kursi sesuai kapasitas, serta area parkir dalam. Parkir di luar area gedung dikenakan biaya terpisah.', order: 1 },
+        { slug: 'kedai', title: 'Kedai', summary: 'Ragam sajian mulai dari minuman segar, hidangan makan berat, hingga aneka snack ringan.', description: 'Nikmati ragam sajian istimewa Pelangi Indonesia untuk melengkapi waktu beristirahat maupun kegiatan Anda.', order: 2 },
+        { slug: 'catering', title: 'Catering', summary: 'Layanan katering untuk sekolah, masyarakat umum, dan berbagai acara spesial.', description: 'Selain melayani kebutuhan nutrisi sekolah, Katering Pelangi hadir untuk melayani pesanan umum dengan pilihan yang dapat disesuaikan.', order: 3 },
+        { slug: 'laundry', title: 'Laundry', summary: 'Perawatan pakaian yang bersih dan rapi dengan durasi sesuai ritme perjalanan Anda.', description: 'Pilih layanan Biasa, Cepat, atau Kilat sesuai kebutuhan waktu penyelesaian.', order: 4 },
+      ];
+      const serviceIds = new Map<string, number>();
+      for (const service of services) {
+        const result = await client.query(
+          `INSERT INTO hospitality_services (slug, title, summary, description, sort_order)
+           VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+          [service.slug, service.title, service.summary, service.description, service.order],
+        );
+        serviceIds.set(service.slug, result.rows[0].id);
+      }
+
+      const offerings = [
+        { service: 'homestay', slug: 'standard', title: 'Standard', description: 'Pilihan pas untuk perjalanan berdua yang mengutamakan kenyamanan esensial. Tersedia pilihan kamar di lantai 2 dengan pemandangan sawah dan gunung, atau di lantai 1 dengan akses mudah ke dapur bersama.', capacity: '2 Pax (tersedia opsi 1 extra bed)', area: '18 m²', facilities: '1 Queen Bed', duration: '', prices: [{ label: 'Weekday', price: 280000, unit: '/ malam' }, { label: 'Weekend', price: 300000, unit: '/ malam' }, { label: 'Peak Season', price: 400000, unit: '/ malam' }], order: 0 },
+        { service: 'homestay', slug: 'superior', title: 'Superior', description: 'Lebih luas dan fleksibel, cocok untuk rekan kerja atau sahabat. Dilengkapi opsi connecting room serta pemandangan alam dari lantai 2 dan 3.', capacity: '2 Pax (tersedia opsi 1-2 extra bed)', area: '24 m²', facilities: '2 Single Bed, opsi connecting room', duration: '', prices: [{ label: 'Weekday', price: 330000, unit: '/ malam' }, { label: 'Weekend', price: 350000, unit: '/ malam' }, { label: 'Peak Season', price: 500000, unit: '/ malam' }], order: 1 },
+        { service: 'homestay', slug: 'family-room', title: 'Family Room', description: 'Ruang berkumpul yang hangat untuk keluarga kecil. Desain kamar luas dengan panorama matahari terbit berlatar gunung dan persawahan dari lantai 2.', capacity: '4 Pax (tersedia opsi 2 extra bed)', area: '81 m²', facilities: '1 Single Bed & 1 Queen Bed', duration: '', prices: [{ label: 'Weekday', price: 380000, unit: '/ malam' }, { label: 'Weekend', price: 400000, unit: '/ malam' }, { label: 'Peak Season', price: 580000, unit: '/ malam' }], order: 2 },
+        { service: 'homestay', slug: 'suite-room', title: 'Suite Room', description: 'Fasilitas premium menyerupai apartemen pribadi, lengkap dengan ruang keluarga, balkon pribadi, dan dapur eksklusif. Tersedia di lantai 3 untuk pemandangan terbaik atau lantai 1 untuk aksesibilitas.', capacity: '4 Pax (tersedia opsi 2 extra bed)', area: '90 m²', facilities: '2 Single Bed & 2 Sofa Bed, balkon, ruang keluarga (sofa, TV, meja makan), dapur pribadi (kulkas, kompor, alat masak)', duration: '', prices: [{ label: 'Weekday', price: 580000, unit: '/ malam' }, { label: 'Weekend', price: 600000, unit: '/ malam' }, { label: 'Peak Season', price: 1100000, unit: '/ malam' }], order: 3 },
+        { service: 'sewa-gedung-ruangan', slug: 'convention-hall', title: 'Convention Hall', description: 'Aula utama yang megah untuk perhelatan besar, pameran, kelulusan, atau seminar akbar.', capacity: '100-200 orang', area: '', facilities: 'Gratis panggung (stage) ukuran 4 x 8 meter', duration: '8 Jam', prices: [{ label: 'Sewa Convention Hall', price: 5000000, promoPrice: 3000000, unit: '/ 8 jam' }], order: 0 },
+        { service: 'sewa-gedung-ruangan', slug: 'paket-meeting-lengkap', title: 'Paket Meeting Lengkap', description: 'Solusi praktis dan terpadu untuk rapat atau pelatihan. Pemesanan minimal 15 orang dan sudah termasuk penggunaan ruang pertemuan beserta alat pendukung acara.', capacity: '15-20 orang', area: '', facilities: 'Halfday: 1x Coffee Break + 1x Lunch. One Day: 2x Coffee Break + 1x Meal. Full-day: 3x Coffee Break + 1x Lunch.', duration: '6-12 Jam', prices: [{ label: 'Halfday Meeting (6 Jam)', price: 100000, promoPrice: 75000, unit: '/ pax' }, { label: 'One Day Meeting (8 Jam)', price: 150000, promoPrice: 100000, unit: '/ pax' }, { label: 'Full-day Meeting (12 Jam)', price: 200000, promoPrice: 150000, unit: '/ pax' }], order: 1 },
+        { service: 'sewa-gedung-ruangan', slug: 'room-only', title: 'Sewa Ruangan (Room Only)', description: 'Opsi fleksibel untuk mengatur konsumsi secara mandiri, dengan pilihan add-on katering dari Kedai Pelangi bila dibutuhkan.', capacity: '', area: '', facilities: 'Opsi tambahan: Lunch/Dinner dan Coffee Break.', duration: 'Fleksibel', prices: [{ label: 'Durasi 8 Jam', price: 75000, promoPrice: 60000, unit: '' }, { label: 'Durasi > 8 Jam', price: 100000, promoPrice: 75000, unit: '' }, { label: 'Lunch/Dinner', price: 80000, promoPrice: 40000, unit: '/ pax' }, { label: 'Coffee Break', price: 30000, promoPrice: 15000, unit: '/ pax' }], order: 2 },
+        { service: 'laundry', slug: 'biasa', title: 'Biasa', description: 'Paket laundry reguler untuk kebutuhan harian.', capacity: '', area: '', facilities: '', duration: '3-4 Hari', prices: [{ label: 'Tarif', price: 8000, unit: '/ kg' }], order: 0 },
+        { service: 'laundry', slug: 'cepat', title: 'Cepat', description: 'Paket laundry dengan waktu pengerjaan lebih singkat.', capacity: '', area: '', facilities: '', duration: '1-2 Hari', prices: [{ label: 'Tarif', price: 10000, unit: '/ kg' }], order: 1 },
+        { service: 'laundry', slug: 'kilat', title: 'Kilat', description: 'Paket prioritas untuk kebutuhan mendesak.', capacity: '', area: '', facilities: '', duration: '< 1 Hari', prices: [{ label: 'Tarif', price: 15000, unit: '/ kg' }], order: 2 },
+      ];
+      for (const offering of offerings) {
+        await client.query(
+          `INSERT INTO hospitality_offerings
+            (service_id,slug,title,description,capacity,area,facilities,duration,price_options,sort_order)
+           VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7,''),NULLIF($8,''),$9::jsonb,$10)`,
+          [serviceIds.get(offering.service), offering.slug, offering.title, offering.description, offering.capacity,
+           offering.area, offering.facilities, offering.duration, JSON.stringify(offering.prices), offering.order],
+        );
+      }
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function makeDigitalProductSlug(value: string) {
   return value
     .toLowerCase()
@@ -764,6 +921,51 @@ const articleCategorySchema = z.object({
   sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
   isActive: z.boolean().optional().default(true),
 });
+
+const hospitalityPageSettingsSchema = z.object({
+  intro: z.string().trim().min(10).max(2000),
+  aboutText: z.string().trim().min(20).max(10000),
+  whyItems: z.array(z.object({
+    title: z.string().trim().min(2).max(255),
+    description: z.string().trim().min(5).max(2000),
+  })).min(1).max(12),
+  philosophy: z.string().trim().min(20).max(10000),
+});
+
+const hospitalityServiceSchema = z.object({
+  title: z.string().trim().min(2).max(255),
+  slug: z.string().trim().max(255).optional(),
+  summary: z.string().trim().min(5).max(1000),
+  description: z.string().trim().min(5).max(20000),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  isActive: z.boolean().optional().default(true),
+});
+
+const hospitalityPriceOptionSchema = z.object({
+  label: z.string().trim().min(1).max(255),
+  price: z.coerce.number().min(0).max(999999999),
+  promoPrice: z.union([z.coerce.number().min(0).max(999999999), z.null()]).optional().default(null),
+  unit: z.string().trim().max(100).optional().default(""),
+}).superRefine((value, ctx) => {
+  if (value.promoPrice !== null && value.promoPrice >= value.price) {
+    ctx.addIssue({ code: "custom", path: ["promoPrice"], message: "Harga promo harus lebih rendah dari harga reguler" });
+  }
+});
+
+const hospitalityOfferingSchema = z.object({
+  title: z.string().trim().min(2).max(255),
+  slug: z.string().trim().max(255).optional(),
+  description: z.string().trim().min(5).max(20000),
+  capacity: z.string().trim().max(255).optional().default(""),
+  area: z.string().trim().max(255).optional().default(""),
+  facilities: z.string().trim().max(10000).optional().default(""),
+  duration: z.string().trim().max(255).optional().default(""),
+  priceOptions: z.array(hospitalityPriceOptionSchema).max(20).optional().default([]),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
+  isActive: z.boolean().optional().default(true),
+});
+
+const hospitalityGallerySchema = courseGallerySchema;
 
 const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential", "external-career-potential"] as const;
 
@@ -3080,6 +3282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureCourseInfrastructure();
     await ensureTrainingInfrastructure();
     await ensureArticleInfrastructure();
+    await ensureHospitalityInfrastructure();
     await initializeAssessments();
     await initializeBookingServices();
     await ensureDefaultAdminUser();
@@ -5142,6 +5345,318 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   }
+
+  const hospitalityServiceSelect = `
+    SELECT service.id, service.slug, service.title, service.summary, service.description,
+           service.sort_order AS "sortOrder", service.is_active AS "isActive",
+           service.image_data IS NOT NULL AS "hasImage",
+           service.image_file_name AS "imageFileName",
+           service.image_focus_x AS "imageFocusX", service.image_focus_y AS "imageFocusY",
+           service.created_at AS "createdAt", service.updated_at AS "updatedAt"
+      FROM hospitality_services service`;
+  const hospitalityOfferingSelect = `
+    SELECT offering.id, offering.service_id AS "serviceId", offering.slug, offering.title,
+           offering.description, offering.capacity, offering.area, offering.facilities,
+           offering.duration, offering.price_options AS "priceOptions",
+           offering.sort_order AS "sortOrder", offering.is_active AS "isActive",
+           offering.image_data IS NOT NULL AS "hasImage",
+           offering.image_file_name AS "imageFileName",
+           offering.image_focus_x AS "imageFocusX", offering.image_focus_y AS "imageFocusY",
+           offering.created_at AS "createdAt", offering.updated_at AS "updatedAt"
+      FROM hospitality_offerings offering`;
+
+  async function getHospitalityCatalog(includeInactive: boolean) {
+    const settings = await pool.query(
+      `SELECT intro, about_text AS "aboutText", why_items AS "whyItems", philosophy,
+              updated_at AS "updatedAt" FROM hospitality_page_settings WHERE id = 1`,
+    );
+    const serviceWhere = includeInactive
+      ? `WHERE service.deleted_at IS NULL`
+      : `WHERE service.deleted_at IS NULL AND service.is_active = true`;
+    const offeringWhere = includeInactive
+      ? `WHERE offering.deleted_at IS NULL`
+      : `WHERE offering.deleted_at IS NULL AND offering.is_active = true`;
+    const [services, offerings] = await Promise.all([
+      pool.query(`${hospitalityServiceSelect} ${serviceWhere} ORDER BY service.sort_order, service.id`),
+      pool.query(`${hospitalityOfferingSelect} ${offeringWhere} ORDER BY offering.sort_order, offering.id`),
+    ]);
+    const byService = new Map<number, any[]>();
+    offerings.rows.forEach((offering: any) => {
+      const list = byService.get(offering.serviceId) || [];
+      list.push(offering);
+      byService.set(offering.serviceId, list);
+    });
+    return {
+      settings: settings.rows[0],
+      services: services.rows.map((service: any) => ({
+        ...service,
+        offerings: byService.get(service.id) || [],
+      })),
+    };
+  }
+
+  app.get('/api/hospitality', async (_req, res) => {
+    try {
+      return res.json(await getHospitalityCatalog(false));
+    } catch (error) {
+      console.error('Error fetching hospitality catalog:', error);
+      return res.status(500).json({ message: 'Gagal memuat layanan Hospitality Services' });
+    }
+  });
+
+  app.get('/api/hospitality/services/:serviceId/image', async (req, res) => {
+    const result = await pool.query(
+      `SELECT image_data, image_mime_type FROM hospitality_services
+       WHERE id = $1 AND deleted_at IS NULL AND image_data IS NOT NULL`,
+      [Number(req.params.serviceId)],
+    );
+    if (!result.rowCount) return res.status(404).end();
+    res.setHeader('Content-Type', result.rows[0].image_mime_type || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(result.rows[0].image_data);
+  });
+
+  app.get('/api/hospitality/offerings/:offeringId/image', async (req, res) => {
+    const result = await pool.query(
+      `SELECT image_data, image_mime_type FROM hospitality_offerings
+       WHERE id = $1 AND deleted_at IS NULL AND image_data IS NOT NULL`,
+      [Number(req.params.offeringId)],
+    );
+    if (!result.rowCount) return res.status(404).end();
+    res.setHeader('Content-Type', result.rows[0].image_mime_type || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(result.rows[0].image_data);
+  });
+
+  app.get('/api/hospitality/gallery', async (_req, res) => {
+    const result = await pool.query(
+      `SELECT id, file_name AS "fileName", title, caption, sort_order AS "sortOrder",
+              focus_x AS "focusX", focus_y AS "focusY"
+         FROM hospitality_gallery_images WHERE is_active = true ORDER BY sort_order, id`,
+    );
+    return res.json(result.rows);
+  });
+
+  app.get('/api/hospitality/gallery/images/:imageId', async (req, res) => {
+    const result = await pool.query(
+      `SELECT image_data, mime_type FROM hospitality_gallery_images WHERE id = $1`,
+      [Number(req.params.imageId)],
+    );
+    if (!result.rowCount) return res.status(404).end();
+    res.setHeader('Content-Type', result.rows[0].mime_type);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(result.rows[0].image_data);
+  });
+
+  app.get('/api/admin/hospitality', isAuthenticated, isAdmin, async (_req, res) => {
+    return res.json(await getHospitalityCatalog(true));
+  });
+
+  app.put('/api/admin/hospitality/settings', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = hospitalityPageSettingsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data halaman tidak valid', errors: parsed.error.flatten() });
+    const data = parsed.data;
+    await pool.query(
+      `UPDATE hospitality_page_settings SET intro=$1,about_text=$2,why_items=$3::jsonb,
+         philosophy=$4,updated_by=$5,updated_at=now() WHERE id=1`,
+      [data.intro, data.aboutText, JSON.stringify(data.whyItems), data.philosophy, req.user.claims.sub],
+    );
+    return res.json({ message: 'Informasi Hospitality Services diperbarui' });
+  });
+
+  app.post('/api/admin/hospitality/services', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = hospitalityServiceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data layanan tidak valid', errors: parsed.error.flatten() });
+    const data = parsed.data;
+    const slug = makeDigitalProductSlug(data.slug || data.title);
+    if (!slug) return res.status(400).json({ message: 'Slug layanan tidak valid' });
+    try {
+      const result = await pool.query(
+        `INSERT INTO hospitality_services (slug,title,summary,description,sort_order,is_active,created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id,slug`,
+        [slug, data.title, data.summary, data.description, data.sortOrder, data.isActive, req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug layanan sudah digunakan' });
+      return res.status(500).json({ message: 'Gagal menambahkan layanan' });
+    }
+  });
+
+  app.put('/api/admin/hospitality/services/:serviceId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = hospitalityServiceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data layanan tidak valid', errors: parsed.error.flatten() });
+    const data = parsed.data;
+    const slug = makeDigitalProductSlug(data.slug || data.title);
+    try {
+      const result = await pool.query(
+        `UPDATE hospitality_services SET slug=$1,title=$2,summary=$3,description=$4,
+           sort_order=$5,is_active=$6,updated_at=now()
+         WHERE id=$7 AND deleted_at IS NULL RETURNING id,slug`,
+        [slug, data.title, data.summary, data.description, data.sortOrder, data.isActive, Number(req.params.serviceId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Layanan tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug layanan sudah digunakan' });
+      return res.status(500).json({ message: 'Gagal memperbarui layanan' });
+    }
+  });
+
+  app.delete('/api/admin/hospitality/services/:serviceId', isAuthenticated, isAdmin, async (req, res) => {
+    const result = await pool.query(
+      `UPDATE hospitality_services SET deleted_at=now(),is_active=false,updated_at=now()
+       WHERE id=$1 AND deleted_at IS NULL RETURNING id`,
+      [Number(req.params.serviceId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Layanan tidak ditemukan' });
+    return res.json({ message: 'Layanan dihapus dari katalog' });
+  });
+
+  app.put('/api/admin/hospitality/services/:serviceId/image', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto layanan wajib dipilih' });
+      const result = await pool.query(
+        `UPDATE hospitality_services SET image_data=$1,image_file_name=$2,image_mime_type=$3,updated_at=now()
+         WHERE id=$4 AND deleted_at IS NULL RETURNING id`,
+        [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'foto-layanan')), req.headers['content-type'], Number(req.params.serviceId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Layanan tidak ditemukan' });
+      return res.json({ message: 'Foto layanan disimpan' });
+    });
+
+  app.put('/api/admin/hospitality/services/:serviceId/image/focus', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = digitalProductImageFocusSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Posisi fokus tidak valid' });
+    const result = await pool.query(
+      `UPDATE hospitality_services SET image_focus_x=$1,image_focus_y=$2,updated_at=now()
+       WHERE id=$3 AND deleted_at IS NULL RETURNING id`,
+      [parsed.data.focusX, parsed.data.focusY, Number(req.params.serviceId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Layanan tidak ditemukan' });
+    return res.json(result.rows[0]);
+  });
+
+  app.post('/api/admin/hospitality/services/:serviceId/offerings', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = hospitalityOfferingSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pilihan layanan tidak valid', errors: parsed.error.flatten() });
+    const data = parsed.data;
+    const slug = makeDigitalProductSlug(data.slug || data.title);
+    try {
+      const result = await pool.query(
+        `INSERT INTO hospitality_offerings
+          (service_id,slug,title,description,capacity,area,facilities,duration,price_options,sort_order,is_active,created_by)
+         SELECT id,$1,$2,$3,NULLIF($4,''),NULLIF($5,''),NULLIF($6,''),NULLIF($7,''),$8::jsonb,$9,$10,$11
+           FROM hospitality_services WHERE id=$12 AND deleted_at IS NULL RETURNING id,slug`,
+        [slug, data.title, data.description, data.capacity, data.area, data.facilities, data.duration,
+         JSON.stringify(data.priceOptions), data.sortOrder, data.isActive, req.user.claims.sub, Number(req.params.serviceId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Layanan induk tidak ditemukan' });
+      return res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug pilihan sudah digunakan pada layanan ini' });
+      return res.status(500).json({ message: 'Gagal menambahkan pilihan layanan' });
+    }
+  });
+
+  app.put('/api/admin/hospitality/services/:serviceId/offerings/:offeringId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = hospitalityOfferingSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pilihan layanan tidak valid', errors: parsed.error.flatten() });
+    const data = parsed.data;
+    const slug = makeDigitalProductSlug(data.slug || data.title);
+    try {
+      const result = await pool.query(
+        `UPDATE hospitality_offerings SET slug=$1,title=$2,description=$3,capacity=NULLIF($4,''),
+           area=NULLIF($5,''),facilities=NULLIF($6,''),duration=NULLIF($7,''),price_options=$8::jsonb,
+           sort_order=$9,is_active=$10,updated_at=now()
+         WHERE id=$11 AND service_id=$12 AND deleted_at IS NULL RETURNING id,slug`,
+        [slug, data.title, data.description, data.capacity, data.area, data.facilities, data.duration,
+         JSON.stringify(data.priceOptions), data.sortOrder, data.isActive,
+         Number(req.params.offeringId), Number(req.params.serviceId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Pilihan layanan tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug pilihan sudah digunakan pada layanan ini' });
+      return res.status(500).json({ message: 'Gagal memperbarui pilihan layanan' });
+    }
+  });
+
+  app.delete('/api/admin/hospitality/services/:serviceId/offerings/:offeringId', isAuthenticated, isAdmin, async (req, res) => {
+    const result = await pool.query(
+      `UPDATE hospitality_offerings SET deleted_at=now(),is_active=false,updated_at=now()
+       WHERE id=$1 AND service_id=$2 AND deleted_at IS NULL RETURNING id`,
+      [Number(req.params.offeringId), Number(req.params.serviceId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Pilihan layanan tidak ditemukan' });
+    return res.json({ message: 'Pilihan layanan dihapus dari katalog' });
+  });
+
+  app.put('/api/admin/hospitality/services/:serviceId/offerings/:offeringId/image', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto pilihan wajib dipilih' });
+      const result = await pool.query(
+        `UPDATE hospitality_offerings SET image_data=$1,image_file_name=$2,image_mime_type=$3,updated_at=now()
+         WHERE id=$4 AND service_id=$5 AND deleted_at IS NULL RETURNING id`,
+        [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'foto-pilihan')), req.headers['content-type'],
+         Number(req.params.offeringId), Number(req.params.serviceId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Pilihan layanan tidak ditemukan' });
+      return res.json({ message: 'Foto pilihan disimpan' });
+    });
+
+  app.put('/api/admin/hospitality/services/:serviceId/offerings/:offeringId/image/focus', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = digitalProductImageFocusSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Posisi fokus tidak valid' });
+    const result = await pool.query(
+      `UPDATE hospitality_offerings SET image_focus_x=$1,image_focus_y=$2,updated_at=now()
+       WHERE id=$3 AND service_id=$4 AND deleted_at IS NULL RETURNING id`,
+      [parsed.data.focusX, parsed.data.focusY, Number(req.params.offeringId), Number(req.params.serviceId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Pilihan layanan tidak ditemukan' });
+    return res.json(result.rows[0]);
+  });
+
+  app.get('/api/admin/hospitality/gallery', isAuthenticated, isAdmin, async (_req, res) => {
+    const result = await pool.query(
+      `SELECT id,file_name AS "fileName",title,caption,sort_order AS "sortOrder",
+              focus_x AS "focusX",focus_y AS "focusY",is_active AS "isActive"
+         FROM hospitality_gallery_images ORDER BY sort_order,id`,
+    );
+    return res.json(result.rows);
+  });
+
+  app.post('/api/admin/hospitality/gallery', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto galeri wajib dipilih' });
+      const next = await pool.query(`SELECT COALESCE(MAX(sort_order),-1)+1 AS value FROM hospitality_gallery_images`);
+      const result = await pool.query(
+        `INSERT INTO hospitality_gallery_images (image_data,file_name,mime_type,sort_order,created_by)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'galeri-hospitality')), req.headers['content-type'],
+         Number(next.rows[0].value), req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    });
+
+  app.put('/api/admin/hospitality/gallery/:imageId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = hospitalityGallerySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data galeri tidak valid', errors: parsed.error.flatten() });
+    const data = parsed.data;
+    const result = await pool.query(
+      `UPDATE hospitality_gallery_images SET title=NULLIF($1,''),caption=NULLIF($2,''),sort_order=$3,
+         focus_x=$4,focus_y=$5,is_active=$6,updated_at=now() WHERE id=$7 RETURNING id`,
+      [data.title, data.caption, data.sortOrder, data.focusX, data.focusY, data.isActive, Number(req.params.imageId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri tidak ditemukan' });
+    return res.json(result.rows[0]);
+  });
+
+  app.delete('/api/admin/hospitality/gallery/:imageId', isAuthenticated, isAdmin, async (req, res) => {
+    const result = await pool.query(`DELETE FROM hospitality_gallery_images WHERE id=$1 RETURNING id`, [Number(req.params.imageId)]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri tidak ditemukan' });
+    return res.json({ message: 'Foto galeri dihapus' });
+  });
 
   const trainingSelect = `
     SELECT training.id, training.slug, training.title, training.summary, training.description,

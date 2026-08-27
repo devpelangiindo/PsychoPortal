@@ -11,6 +11,7 @@ import DigitalProducts from "@/pages/DigitalProducts";
 import TherapyCategories from "@/pages/TherapyCategories";
 import CoursePage from "@/pages/CoursePage";
 import TrainingPage from "@/pages/TrainingPage";
+import HospitalityServices from "@/pages/HospitalityServices";
 import Artikel, { ArticleDetailPage } from "@/pages/Artikel";
 import Kontak from "@/pages/Kontak";
 
@@ -29,6 +30,8 @@ function Router() {
       <Route path="/produk-layanan/kursus" component={CoursePage} />
       <Route path="/produk-layanan/pelatihan/:trainingSlug" component={TrainingPage} />
       <Route path="/produk-layanan/pelatihan" component={TrainingPage} />
+      <Route path="/produk-layanan/horecal/:serviceSlug" component={HospitalityServices} />
+      <Route path="/produk-layanan/horecal" component={HospitalityServices} />
       <Route path="/produk-layanan/:slug" component={ProdukLayanan} />
       <Route path="/artikel" component={Artikel} />
       <Route path="/artikel/:slug" component={ArticleDetailPage} />

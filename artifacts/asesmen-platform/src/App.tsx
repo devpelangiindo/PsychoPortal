@@ -36,6 +36,7 @@ import AdminCourses from "@/pages/admin-courses";
 import AdminArticles from "@/pages/admin-articles";
 import AdminTrainings from "@/pages/admin-trainings";
 import AdminBookingPromos from "@/pages/admin-booking-promos";
+import AdminHospitality from "@/pages/admin-hospitality";
 import DigitalProductCheckout from "@/pages/digital-product-checkout";
 import TrainingRegistration from "@/pages/training-registration";
 import PaymentSuccess from "@/pages/payment-success";
@@ -120,6 +121,7 @@ function Router() {
       <Route path="/admin/courses" component={AdminCourses} />
       <Route path="/admin/articles" component={AdminArticles} />
       <Route path="/admin/booking-promos" component={AdminBookingPromos} />
+      <Route path="/admin/hospitality" component={AdminHospitality} />
       <Route path="/admin/trainings" component={AdminTrainings} />
       <Route path="/cso/trainings" component={AdminTrainings} />
       

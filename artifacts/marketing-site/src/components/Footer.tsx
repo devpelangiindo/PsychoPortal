@@ -10,6 +10,7 @@ const services = [
   { label: "Pelatihan", href: "/produk-layanan/pelatihan" },
   { label: "Produk Digital", href: "/produk-layanan/produk-digital" },
   { label: "Kursus", href: "/produk-layanan/kursus" },
+  { label: "Hospitality Services", href: "/produk-layanan/horecal" },
 ];
 
 export default function Footer() {
