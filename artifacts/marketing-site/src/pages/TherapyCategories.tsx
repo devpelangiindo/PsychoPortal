@@ -330,10 +330,16 @@ const therapyCategories: TherapyCategory[] = [
   },
 ];
 
-function TherapyHero({ title, description, detail = false }: { title: string; description: string; detail?: boolean }) {
+function TherapyHero({ title, description, detail = false, image }: { title: string; description: string; detail?: boolean; image?: string }) {
   return (
-    <section className="bg-gradient-to-br from-[#1B4332] via-[#2D6A4F] to-[#40916C] px-4 pb-16 pt-28 text-white sm:px-6 lg:px-8 lg:pb-20">
-      <div className="mx-auto max-w-5xl">
+    <section className={`relative overflow-hidden px-4 pb-16 pt-28 text-white sm:px-6 lg:px-8 lg:pb-20 ${image ? "bg-[#1B4332]" : "bg-gradient-to-br from-[#1B4332] via-[#2D6A4F] to-[#40916C]"}`}>
+      {image && (
+        <>
+          <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#123c2f]/70 via-[#1B4332]/55 to-[#2D6A4F]/45" />
+        </>
+      )}
+      <div className="relative mx-auto max-w-5xl" style={image ? { textShadow: "0 2px 14px rgba(0,0,0,0.45)" } : undefined}>
         {detail && (
           <nav className="mb-8 flex flex-wrap items-center gap-2 text-sm text-green-50/75">
             <Link href="/produk-layanan" className="transition-colors hover:text-white">Produk & Layanan</Link>
@@ -450,7 +456,7 @@ function PsychotherapyDetail({ category }: { category: TherapyCategory }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <TherapyHero title={category.title} description={category.description} detail />
+      <TherapyHero title={category.title} description={category.description} detail image="/services/psikoterapi-hero.png" />
       <main className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
         <Link href="/produk-layanan/terapi" className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Kategori Terapi</Link>
         <div className="mb-8">
