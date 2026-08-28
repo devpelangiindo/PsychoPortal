@@ -332,7 +332,7 @@ const therapyCategories: TherapyCategory[] = [
 
 function TherapyHero({ title, description, detail = false, image }: { title: string; description: string; detail?: boolean; image?: string }) {
   return (
-    <section className={`relative overflow-hidden px-4 pb-16 pt-28 text-white sm:px-6 lg:px-8 lg:pb-20 ${image ? "bg-[#1B4332]" : "bg-gradient-to-br from-[#1B4332] via-[#2D6A4F] to-[#40916C]"}`}>
+    <section className={`relative overflow-hidden px-4 text-white sm:px-6 lg:px-8 ${image ? "flex min-h-[280px] items-center bg-[#1B4332] pb-8 pt-24 sm:min-h-[300px] sm:pb-9 lg:aspect-[6/1] lg:min-h-[260px] lg:pb-8 lg:pt-24" : "bg-gradient-to-br from-[#1B4332] via-[#2D6A4F] to-[#40916C] pb-16 pt-28 lg:pb-20"}`}>
       {image && (
         <>
           <div className="absolute inset-0 overflow-hidden bg-[#143d31]">
@@ -342,9 +342,9 @@ function TherapyHero({ title, description, detail = false, image }: { title: str
           <div className="absolute inset-0 bg-gradient-to-r from-[#123c2f]/80 via-[#1B4332]/70 to-[#2D6A4F]/60" />
         </>
       )}
-      <div className="relative mx-auto max-w-5xl" style={image ? { textShadow: "0 2px 14px rgba(0,0,0,0.45)" } : undefined}>
+      <div className="relative mx-auto w-full max-w-5xl" style={image ? { textShadow: "0 2px 14px rgba(0,0,0,0.45)" } : undefined}>
         {detail && (
-          <nav className="mb-8 flex flex-wrap items-center gap-2 text-sm text-green-50/75">
+          <nav className={`${image ? "mb-4 text-xs sm:text-sm" : "mb-8 text-sm"} flex flex-wrap items-center gap-2 text-green-50/75`}>
             <Link href="/produk-layanan" className="transition-colors hover:text-white">Produk & Layanan</Link>
             <ChevronRight size={14} />
             <Link href="/produk-layanan/terapi" className="transition-colors hover:text-white">Terapi</Link>
@@ -353,9 +353,9 @@ function TherapyHero({ title, description, detail = false, image }: { title: str
           </nav>
         )}
         <div className={detail ? "max-w-3xl" : "mx-auto max-w-4xl text-center"}>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-green-100">Produk & Layanan</p>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight md:text-5xl">{title}</h1>
-          <p className="mt-5 text-lg leading-relaxed text-green-50/90">{description}</p>
+          <p className={`${image ? "text-xs" : "text-sm"} font-semibold uppercase tracking-[0.2em] text-green-100`}>Produk & Layanan</p>
+          <h1 className={`${image ? "mt-2 text-3xl sm:text-4xl lg:text-[2.75rem]" : "mt-4 text-4xl md:text-5xl"} font-extrabold tracking-tight`}>{title}</h1>
+          <p className={`${image ? "mt-3 max-w-2xl text-sm leading-6 sm:text-base" : "mt-5 text-lg leading-relaxed"} text-green-50/90`}>{description}</p>
         </div>
       </div>
     </section>
