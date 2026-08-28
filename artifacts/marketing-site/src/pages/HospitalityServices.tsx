@@ -9,10 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 type WhyItem = { title: string; description: string };
 type PriceOption = { label: string; price: number | string; promoPrice?: number | string | null; unit?: string };
+type OfferingImage = { id: number; focusX: number; focusY: number; sortOrder: number };
 type Offering = {
   id: number; serviceId: number; slug: string; title: string; description: string;
   capacity?: string | null; area?: string | null; facilities?: string | null; duration?: string | null;
   priceOptions: PriceOption[]; hasImage: boolean; imageFocusX: number; imageFocusY: number;
+  images: OfferingImage[];
 };
 type Service = {
   id: number; slug: string; title: string; summary: string; description: string;
@@ -30,7 +32,7 @@ function apiBase() {
 }
 
 function serviceImageUrl(id: number) { return `${apiBase()}/api/hospitality/services/${id}/image`; }
-function offeringImageUrl(id: number) { return `${apiBase()}/api/hospitality/offerings/${id}/image`; }
+function offeringGalleryImageUrl(id: number) { return `${apiBase()}/api/hospitality/offering-images/${id}`; }
 function galleryImageUrl(id: number) { return `${apiBase()}/api/hospitality/gallery/images/${id}`; }
 function money(value: string | number) { return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`; }
 function whatsappHref(topic: string) {
@@ -65,13 +67,30 @@ function PriceRows({ prices }: { prices: PriceOption[] }) {
   </div>;
 }
 
+function OfferingCarousel({ offering }: { offering: Offering }) {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
+  const touchX = useRef<number | null>(null);
+  const images = offering.images || [];
+  useEffect(() => { if (index >= images.length) setIndex(0); }, [index, images.length]);
+  useEffect(() => {
+    if (images.length <= 1 || paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setIndex(current => (current + 1) % images.length), 4000);
+    return () => window.clearInterval(timer);
+  }, [images.length, paused, timerKey]);
+  if (!images.length) return <div className="flex aspect-[16/9] items-center justify-center bg-gradient-to-br from-green-100 via-white to-amber-100"><BedDouble className="h-16 w-16 text-green-800" /></div>;
+  const active = images[index] || images[0];
+  const move = (direction: -1 | 1) => { setIndex(current => (current + direction + images.length) % images.length); setTimerKey(current => current + 1); };
+  return <div className="relative" onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocusCapture={()=>setPaused(true)} onBlurCapture={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setPaused(false);}} onTouchStart={(event:TouchEvent<HTMLDivElement>)=>{touchX.current=event.touches[0]?.clientX??null;setPaused(true);}} onTouchEnd={(event:TouchEvent<HTMLDivElement>)=>{setPaused(false);if(touchX.current===null)return;const distance=(event.changedTouches[0]?.clientX??touchX.current)-touchX.current;touchX.current=null;if(Math.abs(distance)>=40)move(distance<0?1:-1);}}>
+    <div className="aspect-[16/9] touch-pan-y overflow-hidden bg-green-50"><img key={active.id} src={offeringGalleryImageUrl(active.id)} alt={`${offering.title} - foto ${index+1}`} className="h-full w-full animate-in fade-in object-cover duration-500" style={{objectPosition:`${active.focusX}% ${active.focusY}%`}}/></div>
+    {images.length>1&&<><button type="button" aria-label="Foto sebelumnya" onClick={()=>move(-1)} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white shadow hover:bg-black/65"><ChevronLeft className="h-5 w-5"/></button><button type="button" aria-label="Foto berikutnya" onClick={()=>move(1)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white shadow hover:bg-black/65"><ChevronRight className="h-5 w-5"/></button><div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">{images.map((image,imageIndex)=><button key={image.id} type="button" aria-label={`Tampilkan foto ${imageIndex+1}`} onClick={()=>{setIndex(imageIndex);setTimerKey(current=>current+1);}} className={`h-2.5 rounded-full shadow transition-all ${imageIndex===index?"w-7 bg-white":"w-2.5 bg-white/55"}`}/>)}</div></>}
+  </div>;
+}
+
 function OfferingCard({ offering, serviceTitle }: { offering: Offering; serviceTitle: string }) {
   return <article className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
-    <div className="aspect-[16/9] bg-green-50">
-      {offering.hasImage
-        ? <img src={offeringImageUrl(offering.id)} alt={offering.title} className="h-full w-full object-cover" style={{ objectPosition: `${offering.imageFocusX}% ${offering.imageFocusY}%` }} />
-        : <div className="flex h-full items-center justify-center bg-gradient-to-br from-green-100 via-white to-amber-100"><BedDouble className="h-16 w-16 text-green-800" /></div>}
-    </div>
+    <OfferingCarousel offering={offering} />
     <div className="space-y-5 p-6">
       <div><h2 className="text-2xl font-extrabold text-gray-950">{offering.title}</h2><p className="mt-3 leading-7 text-gray-600">{offering.description}</p></div>
       {(offering.capacity || offering.area || offering.duration) && <div className="grid gap-3 rounded-2xl bg-stone-50 p-4 text-sm sm:grid-cols-2">

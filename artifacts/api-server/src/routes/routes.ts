@@ -781,6 +781,21 @@ async function ensureHospitalityInfrastructure() {
       updated_at timestamp DEFAULT now(),
       CONSTRAINT hospitality_gallery_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
     );
+    CREATE TABLE IF NOT EXISTS hospitality_offering_images (
+      id serial PRIMARY KEY,
+      offering_id integer NOT NULL REFERENCES hospitality_offerings(id) ON DELETE CASCADE,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT hospitality_offering_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
     CREATE TABLE IF NOT EXISTS application_data_migrations (
       migration_key varchar(255) PRIMARY KEY,
       applied_at timestamp DEFAULT now()
@@ -791,6 +806,23 @@ async function ensureHospitalityInfrastructure() {
       ON hospitality_offerings(service_id, is_active, sort_order, id) WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS hospitality_gallery_public_idx
       ON hospitality_gallery_images(is_active, sort_order, id);
+    CREATE INDEX IF NOT EXISTS hospitality_offering_images_public_idx
+      ON hospitality_offering_images(offering_id, is_active, sort_order, id);
+  `);
+
+  await pool.query(`
+    WITH applied AS (
+      INSERT INTO application_data_migrations (migration_key)
+      VALUES ('migrate-hospitality-offering-images-v1')
+      ON CONFLICT (migration_key) DO NOTHING RETURNING migration_key
+    )
+    INSERT INTO hospitality_offering_images
+      (offering_id,image_data,file_name,mime_type,sort_order,focus_x,focus_y,is_active,created_by)
+    SELECT offering.id,offering.image_data,COALESCE(offering.image_file_name,'foto-paket'),
+           COALESCE(offering.image_mime_type,'image/jpeg'),0,offering.image_focus_x,offering.image_focus_y,true,offering.created_by
+      FROM hospitality_offerings offering
+      CROSS JOIN applied
+     WHERE offering.image_data IS NOT NULL
   `);
 
   const client = await pool.connect();
@@ -5508,14 +5540,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const offeringWhere = includeInactive
       ? `WHERE offering.deleted_at IS NULL`
       : `WHERE offering.deleted_at IS NULL AND offering.is_active = true`;
-    const [services, offerings] = await Promise.all([
+    const imageWhere = includeInactive ? `` : `WHERE is_active = true`;
+    const [services, offerings, offeringImages] = await Promise.all([
       pool.query(`${hospitalityServiceSelect} ${serviceWhere} ORDER BY service.sort_order, service.id`),
       pool.query(`${hospitalityOfferingSelect} ${offeringWhere} ORDER BY offering.sort_order, offering.id`),
+      pool.query(`SELECT id,offering_id AS "offeringId",file_name AS "fileName",sort_order AS "sortOrder",
+                         focus_x AS "focusX",focus_y AS "focusY",is_active AS "isActive"
+                    FROM hospitality_offering_images ${imageWhere} ORDER BY sort_order,id`),
     ]);
     const byService = new Map<number, any[]>();
     offerings.rows.forEach((offering: any) => {
       const list = byService.get(offering.serviceId) || [];
-      list.push(offering);
+      const images = offeringImages.rows.filter((image: any) => image.offeringId === offering.id);
+      list.push({ ...offering, hasImage: images.length > 0, images });
       byService.set(offering.serviceId, list);
     });
     return {
@@ -5747,6 +5784,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
     if (!result.rowCount) return res.status(404).json({ message: 'Pilihan layanan tidak ditemukan' });
     return res.json(result.rows[0]);
+  });
+
+  app.get('/api/hospitality/offering-images/:imageId', async (req, res) => {
+    const result = await pool.query(
+      `SELECT image_data,mime_type FROM hospitality_offering_images WHERE id=$1`,
+      [Number(req.params.imageId)],
+    );
+    if (!result.rowCount) return res.status(404).end();
+    res.setHeader('Content-Type', result.rows[0].mime_type || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(result.rows[0].image_data);
+  });
+
+  app.post('/api/admin/hospitality/services/:serviceId/offerings/:offeringId/images', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto paket wajib dipilih' });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const offeringId = Number(req.params.offeringId);
+        await client.query(`SELECT pg_advisory_xact_lock($1)`, [offeringId]);
+        const offering = await client.query(`SELECT id FROM hospitality_offerings WHERE id=$1 AND service_id=$2 AND deleted_at IS NULL`, [offeringId, Number(req.params.serviceId)]);
+        if (!offering.rowCount) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Detail/Paket tidak ditemukan' }); }
+        const count = await client.query(`SELECT COUNT(*)::int AS total FROM hospitality_offering_images WHERE offering_id=$1`, [offeringId]);
+        if (Number(count.rows[0]?.total || 0) >= 4) { await client.query('ROLLBACK'); return res.status(409).json({ message: 'Setiap Detail/Paket maksimal memiliki 4 foto' }); }
+        const next = await client.query(`SELECT COALESCE(MAX(sort_order),-1)+1 AS value FROM hospitality_offering_images WHERE offering_id=$1`, [offeringId]);
+        const result = await client.query(
+          `INSERT INTO hospitality_offering_images (offering_id,image_data,file_name,mime_type,sort_order,created_by)
+           VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+          [offeringId,req.body,decodeURIComponent(String(req.headers['x-file-name']||'foto-paket')),req.headers['content-type'],Number(next.rows[0].value),req.user.claims.sub],
+        );
+        await client.query('COMMIT'); return res.status(201).json(result.rows[0]);
+      } catch (error) { await client.query('ROLLBACK').catch(()=>undefined); console.error('Error uploading hospitality offering image:',error); return res.status(500).json({ message:'Gagal mengunggah foto paket' }); }
+      finally { client.release(); }
+    });
+
+  app.put('/api/admin/hospitality/services/:serviceId/offerings/:offeringId/images/:imageId', isAuthenticated, isAdmin, async (req,res) => {
+    const parsed=courseGallerySchema.safeParse(req.body); if(!parsed.success)return res.status(400).json({message:'Data foto tidak valid'});
+    const result=await pool.query(
+      `UPDATE hospitality_offering_images image SET sort_order=$1,focus_x=$2,focus_y=$3,is_active=$4,updated_at=now()
+        FROM hospitality_offerings offering
+       WHERE image.id=$5 AND image.offering_id=$6 AND offering.id=image.offering_id AND offering.service_id=$7 AND offering.deleted_at IS NULL RETURNING image.id`,
+      [parsed.data.sortOrder,parsed.data.focusX,parsed.data.focusY,parsed.data.isActive,Number(req.params.imageId),Number(req.params.offeringId),Number(req.params.serviceId)],
+    );
+    if(!result.rowCount)return res.status(404).json({message:'Foto paket tidak ditemukan'}); return res.json(result.rows[0]);
+  });
+
+  app.put('/api/admin/hospitality/services/:serviceId/offerings/:offeringId/images/:imageId/file', isAuthenticated, isAdmin,
+    express.raw({ type:['image/jpeg','image/png','image/webp'],limit:'8mb' }), async(req,res)=>{
+      if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({message:'Foto paket wajib dipilih'});
+      const result=await pool.query(
+        `UPDATE hospitality_offering_images image SET image_data=$1,file_name=$2,mime_type=$3,updated_at=now()
+          FROM hospitality_offerings offering
+         WHERE image.id=$4 AND image.offering_id=$5 AND offering.id=image.offering_id AND offering.service_id=$6 AND offering.deleted_at IS NULL RETURNING image.id`,
+        [req.body,decodeURIComponent(String(req.headers['x-file-name']||'foto-paket')),req.headers['content-type'],Number(req.params.imageId),Number(req.params.offeringId),Number(req.params.serviceId)],
+      );
+      if(!result.rowCount)return res.status(404).json({message:'Foto paket tidak ditemukan'});return res.json(result.rows[0]);
+    });
+
+  app.delete('/api/admin/hospitality/services/:serviceId/offerings/:offeringId/images/:imageId', isAuthenticated, isAdmin, async(req,res)=>{
+    const result=await pool.query(
+      `DELETE FROM hospitality_offering_images image USING hospitality_offerings offering
+       WHERE image.id=$1 AND image.offering_id=$2 AND offering.id=image.offering_id AND offering.service_id=$3 AND offering.deleted_at IS NULL RETURNING image.id`,
+      [Number(req.params.imageId),Number(req.params.offeringId),Number(req.params.serviceId)],
+    );
+    if(!result.rowCount)return res.status(404).json({message:'Foto paket tidak ditemukan'});return res.json({message:'Foto paket dihapus'});
   });
 
   app.get('/api/admin/hospitality/gallery', isAuthenticated, isAdmin, async (_req, res) => {
