@@ -14,6 +14,7 @@ import fs from "fs";
 import express from "express";
 import { pool } from "../db";
 import { DEFAULT_THERAPY_CATEGORIES, DEFAULT_THERAPY_SERVICES } from "../therapy-seed";
+import { DEFAULT_ONSITE_ASSESSMENT_SERVICES } from "../onsite-assessment-seed";
 // Using Midtrans payment gateway
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "../midtrans";
 
@@ -549,6 +550,38 @@ async function ensureTherapyGalleryInfrastructure() {
   }
 }
 
+async function ensureOnsiteAssessmentInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS onsite_assessment_services (
+      id serial PRIMARY KEY,
+      slug varchar(180) NOT NULL UNIQUE,
+      title varchar(255) NOT NULL,
+      description text NOT NULL,
+      price integer NOT NULL DEFAULT 0 CHECK (price >= 0),
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      image_data bytea,
+      image_file_name varchar(255),
+      image_mime_type varchar(100),
+      image_focus_x smallint NOT NULL DEFAULT 50,
+      image_focus_y smallint NOT NULL DEFAULT 50,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp,
+      CONSTRAINT onsite_assessment_services_focus_check CHECK (image_focus_x BETWEEN 0 AND 100 AND image_focus_y BETWEEN 0 AND 100)
+    );
+    CREATE INDEX IF NOT EXISTS onsite_assessment_services_catalog_idx ON onsite_assessment_services(is_active, sort_order, id);
+  `);
+  for (const service of DEFAULT_ONSITE_ASSESSMENT_SERVICES) {
+    await pool.query(
+      `INSERT INTO onsite_assessment_services (slug,title,description,price,sort_order)
+       VALUES ($1,$2,$3,$4,$5) ON CONFLICT (slug) DO NOTHING`,
+      [service.slug, service.title, service.description, service.price, service.sortOrder],
+    );
+  }
+}
+
 async function ensureArticleInfrastructure() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS managed_articles (
@@ -920,6 +953,15 @@ const therapyServiceSchema = z.object({
 
 const therapyImageFocusSchema = z.object({ focusX: z.coerce.number().int().min(0).max(100), focusY: z.coerce.number().int().min(0).max(100) });
 const therapyGallerySchema = courseGallerySchema.extend({ categoryId: z.union([z.coerce.number().int().positive(), z.null()]).optional().default(null) });
+
+const onsiteAssessmentServiceSchema = z.object({
+  title: z.string().trim().min(2).max(255),
+  slug: z.string().trim().max(180).optional(),
+  description: z.string().trim().min(5).max(10000),
+  price: z.coerce.number().int().min(0).max(999999999),
+  sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
+  isActive: z.boolean().default(true),
+});
 
 const trainingSchema = z.object({
   title: z.string().trim().min(3).max(255),
@@ -3368,6 +3410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureExternalAssessmentInfrastructure();
     await ensureDigitalProductInfrastructure();
     await ensureCourseInfrastructure();
+    await ensureOnsiteAssessmentInfrastructure();
     await ensureTherapyGalleryInfrastructure();
     await ensureTrainingInfrastructure();
     await ensureArticleInfrastructure();
@@ -6764,6 +6807,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error deleting course gallery image:', error);
       return res.status(500).json({ message: 'Gagal menghapus foto galeri' });
     }
+  });
+
+  const onsiteAssessmentSelect = `SELECT id,slug,title,description,price,sort_order AS "sortOrder",is_active AS "isActive",
+    CASE WHEN image_data IS NULL THEN false ELSE true END AS "hasImage", image_focus_x AS "imageFocusX", image_focus_y AS "imageFocusY",
+    created_at AS "createdAt",updated_at AS "updatedAt" FROM onsite_assessment_services`;
+
+  app.get('/api/onsite-assessments', async (_req, res) => {
+    try { const result = await pool.query(`${onsiteAssessmentSelect} WHERE deleted_at IS NULL AND is_active=true ORDER BY sort_order,id`); return res.json(result.rows); }
+    catch (error) { console.error('Error fetching onsite assessments:', error); return res.status(500).json({ message: 'Gagal memuat katalog Asesmen Onsite' }); }
+  });
+  app.get('/api/admin/onsite-assessments', isAuthenticated, isAdmin, async (_req, res) => {
+    try { const result = await pool.query(`${onsiteAssessmentSelect} WHERE deleted_at IS NULL ORDER BY sort_order,id`); return res.json(result.rows); }
+    catch (error) { console.error('Error fetching admin onsite assessments:', error); return res.status(500).json({ message: 'Gagal memuat katalog Asesmen Onsite' }); }
+  });
+  app.post('/api/admin/onsite-assessments', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = onsiteAssessmentServiceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data layanan tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title).slice(0,180);
+    try {
+      const result = await pool.query(`INSERT INTO onsite_assessment_services (slug,title,description,price,sort_order,is_active,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id,slug`, [slug,parsed.data.title,parsed.data.description,parsed.data.price,parsed.data.sortOrder,parsed.data.isActive,req.user.claims.sub]);
+      return res.status(201).json(result.rows[0]);
+    } catch (error:any) { if (error?.code === '23505') return res.status(409).json({ message: 'Slug layanan sudah digunakan' }); console.error('Error creating onsite assessment:', error); return res.status(500).json({ message: 'Gagal menambahkan layanan' }); }
+  });
+  app.put('/api/admin/onsite-assessments/:serviceId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = onsiteAssessmentServiceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data layanan tidak valid', errors: parsed.error.flatten() });
+    try { const result = await pool.query(`UPDATE onsite_assessment_services SET title=$1,description=$2,price=$3,sort_order=$4,is_active=$5,updated_at=now() WHERE id=$6 AND deleted_at IS NULL RETURNING id,slug`, [parsed.data.title,parsed.data.description,parsed.data.price,parsed.data.sortOrder,parsed.data.isActive,Number(req.params.serviceId)]); if (!result.rowCount) return res.status(404).json({ message:'Layanan tidak ditemukan' }); return res.json(result.rows[0]); }
+    catch (error) { console.error('Error updating onsite assessment:', error); return res.status(500).json({ message:'Gagal memperbarui layanan' }); }
+  });
+  app.delete('/api/admin/onsite-assessments/:serviceId', isAuthenticated, isAdmin, async (req, res) => {
+    try { const result = await pool.query(`UPDATE onsite_assessment_services SET deleted_at=now(),is_active=false,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`, [Number(req.params.serviceId)]); if (!result.rowCount) return res.status(404).json({ message:'Layanan tidak ditemukan' }); return res.json({ message:'Layanan berhasil dihapus' }); }
+    catch (error) { console.error('Error deleting onsite assessment:', error); return res.status(500).json({ message:'Gagal menghapus layanan' }); }
+  });
+  app.get('/api/onsite-assessments/:serviceId/image', async (req, res) => {
+    try { const result = await pool.query(`SELECT image_data,image_mime_type AS mime_type FROM onsite_assessment_services WHERE id=$1 AND deleted_at IS NULL`, [Number(req.params.serviceId)]); if (!result.rowCount || !result.rows[0].image_data) return res.status(404).end(); res.setHeader('Content-Type',result.rows[0].mime_type); res.setHeader('Cache-Control','public,max-age=3600'); return res.send(result.rows[0].image_data); }
+    catch { return res.status(500).end(); }
+  });
+  app.put('/api/admin/onsite-assessments/:serviceId/image', isAuthenticated, isAdmin, express.raw({ type:['image/jpeg','image/png','image/webp'],limit:'5mb' }), async (req,res) => {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message:'File gambar wajib dipilih' });
+    try { const result = await pool.query(`UPDATE onsite_assessment_services SET image_data=$1,image_file_name=$2,image_mime_type=$3,updated_at=now() WHERE id=$4 AND deleted_at IS NULL RETURNING id`, [req.body,decodeURIComponent(String(req.headers['x-file-name']||'asesmen-onsite')),req.headers['content-type'],Number(req.params.serviceId)]); if(!result.rowCount)return res.status(404).json({message:'Layanan tidak ditemukan'}); return res.json(result.rows[0]); }
+    catch(error){console.error('Error uploading onsite assessment image:',error);return res.status(500).json({message:'Gagal mengunggah gambar'});}
+  });
+  app.put('/api/admin/onsite-assessments/:serviceId/image-focus', isAuthenticated, isAdmin, async (req,res) => {
+    const parsed=therapyImageFocusSchema.safeParse(req.body); if(!parsed.success)return res.status(400).json({message:'Posisi fokus tidak valid'});
+    try{const result=await pool.query(`UPDATE onsite_assessment_services SET image_focus_x=$1,image_focus_y=$2,updated_at=now() WHERE id=$3 AND deleted_at IS NULL RETURNING id`,[parsed.data.focusX,parsed.data.focusY,Number(req.params.serviceId)]);if(!result.rowCount)return res.status(404).json({message:'Layanan tidak ditemukan'});return res.json(result.rows[0]);}catch{return res.status(500).json({message:'Gagal menyimpan fokus gambar'});}
+  });
+  app.delete('/api/admin/onsite-assessments/:serviceId/image', isAuthenticated, isAdmin, async (req,res) => {
+    try{const result=await pool.query(`UPDATE onsite_assessment_services SET image_data=NULL,image_file_name=NULL,image_mime_type=NULL,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`,[Number(req.params.serviceId)]);if(!result.rowCount)return res.status(404).json({message:'Layanan tidak ditemukan'});return res.json({message:'Gambar berhasil dihapus'});}catch{return res.status(500).json({message:'Gagal menghapus gambar'});}
   });
 
   const loadTherapies = async (admin = false) => {

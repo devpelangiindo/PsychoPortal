@@ -400,6 +400,20 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
           {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Building2 className="w-5 h-5 text-sky-700" />Asesmen Onsite</CardTitle>
+              <CardDescription>Kelola layanan, harga, urutan, status, dan gambar katalog Asesmen Onsite</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/onsite-assessments">
+                <Button className="w-full bg-sky-700 hover:bg-sky-800">Kelola Asesmen Onsite</Button>
+              </Link>
+            </CardContent>
+          </Card>
+          )}
+
+          {!isCsoMode && (
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
               <CardTitle className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-emerald-600" />Kursus</CardTitle>
               <CardDescription>Kelola jenis, detail, urutan, dan foto kursus</CardDescription>
             </CardHeader>

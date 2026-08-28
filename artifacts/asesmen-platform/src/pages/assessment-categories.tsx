@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2, ClipboardList, Info, MessageCircle, MonitorCheck, PackageSearch, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import Footer from "@/components/layout/footer";
@@ -10,6 +11,7 @@ import onsiteAssessmentTopImage from "@assets/asesmen-onsite-1.png";
 import onsiteAssessmentBottomImage from "@assets/asesmen-onsite-2.png";
 import psychologyTestToolsTopImage from "@assets/alat-tes-psikologi-1.png";
 import psychologyTestToolsBottomImage from "@assets/alat-tes-psikologi-2.png";
+import { apiUrl } from "@/lib/api-base";
 
 type AssessmentCategory = {
   title: string;
@@ -22,9 +24,14 @@ type AssessmentCategory = {
 };
 
 type AssessmentService = {
+  id?: number;
+  slug?: string;
   title: string;
   description: string;
   price: number;
+  hasImage?: boolean;
+  imageFocusX?: number;
+  imageFocusY?: number;
 };
 
 const onsiteAssessmentServices: AssessmentService[] = [
@@ -308,6 +315,7 @@ function InformationPage({
                 return (
                   <Card key={service.title} className="group overflow-hidden border-neutral-200 bg-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                     <CardContent className="flex h-full flex-col p-0">
+                      {service.id && service.hasImage && <div className="aspect-[4/3] overflow-hidden bg-neutral-100"><img src={apiUrl(`/api/onsite-assessments/${service.id}/image`)} alt={service.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" style={{ objectPosition: `${service.imageFocusX ?? 50}% ${service.imageFocusY ?? 50}%` }} /></div>}
                       <div className="bg-gradient-to-r from-emerald-700 to-green-500 px-5 py-3 text-white">
                         <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em]">
                           <Sparkles className="h-4 w-4" />
@@ -347,13 +355,20 @@ function InformationPage({
 }
 
 export function OnsiteAssessments() {
+  const { data: managedServices } = useQuery<AssessmentService[]>({
+    queryKey: ["onsite-assessment-catalog"],
+    queryFn: async () => { const response = await fetch(apiUrl("/api/onsite-assessments")); if (!response.ok) throw new Error("Gagal memuat katalog Asesmen Onsite"); return response.json(); },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const catalog = managedServices !== undefined ? managedServices : onsiteAssessmentServices;
   return (
     <InformationPage
       title="Asesmen Onsite"
       description="Layanan asesmen psikologi yang dilaksanakan secara langsung dan disesuaikan dengan kebutuhan individu maupun institusi."
       icon={Building2}
       highlights={["Pelaksanaan terjadwal di lokasi", "Pendampingan tim profesional", "Pilihan layanan dapat disesuaikan dengan kebutuhan"]}
-      catalog={onsiteAssessmentServices}
+      catalog={catalog}
       panelImages={{
         top: { src: onsiteAssessmentTopImage, alt: "Anak menjalani asesmen onsite dengan tenaga profesional" },
         bottom: { src: onsiteAssessmentBottomImage, alt: "Proses observasi dan asesmen profesional" },

@@ -38,6 +38,7 @@ import AdminTrainings from "@/pages/admin-trainings";
 import AdminBookingPromos from "@/pages/admin-booking-promos";
 import AdminHospitality from "@/pages/admin-hospitality";
 import AdminTherapies from "@/pages/admin-therapies";
+import AdminOnsiteAssessments from "@/pages/admin-onsite-assessments";
 import DigitalProductCheckout from "@/pages/digital-product-checkout";
 import TrainingRegistration from "@/pages/training-registration";
 import PaymentSuccess from "@/pages/payment-success";
@@ -124,6 +125,7 @@ function Router() {
       <Route path="/admin/booking-promos" component={AdminBookingPromos} />
       <Route path="/admin/hospitality" component={AdminHospitality} />
       <Route path="/admin/therapies" component={AdminTherapies} />
+      <Route path="/admin/onsite-assessments" component={AdminOnsiteAssessments} />
       <Route path="/admin/therapy-gallery" component={AdminTherapies} />
       <Route path="/admin/trainings" component={AdminTrainings} />
       <Route path="/cso/trainings" component={AdminTrainings} />
