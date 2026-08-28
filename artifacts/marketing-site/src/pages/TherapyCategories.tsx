@@ -335,8 +335,11 @@ function TherapyHero({ title, description, detail = false, image }: { title: str
     <section className={`relative overflow-hidden px-4 pb-16 pt-28 text-white sm:px-6 lg:px-8 lg:pb-20 ${image ? "bg-[#1B4332]" : "bg-gradient-to-br from-[#1B4332] via-[#2D6A4F] to-[#40916C]"}`}>
       {image && (
         <>
-          <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#123c2f]/70 via-[#1B4332]/55 to-[#2D6A4F]/45" />
+          <div className="absolute inset-0 overflow-hidden bg-[#143d31]">
+            <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover object-center opacity-45 blur-sm" />
+            <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain object-center" />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#123c2f]/80 via-[#1B4332]/70 to-[#2D6A4F]/60" />
         </>
       )}
       <div className="relative mx-auto max-w-5xl" style={image ? { textShadow: "0 2px 14px rgba(0,0,0,0.45)" } : undefined}>
