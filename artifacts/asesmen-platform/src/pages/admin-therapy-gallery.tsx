@@ -21,7 +21,9 @@ type TherapyGalleryImage = {
   focusX: number;
   focusY: number;
   isActive: boolean;
+  categoryId: number | null;
 };
+type TherapyCategoryOption = { id: number; title: string };
 
 const MAX_IMAGES = 10;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -53,6 +55,7 @@ export default function AdminTherapyGallery() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const { data: images = [], isLoading } = useQuery<TherapyGalleryImage[]>({ queryKey: ["/api/admin/therapy-gallery"] });
+  const { data: categories = [] } = useQuery<TherapyCategoryOption[]>({ queryKey: ["/api/admin/therapies"] });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/therapy-gallery"] });
 
   const handleUpload = async (file?: File, imageId?: number) => {
@@ -87,6 +90,7 @@ export default function AdminTherapyGallery() {
         focusX: editor.focusX,
         focusY: editor.focusY,
         isActive: editor.isActive,
+        categoryId: editor.categoryId,
       });
       await refresh();
       setEditor(null);
@@ -171,6 +175,7 @@ export default function AdminTherapyGallery() {
               <div><Label>Judul (opsional)</Label><Input value={editor.title || ""} onChange={(event) => setEditor((current) => current ? { ...current, title: event.target.value } : current)} /></div>
               <div><Label>Keterangan (opsional)</Label><Textarea rows={3} value={editor.caption || ""} onChange={(event) => setEditor((current) => current ? { ...current, caption: event.target.value } : current)} /></div>
               <div><Label>Urutan tampil</Label><Input type="number" min="0" max="9999" value={editor.sortOrder} onChange={(event) => setEditor((current) => current ? { ...current, sortOrder: Number(event.target.value) || 0 } : current)} /></div>
+              <div><Label>Kategori terapi (opsional)</Label><select className="mt-1 h-10 w-full rounded-md border bg-white px-3" value={editor.categoryId ?? ""} onChange={(event) => setEditor((current) => current ? { ...current, categoryId: event.target.value ? Number(event.target.value) : null } : current)}><option value="">Semua kategori</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.title}</option>)}</select></div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editor.isActive} onChange={(event) => setEditor((current) => current ? { ...current, isActive: event.target.checked } : current)} />Tampilkan di halaman Terapi</label>
             </div>
             <div className="flex gap-2 border-t bg-white px-6 py-4">

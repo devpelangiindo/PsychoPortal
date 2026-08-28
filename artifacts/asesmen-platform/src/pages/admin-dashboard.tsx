@@ -414,12 +414,12 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
           {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><HeartHandshake className="w-5 h-5 text-teal-700" />Galeri Terapi</CardTitle>
-              <CardDescription>Kelola maksimal 10 foto galeri pada halaman Terapi</CardDescription>
+              <CardTitle className="flex items-center gap-2"><HeartHandshake className="w-5 h-5 text-teal-700" />Kelola Terapi</CardTitle>
+              <CardDescription>Kelola kategori, jenis layanan, detail, gambar, dan galeri terapi</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href="/admin/therapy-gallery">
-                <Button className="w-full bg-teal-700 hover:bg-teal-800">Kelola Galeri</Button>
+              <Link href="/admin/therapies">
+                <Button className="w-full bg-teal-700 hover:bg-teal-800">Kelola Terapi</Button>
               </Link>
             </CardContent>
           </Card>

@@ -13,6 +13,7 @@ import path from "path";
 import fs from "fs";
 import express from "express";
 import { pool } from "../db";
+import { DEFAULT_THERAPY_CATEGORIES, DEFAULT_THERAPY_SERVICES } from "../therapy-seed";
 // Using Midtrans payment gateway
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "../midtrans";
 
@@ -487,6 +488,27 @@ async function ensureCourseInfrastructure() {
 
 async function ensureTherapyGalleryInfrastructure() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS therapy_categories (
+      id serial PRIMARY KEY, slug varchar(150) NOT NULL UNIQUE,
+      kind varchar(30) NOT NULL DEFAULT 'general' CHECK (kind IN ('development', 'psychotherapy', 'general')),
+      title varchar(255) NOT NULL, description text NOT NULL, introduction text, availability varchar(500),
+      summary_items jsonb NOT NULL DEFAULT '[]'::jsonb, theme varchar(30) NOT NULL DEFAULT 'green',
+      sort_order integer NOT NULL DEFAULT 0, is_active boolean NOT NULL DEFAULT true,
+      hero_image_data bytea, hero_file_name varchar(255), hero_mime_type varchar(100),
+      hero_focus_x smallint NOT NULL DEFAULT 50, hero_focus_y smallint NOT NULL DEFAULT 50,
+      created_by varchar REFERENCES users(id), created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now(), deleted_at timestamp,
+      CONSTRAINT therapy_categories_focus_check CHECK (hero_focus_x BETWEEN 0 AND 100 AND hero_focus_y BETWEEN 0 AND 100)
+    );
+    CREATE TABLE IF NOT EXISTS therapy_services (
+      id serial PRIMARY KEY, category_id integer NOT NULL REFERENCES therapy_categories(id),
+      slug varchar(150) NOT NULL, title varchar(255) NOT NULL, price varchar(100), description text NOT NULL,
+      full_description text, focus_text text, target_text text,
+      benefits jsonb NOT NULL DEFAULT '[]'::jsonb, conditions jsonb NOT NULL DEFAULT '[]'::jsonb, sections jsonb NOT NULL DEFAULT '[]'::jsonb,
+      sort_order integer NOT NULL DEFAULT 0, is_active boolean NOT NULL DEFAULT true,
+      image_data bytea, image_file_name varchar(255), image_mime_type varchar(100), image_focus_x smallint NOT NULL DEFAULT 50, image_focus_y smallint NOT NULL DEFAULT 50,
+      created_by varchar REFERENCES users(id), created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now(), deleted_at timestamp,
+      UNIQUE(category_id, slug), CONSTRAINT therapy_services_focus_check CHECK (image_focus_x BETWEEN 0 AND 100 AND image_focus_y BETWEEN 0 AND 100)
+    );
     CREATE TABLE IF NOT EXISTS therapy_gallery_images (
       id serial PRIMARY KEY,
       image_data bytea NOT NULL,
@@ -503,8 +525,28 @@ async function ensureTherapyGalleryInfrastructure() {
       updated_at timestamp DEFAULT now(),
       CONSTRAINT therapy_gallery_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
     );
+    ALTER TABLE therapy_gallery_images ADD COLUMN IF NOT EXISTS category_id integer REFERENCES therapy_categories(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS therapy_categories_catalog_idx ON therapy_categories(is_active, sort_order, id);
+    CREATE INDEX IF NOT EXISTS therapy_services_catalog_idx ON therapy_services(category_id, is_active, sort_order, id);
     CREATE INDEX IF NOT EXISTS therapy_gallery_catalog_idx ON therapy_gallery_images(is_active, sort_order, id);
   `);
+
+  for (const category of DEFAULT_THERAPY_CATEGORIES) {
+    await pool.query(
+      `INSERT INTO therapy_categories (slug, kind, title, description, introduction, availability, summary_items, theme, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9) ON CONFLICT (slug) DO NOTHING`,
+      [category.slug, category.kind, category.title, category.description, category.introduction, category.availability, JSON.stringify(category.summaryItems), category.theme, category.sortOrder],
+    );
+  }
+  for (const service of DEFAULT_THERAPY_SERVICES) {
+    await pool.query(
+      `INSERT INTO therapy_services (category_id, slug, title, price, description, full_description, focus_text, target_text, benefits, conditions, sections, sort_order)
+       SELECT id,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12 FROM therapy_categories WHERE slug = $1
+       ON CONFLICT (category_id, slug) DO NOTHING`,
+      [service.categorySlug, service.slug, service.title, service.price, service.description, service.fullDescription, service.focus, service.target,
+        JSON.stringify(service.benefits), JSON.stringify(service.conditions), JSON.stringify(service.sections), service.sortOrder],
+    );
+  }
 }
 
 async function ensureArticleInfrastructure() {
@@ -854,6 +896,30 @@ const courseGallerySchema = z.object({
   focusY: z.coerce.number().int().min(0).max(100).optional().default(50),
   isActive: z.boolean().optional().default(true),
 });
+
+const therapyCategorySchema = z.object({
+  title: z.string().trim().min(2).max(255), slug: z.string().trim().max(150).optional(),
+  kind: z.enum(["development", "psychotherapy", "general"]).default("general"),
+  description: z.string().trim().min(5).max(5000), introduction: z.string().trim().max(20000).optional().default(""),
+  availability: z.string().trim().max(500).optional().default(""),
+  summaryItems: z.array(z.string().trim().min(1).max(500)).max(30).optional().default([]),
+  theme: z.enum(["green", "blue", "orange", "purple"]).default("green"),
+  sortOrder: z.coerce.number().int().min(0).max(9999).default(0), isActive: z.boolean().default(true),
+});
+
+const therapyServiceSchema = z.object({
+  categoryId: z.coerce.number().int().positive(), title: z.string().trim().min(2).max(255), slug: z.string().trim().max(150).optional(),
+  price: z.string().trim().max(100).optional().default(""), description: z.string().trim().min(5).max(5000),
+  fullDescription: z.string().trim().max(20000).optional().default(""), focus: z.string().trim().max(5000).optional().default(""),
+  target: z.string().trim().max(5000).optional().default(""),
+  benefits: z.array(z.string().trim().min(1).max(1000)).max(50).optional().default([]),
+  conditions: z.array(z.string().trim().min(1).max(1000)).max(50).optional().default([]),
+  sections: z.array(z.object({ title: z.string().trim().min(1).max(255), description: z.string().trim().max(5000).optional().default(""), conditions: z.array(z.string().trim().min(1).max(1000)).max(30).optional().default([]) })).max(20).optional().default([]),
+  sortOrder: z.coerce.number().int().min(0).max(9999).default(0), isActive: z.boolean().default(true),
+});
+
+const therapyImageFocusSchema = z.object({ focusX: z.coerce.number().int().min(0).max(100), focusY: z.coerce.number().int().min(0).max(100) });
+const therapyGallerySchema = courseGallerySchema.extend({ categoryId: z.union([z.coerce.number().int().positive(), z.null()]).optional().default(null) });
 
 const trainingSchema = z.object({
   title: z.string().trim().min(3).max(255),
@@ -6700,8 +6766,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const loadTherapies = async (admin = false) => {
+    const visibility = admin ? `deleted_at IS NULL` : `deleted_at IS NULL AND is_active = true`;
+    const categories = await pool.query(
+      `SELECT id, slug, kind, title, description, COALESCE(introduction, '') AS introduction,
+              COALESCE(availability, '') AS availability, summary_items AS "summaryItems", theme,
+              sort_order AS "sortOrder", is_active AS "isActive",
+              CASE WHEN hero_image_data IS NULL THEN NULL ELSE id END AS "heroImageId",
+              hero_focus_x AS "heroFocusX", hero_focus_y AS "heroFocusY", created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM therapy_categories WHERE ${visibility} ORDER BY sort_order, id`,
+    );
+    const services = await pool.query(
+      `SELECT id, category_id AS "categoryId", slug, title, COALESCE(price, '') AS price, description,
+              COALESCE(full_description, '') AS "fullDescription", COALESCE(focus_text, '') AS focus,
+              COALESCE(target_text, '') AS target, benefits, conditions, sections,
+              sort_order AS "sortOrder", is_active AS "isActive",
+              CASE WHEN image_data IS NULL THEN NULL ELSE id END AS "imageId",
+              image_focus_x AS "imageFocusX", image_focus_y AS "imageFocusY", created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM therapy_services WHERE ${visibility} ORDER BY sort_order, id`,
+    );
+    return categories.rows.map((category) => ({ ...category, services: services.rows.filter((service) => service.categoryId === category.id) }));
+  };
+
+  app.get('/api/therapies', async (_req, res) => {
+    try { return res.json(await loadTherapies(false)); }
+    catch (error) { console.error('Error fetching therapies:', error); return res.status(500).json({ message: 'Gagal memuat data terapi' }); }
+  });
+  app.get('/api/admin/therapies', isAuthenticated, isAdmin, async (_req, res) => {
+    try { return res.json(await loadTherapies(true)); }
+    catch (error) { console.error('Error fetching admin therapies:', error); return res.status(500).json({ message: 'Gagal memuat data terapi' }); }
+  });
+
+  app.post('/api/admin/therapy-categories', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = therapyCategorySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data kategori terapi tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title).slice(0, 150);
+    try {
+      const result = await pool.query(
+        `INSERT INTO therapy_categories (slug,kind,title,description,introduction,availability,summary_items,theme,sort_order,is_active,created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11) RETURNING id,slug`,
+        [slug, parsed.data.kind, parsed.data.title, parsed.data.description, parsed.data.introduction, parsed.data.availability,
+          JSON.stringify(parsed.data.summaryItems), parsed.data.theme, parsed.data.sortOrder, parsed.data.isActive, req.user.claims.sub],
+      );
+      return res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug kategori sudah digunakan' });
+      console.error('Error creating therapy category:', error); return res.status(500).json({ message: 'Gagal menambahkan kategori terapi' });
+    }
+  });
+
+  app.put('/api/admin/therapy-categories/:categoryId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = therapyCategorySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data kategori terapi tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE therapy_categories SET kind=$1,title=$2,description=$3,introduction=$4,availability=$5,summary_items=$6::jsonb,
+          theme=$7,sort_order=$8,is_active=$9,updated_at=now() WHERE id=$10 AND deleted_at IS NULL RETURNING id,slug`,
+        [parsed.data.kind, parsed.data.title, parsed.data.description, parsed.data.introduction, parsed.data.availability,
+          JSON.stringify(parsed.data.summaryItems), parsed.data.theme, parsed.data.sortOrder, parsed.data.isActive, Number(req.params.categoryId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Kategori terapi tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) { console.error('Error updating therapy category:', error); return res.status(500).json({ message: 'Gagal memperbarui kategori terapi' }); }
+  });
+
+  app.delete('/api/admin/therapy-categories/:categoryId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const used = await pool.query(`SELECT 1 FROM therapy_services WHERE category_id=$1 AND deleted_at IS NULL LIMIT 1`, [Number(req.params.categoryId)]);
+      if (used.rowCount) return res.status(409).json({ message: 'Hapus atau pindahkan semua jenis terapi pada kategori ini terlebih dahulu' });
+      const result = await pool.query(`UPDATE therapy_categories SET deleted_at=now(),is_active=false,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`, [Number(req.params.categoryId)]);
+      if (!result.rowCount) return res.status(404).json({ message: 'Kategori terapi tidak ditemukan' });
+      return res.json({ message: 'Kategori terapi berhasil dihapus' });
+    } catch (error) { console.error('Error deleting therapy category:', error); return res.status(500).json({ message: 'Gagal menghapus kategori terapi' }); }
+  });
+
+  app.post('/api/admin/therapy-services', isAuthenticated, isAdmin, async (req: any, res) => {
+    const parsed = therapyServiceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data jenis terapi tidak valid', errors: parsed.error.flatten() });
+    const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title).slice(0, 150);
+    try {
+      const result = await pool.query(
+        `INSERT INTO therapy_services (category_id,slug,title,price,description,full_description,focus_text,target_text,benefits,conditions,sections,sort_order,is_active,created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14) RETURNING id,slug`,
+        [parsed.data.categoryId, slug, parsed.data.title, parsed.data.price, parsed.data.description, parsed.data.fullDescription,
+          parsed.data.focus, parsed.data.target, JSON.stringify(parsed.data.benefits), JSON.stringify(parsed.data.conditions), JSON.stringify(parsed.data.sections),
+          parsed.data.sortOrder, parsed.data.isActive, req.user.claims.sub],
+      ); return res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      if (error?.code === '23505') return res.status(409).json({ message: 'Slug jenis terapi sudah digunakan pada kategori tersebut' });
+      if (error?.code === '23503') return res.status(400).json({ message: 'Kategori terapi tidak valid' });
+      console.error('Error creating therapy service:', error); return res.status(500).json({ message: 'Gagal menambahkan jenis terapi' });
+    }
+  });
+
+  app.put('/api/admin/therapy-services/:serviceId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = therapyServiceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data jenis terapi tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE therapy_services SET category_id=$1,title=$2,price=$3,description=$4,full_description=$5,focus_text=$6,target_text=$7,
+          benefits=$8::jsonb,conditions=$9::jsonb,sections=$10::jsonb,sort_order=$11,is_active=$12,updated_at=now()
+         WHERE id=$13 AND deleted_at IS NULL RETURNING id,slug`,
+        [parsed.data.categoryId, parsed.data.title, parsed.data.price, parsed.data.description, parsed.data.fullDescription, parsed.data.focus,
+          parsed.data.target, JSON.stringify(parsed.data.benefits), JSON.stringify(parsed.data.conditions), JSON.stringify(parsed.data.sections),
+          parsed.data.sortOrder, parsed.data.isActive, Number(req.params.serviceId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Jenis terapi tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) { console.error('Error updating therapy service:', error); return res.status(500).json({ message: 'Gagal memperbarui jenis terapi' }); }
+  });
+
+  app.delete('/api/admin/therapy-services/:serviceId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(`UPDATE therapy_services SET deleted_at=now(),is_active=false,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`, [Number(req.params.serviceId)]);
+      if (!result.rowCount) return res.status(404).json({ message: 'Jenis terapi tidak ditemukan' });
+      return res.json({ message: 'Jenis terapi berhasil dihapus' });
+    } catch (error) { console.error('Error deleting therapy service:', error); return res.status(500).json({ message: 'Gagal menghapus jenis terapi' }); }
+  });
+
+  const registerTherapyImageRoutes = (resource: 'categories' | 'services', table: 'therapy_categories' | 'therapy_services', prefix: 'hero' | 'image') => {
+    const param = resource === 'categories' ? 'categoryId' : 'serviceId';
+    const dataColumn = prefix === 'hero' ? 'hero_image_data' : 'image_data';
+    const fileColumn = prefix === 'hero' ? 'hero_file_name' : 'image_file_name';
+    const mimeColumn = prefix === 'hero' ? 'hero_mime_type' : 'image_mime_type';
+    const focusXColumn = prefix === 'hero' ? 'hero_focus_x' : 'image_focus_x';
+    const focusYColumn = prefix === 'hero' ? 'hero_focus_y' : 'image_focus_y';
+    app.get(`/api/therapies/${resource}/:${param}/image`, async (req, res) => {
+      try {
+        const result = await pool.query(`SELECT ${dataColumn} AS data, ${mimeColumn} AS mime FROM ${table} WHERE id=$1 AND deleted_at IS NULL`, [Number((req.params as Record<string, string>)[param])]);
+        if (!result.rowCount || !result.rows[0].data) return res.status(404).end();
+        res.setHeader('Content-Type', result.rows[0].mime); res.setHeader('Cache-Control', 'public, max-age=3600'); return res.send(result.rows[0].data);
+      } catch { return res.status(500).end(); }
+    });
+    app.put(`/api/admin/therapy-${resource}/:${param}/image`, isAuthenticated, isAdmin,
+      express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '5mb' }), async (req, res) => {
+        if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File gambar wajib dipilih' });
+        try {
+          const result = await pool.query(`UPDATE ${table} SET ${dataColumn}=$1,${fileColumn}=$2,${mimeColumn}=$3,updated_at=now() WHERE id=$4 AND deleted_at IS NULL RETURNING id`,
+            [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'gambar-terapi')), req.headers['content-type'], Number((req.params as Record<string, string>)[param])]);
+          if (!result.rowCount) return res.status(404).json({ message: 'Data terapi tidak ditemukan' }); return res.json(result.rows[0]);
+        } catch (error) { console.error('Error uploading therapy image:', error); return res.status(500).json({ message: 'Gagal mengunggah gambar terapi' }); }
+      });
+    app.put(`/api/admin/therapy-${resource}/:${param}/image-focus`, isAuthenticated, isAdmin, async (req, res) => {
+      const parsed = therapyImageFocusSchema.safeParse(req.body); if (!parsed.success) return res.status(400).json({ message: 'Posisi fokus tidak valid' });
+      try { const result = await pool.query(`UPDATE ${table} SET ${focusXColumn}=$1,${focusYColumn}=$2,updated_at=now() WHERE id=$3 AND deleted_at IS NULL RETURNING id`, [parsed.data.focusX, parsed.data.focusY, Number((req.params as Record<string, string>)[param])]);
+        if (!result.rowCount) return res.status(404).json({ message: 'Data terapi tidak ditemukan' }); return res.json(result.rows[0]);
+      } catch { return res.status(500).json({ message: 'Gagal memperbarui fokus gambar' }); }
+    });
+    app.delete(`/api/admin/therapy-${resource}/:${param}/image`, isAuthenticated, isAdmin, async (req, res) => {
+      try { const result = await pool.query(`UPDATE ${table} SET ${dataColumn}=NULL,${fileColumn}=NULL,${mimeColumn}=NULL,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`, [Number((req.params as Record<string, string>)[param])]);
+        if (!result.rowCount) return res.status(404).json({ message: 'Data terapi tidak ditemukan' }); return res.json({ message: 'Gambar berhasil dihapus' });
+      } catch { return res.status(500).json({ message: 'Gagal menghapus gambar' }); }
+    });
+  };
+  registerTherapyImageRoutes('categories', 'therapy_categories', 'hero');
+  registerTherapyImageRoutes('services', 'therapy_services', 'image');
+
   const therapyGallerySelect = `
     SELECT id, file_name AS "fileName", title, caption,
+           category_id AS "categoryId",
            sort_order AS "sortOrder", focus_x AS "focusX", focus_y AS "focusY",
            is_active AS "isActive", created_at AS "createdAt", updated_at AS "updatedAt"
     FROM therapy_gallery_images`;
@@ -6773,14 +6996,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
   app.put('/api/admin/therapy-gallery/:imageId', isAuthenticated, isAdmin, async (req, res) => {
-    const parsed = courseGallerySchema.safeParse(req.body);
+    const parsed = therapyGallerySchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: 'Data foto galeri tidak valid', errors: parsed.error.flatten() });
     try {
       const result = await pool.query(
         `UPDATE therapy_gallery_images SET title = NULLIF($1, ''), caption = NULLIF($2, ''),
-           sort_order = $3, focus_x = $4, focus_y = $5, is_active = $6, updated_at = now()
-         WHERE id = $7 RETURNING id`,
-        [parsed.data.title, parsed.data.caption, parsed.data.sortOrder, parsed.data.focusX, parsed.data.focusY, parsed.data.isActive, Number(req.params.imageId)],
+           sort_order = $3, focus_x = $4, focus_y = $5, is_active = $6, category_id = $7, updated_at = now()
+         WHERE id = $8 RETURNING id`,
+        [parsed.data.title, parsed.data.caption, parsed.data.sortOrder, parsed.data.focusX, parsed.data.focusY, parsed.data.isActive, parsed.data.categoryId, Number(req.params.imageId)],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri terapi tidak ditemukan' });
       return res.json(result.rows[0]);

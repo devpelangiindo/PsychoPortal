@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type TherapyCategory = {
+  id?: number;
   slug: string;
   title: string;
   description: string;
@@ -17,6 +18,18 @@ type TherapyCategory = {
   iconStyle: string;
   availability: string;
   services: string[];
+  kind?: "development" | "psychotherapy" | "general";
+  heroImageId?: number | null;
+  heroFocusX?: number;
+  heroFocusY?: number;
+  managedServices?: ManagedTherapyService[];
+};
+
+type ManagedTherapyService = {
+  id: number; slug: string; title: string; price: string; description: string; fullDescription: string;
+  focus: string; target: string; benefits: string[]; conditions: string[];
+  sections: Array<{ title: string; description: string; conditions: string[] }>;
+  imageId: number | null; imageFocusX: number; imageFocusY: number;
 };
 
 type DevelopmentTherapy = {
@@ -54,6 +67,10 @@ function therapyApiBase() {
 
 function therapyGalleryImageUrl(imageId: number) {
   return `${therapyApiBase()}/api/therapy-gallery/images/${imageId}`;
+}
+
+function therapyManagedImageUrl(kind: "categories" | "services", id: number) {
+  return `${therapyApiBase()}/api/therapies/${kind}/${id}/image`;
 }
 
 function TherapyGallery() {
@@ -330,14 +347,14 @@ const therapyCategories: TherapyCategory[] = [
   },
 ];
 
-function TherapyHero({ title, description, detail = false, image }: { title: string; description: string; detail?: boolean; image?: string }) {
+function TherapyHero({ title, description, detail = false, image, imageFocusX = 50, imageFocusY = 50 }: { title: string; description: string; detail?: boolean; image?: string; imageFocusX?: number; imageFocusY?: number }) {
   return (
     <section className={`relative overflow-hidden px-4 text-white sm:px-6 lg:px-8 ${image ? "flex min-h-[clamp(28rem,62vh,38rem)] items-center bg-[#1B4332] pb-16 pt-28 lg:pb-20" : "bg-gradient-to-br from-[#1B4332] via-[#2D6A4F] to-[#40916C] pb-16 pt-28 lg:pb-20"}`}>
       {image && (
         <>
           <div className="absolute inset-0 overflow-hidden bg-[#143d31]">
-            <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover object-center opacity-45 blur-sm" />
-            <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain object-center" />
+            <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-sm" style={{ objectPosition: `${imageFocusX}% ${imageFocusY}%` }} />
+            <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain" style={{ objectPosition: `${imageFocusX}% ${imageFocusY}%` }} />
           </div>
           <div className="absolute inset-0 bg-[#1B4332]/75" />
           <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#1B4332]/80 to-transparent" />
@@ -368,7 +385,7 @@ function TherapyDetail({ category }: { category: TherapyCategory }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <TherapyHero title={category.title} description={category.description} detail />
+      <TherapyHero title={category.title} description={category.description} detail image={category.heroImageId && category.id ? therapyManagedImageUrl("categories", category.id) : undefined} imageFocusX={category.heroFocusX} imageFocusY={category.heroFocusY} />
       <main className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
         <Link href="/produk-layanan/terapi" className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Kategori Terapi</Link>
         <div className="grid items-start gap-8 lg:grid-cols-[1fr_320px]">
@@ -412,12 +429,13 @@ function DevelopmentTherapyDetail({ category }: { category: TherapyCategory }) {
           <p className="mt-3 max-w-3xl leading-7 text-gray-600">Pilih layanan yang sesuai untuk melihat fokus terapi, target pendampingan, manfaat, dan informasi biaya setiap sesi.</p>
         </div>
         <div className="grid items-start gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {developmentTherapies.map((therapy) => {
+          {(category.managedServices?.map((service, index) => ({ ...service, icon: [Brain, Activity, MessagesSquare][index % 3], accent: ["from-emerald-500 to-green-700", "from-sky-500 to-blue-700", "from-amber-500 to-orange-600"][index % 3] })) ?? developmentTherapies).map((therapy) => {
             const Icon = therapy.icon;
+            const managed = "imageId" in therapy ? therapy as ManagedTherapyService & { icon: ComponentType<{ className?: string }>; accent: string } : null;
             return (
               <article key={therapy.title} className="overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-black/5">
                 <div className={`relative flex h-48 items-center justify-center overflow-hidden bg-gradient-to-br ${therapy.accent}`}>
-                  <img src="/services/terapi.png" alt="" aria-hidden="true" className="absolute -right-5 -top-5 h-44 w-44 rounded-full bg-white/90 p-8 opacity-25" />
+                  {managed?.imageId ? <img src={therapyManagedImageUrl("services", managed.id)} alt={therapy.title} className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `${managed.imageFocusX}% ${managed.imageFocusY}%` }} /> : <img src="/services/terapi.png" alt="" aria-hidden="true" className="absolute -right-5 -top-5 h-44 w-44 rounded-full bg-white/90 p-8 opacity-25" />}
                   <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-white/95 text-green-800 shadow-lg"><Icon className="h-10 w-10" /></div>
                 </div>
                 <div className="p-6 sm:p-7">
@@ -460,7 +478,7 @@ function PsychotherapyDetail({ category }: { category: TherapyCategory }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <TherapyHero title={category.title} description={category.description} detail image="/services/psikoterapi-hero.png" />
+      <TherapyHero title={category.title} description={category.description} detail image={category.heroImageId && category.id ? therapyManagedImageUrl("categories", category.id) : "/services/psikoterapi-hero.png"} imageFocusX={category.heroFocusX} imageFocusY={category.heroFocusY} />
       <main className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
         <Link href="/produk-layanan/terapi" className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Kategori Terapi</Link>
         <div className="mb-8">
@@ -469,7 +487,7 @@ function PsychotherapyDetail({ category }: { category: TherapyCategory }) {
           <p className="mt-3 max-w-3xl leading-7 text-gray-600">Setiap pendekatan memiliki fokus dan teknik yang berbeda. Tim profesional kami akan membantu menyesuaikannya dengan kebutuhan setiap klien.</p>
         </div>
         <div className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {psychotherapyMethods.map((method, index) => (
+          {(category.managedServices ?? psychotherapyMethods).map((method, index) => (
             <article key={method.title} className="relative overflow-hidden rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-7">
               <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-500 to-green-700" />
               <button type="button" onClick={() => setSelectedMethod(method)} className="group flex h-full w-full flex-col text-left outline-none focus-visible:ring-2 focus-visible:ring-green-700 focus-visible:ring-offset-4" aria-label={`Lihat detail ${method.title}`}>
@@ -535,7 +553,16 @@ function PsychotherapyDetail({ category }: { category: TherapyCategory }) {
 
 export default function TherapyCategories() {
   const [detailMatch, detailParams] = useRoute("/produk-layanan/terapi/:categorySlug");
-  const selectedCategory = detailMatch ? therapyCategories.find((category) => category.slug === detailParams.categorySlug) : undefined;
+  const { data: managedCategories } = useQuery<Array<Omit<TherapyCategory, "icon" | "accent" | "iconStyle" | "services" | "managedServices"> & { theme: string; summaryItems: string[]; services: ManagedTherapyService[] }>>({
+    queryKey: ["managed-therapies"], queryFn: async () => { const response = await fetch(`${therapyApiBase()}/api/therapies`); if (!response.ok) throw new Error("Gagal memuat terapi"); return response.json(); }, staleTime: 5 * 60 * 1000, retry: 1,
+  });
+  const displayedCategories: TherapyCategory[] = managedCategories?.length ? managedCategories.map((category) => {
+    const isDevelopment = category.kind === "development";
+    const styles: Record<string, [string, string]> = { green: ["from-emerald-500 to-green-700", "bg-emerald-100 text-emerald-700"], blue: ["from-sky-500 to-blue-700", "bg-sky-100 text-sky-700"], orange: ["from-amber-500 to-orange-600", "bg-amber-100 text-amber-700"], purple: ["from-violet-500 to-purple-700", "bg-violet-100 text-violet-700"] };
+    const [accent, iconStyle] = styles[category.theme] ?? styles.green;
+    return { ...category, icon: isDevelopment ? Puzzle : HeartHandshake, accent, iconStyle, services: category.summaryItems, managedServices: category.services };
+  }) : therapyCategories;
+  const selectedCategory = detailMatch ? displayedCategories.find((category) => category.slug === detailParams.categorySlug) : undefined;
 
   if (selectedCategory?.slug === "tumbuh-kembang") return <DevelopmentTherapyDetail category={selectedCategory} />;
   if (selectedCategory?.slug === "psikoterapi") return <PsychotherapyDetail category={selectedCategory} />;
@@ -547,7 +574,7 @@ export default function TherapyCategories() {
       <TherapyHero title="Pilih Kategori Terapi" description="Temukan layanan terapi yang paling sesuai untuk kebutuhan perkembangan, perilaku, emosi, dan kesehatan mental." />
       <main className="px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
         <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
-          {therapyCategories.map((category) => {
+          {displayedCategories.map((category) => {
             const Icon = category.icon;
             return (
               <article key={category.slug} className="group relative overflow-hidden rounded-3xl bg-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
