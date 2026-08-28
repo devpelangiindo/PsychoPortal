@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone, Building2 } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone, Building2, HeartHandshake } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -406,6 +406,20 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             <CardContent>
               <Link href="/admin/courses">
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Kelola Kursus</Button>
+              </Link>
+            </CardContent>
+          </Card>
+          )}
+
+          {!isCsoMode && (
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><HeartHandshake className="w-5 h-5 text-teal-700" />Galeri Terapi</CardTitle>
+              <CardDescription>Kelola maksimal 10 foto galeri pada halaman Terapi</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/therapy-gallery">
+                <Button className="w-full bg-teal-700 hover:bg-teal-800">Kelola Galeri</Button>
               </Link>
             </CardContent>
           </Card>

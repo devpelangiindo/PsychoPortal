@@ -1,5 +1,6 @@
-import { useState, type ComponentType } from "react";
-import { Activity, ArrowLeft, ArrowRight, Brain, CheckCircle2, ChevronDown, ChevronRight, HeartHandshake, MessagesSquare, Puzzle } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentType, type FocusEvent, type TouchEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Activity, ArrowLeft, ArrowRight, Brain, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, HeartHandshake, MessagesSquare, Puzzle } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { Link, useRoute } from "wouter";
 import Footer from "@/components/Footer";
@@ -35,6 +36,129 @@ type PsychotherapyMethod = {
   conditions?: string[];
   sections?: Array<{ title: string; description: string; conditions: string[] }>;
 };
+
+type TherapyGalleryImage = {
+  id: number;
+  fileName: string;
+  title: string | null;
+  caption: string | null;
+  sortOrder: number;
+  focusX: number;
+  focusY: number;
+};
+
+function therapyApiBase() {
+  if (import.meta.env.VITE_ASESMEN_API_URL) return String(import.meta.env.VITE_ASESMEN_API_URL).replace(/\/$/, "");
+  return window.location.hostname === "localhost" ? "http://localhost:5001" : "https://asesmen.pi-psychology.com";
+}
+
+function therapyGalleryImageUrl(imageId: number) {
+  return `${therapyApiBase()}/api/therapy-gallery/images/${imageId}`;
+}
+
+function TherapyGallery() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [timerKey, setTimerKey] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const { data: images = [] } = useQuery<TherapyGalleryImage[]>({
+    queryKey: ["therapy-gallery"],
+    queryFn: async () => {
+      const response = await fetch(`${therapyApiBase()}/api/therapy-gallery`);
+      if (!response.ok) throw new Error("Gagal memuat galeri terapi");
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (activeIndex >= images.length) setActiveIndex(0);
+  }, [activeIndex, images.length]);
+
+  useEffect(() => {
+    if (images.length <= 1 || isPaused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const interval = window.setInterval(() => setActiveIndex((current) => (current + 1) % images.length), 4000);
+    return () => window.clearInterval(interval);
+  }, [images.length, isPaused, timerKey]);
+
+  if (images.length === 0) return null;
+  const activeImage = images[activeIndex] ?? images[0];
+
+  const move = (direction: -1 | 1) => {
+    setActiveIndex((current) => (current + direction + images.length) % images.length);
+    setTimerKey((current) => current + 1);
+  };
+
+  const select = (index: number) => {
+    setActiveIndex(index);
+    setTimerKey((current) => current + 1);
+  };
+
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    touchStartX.current = event.touches[0]?.clientX ?? null;
+    setIsPaused(true);
+  };
+
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    setIsPaused(false);
+    if (touchStartX.current === null) return;
+    const distance = (event.changedTouches[0]?.clientX ?? touchStartX.current) - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(distance) >= 40) move(distance < 0 ? 1 : -1);
+  };
+
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsPaused(false);
+  };
+
+  return (
+    <section className="mx-auto mt-14 max-w-6xl overflow-hidden rounded-3xl bg-white p-6 shadow-lg ring-1 ring-black/5 sm:p-8 lg:p-10">
+      <div className="mb-7 max-w-3xl">
+        <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-green-700"><Camera className="h-4 w-4" />Galeri Terapi</p>
+        <h2 className="mt-2 text-3xl font-extrabold text-gray-900">Pendampingan dalam suasana yang aman dan nyaman</h2>
+        <p className="mt-3 leading-7 text-gray-600">Dokumentasi kegiatan terapi Pelangi Indonesia yang dilaksanakan bersama tenaga profesional.</p>
+      </div>
+      <div
+        className="relative"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onFocusCapture={() => setIsPaused(true)}
+        onBlurCapture={handleBlur}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => { touchStartX.current = null; setIsPaused(false); }}
+      >
+        <div className="relative aspect-[16/10] touch-pan-y overflow-hidden rounded-2xl bg-gray-100 sm:aspect-[16/8]">
+          <img
+            key={activeImage.id}
+            src={therapyGalleryImageUrl(activeImage.id)}
+            alt={activeImage.title || activeImage.fileName}
+            className="h-full w-full animate-in fade-in object-cover duration-500"
+            style={{ objectPosition: `${activeImage.focusX}% ${activeImage.focusY}%` }}
+          />
+          {(activeImage.title || activeImage.caption) && (
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent p-5 pt-20 text-white sm:p-7 sm:pt-24">
+              {activeImage.title && <h3 className="text-xl font-extrabold sm:text-2xl">{activeImage.title}</h3>}
+              {activeImage.caption && <p className="mt-1 max-w-3xl text-sm leading-6 text-white/85 sm:text-base">{activeImage.caption}</p>}
+            </div>
+          )}
+        </div>
+        {images.length > 1 && (
+          <>
+            <button type="button" aria-label="Foto sebelumnya" onClick={() => move(-1)} className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white shadow backdrop-blur-sm transition hover:bg-black/65 sm:left-5"><ChevronLeft className="h-5 w-5" /></button>
+            <button type="button" aria-label="Foto berikutnya" onClick={() => move(1)} className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white shadow backdrop-blur-sm transition hover:bg-black/65 sm:right-5"><ChevronRight className="h-5 w-5" /></button>
+            <div className="mt-5 flex justify-center gap-2" aria-label="Navigasi galeri terapi">
+              {images.map((image, index) => (
+                <button key={image.id} type="button" aria-label={`Tampilkan foto ${index + 1}`} aria-current={index === activeIndex ? "true" : undefined} onClick={() => select(index)} className={`h-2.5 rounded-full transition-all ${index === activeIndex ? "w-7 bg-green-700" : "w-2.5 bg-gray-300 hover:bg-gray-400"}`} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
 
 const developmentTherapies: DevelopmentTherapy[] = [
   {
@@ -429,6 +553,7 @@ export default function TherapyCategories() {
             );
           })}
         </div>
+        <TherapyGallery />
       </main>
       <Footer />
     </div>

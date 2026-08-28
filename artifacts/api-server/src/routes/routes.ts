@@ -485,6 +485,28 @@ async function ensureCourseInfrastructure() {
   }
 }
 
+async function ensureTherapyGalleryInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS therapy_gallery_images (
+      id serial PRIMARY KEY,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      title varchar(255),
+      caption varchar(1000),
+      sort_order integer NOT NULL DEFAULT 0,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT therapy_gallery_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
+    CREATE INDEX IF NOT EXISTS therapy_gallery_catalog_idx ON therapy_gallery_images(is_active, sort_order, id);
+  `);
+}
+
 async function ensureArticleInfrastructure() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS managed_articles (
@@ -3280,6 +3302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureExternalAssessmentInfrastructure();
     await ensureDigitalProductInfrastructure();
     await ensureCourseInfrastructure();
+    await ensureTherapyGalleryInfrastructure();
     await ensureTrainingInfrastructure();
     await ensureArticleInfrastructure();
     await ensureHospitalityInfrastructure();
@@ -6674,6 +6697,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting course gallery image:', error);
       return res.status(500).json({ message: 'Gagal menghapus foto galeri' });
+    }
+  });
+
+  const therapyGallerySelect = `
+    SELECT id, file_name AS "fileName", title, caption,
+           sort_order AS "sortOrder", focus_x AS "focusX", focus_y AS "focusY",
+           is_active AS "isActive", created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM therapy_gallery_images`;
+
+  app.get('/api/therapy-gallery', async (_req, res) => {
+    try {
+      const result = await pool.query(`${therapyGallerySelect} WHERE is_active = true ORDER BY sort_order, id`);
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching therapy gallery:', error);
+      return res.status(500).json({ message: 'Gagal memuat galeri terapi' });
+    }
+  });
+
+  app.get('/api/therapy-gallery/images/:imageId', async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT image_data, mime_type FROM therapy_gallery_images WHERE id = $1`,
+        [Number(req.params.imageId)],
+      );
+      if (!result.rowCount) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].mime_type);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(result.rows[0].image_data);
+    } catch (error) {
+      console.error('Error fetching therapy gallery image:', error);
+      return res.status(500).end();
+    }
+  });
+
+  app.get('/api/admin/therapy-gallery', isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query(`${therapyGallerySelect} ORDER BY sort_order, id`);
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching admin therapy gallery:', error);
+      return res.status(500).json({ message: 'Gagal memuat galeri terapi' });
+    }
+  });
+
+  app.post('/api/admin/therapy-gallery', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File gambar wajib dipilih' });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(`SELECT pg_advisory_xact_lock(hashtext('therapy_gallery_upload'))`);
+        const count = await client.query(`SELECT COUNT(*)::int AS total FROM therapy_gallery_images`);
+        if (Number(count.rows[0]?.total ?? 0) >= 10) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ message: 'Galeri terapi maksimal berisi 10 foto' });
+        }
+        const nextOrder = await client.query(`SELECT COALESCE(MAX(sort_order), -1) + 1 AS value FROM therapy_gallery_images`);
+        const fileName = decodeURIComponent(String(req.headers['x-file-name'] || 'foto-galeri-terapi'));
+        const result = await client.query(
+          `INSERT INTO therapy_gallery_images (image_data, file_name, mime_type, title, sort_order, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          [req.body, fileName, req.headers['content-type'], fileName.replace(/\.[^.]+$/, ''), Number(nextOrder.rows[0]?.value ?? 0), req.user.claims.sub],
+        );
+        await client.query('COMMIT');
+        return res.status(201).json(result.rows[0]);
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        console.error('Error uploading therapy gallery image:', error);
+        return res.status(500).json({ message: 'Gagal mengunggah foto galeri terapi' });
+      } finally {
+        client.release();
+      }
+    });
+
+  app.put('/api/admin/therapy-gallery/:imageId', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = courseGallerySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data foto galeri tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE therapy_gallery_images SET title = NULLIF($1, ''), caption = NULLIF($2, ''),
+           sort_order = $3, focus_x = $4, focus_y = $5, is_active = $6, updated_at = now()
+         WHERE id = $7 RETURNING id`,
+        [parsed.data.title, parsed.data.caption, parsed.data.sortOrder, parsed.data.focusX, parsed.data.focusY, parsed.data.isActive, Number(req.params.imageId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri terapi tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating therapy gallery image:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui foto galeri terapi' });
+    }
+  });
+
+  app.put('/api/admin/therapy-gallery/:imageId/file', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' }), async (req, res) => {
+      try {
+        if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'File gambar wajib dipilih' });
+        const result = await pool.query(
+          `UPDATE therapy_gallery_images SET image_data = $1, file_name = $2, mime_type = $3, updated_at = now()
+           WHERE id = $4 RETURNING id`,
+          [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'foto-galeri-terapi')), req.headers['content-type'], Number(req.params.imageId)],
+        );
+        if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri terapi tidak ditemukan' });
+        return res.json(result.rows[0]);
+      } catch (error) {
+        console.error('Error replacing therapy gallery image:', error);
+        return res.status(500).json({ message: 'Gagal mengganti foto galeri terapi' });
+      }
+    });
+
+  app.delete('/api/admin/therapy-gallery/:imageId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(`DELETE FROM therapy_gallery_images WHERE id = $1 RETURNING id`, [Number(req.params.imageId)]);
+      if (!result.rowCount) return res.status(404).json({ message: 'Foto galeri terapi tidak ditemukan' });
+      return res.json({ message: 'Foto galeri terapi berhasil dihapus' });
+    } catch (error) {
+      console.error('Error deleting therapy gallery image:', error);
+      return res.status(500).json({ message: 'Gagal menghapus foto galeri terapi' });
     }
   });
 
