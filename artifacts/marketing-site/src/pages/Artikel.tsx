@@ -3,7 +3,7 @@ import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Search, Calendar, ChevronRight, ArrowRight, Loader2 } from "lucide-react";
+import { Search, Calendar, ChevronRight, ArrowRight, Loader2, ListFilter } from "lucide-react";
 import { formatDate, CATEGORY_LABELS } from "@/lib/cms";
 
 type ManagedArticleImage = {
@@ -51,6 +51,28 @@ async function fetchManagedArticle(slug: string): Promise<ManagedArticle | null>
   if (response.status === 404) return null;
   if (!response.ok) throw new Error("Gagal memuat artikel dari dashboard");
   return response.json();
+}
+
+type ArticleCategory = {
+  id: number;
+  slug: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+async function fetchArticleCategories(): Promise<ArticleCategory[]> {
+  const response = await fetch(`${articleApiBase()}/api/article-categories`);
+  if (!response.ok) throw new Error("Gagal memuat kategori artikel");
+  return response.json();
+}
+
+function selectedCategoryFromUrl() {
+  return new URLSearchParams(window.location.search).get("kategori") ?? "";
+}
+
+function articleListHref(category?: string | null) {
+  return category ? `/artikel?kategori=${encodeURIComponent(category)}` : "/artikel";
 }
 
 const COLOR_BY_CATEGORY: Record<string, string> = {
@@ -209,6 +231,8 @@ function ArticleDetail({ slug }: { slug: string }) {
   const date = publishedAt ? formatDate(publishedAt) : "";
   const managedCover = managedPost?.images.find((image) => image.placement === "cover") ?? managedPost?.images[0];
   const imageUrl = managedCover ? managedArticleImageUrl(managedCover.id) : undefined;
+  const selectedCategory = selectedCategoryFromUrl();
+  const listHref = articleListHref(selectedCategory);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -223,7 +247,7 @@ function ArticleDetail({ slug }: { slug: string }) {
           <nav className="flex items-center gap-2 text-sm text-white/70 mb-6">
             <Link href="/" className="hover:text-white transition-colors">Beranda</Link>
             <ChevronRight size={14} />
-            <Link href="/artikel" className="hover:text-white transition-colors">Berita</Link>
+            <Link href={listHref} className="hover:text-white transition-colors">Berita</Link>
             <ChevronRight size={14} />
             <span className="text-white line-clamp-1">{title}</span>
           </nav>
@@ -249,7 +273,7 @@ function ArticleDetail({ slug }: { slug: string }) {
         ) : !managedPost || isError ? (
           <div className="py-20 text-center">
             <p className="mb-5 text-gray-500">Artikel tidak ditemukan.</p>
-            <Link href="/artikel" className="font-semibold text-green-700 hover:text-green-900">
+            <Link href={listHref} className="font-semibold text-green-700 hover:text-green-900">
               Kembali ke daftar Berita
             </Link>
           </div>
@@ -292,6 +316,7 @@ export function ArticleDetailPage() {
 
 export default function Artikel() {
   const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(selectedCategoryFromUrl);
 
   const { data: managedPosts, isLoading } = useQuery({
     queryKey: ["managed-articles"],
@@ -300,9 +325,35 @@ export default function Artikel() {
     retry: 1,
   });
 
+  const { data: categories = [], isLoading: categoriesLoading, isError: categoriesError } = useQuery({
+    queryKey: ["article-categories"],
+    queryFn: fetchArticleCategories,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
+
+  useEffect(() => {
+    const syncCategoryFromHistory = () => setSelectedCategory(selectedCategoryFromUrl());
+    window.addEventListener("popstate", syncCategoryFromHistory);
+    return () => window.removeEventListener("popstate", syncCategoryFromHistory);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCategory || categoriesLoading || categoriesError) return;
+    if (!categories.some((category) => category.slug === selectedCategory)) {
+      setSelectedCategory("");
+      window.history.replaceState(window.history.state, "", "/artikel");
+    }
+  }, [categories, categoriesError, categoriesLoading, selectedCategory]);
+
+  const changeCategory = (category: string) => {
+    setSelectedCategory(category);
+    window.history.pushState(window.history.state, "", articleListHref(category));
+  };
 
   type ArticleItem = {
     slug: string
@@ -338,11 +389,15 @@ export default function Artikel() {
     new Date(second.publishedAt ?? 0).getTime() - new Date(first.publishedAt ?? 0).getTime(),
   );
 
-  const filtered = articles.filter(
-    (a) =>
-      a.title.toLowerCase().includes(search.toLowerCase()) ||
-      (a.category ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const normalizedSearch = search.trim().toLowerCase();
+  const filtered = articles.filter((article) => {
+    const matchesCategory = !selectedCategory || article.category === selectedCategory;
+    const matchesSearch = !normalizedSearch ||
+      article.title.toLowerCase().includes(normalizedSearch) ||
+      (article.category ?? "").toLowerCase().includes(normalizedSearch) ||
+      (article.categoryLabel ?? "").toLowerCase().includes(normalizedSearch);
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-white">
@@ -353,15 +408,34 @@ export default function Artikel() {
         <p className="text-green-100/80 text-lg max-w-2xl mx-auto px-4 mb-8">
           Wawasan, tips, dan panduan dari para profesional Pelangi Indonesia Group.
         </p>
-        <div className="relative max-w-xl mx-auto px-4">
-          <Search size={18} className="absolute left-7 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari berita..."
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-white text-gray-900 text-sm shadow-sm outline-none focus:ring-2 focus:ring-green-400"
-          />
+        <div className="mx-auto grid max-w-3xl gap-3 px-4 sm:grid-cols-[minmax(0,1fr)_16rem]">
+          <div className="relative">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari berita..."
+              className="w-full rounded-xl bg-white py-3 pl-10 pr-4 text-sm text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+          <div className="relative">
+            <ListFilter size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <label htmlFor="article-category" className="sr-only">Filter kategori artikel</label>
+            <select
+              id="article-category"
+              value={selectedCategory}
+              onChange={(event) => changeCategory(event.target.value)}
+              disabled={categoriesLoading}
+              className="w-full appearance-none rounded-xl bg-white py-3 pl-10 pr-9 text-sm text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-green-400 disabled:cursor-wait disabled:text-gray-400"
+            >
+              <option value="">Semua Kategori</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.slug}>{category.name}</option>
+              ))}
+            </select>
+            <ChevronRight size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-gray-400" />
+          </div>
         </div>
       </div>
 
@@ -375,7 +449,11 @@ export default function Artikel() {
                 </div>
               ) : filtered.length === 0 ? (
                 <p className="text-gray-500 py-10 text-center">
-                  {search ? "Tidak ada berita yang ditemukan." : "Belum ada berita yang dipublikasikan."}
+                  {search
+                    ? "Tidak ada berita yang ditemukan."
+                    : selectedCategory
+                      ? "Belum ada artikel dalam kategori ini."
+                      : "Belum ada berita yang dipublikasikan."}
                 </p>
               ) : (
                 <div className="space-y-6">
@@ -384,7 +462,7 @@ export default function Artikel() {
                     return (
                       <Link
                         key={a.slug}
-                        href={`/artikel/${a.slug}`}
+                        href={`/artikel/${a.slug}${selectedCategory ? `?kategori=${encodeURIComponent(selectedCategory)}` : ""}`}
                         className="flex gap-5 p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group"
                       >
                         <div className="flex h-24 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl text-xs font-medium text-white" style={{ background: `${a.color}cc` }}>
