@@ -405,7 +405,7 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             </CardHeader>
             <CardContent>
               <Link href="/admin/onsite-assessments">
-                <Button className="w-full bg-sky-700 hover:bg-sky-800">Kelola Asesmen Onsite</Button>
+                <Button className="w-full bg-sky-700 hover:bg-sky-800">Kelola Onsite</Button>
               </Link>
             </CardContent>
           </Card>
