@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 type WhyItem = { title: string; description: string };
 type PriceOption = { label: string; price: number | string; promoPrice?: number | string | null; unit?: string };
 type OfferingImage = { id: number; focusX: number; focusY: number; sortOrder: number };
+type ServiceGalleryImage = { id: number; focusX: number; focusY: number; sortOrder: number };
 type Offering = {
   id: number; serviceId: number; slug: string; title: string; description: string;
   capacity?: string | null; area?: string | null; facilities?: string | null; duration?: string | null;
@@ -19,6 +20,7 @@ type Offering = {
 type Service = {
   id: number; slug: string; title: string; summary: string; description: string;
   hasImage: boolean; imageFocusX: number; imageFocusY: number; offerings: Offering[];
+  galleryDescription: string; galleryImages: ServiceGalleryImage[];
 };
 type Catalog = {
   settings: { intro: string; aboutText: string; whyItems: WhyItem[]; philosophy: string };
@@ -33,6 +35,7 @@ function apiBase() {
 
 function serviceImageUrl(id: number) { return `${apiBase()}/api/hospitality/services/${id}/image`; }
 function offeringGalleryImageUrl(id: number) { return `${apiBase()}/api/hospitality/offering-images/${id}`; }
+function serviceGalleryImageUrl(id: number) { return `${apiBase()}/api/hospitality/service-gallery-images/${id}`; }
 function galleryImageUrl(id: number) { return `${apiBase()}/api/hospitality/gallery/images/${id}`; }
 function money(value: string | number) { return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`; }
 function whatsappHref(topic: string) {
@@ -105,6 +108,36 @@ function OfferingCard({ offering, serviceTitle }: { offering: Offering; serviceT
   </article>;
 }
 
+function ServiceGallery({ service }: { service: Service }) {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
+  const touchX = useRef<number | null>(null);
+  const images = service.galleryImages || [];
+  useEffect(() => { if (index >= images.length) setIndex(0); }, [index, images.length]);
+  useEffect(() => {
+    if (images.length <= 1 || paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setIndex(current => (current + 1) % images.length), 4000);
+    return () => window.clearInterval(timer);
+  }, [images.length, paused, timerKey]);
+  if (!images.length) return null;
+  const active = images[index] || images[0];
+  const move = (direction: -1 | 1) => {
+    setIndex(current => (current + direction + images.length) % images.length);
+    setTimerKey(current => current + 1);
+  };
+  return <section className="mt-14">
+    <div className="mb-7 text-center"><p className="flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-[.2em] text-green-700"><Images size={18} /> Galeri Foto</p><h2 className="mt-2 text-3xl font-extrabold text-gray-950">Galeri {service.title}</h2></div>
+    <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-black/5">
+      <div className="relative" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false); }} onTouchStart={(event: TouchEvent<HTMLDivElement>) => { touchX.current = event.touches[0]?.clientX ?? null; setPaused(true); }} onTouchEnd={(event: TouchEvent<HTMLDivElement>) => { setPaused(false); if (touchX.current === null) return; const distance=(event.changedTouches[0]?.clientX??touchX.current)-touchX.current; touchX.current=null; if(Math.abs(distance)>=40)move(distance<0?1:-1); }}>
+        <div className="aspect-video touch-pan-y overflow-hidden bg-green-50"><img key={active.id} src={serviceGalleryImageUrl(active.id)} alt={`${service.title} - foto galeri ${index + 1}`} className="h-full w-full animate-in fade-in object-cover duration-500" style={{ objectPosition: `${active.focusX}% ${active.focusY}%` }} /></div>
+        {images.length > 1 && <><button type="button" aria-label="Foto sebelumnya" onClick={() => move(-1)} className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white shadow hover:bg-black/65"><ChevronLeft /></button><button type="button" aria-label="Foto berikutnya" onClick={() => move(1)} className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white shadow hover:bg-black/65"><ChevronRight /></button><div className="absolute inset-x-0 bottom-4 flex justify-center gap-2">{images.map((image,imageIndex)=><button key={image.id} type="button" aria-label={`Tampilkan foto ${imageIndex+1}`} onClick={()=>{setIndex(imageIndex);setTimerKey(current=>current+1);}} className={`h-2.5 rounded-full shadow transition-all ${imageIndex===index?"w-8 bg-white":"w-2.5 bg-white/55"}`}/>)}</div></>}
+      </div>
+      {service.galleryDescription && <p className="whitespace-pre-line px-6 py-6 text-center leading-7 text-gray-600 sm:px-10">{service.galleryDescription}</p>}
+    </div>
+  </section>;
+}
+
 function ServiceDetail({ service, backHref }: { service: Service; backHref: string }) {
   const isLaundry = service.slug === "laundry";
   return <div className="min-h-screen bg-stone-50"><Navbar />
@@ -115,6 +148,7 @@ function ServiceDetail({ service, backHref }: { service: Service; backHref: stri
       {isLaundry && service.offerings.length > 0 ? <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5"><div className="p-7"><h2 className="text-3xl font-extrabold">Paket Layanan Laundry</h2><p className="mt-2 text-gray-600">Pilih durasi pengerjaan yang sesuai dengan kebutuhan Anda.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left"><thead className="bg-green-950 text-white"><tr><th className="px-6 py-4">Paket</th><th className="px-6 py-4">Tarif per Kg</th><th className="px-6 py-4">Estimasi Selesai</th></tr></thead><tbody>{service.offerings.map(item => <tr key={item.id} className="border-t"><td className="px-6 py-5 font-bold">{item.title}</td><td className="px-6 py-5 text-green-800">{money(item.priceOptions[0]?.price || 0)}</td><td className="px-6 py-5">{item.duration}</td></tr>)}</tbody></table></div><div className="p-6"><a href={whatsappHref(service.title)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 font-bold text-white"><SiWhatsapp /> Hubungi Hotline PI</a></div></section>
         : service.offerings.length > 0 ? <div className="grid items-start gap-7 lg:grid-cols-2">{service.offerings.map(offering => <OfferingCard key={offering.id} offering={offering} serviceTitle={service.title} />)}</div>
         : <section className="mx-auto max-w-3xl rounded-3xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5"><h2 className="text-2xl font-extrabold">Informasi {service.title}</h2><p className="mt-4 leading-8 text-gray-600">{service.description}</p><a href={whatsappHref(service.title)} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#25D366] px-6 py-3.5 font-bold text-white"><SiWhatsapp /> Hubungi Hotline PI</a></section>}
+      <ServiceGallery service={service} />
     </main><Footer />
   </div>;
 }

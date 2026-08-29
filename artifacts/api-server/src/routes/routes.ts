@@ -796,6 +796,22 @@ async function ensureHospitalityInfrastructure() {
       updated_at timestamp DEFAULT now(),
       CONSTRAINT hospitality_offering_images_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
     );
+    CREATE TABLE IF NOT EXISTS hospitality_service_gallery_images (
+      id serial PRIMARY KEY,
+      service_id integer NOT NULL REFERENCES hospitality_services(id) ON DELETE CASCADE,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50,
+      is_active boolean NOT NULL DEFAULT true,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CONSTRAINT hospitality_service_gallery_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
+    ALTER TABLE hospitality_services ADD COLUMN IF NOT EXISTS gallery_description text;
     CREATE TABLE IF NOT EXISTS application_data_migrations (
       migration_key varchar(255) PRIMARY KEY,
       applied_at timestamp DEFAULT now()
@@ -808,6 +824,8 @@ async function ensureHospitalityInfrastructure() {
       ON hospitality_gallery_images(is_active, sort_order, id);
     CREATE INDEX IF NOT EXISTS hospitality_offering_images_public_idx
       ON hospitality_offering_images(offering_id, is_active, sort_order, id);
+    CREATE INDEX IF NOT EXISTS hospitality_service_gallery_public_idx
+      ON hospitality_service_gallery_images(service_id, is_active, sort_order, id);
   `);
 
   await pool.query(`
@@ -1128,6 +1146,9 @@ const hospitalityOfferingSchema = z.object({
 });
 
 const hospitalityGallerySchema = courseGallerySchema;
+const hospitalityServiceGalleryDescriptionSchema = z.object({
+  description: z.string().trim().max(5000).optional().default(""),
+});
 
 const EXTERNAL_ASSESSMENT_TYPES = ["external-mental-health", "external-student-potential", "external-career-potential"] as const;
 
@@ -5512,6 +5533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const hospitalityServiceSelect = `
     SELECT service.id, service.slug, service.title, service.summary, service.description,
+           COALESCE(service.gallery_description, '') AS "galleryDescription",
            service.sort_order AS "sortOrder", service.is_active AS "isActive",
            service.image_data IS NOT NULL AS "hasImage",
            service.image_file_name AS "imageFileName",
@@ -5541,12 +5563,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ? `WHERE offering.deleted_at IS NULL`
       : `WHERE offering.deleted_at IS NULL AND offering.is_active = true`;
     const imageWhere = includeInactive ? `` : `WHERE is_active = true`;
-    const [services, offerings, offeringImages] = await Promise.all([
+    const [services, offerings, offeringImages, serviceGalleryImages] = await Promise.all([
       pool.query(`${hospitalityServiceSelect} ${serviceWhere} ORDER BY service.sort_order, service.id`),
       pool.query(`${hospitalityOfferingSelect} ${offeringWhere} ORDER BY offering.sort_order, offering.id`),
       pool.query(`SELECT id,offering_id AS "offeringId",file_name AS "fileName",sort_order AS "sortOrder",
                          focus_x AS "focusX",focus_y AS "focusY",is_active AS "isActive"
                     FROM hospitality_offering_images ${imageWhere} ORDER BY sort_order,id`),
+      pool.query(`SELECT id,service_id AS "serviceId",file_name AS "fileName",sort_order AS "sortOrder",
+                         focus_x AS "focusX",focus_y AS "focusY",is_active AS "isActive"
+                    FROM hospitality_service_gallery_images ${imageWhere} ORDER BY sort_order,id`),
     ]);
     const byService = new Map<number, any[]>();
     offerings.rows.forEach((offering: any) => {
@@ -5560,6 +5585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       services: services.rows.map((service: any) => ({
         ...service,
         offerings: byService.get(service.id) || [],
+        galleryImages: serviceGalleryImages.rows.filter((image: any) => image.serviceId === service.id),
       })),
     };
   }
@@ -5850,6 +5876,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       [Number(req.params.imageId),Number(req.params.offeringId),Number(req.params.serviceId)],
     );
     if(!result.rowCount)return res.status(404).json({message:'Foto paket tidak ditemukan'});return res.json({message:'Foto paket dihapus'});
+  });
+
+  app.get('/api/hospitality/service-gallery-images/:imageId', async (req, res) => {
+    const result = await pool.query(
+      `SELECT image_data,mime_type FROM hospitality_service_gallery_images WHERE id=$1`,
+      [Number(req.params.imageId)],
+    );
+    if (!result.rowCount) return res.status(404).end();
+    res.setHeader('Content-Type', result.rows[0].mime_type || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(result.rows[0].image_data);
+  });
+
+  app.put('/api/admin/hospitality/services/:serviceId/gallery-description', isAuthenticated, isAdmin, async (req, res) => {
+    const parsed = hospitalityServiceGalleryDescriptionSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Deskripsi galeri tidak valid' });
+    const result = await pool.query(
+      `UPDATE hospitality_services SET gallery_description=NULLIF($1,''),updated_at=now()
+       WHERE id=$2 AND deleted_at IS NULL RETURNING id`,
+      [parsed.data.description, Number(req.params.serviceId)],
+    );
+    if (!result.rowCount) return res.status(404).json({ message: 'Layanan tidak ditemukan' });
+    return res.json({ message: 'Deskripsi galeri disimpan' });
+  });
+
+  app.post('/api/admin/hospitality/services/:serviceId/gallery', isAuthenticated, isAdmin,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto galeri wajib dipilih' });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const serviceId = Number(req.params.serviceId);
+        await client.query(`SELECT pg_advisory_xact_lock($1,$2)`, [20260829, serviceId]);
+        const service = await client.query(`SELECT id FROM hospitality_services WHERE id=$1 AND deleted_at IS NULL`, [serviceId]);
+        if (!service.rowCount) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Layanan tidak ditemukan' }); }
+        const count = await client.query(`SELECT COUNT(*)::int AS total FROM hospitality_service_gallery_images WHERE service_id=$1`, [serviceId]);
+        if (Number(count.rows[0]?.total || 0) >= 5) { await client.query('ROLLBACK'); return res.status(409).json({ message: 'Galeri setiap layanan maksimal memiliki 5 foto' }); }
+        const next = await client.query(`SELECT COALESCE(MAX(sort_order),-1)+1 AS value FROM hospitality_service_gallery_images WHERE service_id=$1`, [serviceId]);
+        const result = await client.query(
+          `INSERT INTO hospitality_service_gallery_images (service_id,image_data,file_name,mime_type,sort_order,created_by)
+           VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+          [serviceId,req.body,decodeURIComponent(String(req.headers['x-file-name']||'galeri-layanan')),req.headers['content-type'],Number(next.rows[0].value),req.user.claims.sub],
+        );
+        await client.query('COMMIT');
+        return res.status(201).json(result.rows[0]);
+      } catch (error) {
+        await client.query('ROLLBACK').catch(()=>undefined);
+        console.error('Error uploading hospitality service gallery image:',error);
+        return res.status(500).json({ message:'Gagal mengunggah foto galeri layanan' });
+      } finally { client.release(); }
+    });
+
+  app.put('/api/admin/hospitality/services/:serviceId/gallery/:imageId', isAuthenticated, isAdmin, async (req,res) => {
+    const parsed=courseGallerySchema.safeParse(req.body);
+    if(!parsed.success)return res.status(400).json({message:'Data foto tidak valid'});
+    const result=await pool.query(
+      `UPDATE hospitality_service_gallery_images SET sort_order=$1,focus_x=$2,focus_y=$3,is_active=$4,updated_at=now()
+       WHERE id=$5 AND service_id=$6 RETURNING id`,
+      [parsed.data.sortOrder,parsed.data.focusX,parsed.data.focusY,parsed.data.isActive,Number(req.params.imageId),Number(req.params.serviceId)],
+    );
+    if(!result.rowCount)return res.status(404).json({message:'Foto galeri layanan tidak ditemukan'});
+    return res.json(result.rows[0]);
+  });
+
+  app.put('/api/admin/hospitality/services/:serviceId/gallery/:imageId/file', isAuthenticated, isAdmin,
+    express.raw({ type:['image/jpeg','image/png','image/webp'],limit:'8mb' }), async(req,res)=>{
+      if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({message:'Foto galeri wajib dipilih'});
+      const result=await pool.query(
+        `UPDATE hospitality_service_gallery_images SET image_data=$1,file_name=$2,mime_type=$3,updated_at=now()
+         WHERE id=$4 AND service_id=$5 RETURNING id`,
+        [req.body,decodeURIComponent(String(req.headers['x-file-name']||'galeri-layanan')),req.headers['content-type'],Number(req.params.imageId),Number(req.params.serviceId)],
+      );
+      if(!result.rowCount)return res.status(404).json({message:'Foto galeri layanan tidak ditemukan'});
+      return res.json(result.rows[0]);
+    });
+
+  app.delete('/api/admin/hospitality/services/:serviceId/gallery/:imageId', isAuthenticated, isAdmin, async(req,res)=>{
+    const result=await pool.query(
+      `DELETE FROM hospitality_service_gallery_images WHERE id=$1 AND service_id=$2 RETURNING id`,
+      [Number(req.params.imageId),Number(req.params.serviceId)],
+    );
+    if(!result.rowCount)return res.status(404).json({message:'Foto galeri layanan tidak ditemukan'});
+    return res.json({message:'Foto galeri layanan dihapus'});
   });
 
   app.get('/api/admin/hospitality/gallery', isAuthenticated, isAdmin, async (_req, res) => {

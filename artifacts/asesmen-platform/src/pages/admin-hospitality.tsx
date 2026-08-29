@@ -51,6 +51,15 @@ type OfferingImage = {
   focusY: number;
   isActive: boolean;
 };
+type ServiceGalleryImage = {
+  id: number;
+  serviceId: number;
+  fileName: string;
+  sortOrder: number;
+  focusX: number;
+  focusY: number;
+  isActive: boolean;
+};
 type Offering = {
   id: number;
   serviceId: number;
@@ -82,6 +91,8 @@ type Service = {
   imageFileName: string | null;
   imageFocusX: number;
   imageFocusY: number;
+  galleryDescription: string;
+  galleryImages: ServiceGalleryImage[];
   offerings: Offering[];
 };
 type HospitalityData = {
@@ -203,6 +214,9 @@ export default function AdminHospitality() {
     offering: Offering;
   } | null>(null);
   const [photoEditor, setPhotoEditor] = useState<OfferingImage | null>(null);
+  const [galleryService, setGalleryService] = useState<Service | null>(null);
+  const [serviceGalleryEditor, setServiceGalleryEditor] = useState<ServiceGalleryImage | null>(null);
+  const [serviceGalleryDescription, setServiceGalleryDescription] = useState("");
   const [focusEditor, setFocusEditor] = useState<{
     kind: "service" | "offering";
     id: number;
@@ -466,6 +480,49 @@ export default function AdminHospitality() {
     }
   };
 
+  const serviceGalleryBase = (serviceId: number) =>
+    `/api/admin/hospitality/services/${serviceId}/gallery`;
+  const openServiceGallery = (service: Service) => {
+    setGalleryService(service);
+    setServiceGalleryEditor(null);
+    setServiceGalleryDescription(service.galleryDescription || "");
+  };
+  const uploadServiceGalleryPhoto = async (file?: File) => {
+    if (!file || !galleryService) return;
+    try {
+      await uploadBinary(serviceGalleryBase(galleryService.id), file, "POST");
+      await refresh();
+      toast({ title: "Foto galeri layanan ditambahkan" });
+    } catch (error) {
+      toast({ title: "Upload gagal", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+    }
+  };
+  const saveServiceGalleryDescription = async () => {
+    if (!galleryService) return;
+    try {
+      await apiRequest("PUT", `${serviceGalleryBase(galleryService.id)}-description`, { description: serviceGalleryDescription });
+      await refresh();
+      toast({ title: "Deskripsi galeri disimpan" });
+    } catch (error) {
+      toast({ title: "Gagal menyimpan deskripsi", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+    }
+  };
+  const saveServiceGalleryPhoto = async () => {
+    if (!galleryService || !serviceGalleryEditor) return;
+    try {
+      await apiRequest("PUT", `${serviceGalleryBase(galleryService.id)}/${serviceGalleryEditor.id}`, {
+        title: "", caption: "", sortOrder: serviceGalleryEditor.sortOrder,
+        focusX: serviceGalleryEditor.focusX, focusY: serviceGalleryEditor.focusY,
+        isActive: serviceGalleryEditor.isActive,
+      });
+      await refresh();
+      setServiceGalleryEditor(null);
+      toast({ title: "Pengaturan foto galeri disimpan" });
+    } catch (error) {
+      toast({ title: "Gagal menyimpan foto", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+    }
+  };
+
   const saveFocus = async () => {
     if (!focusEditor) return;
     const endpoint =
@@ -499,6 +556,9 @@ export default function AdminHospitality() {
     ? data?.services
         .find((service) => service.id === photoOffering.service.id)
         ?.offerings.find((offering) => offering.id === photoOffering.offering.id) || photoOffering.offering
+    : null;
+  const managedGalleryService = galleryService
+    ? data?.services.find((service) => service.id === galleryService.id) || galleryService
     : null;
 
   return (
@@ -754,6 +814,14 @@ export default function AdminHospitality() {
                             Fokus
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openServiceGallery(service)}
+                        >
+                          <ImagePlus className="mr-1 h-4 w-4" />
+                          Kelola Galeri ({service.galleryImages?.length || 0}/5)
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1440,6 +1508,109 @@ export default function AdminHospitality() {
                       <p className="text-xs text-gray-500">Urutan {image.sortOrder} · {image.isActive ? "Aktif" : "Nonaktif"}</p>
                       <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={()=>setPhotoEditor({...image})}><Pencil className="mr-1 h-4 w-4"/>Edit</Button><label className="inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-xs font-medium">Ganti<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async event=>{const file=event.target.files?.[0];if(file)try{await uploadBinary(`${offeringImageBase(photoOffering.service.id,managedPhotoOffering.id)}/${image.id}/file`,file,"PUT");await refresh();toast({title:"Foto berhasil diganti"});}catch(error){toast({title:"Gagal mengganti foto",description:error instanceof Error?error.message:"Silakan coba lagi",variant:"destructive"});}event.target.value="";}}/></label><Button size="sm" variant="ghost" onClick={async()=>{if(!confirm("Hapus foto ini?"))return;try{await apiRequest("DELETE",`${offeringImageBase(photoOffering.service.id,managedPhotoOffering.id)}/${image.id}`);await refresh();toast({title:"Foto dihapus"});}catch(error){toast({title:"Gagal menghapus foto",description:error instanceof Error?error.message:"Silakan coba lagi",variant:"destructive"});}}}><Trash2 className="h-4 w-4 text-red-600"/></Button></div>
                     </>}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={galleryService !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setGalleryService(null);
+            setServiceGalleryEditor(null);
+          }
+        }}
+      >
+        {galleryService && managedGalleryService && (
+          <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Galeri Foto {managedGalleryService.title}</DialogTitle>
+              <DialogDescription>
+                Galeri ini tampil di bawah Detail/Paket. Maksimal lima foto; atur urutan, status, dan titik fokus gambar.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 rounded-xl bg-green-50 p-4">
+              <Label>Deskripsi di bawah galeri</Label>
+              <Textarea
+                rows={4}
+                maxLength={5000}
+                placeholder="Tuliskan deskripsi galeri layanan..."
+                value={serviceGalleryDescription}
+                onChange={(event) => setServiceGalleryDescription(event.target.value)}
+              />
+              <Button size="sm" className="bg-green-700" onClick={saveServiceGalleryDescription}>
+                <Save className="mr-2 h-4 w-4" />Simpan Deskripsi
+              </Button>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border p-4">
+              <p className="text-sm font-bold text-green-900">
+                {managedGalleryService.galleryImages?.length || 0} dari maksimal 5 foto
+              </p>
+              <label className={`inline-flex items-center rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white ${(managedGalleryService.galleryImages?.length || 0) >= 5 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}>
+                <ImagePlus className="mr-2 h-4 w-4" />Tambah Foto
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={(managedGalleryService.galleryImages?.length || 0) >= 5}
+                  onChange={(event) => {
+                    uploadServiceGalleryPhoto(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(managedGalleryService.galleryImages || []).map((image) => (
+                <Card key={image.id} className={image.isActive ? "" : "opacity-60"}>
+                  <button
+                    type="button"
+                    className="relative aspect-video w-full overflow-hidden bg-gray-100"
+                    onClick={(event) => {
+                      if (serviceGalleryEditor?.id !== image.id) return;
+                      const bounds = event.currentTarget.getBoundingClientRect();
+                      setServiceGalleryEditor((current) => current ? {
+                        ...current,
+                        focusX: Math.round(((event.clientX - bounds.left) / bounds.width) * 100),
+                        focusY: Math.round(((event.clientY - bounds.top) / bounds.height) * 100),
+                      } : current);
+                    }}
+                  >
+                    <img
+                      src={apiUrl(`/api/hospitality/service-gallery-images/${image.id}`)}
+                      alt={`Galeri ${managedGalleryService.title}`}
+                      className="h-full w-full object-cover"
+                      style={{ objectPosition: `${serviceGalleryEditor?.id === image.id ? serviceGalleryEditor.focusX : image.focusX}% ${serviceGalleryEditor?.id === image.id ? serviceGalleryEditor.focusY : image.focusY}%` }}
+                    />
+                    {serviceGalleryEditor?.id === image.id && (
+                      <span className="absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-green-600 shadow" style={{ left: `${serviceGalleryEditor.focusX}%`, top: `${serviceGalleryEditor.focusY}%` }} />
+                    )}
+                  </button>
+                  <CardContent className="space-y-3 pt-4">
+                    {serviceGalleryEditor?.id === image.id ? (
+                      <>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div><Label>Urutan</Label><Input type="number" min="0" value={serviceGalleryEditor.sortOrder} onChange={(event) => setServiceGalleryEditor((current) => current ? { ...current, sortOrder: Number(event.target.value) || 0 } : current)} /></div>
+                          <div><Label>Fokus X</Label><Input type="number" min="0" max="100" value={serviceGalleryEditor.focusX} onChange={(event) => setServiceGalleryEditor((current) => current ? { ...current, focusX: Number(event.target.value) || 0 } : current)} /></div>
+                          <div><Label>Fokus Y</Label><Input type="number" min="0" max="100" value={serviceGalleryEditor.focusY} onChange={(event) => setServiceGalleryEditor((current) => current ? { ...current, focusY: Number(event.target.value) || 0 } : current)} /></div>
+                        </div>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={serviceGalleryEditor.isActive} onChange={(event) => setServiceGalleryEditor((current) => current ? { ...current, isActive: event.target.checked } : current)} />Tampilkan di website</label>
+                        <div className="flex gap-2"><Button size="sm" onClick={saveServiceGalleryPhoto}>Simpan</Button><Button size="sm" variant="outline" onClick={() => setServiceGalleryEditor(null)}>Batal</Button></div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-500">Urutan {image.sortOrder} · {image.isActive ? "Aktif" : "Nonaktif"}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setServiceGalleryEditor({ ...image })}><Pencil className="mr-1 h-4 w-4" />Edit</Button>
+                          <label className="inline-flex cursor-pointer items-center rounded-md border px-3 py-1.5 text-xs font-medium">Ganti<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (event) => { const file=event.target.files?.[0]; if(file) try { await uploadBinary(`${serviceGalleryBase(galleryService.id)}/${image.id}/file`,file,"PUT"); await refresh(); toast({title:"Foto berhasil diganti"}); } catch(error) { toast({title:"Gagal mengganti foto",description:error instanceof Error?error.message:"Silakan coba lagi",variant:"destructive"}); } event.target.value=""; }} /></label>
+                          <Button size="sm" variant="ghost" onClick={async () => { if(!confirm("Hapus foto galeri ini?")) return; try { await apiRequest("DELETE",`${serviceGalleryBase(galleryService.id)}/${image.id}`); await refresh(); toast({title:"Foto galeri dihapus"}); } catch(error) { toast({title:"Gagal menghapus foto",description:error instanceof Error?error.message:"Silakan coba lagi",variant:"destructive"}); } }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               ))}
