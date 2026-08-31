@@ -313,8 +313,21 @@ export default function Home() {
       </section>
 
       {/* Statistik — from CMS or hardcoded fallback */}
-      <section className="py-20 bg-white" ref={statsSection.ref}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative isolate overflow-hidden py-20 bg-white" ref={statsSection.ref}>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 grid grid-rows-2 sm:grid-cols-2 sm:grid-rows-1">
+          <img
+            src="/homepage/dampak-nyata-1.jpeg"
+            alt=""
+            className="h-full w-full object-cover opacity-30"
+          />
+          <img
+            src="/homepage/dampak-nyata-2.jpeg"
+            alt=""
+            className="h-full w-full object-cover opacity-30"
+          />
+          <div className="absolute inset-0 bg-white/70" />
+        </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <div className="section-divider mx-auto" />
             <h2 className="text-3xl lg:text-4xl font-extrabold" style={{ color: "#1B4332" }}>Dampak Nyata Kami</h2>
