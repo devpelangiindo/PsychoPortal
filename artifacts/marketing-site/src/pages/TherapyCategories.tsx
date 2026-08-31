@@ -436,7 +436,7 @@ function DevelopmentTherapyDetail({ category }: { category: TherapyCategory }) {
               <article key={therapy.title} className="overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-black/5">
                 <div className={`relative flex h-48 items-center justify-center overflow-hidden bg-gradient-to-br ${therapy.accent}`}>
                   {managed?.imageId ? <img src={therapyManagedImageUrl("services", managed.id)} alt={therapy.title} className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `${managed.imageFocusX}% ${managed.imageFocusY}%` }} /> : <img src="/services/terapi.png" alt="" aria-hidden="true" className="absolute -right-5 -top-5 h-44 w-44 rounded-full bg-white/90 p-8 opacity-25" />}
-                  <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-white/95 text-green-800 shadow-lg"><Icon className="h-10 w-10" /></div>
+                  {!managed?.imageId && <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-white/95 text-green-800 shadow-lg"><Icon className="h-10 w-10" /></div>}
                 </div>
                 <div className="p-6 sm:p-7">
                   <h3 className="text-2xl font-extrabold text-gray-900">{therapy.title}</h3>
