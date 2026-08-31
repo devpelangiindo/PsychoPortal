@@ -74,22 +74,44 @@ export default function TentangKami() {
 
       {/* Sejarah */}
       <section className="py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="section-divider" />
-          <h2 className="text-3xl font-extrabold mb-6" style={{ color: "#1B4332" }}>Sejarah Kami</h2>
-          <div className="prose prose-lg max-w-none text-gray-600 space-y-4">
-            <p>
-              Pelangi Indonesia Group adalah ekosistem layanan terpadu yang mendedikasikan diri pada optimalisasi kualitas sumber daya manusia secara holistik. Perjalanan kami dimulai dari sebuah visi luhur untuk menyediakan fasilitas kesehatan mental dan tumbuh kembang yang aman dan inklusif.
-            </p>
-            <p>
-              Bermula dari pendirian Rumah Psikologi dan Sekolah Pelangi Indonesia, komitmen kami untuk terus menghadirkan intervensi psikologis dan edukasi yang teruji mendapat respons positif dari masyarakat luas.
-            </p>
-            <p>
-              Seiring meningkatnya kebutuhan akan tenaga pendidik dan terapis yang kompeten di tingkat nasional, kami memperluas jangkauan melalui program pelatihan profesional dan penyediaan modul digital. Untuk menopang ekosistem yang semakin masif serta memfasilitasi kebutuhan mitra dan klien, kami mendirikan unit usaha pendukung Hospitality Services.
-            </p>
-            <p>
-              Kini, seluruh layanan tersebut bersatu di bawah naungan Pelangi Indonesia Group, bergerak selaras menciptakan dampak nyata dari hulu ke hilir.
-            </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14">
+            <figure className="relative">
+              <div className="aspect-video overflow-hidden rounded-3xl bg-green-50 shadow-lg ring-1 ring-black/5">
+                <img
+                  src="/tentang-kami/gedung-rppi.png"
+                  alt="Gedung Pelangi Indonesia"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <div
+                className="absolute -bottom-4 -left-4 -z-10 h-24 w-24 rounded-3xl"
+                style={{ background: "#D8F3DC" }}
+              />
+              <figcaption className="mt-4 text-center text-sm text-gray-500">
+                Gedung Pelangi Indonesia
+              </figcaption>
+            </figure>
+
+            <div>
+              <div className="section-divider" />
+              <h2 className="text-3xl font-extrabold mb-6" style={{ color: "#1B4332" }}>Sejarah Kami</h2>
+              <div className="prose prose-lg max-w-none text-gray-600 space-y-4">
+                <p>
+                  Pelangi Indonesia Group adalah ekosistem layanan terpadu yang mendedikasikan diri pada optimalisasi kualitas sumber daya manusia secara holistik. Perjalanan kami dimulai dari sebuah visi luhur untuk menyediakan fasilitas kesehatan mental dan tumbuh kembang yang aman dan inklusif.
+                </p>
+                <p>
+                  Bermula dari pendirian Rumah Psikologi dan Sekolah Pelangi Indonesia, komitmen kami untuk terus menghadirkan intervensi psikologis dan edukasi yang teruji mendapat respons positif dari masyarakat luas.
+                </p>
+                <p>
+                  Seiring meningkatnya kebutuhan akan tenaga pendidik dan terapis yang kompeten di tingkat nasional, kami memperluas jangkauan melalui program pelatihan profesional dan penyediaan modul digital. Untuk menopang ekosistem yang semakin masif serta memfasilitasi kebutuhan mitra dan klien, kami mendirikan unit usaha pendukung Hospitality Services.
+                </p>
+                <p>
+                  Kini, seluruh layanan tersebut bersatu di bawah naungan Pelangi Indonesia Group, bergerak selaras menciptakan dampak nyata dari hulu ke hilir.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
