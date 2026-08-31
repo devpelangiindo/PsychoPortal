@@ -335,11 +335,11 @@ export default function Home() {
               Angka-angka ini mencerminkan perjalanan dan kepercayaan yang telah diberikan kepada kami.
             </p>
           </div>
-          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
+          <div className="mx-auto grid max-w-4xl grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {stats.map((s, i) => (
               <div
                 key={s.label}
-                className={`rounded-2xl border p-4 text-center transition-all hover:shadow-md sm:p-5 lg:p-6 ${statsSection.visible ? "stat-item" : "opacity-0"}`}
+                className={`rounded-xl border p-3 text-center transition-all hover:shadow-md sm:p-4 ${statsSection.visible ? "stat-item" : "opacity-0"}`}
                 style={{
                   animationDelay: `${i * 0.15}s`,
                   background: i % 2 === 0 ? "linear-gradient(135deg, #1B4332, #2D6A4F)" : "white",
@@ -347,12 +347,12 @@ export default function Home() {
                 }}
               >
                 <div
-                  className="mb-2 text-3xl font-extrabold lg:text-4xl"
+                  className="mb-1.5 text-2xl font-extrabold sm:text-3xl"
                   style={{ color: i % 2 === 0 ? "white" : "#2D6A4F" }}
                 >
                   {s.value}
                 </div>
-                <div className={`text-sm font-medium leading-snug ${i % 2 === 0 ? "text-green-200" : "text-gray-500"}`}>
+                <div className={`text-xs font-medium leading-snug sm:text-sm ${i % 2 === 0 ? "text-green-200" : "text-gray-500"}`}>
                   {s.label}
                 </div>
               </div>
