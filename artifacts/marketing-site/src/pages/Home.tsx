@@ -318,14 +318,14 @@ export default function Home() {
           <img
             src="/homepage/dampak-nyata-1.jpeg"
             alt=""
-            className="h-full w-full object-cover opacity-30"
+            className="h-full w-full object-cover opacity-60"
           />
           <img
             src="/homepage/dampak-nyata-2.jpeg"
             alt=""
-            className="h-full w-full object-cover opacity-30"
+            className="h-full w-full object-cover opacity-60"
           />
-          <div className="absolute inset-0 bg-white/70" />
+          <div className="absolute inset-0 bg-white/45" />
         </div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
