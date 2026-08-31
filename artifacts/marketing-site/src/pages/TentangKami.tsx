@@ -76,23 +76,39 @@ export default function TentangKami() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14">
-            <figure className="relative">
-              <div className="aspect-video overflow-hidden rounded-3xl bg-green-50 shadow-lg ring-1 ring-black/5">
-                <img
-                  src="/tentang-kami/gedung-rppi.png"
-                  alt="Gedung Pelangi Indonesia"
-                  className="h-full w-full object-cover"
-                  loading="lazy"
+            <div className="space-y-8">
+              <figure className="relative">
+                <div className="aspect-video overflow-hidden rounded-3xl bg-green-50 shadow-lg ring-1 ring-black/5">
+                  <img
+                    src="/tentang-kami/gedung-rppi.png"
+                    alt="Gedung Pelangi Indonesia"
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                <div
+                  className="absolute -bottom-4 -left-4 -z-10 h-24 w-24 rounded-3xl"
+                  style={{ background: "#D8F3DC" }}
                 />
-              </div>
-              <div
-                className="absolute -bottom-4 -left-4 -z-10 h-24 w-24 rounded-3xl"
-                style={{ background: "#D8F3DC" }}
-              />
-              <figcaption className="mt-4 text-center text-sm text-gray-500">
-                Gedung Pelangi Indonesia
-              </figcaption>
-            </figure>
+                <figcaption className="mt-4 text-center text-sm text-gray-500">
+                  Gedung Pelangi Indonesia
+                </figcaption>
+              </figure>
+
+              <figure>
+                <div className="aspect-[4/3] overflow-hidden rounded-3xl bg-green-50 shadow-lg ring-1 ring-black/5">
+                  <img
+                    src="/tentang-kami/sekolah-pelangi-indonesia.png"
+                    alt="Sekolah Pelangi Indonesia"
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                <figcaption className="mt-4 text-center text-sm text-gray-500">
+                  Sekolah Pelangi Indonesia
+                </figcaption>
+              </figure>
+            </div>
 
             <div>
               <div className="section-divider" />
