@@ -335,11 +335,11 @@ export default function Home() {
               Angka-angka ini mencerminkan perjalanan dan kepercayaan yang telah diberikan kepada kami.
             </p>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
             {stats.map((s, i) => (
               <div
                 key={s.label}
-                className={`text-center p-8 rounded-2xl border transition-all hover:shadow-md ${statsSection.visible ? "stat-item" : "opacity-0"}`}
+                className={`rounded-2xl border p-4 text-center transition-all hover:shadow-md sm:p-5 lg:p-6 ${statsSection.visible ? "stat-item" : "opacity-0"}`}
                 style={{
                   animationDelay: `${i * 0.15}s`,
                   background: i % 2 === 0 ? "linear-gradient(135deg, #1B4332, #2D6A4F)" : "white",
@@ -347,7 +347,7 @@ export default function Home() {
                 }}
               >
                 <div
-                  className="text-4xl lg:text-5xl font-extrabold mb-2"
+                  className="mb-2 text-3xl font-extrabold lg:text-4xl"
                   style={{ color: i % 2 === 0 ? "white" : "#2D6A4F" }}
                 >
                   {s.value}
