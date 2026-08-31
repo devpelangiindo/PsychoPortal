@@ -347,7 +347,7 @@ const therapyCategories: TherapyCategory[] = [
   },
 ];
 
-function TherapyHero({ title, description, detail = false, image, imageFocusX = 50, imageFocusY = 50 }: { title: string; description: string; detail?: boolean; image?: string; imageFocusX?: number; imageFocusY?: number }) {
+function TherapyHero({ title, description, detail = false, image, imageFocusX = 50, imageFocusY = 50, softerOverlay = false }: { title: string; description: string; detail?: boolean; image?: string; imageFocusX?: number; imageFocusY?: number; softerOverlay?: boolean }) {
   return (
     <section className={`relative overflow-hidden px-4 text-white sm:px-6 lg:px-8 ${image ? "flex min-h-[clamp(28rem,62vh,38rem)] items-center bg-[#1B4332] pb-16 pt-28 lg:pb-20" : "bg-gradient-to-br from-[#1B4332] via-[#2D6A4F] to-[#40916C] pb-16 pt-28 lg:pb-20"}`}>
       {image && (
@@ -356,8 +356,8 @@ function TherapyHero({ title, description, detail = false, image, imageFocusX = 
             <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-sm" style={{ objectPosition: `${imageFocusX}% ${imageFocusY}%` }} />
             <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-contain" style={{ objectPosition: `${imageFocusX}% ${imageFocusY}%` }} />
           </div>
-          <div className="absolute inset-0 bg-[#1B4332]/75" />
-          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#1B4332]/80 to-transparent" />
+          <div className={`absolute inset-0 ${softerOverlay ? "bg-[#1B4332]/55" : "bg-[#1B4332]/75"}`} />
+          <div className={`absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t ${softerOverlay ? "from-[#1B4332]/65" : "from-[#1B4332]/80"} to-transparent`} />
         </>
       )}
       <div className="relative mx-auto w-full max-w-5xl" style={image ? { textShadow: "0 2px 14px rgba(0,0,0,0.45)" } : undefined}>
@@ -478,7 +478,7 @@ function PsychotherapyDetail({ category }: { category: TherapyCategory }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <TherapyHero title={category.title} description={category.description} detail image={category.heroImageId && category.id ? therapyManagedImageUrl("categories", category.id) : "/services/psikoterapi-hero.png"} imageFocusX={category.heroFocusX} imageFocusY={category.heroFocusY} />
+      <TherapyHero title={category.title} description={category.description} detail image={category.heroImageId && category.id ? therapyManagedImageUrl("categories", category.id) : "/services/psikoterapi-hero.png"} imageFocusX={category.heroFocusX} imageFocusY={category.heroFocusY} softerOverlay />
       <main className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
         <Link href="/produk-layanan/terapi" className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Kategori Terapi</Link>
         <div className="mb-8">
