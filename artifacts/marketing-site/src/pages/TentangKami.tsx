@@ -157,7 +157,7 @@ export default function TentangKami() {
 
       {/* Filosofi Logo */}
       <section className="py-20 bg-white">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <div className="section-divider mx-auto" />
             <h2 className="text-3xl lg:text-4xl font-extrabold" style={{ color: "#1B4332" }}>
@@ -168,24 +168,40 @@ export default function TentangKami() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {logoPhilosophy.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.number} className="flex gap-5 p-6 rounded-2xl border border-gray-100 bg-white hover:shadow-md transition-shadow">
-                  <div>
-                    <span
-                      className="inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2"
-                      style={{ background: "#D8F3DC", color: "#2D6A4F" }}
-                    >
-                      {item.number}
-                    </span>
-                    <h3 className="text-sm font-bold mb-2" style={{ color: "#1B4332" }}>{item.title}</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">{item.text}</p>
+          <div className="grid items-start gap-10 lg:grid-cols-[minmax(280px,0.75fr)_minmax(0,1.75fr)] lg:gap-12">
+            <figure className="lg:sticky lg:top-28">
+              <div className="flex min-h-[400px] items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-green-50 via-white to-amber-50 p-6 shadow-sm ring-1 ring-black/5">
+                <img
+                  src="/tentang-kami/logo-pi-group.png"
+                  alt="Logo Pelangi Indonesia Group"
+                  className="h-auto w-full max-w-[360px] object-contain"
+                  loading="lazy"
+                />
+              </div>
+              <figcaption className="mt-4 text-center text-sm font-medium text-gray-500">
+                Logo Pelangi Indonesia Group
+              </figcaption>
+            </figure>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {logoPhilosophy.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.number} className="flex gap-5 rounded-2xl border border-gray-100 bg-white p-6 transition-shadow hover:shadow-md">
+                    <div>
+                      <span
+                        className="mb-2 inline-block rounded-full px-2 py-0.5 text-xs font-bold"
+                        style={{ background: "#D8F3DC", color: "#2D6A4F" }}
+                      >
+                        {item.number}
+                      </span>
+                      <h3 className="mb-2 text-sm font-bold" style={{ color: "#1B4332" }}>{item.title}</h3>
+                      <p className="text-sm leading-relaxed text-gray-500">{item.text}</p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
