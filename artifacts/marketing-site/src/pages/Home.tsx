@@ -331,7 +331,7 @@ export default function Home() {
           <div className="text-center mb-14">
             <div className="section-divider mx-auto" />
             <h2 className="text-3xl lg:text-4xl font-extrabold" style={{ color: "#1B4332" }}>Dampak Nyata Kami</h2>
-            <p className="text-gray-500 mt-3 max-w-xl mx-auto">
+            <p className="mx-auto mt-3 max-w-2xl rounded-xl bg-white/75 px-5 py-2 text-base font-bold text-[#1B4332] shadow-sm backdrop-blur-sm">
               Angka-angka ini mencerminkan perjalanan dan kepercayaan yang telah diberikan kepada kami.
             </p>
           </div>
