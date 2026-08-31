@@ -59,6 +59,7 @@ type ServiceGalleryImage = {
   focusX: number;
   focusY: number;
   isActive: boolean;
+  updatedAt: string;
 };
 type Offering = {
   id: number;
@@ -1581,7 +1582,7 @@ export default function AdminHospitality() {
                     }}
                   >
                     <img
-                      src={apiUrl(`/api/hospitality/service-gallery-images/${image.id}`)}
+                      src={apiUrl(`/api/hospitality/service-gallery-images/${image.id}?v=${encodeURIComponent(image.updatedAt)}`)}
                       alt={`Galeri ${managedGalleryService.title}`}
                       className="h-full w-full object-cover"
                       style={{ objectPosition: `${serviceGalleryEditor?.id === image.id ? serviceGalleryEditor.focusX : image.focusX}% ${serviceGalleryEditor?.id === image.id ? serviceGalleryEditor.focusY : image.focusY}%` }}

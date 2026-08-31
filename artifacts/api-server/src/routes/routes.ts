@@ -5570,7 +5570,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                          focus_x AS "focusX",focus_y AS "focusY",is_active AS "isActive"
                     FROM hospitality_offering_images ${imageWhere} ORDER BY sort_order,id`),
       pool.query(`SELECT id,service_id AS "serviceId",file_name AS "fileName",sort_order AS "sortOrder",
-                         focus_x AS "focusX",focus_y AS "focusY",is_active AS "isActive"
+                         focus_x AS "focusX",focus_y AS "focusY",is_active AS "isActive",
+                         updated_at AS "updatedAt"
                     FROM hospitality_service_gallery_images ${imageWhere} ORDER BY sort_order,id`),
     ]);
     const byService = new Map<number, any[]>();
