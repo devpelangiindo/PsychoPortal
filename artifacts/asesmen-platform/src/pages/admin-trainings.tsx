@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download, ImagePlus, Loader2, Pencil, Plus, Save, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Download, Eye, ImagePlus, Loader2, Pencil, Plus, Save, Trash2, Users } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ type Option = { id: number; name: string; description?: string | null; price: st
 type Training = { id: number; slug: string; title: string; summary: string; description: string; startsAt?: string | null; endsAt?: string | null; location?: string | null; registrationDeadline?: string | null; sortOrder: number; status: "draft" | "published" | "closed"; posterId?: number | null; posterFocusX?: number; posterFocusY?: number; options: Option[] };
 type Testimonial = { id: number; name: string; occupation?: string; trainingName?: string; testimonial: string; sortOrder: number; isActive: boolean };
 type Gallery = { id: number; fileName: string; title?: string; caption?: string; sortOrder: number; focusX: number; focusY: number; isActive: boolean };
-type Registration = { id: number; orderId: number; trainingTitle: string; optionName: string; fullName: string; whatsappNumber: string; email: string; price: string; status: string; paymentStatus: string; adminNotes?: string; createdAt: string };
+type Registration = { id: number; orderId: number; trainingId: number; trainingTitle: string; optionName: string; fullName: string; birthDate?: string | null; gender?: string | null; address?: string | null; whatsappNumber: string; email: string; education?: string | null; occupation?: string | null; price: string; status: string; paymentStatus: string; adminNotes?: string | null; createdAt: string };
 type TrainingForm = { title: string; slug: string; summary: string; description: string; startsAt: string; endsAt: string; location: string; registrationDeadline: string; sortOrder: number; status: "draft" | "published" | "closed" };
 const emptyTraining: TrainingForm = { title: "", slug: "", summary: "", description: "", startsAt: "", endsAt: "", location: "", registrationDeadline: "", sortOrder: 0, status: "draft" };
 const emptyOption = { name: "", description: "", price: 0, capacity: "", sortOrder: 0, isActive: true };
@@ -36,6 +36,12 @@ async function uploadBinary(path: string, file: File, method = "POST") {
 }
 function localDateTime(value?: string | null) { return value ? new Date(value).toISOString().slice(0, 16) : ""; }
 function money(value: string | number) { return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`; }
+function displayDate(value?: string | null, includeTime = false) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("id-ID", includeTime ? { dateStyle: "long", timeStyle: "short" } : { dateStyle: "long" }).format(date);
+}
 
 export default function AdminTrainings() {
   const { toast } = useToast();
@@ -49,6 +55,8 @@ export default function AdminTrainings() {
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
   const [testimonialForm, setTestimonialForm] = useState(emptyTestimonial);
   const [editingGallery, setEditingGallery] = useState<Gallery | null>(null);
+  const [expandedRegistrationId, setExpandedRegistrationId] = useState<number | null>(null);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
 
   const { data, isLoading } = useQuery<{ trainings: Training[]; settings: { hasHero: boolean; heroFileName?: string; heroFocusX: number; heroFocusY: number } }>({ queryKey: ["/api/admin/trainings"] });
   const { data: testimonials = [] } = useQuery<Testimonial[]>({ queryKey: ["/api/admin/training-testimonials"] });
@@ -81,6 +89,31 @@ export default function AdminTrainings() {
 
   const registrationStats = useMemo(() => ({ total: registrations.length, paid: registrations.filter(item => item.paymentStatus === "paid").length }), [registrations]);
   const openTraining = (training?: Training) => { setEditing(training || null); setIsTrainingFormOpen(true); setForm(training ? { title: training.title, slug: training.slug, summary: training.summary, description: training.description, startsAt: localDateTime(training.startsAt), endsAt: localDateTime(training.endsAt), location: training.location || "", registrationDeadline: localDateTime(training.registrationDeadline), sortOrder: training.sortOrder, status: training.status } : emptyTraining); };
+  const exportRegistrationsCsv = async () => {
+    setIsExportingCsv(true);
+    try {
+      const response = await fetch(apiUrl("/api/admin/training-registrations.csv"), {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || "CSV peserta gagal diunduh");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "pendaftaran-pelatihan.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: "CSV peserta berhasil diunduh" });
+    } catch (error) {
+      toast({ title: "Export CSV gagal", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
 
   return <div className="min-h-screen bg-gray-50 p-4 sm:p-8"><div className="mx-auto max-w-7xl">
     <Link href="/admin/dashboard" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-green-700"><ArrowLeft size={17} /> Dashboard Admin</Link>
@@ -98,6 +131,57 @@ export default function AdminTrainings() {
 
     {tab === "galeri"&&<div><Card className="mb-6"><CardContent className="flex items-center justify-between pt-6"><div><CardTitle>Galeri Foto Pelatihan</CardTitle><p className="mt-1 text-sm text-gray-500">Unggah JPG, PNG, atau WebP maksimal 8 MB.</p></div><label className="inline-flex cursor-pointer items-center rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white"><ImagePlus className="mr-2 h-4 w-4"/>Unggah Foto<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;await uploadBinary('/api/admin/training-gallery',file);await refresh();e.target.value='';}}/></label></CardContent></Card><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{gallery.map(item=><Card key={item.id}><div className="aspect-video overflow-hidden"><img src={apiUrl(`/api/trainings/gallery/images/${item.id}`)} alt="" className="h-full w-full object-cover" style={{objectPosition:`${item.focusX}% ${item.focusY}%`}}/></div><CardContent className="space-y-3 pt-4">{editingGallery?.id===item.id?<><Input value={editingGallery.title||''} placeholder="Judul" onChange={e=>setEditingGallery({...editingGallery,title:e.target.value})}/><Textarea value={editingGallery.caption||''} placeholder="Keterangan" onChange={e=>setEditingGallery({...editingGallery,caption:e.target.value})}/><div className="grid grid-cols-3 gap-2"><Input type="number" value={editingGallery.sortOrder} onChange={e=>setEditingGallery({...editingGallery,sortOrder:Number(e.target.value)||0})}/><Input type="number" min="0" max="100" value={editingGallery.focusX} onChange={e=>setEditingGallery({...editingGallery,focusX:Number(e.target.value)||0})}/><Input type="number" min="0" max="100" value={editingGallery.focusY} onChange={e=>setEditingGallery({...editingGallery,focusY:Number(e.target.value)||0})}/></div><Button onClick={async()=>{await apiRequest('PUT',`/api/admin/training-gallery/${item.id}`,editingGallery);setEditingGallery(null);await refresh();}}>Simpan</Button></>:<><p className="font-bold">{item.title||item.fileName}</p><div className="flex gap-2"><Button size="sm" variant="outline" onClick={()=>setEditingGallery(item)}><Pencil className="h-4 w-4"/></Button><Button size="sm" variant="ghost" onClick={async()=>{await apiRequest('DELETE',`/api/admin/training-gallery/${item.id}`);await refresh();}}><Trash2 className="h-4 w-4 text-red-600"/></Button></div></>}</CardContent></Card>)}</div></div>}
 
-    {tab === "peserta"&&<div><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div className="flex gap-3"><Card><CardContent className="flex items-center gap-3 px-5 py-4"><Users className="text-green-700"/><div><p className="text-xs text-gray-500">Total</p><p className="text-xl font-bold">{registrationStats.total}</p></div></CardContent></Card><Card><CardContent className="px-5 py-4"><p className="text-xs text-gray-500">Lunas</p><p className="text-xl font-bold text-green-700">{registrationStats.paid}</p></CardContent></Card></div><a href={apiUrl('/api/admin/training-registrations.csv')} className="inline-flex items-center rounded-md border bg-white px-4 py-2 text-sm font-semibold"><Download className="mr-2 h-4 w-4"/>Export CSV</a></div><div className="overflow-x-auto rounded-xl border bg-white"><table className="min-w-full text-sm"><thead className="bg-gray-50 text-left"><tr>{['Peserta','Pelatihan','Kontak','Harga','Pembayaran','Status'].map(label=><th key={label} className="px-4 py-3">{label}</th>)}</tr></thead><tbody>{registrations.map(item=><tr key={item.id} className="border-t"><td className="px-4 py-3 font-semibold">{item.fullName}</td><td className="px-4 py-3">{item.trainingTitle}<br/><span className="text-xs text-gray-500">{item.optionName}</span></td><td className="px-4 py-3">{item.whatsappNumber}<br/><span className="text-xs text-gray-500">{item.email}</span></td><td className="px-4 py-3">{money(item.price)}</td><td className="px-4 py-3">{item.paymentStatus}</td><td className="px-4 py-3"><select value={item.status} className="rounded border px-2 py-1" onChange={async e=>{await apiRequest('PUT',`/api/admin/training-registrations/${item.id}`,{status:e.target.value,adminNotes:item.adminNotes||''});await refresh();}}><option value="pending_payment">Menunggu bayar</option><option value="registered">Terdaftar</option><option value="attended">Hadir</option><option value="cancelled">Dibatalkan</option></select></td></tr>)}</tbody></table></div></div>}
+    {tab === "peserta" && <div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-3">
+          <Card><CardContent className="flex items-center gap-3 px-5 py-4"><Users className="text-green-700"/><div><p className="text-xs text-gray-500">Total</p><p className="text-xl font-bold">{registrationStats.total}</p></div></CardContent></Card>
+          <Card><CardContent className="px-5 py-4"><p className="text-xs text-gray-500">Lunas</p><p className="text-xl font-bold text-green-700">{registrationStats.paid}</p></CardContent></Card>
+        </div>
+        <Button type="button" variant="outline" disabled={isExportingCsv} onClick={exportRegistrationsCsv} className="bg-white">
+          {isExportingCsv ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4"/>}
+          {isExportingCsv ? "Menyiapkan CSV..." : "Export CSV"}
+        </Button>
+      </div>
+      <div className="overflow-x-auto rounded-xl border bg-white">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 text-left"><tr>{['Peserta','Pelatihan','Kontak','Harga','Pembayaran','Status','Detail'].map(label=><th key={label} className="whitespace-nowrap px-4 py-3">{label}</th>)}</tr></thead>
+          <tbody>
+            {registrations.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-500">Belum ada data peserta pelatihan.</td></tr>}
+            {registrations.map(item => <Fragment key={item.id}>
+              <tr className="border-t align-top">
+                <td className="px-4 py-3 font-semibold">{item.fullName}</td>
+                <td className="px-4 py-3">{item.trainingTitle}<br/><span className="text-xs text-gray-500">{item.optionName}</span></td>
+                <td className="px-4 py-3">{item.whatsappNumber}<br/><span className="text-xs text-gray-500">{item.email}</span></td>
+                <td className="whitespace-nowrap px-4 py-3">{money(item.price)}</td>
+                <td className="px-4 py-3">{item.paymentStatus}</td>
+                <td className="px-4 py-3"><select value={item.status} className="rounded border px-2 py-1" onChange={async e=>{await apiRequest('PUT',`/api/admin/training-registrations/${item.id}`,{status:e.target.value,adminNotes:item.adminNotes||''});await refresh();}}><option value="pending_payment">Menunggu bayar</option><option value="registered">Terdaftar</option><option value="attended">Hadir</option><option value="cancelled">Dibatalkan</option></select></td>
+                <td className="px-4 py-3"><Button type="button" size="sm" variant="outline" onClick={() => setExpandedRegistrationId(current => current === item.id ? null : item.id)}><Eye className="mr-1.5 h-4 w-4"/>{expandedRegistrationId === item.id ? "Tutup" : "Lihat"}</Button></td>
+              </tr>
+              {expandedRegistrationId === item.id && <tr className="border-t bg-green-50/50">
+                <td colSpan={7} className="px-4 py-5">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nama lengkap</p><p className="mt-1 font-semibold">{item.fullName}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal lahir</p><p className="mt-1">{displayDate(item.birthDate)}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Jenis kelamin</p><p className="mt-1">{item.gender || "-"}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">WhatsApp</p><p className="mt-1">{item.whatsappNumber || "-"}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</p><p className="mt-1 break-all">{item.email || "-"}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pendidikan terakhir</p><p className="mt-1">{item.education || "-"}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pekerjaan saat ini</p><p className="mt-1">{item.occupation || "-"}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pelatihan</p><p className="mt-1">{item.trainingTitle}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pilihan agenda</p><p className="mt-1">{item.optionName}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Harga</p><p className="mt-1">{money(item.price)}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status pembayaran</p><p className="mt-1">{item.paymentStatus || "-"}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal daftar</p><p className="mt-1">{displayDate(item.createdAt, true)}</p></div>
+                    <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nomor pesanan</p><p className="mt-1">#{item.orderId}</p></div>
+                    <div className="sm:col-span-2 lg:col-span-3"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Alamat domisili</p><p className="mt-1 whitespace-pre-line">{item.address || "-"}</p></div>
+                    <div className="sm:col-span-2 lg:col-span-3"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Catatan admin</p><p className="mt-1 whitespace-pre-line">{item.adminNotes || "Belum ada catatan."}</p></div>
+                  </div>
+                </td>
+              </tr>}
+            </Fragment>)}
+          </tbody>
+        </table>
+      </div>
+    </div>}
   </div></div>;
 }
