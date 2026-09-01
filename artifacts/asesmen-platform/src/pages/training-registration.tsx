@@ -14,7 +14,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
 
 type TrainingOption = { id: number; name: string; description?: string | null; price: string; capacity?: number | null };
-type Training = { id: number; slug: string; title: string; summary: string; startsAt?: string | null; location?: string | null; status: string; posterId?: number | null; options: TrainingOption[] };
+type Training = { id: number; slug: string; title: string; summary: string; startsAt?: string | null; endsAt?: string | null; location?: string | null; status: string; posterId?: number | null; options: TrainingOption[] };
 type Participant = { fullName: string; birthDate: string; gender: string; address: string; whatsappNumber: string; email: string; education: string; occupation: string };
 const emptyParticipant: Participant = { fullName: "", birthDate: "", gender: "", address: "", whatsappNumber: "", email: "", education: "", occupation: "" };
 
@@ -65,6 +65,9 @@ export default function TrainingRegistration() {
   if (authLoading || !isAuthenticated || isLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-green-700" /></div>;
   if (isError) return <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center"><p className="text-lg font-semibold">{error instanceof Error ? error.message : "Agenda pelatihan gagal dimuat."}</p><Button variant="outline" onClick={() => refetch()}>Coba Lagi</Button></div>;
   if (!training) return <div className="p-12 text-center">Agenda pelatihan tidak ditemukan.</div>;
+  const finishedAt = training.endsAt || training.startsAt;
+  const isRegistrationClosed = training.status !== "published" || Boolean(finishedAt && new Date(finishedAt).getTime() < Date.now());
+  if (isRegistrationClosed) return <div className="min-h-screen bg-gray-50"><Header/><main className="container mx-auto max-w-3xl px-4 py-20 text-center"><Card><CardContent className="py-12"><h1 className="text-2xl font-extrabold">Pendaftaran pelatihan telah ditutup</h1><p className="mt-3 text-gray-500">Agenda ini sudah selesai atau tidak lagi menerima pendaftaran.</p><a href={`https://pi-psychology.com/produk-layanan/pelatihan/${training.slug}`} className="mt-6 inline-flex items-center gap-2 font-semibold text-green-700"><ArrowLeft size={17}/> Kembali ke detail pelatihan</a></CardContent></Card></main><Footer/></div>;
   const participantValid = participant.fullName.length >= 2 && participant.birthDate && participant.gender && participant.address.length >= 5 && participant.whatsappNumber.length >= 7 && participant.email.includes("@") && participant.education.length >= 2 && participant.occupation.length >= 2;
 
   const update = (key: keyof Participant, value: string) => setParticipant(current => ({ ...current, [key]: value }));

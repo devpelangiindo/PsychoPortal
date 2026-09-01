@@ -242,12 +242,31 @@ async function ensureTrainingInfrastructure() {
       location varchar(500),
       registration_deadline timestamp,
       sort_order integer NOT NULL DEFAULT 0,
-      status varchar(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'closed')),
+      status varchar(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'closed', 'completed')),
       created_by varchar REFERENCES users(id),
       created_at timestamp DEFAULT now(),
       updated_at timestamp DEFAULT now(),
       deleted_at timestamp
     );
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'trainings_status_check'
+          AND conrelid = 'trainings'::regclass
+          AND POSITION('completed' IN pg_get_constraintdef(oid)) = 0
+      ) THEN
+        ALTER TABLE trainings DROP CONSTRAINT trainings_status_check;
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'trainings_status_check'
+          AND conrelid = 'trainings'::regclass
+      ) THEN
+        ALTER TABLE trainings ADD CONSTRAINT trainings_status_check
+          CHECK (status IN ('draft', 'published', 'closed', 'completed'));
+      END IF;
+    END $$;
     CREATE INDEX IF NOT EXISTS trainings_public_idx ON trainings(status, sort_order, starts_at);
     CREATE TABLE IF NOT EXISTS training_posters (
       id serial PRIMARY KEY,
@@ -1023,7 +1042,7 @@ const trainingSchema = z.object({
   location: z.string().trim().max(500).optional().default(""),
   registrationDeadline: z.union([z.string().min(10).max(40), z.literal(""), z.null()]).optional().default(null),
   sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
-  status: z.enum(["draft", "published", "closed"]).optional().default("draft"),
+  status: z.enum(["draft", "published", "closed", "completed"]).optional().default("draft"),
 });
 
 const trainingOptionSchema = z.object({
@@ -6080,10 +6099,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const result = await pool.query(
         `${trainingSelect}
-         WHERE training.deleted_at IS NULL AND training.status IN ('published', 'closed')
+         WHERE training.deleted_at IS NULL AND training.status IN ('published', 'closed', 'completed')
            AND (option.is_active = true OR option.id IS NULL)
          GROUP BY training.id, poster.id
-         ORDER BY CASE WHEN training.status = 'published' THEN 0 ELSE 1 END,
+         ORDER BY CASE training.status WHEN 'published' THEN 0 WHEN 'closed' THEN 1 ELSE 2 END,
                   training.sort_order, training.starts_at NULLS LAST, training.id DESC`,
       );
       return res.json(result.rows);
@@ -6097,7 +6116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const result = await pool.query(
         `${trainingSelect}
-         WHERE training.slug = $1 AND training.deleted_at IS NULL AND training.status IN ('published', 'closed')
+         WHERE training.slug = $1 AND training.deleted_at IS NULL AND training.status IN ('published', 'closed', 'completed')
            AND (option.is_active = true OR option.id IS NULL)
          GROUP BY training.id, poster.id LIMIT 1`,
         [req.params.slug],
@@ -6134,7 +6153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await client.query('BEGIN');
       const userId = req.user.claims.sub;
       const training = await client.query(
-        `SELECT id, title, status, registration_deadline FROM trainings
+        `SELECT id, title, status, registration_deadline, starts_at, ends_at FROM trainings
          WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
         [parsed.data.trainingId],
       );
@@ -6145,6 +6164,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (training.rows[0].registration_deadline && new Date(training.rows[0].registration_deadline).getTime() < Date.now()) {
         await client.query('ROLLBACK');
         return res.status(409).json({ message: 'Batas waktu pendaftaran telah berakhir' });
+      }
+      const trainingFinishedAt = training.rows[0].ends_at || training.rows[0].starts_at;
+      if (trainingFinishedAt && new Date(trainingFinishedAt).getTime() < Date.now()) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ message: 'Pelatihan telah selesai' });
       }
       const option = await client.query(
         `SELECT id, name, price, capacity FROM training_options
