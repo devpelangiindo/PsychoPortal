@@ -436,13 +436,13 @@ export default function Home() {
           <div className="absolute inset-0 bg-white/55" />
         </div>
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
+          <div className="text-center">
             <div className="section-divider mx-auto" />
             <h2 className="text-3xl lg:text-4xl font-extrabold" style={{ color: "#1B4332" }}>Apa Kata Mereka?</h2>
             <p className="text-gray-500 mt-3">Sepenggal kisah dari mereka yang telah bertumbuh bersama kami.</p>
           </div>
 
-          <div className="relative">
+          <div className="relative mx-auto mt-12 max-w-3xl sm:mt-20 lg:mt-28">
             <div className="flex min-h-[200px] flex-col items-center justify-center rounded-3xl border border-white/70 bg-white/90 p-10 text-center shadow-lg backdrop-blur-md sm:bg-white/80">
               <div className="flex justify-center gap-1 mb-6">
                 {Array.from({ length: testimonials[testimonialIdx]?.rating ?? 5 }).map((_, i) => (
