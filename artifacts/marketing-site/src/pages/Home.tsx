@@ -443,7 +443,7 @@ export default function Home() {
           </div>
 
           <div className="relative">
-            <div className="bg-white rounded-3xl p-10 shadow-lg border border-gray-100 text-center min-h-[200px] flex flex-col items-center justify-center">
+            <div className="flex min-h-[200px] flex-col items-center justify-center rounded-3xl border border-white/70 bg-white/90 p-10 text-center shadow-lg backdrop-blur-md sm:bg-white/80">
               <div className="flex justify-center gap-1 mb-6">
                 {Array.from({ length: testimonials[testimonialIdx]?.rating ?? 5 }).map((_, i) => (
                   <Star key={i} size={16} fill="#D4AC0D" color="#D4AC0D" />
