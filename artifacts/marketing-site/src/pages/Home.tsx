@@ -321,7 +321,7 @@ export default function Home() {
             className="h-full w-full object-cover opacity-60"
           />
           <img
-            src="/homepage/dampak-nyata-2.jpeg"
+            src="/homepage/dampak-nyata-2.png"
             alt=""
             className="h-full w-full object-cover opacity-60"
           />
