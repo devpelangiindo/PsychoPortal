@@ -1,6 +1,6 @@
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Crosshair, FileUp, ImagePlus, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Crosshair, Eye, FileUp, ImagePlus, Loader2, Pencil, Plus, Search, ShoppingBag, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,14 @@ type Product = {
   images: ProductImage[];
 };
 type FormState = { name: string; slug: string; shortDescription: string; description: string; price: string; promoPrice: string; deliveryUrl: string; isActive: boolean };
+type DigitalOrderItem = { productId: number; productName: string; price: string };
+type DigitalOrder = {
+  orderId: number; userId: string; totalAmount: string; orderStatus: string; paymentStatus: string;
+  paymentMethod?: string | null; paidAmount?: string | null; paidAt?: string | null; createdAt: string;
+  fullName: string; email: string; phone: string; notes?: string | null;
+  accountEmail?: string | null; accountFirstName?: string | null; accountLastName?: string | null;
+  products: DigitalOrderItem[];
+};
 const emptyForm: FormState = { name: "", slug: "", shortDescription: "", description: "", price: "", promoPrice: "", deliveryUrl: "", isActive: true };
 
 async function uploadBinary(path: string, file: File, method = "POST", preserveMimeType = true) {
@@ -37,6 +45,17 @@ async function uploadBinary(path: string, file: File, method = "POST", preserveM
   return response.json();
 }
 
+function formatMoney(value: string | number | null | undefined) {
+  return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
+}
+
+function formatOrderDate(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
 export default function AdminDigitalProducts() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -44,8 +63,32 @@ export default function AdminDigitalProducts() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [focusEditor, setFocusEditor] = useState<{ productId: number; image: ProductImage; focusX: number; focusY: number } | null>(null);
   const [isSavingFocus, setIsSavingFocus] = useState(false);
+  const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
+  const [orderSearch, setOrderSearch] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const isCso = window.location.pathname.startsWith("/cso");
   const { data: products = [], isLoading } = useQuery<Product[]>({ queryKey: ["/api/admin/digital-products"] });
+  const { data: digitalOrders = [], isLoading: ordersLoading } = useQuery<DigitalOrder[]>({ queryKey: ["/api/admin/digital-product-orders"] });
+
+  const filteredOrders = useMemo(() => {
+    const query = orderSearch.trim().toLowerCase();
+    return digitalOrders.filter((order) => {
+      const isPaid = order.paymentStatus === "paid" || order.orderStatus === "completed";
+      if (paymentFilter === "paid" && !isPaid) return false;
+      if (paymentFilter !== "all" && paymentFilter !== "paid" && order.paymentStatus !== paymentFilter) return false;
+      if (!query) return true;
+      return [
+        String(order.orderId), order.fullName, order.email, order.phone, order.accountEmail || "",
+        ...order.products.map((product) => product.productName),
+      ].some((value) => value.toLowerCase().includes(query));
+    });
+  }, [digitalOrders, orderSearch, paymentFilter]);
+
+  const orderStats = useMemo(() => ({
+    total: digitalOrders.length,
+    paid: digitalOrders.filter((order) => order.paymentStatus === "paid" || order.orderStatus === "completed").length,
+  }), [digitalOrders]);
 
   useEffect(() => {
     if (!editing) return setForm(emptyForm);
@@ -102,7 +145,11 @@ export default function AdminDigitalProducts() {
       <div className="mx-auto max-w-7xl">
         <Link href={isCso ? "/cso/dashboard" : "/admin/dashboard"} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700"><ArrowLeft size={17} /> Kembali ke Dashboard</Link>
         <div className="mb-7"><h1 className="text-3xl font-extrabold">Pengelolaan Produk Digital</h1><p className="mt-2 text-gray-600">Tambah katalog, gambar, file unduhan, atau link akses produk.</p></div>
-        <div className="grid gap-7 lg:grid-cols-[400px_1fr]">
+        <div className="mb-6 flex flex-wrap gap-2">
+          <Button type="button" variant={activeTab === "products" ? "default" : "outline"} className={activeTab === "products" ? "bg-green-700 hover:bg-green-800" : ""} onClick={() => setActiveTab("products")}><ShoppingBag className="mr-2 h-4 w-4"/>Produk</Button>
+          <Button type="button" variant={activeTab === "orders" ? "default" : "outline"} className={activeTab === "orders" ? "bg-green-700 hover:bg-green-800" : ""} onClick={() => setActiveTab("orders")}>Pembelian ({orderStats.total})</Button>
+        </div>
+        {activeTab === "products" && <div className="grid gap-7 lg:grid-cols-[400px_1fr]">
           <Card className="h-fit lg:sticky lg:top-6">
             <CardHeader><CardTitle className="flex items-center gap-2">{editing ? <Pencil size={19} /> : <Plus size={19} />}{editing ? "Edit Produk" : "Tambah Produk"}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -177,7 +224,20 @@ export default function AdminDigitalProducts() {
               </Card>
             ))}
           </div>
-        </div>
+        </div>}
+        {activeTab === "orders" && <div className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card><CardContent className="flex items-center gap-4 p-5"><div className="rounded-full bg-green-100 p-3 text-green-800"><ShoppingBag className="h-5 w-5"/></div><div><p className="text-sm text-gray-500">Total transaksi</p><p className="text-2xl font-extrabold">{orderStats.total}</p></div></CardContent></Card>
+            <Card><CardContent className="flex items-center gap-4 p-5"><div className="rounded-full bg-emerald-100 p-3 text-emerald-800"><ShoppingBag className="h-5 w-5"/></div><div><p className="text-sm text-gray-500">Transaksi lunas</p><p className="text-2xl font-extrabold text-green-700">{orderStats.paid}</p></div></CardContent></Card>
+          </div>
+          <Card><CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_220px]"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"/><Input className="pl-9" placeholder="Cari pembeli, email, WhatsApp, nomor pesanan, atau produk" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)}/></div><select className="h-10 rounded-md border bg-white px-3 text-sm" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)}><option value="all">Semua pembayaran</option><option value="paid">Lunas</option><option value="pending">Menunggu pembayaran</option><option value="failed">Gagal</option><option value="expired">Kedaluwarsa</option></select></CardContent></Card>
+          {ordersLoading ? <div className="flex justify-center py-14"><Loader2 className="animate-spin text-green-700"/></div> : filteredOrders.length === 0 ? <Card><CardContent className="p-12 text-center text-gray-500">Belum ada pembelian yang sesuai.</CardContent></Card> : <div className="space-y-3">{filteredOrders.map((order) => {
+            const isPaid = order.paymentStatus === "paid" || order.orderStatus === "completed";
+            return <Card key={order.orderId}><CardContent className="p-0"><div className="grid items-center gap-4 p-5 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.25fr)_160px_130px_auto]"><div><p className="text-xs font-bold uppercase tracking-wide text-gray-400">Pesanan #{order.orderId}</p><p className="mt-1 font-bold">{order.fullName}</p><p className="text-xs text-gray-500">{formatOrderDate(order.createdAt)}</p></div><div><p className="line-clamp-2 text-sm font-medium text-gray-700">{order.products.map((product) => product.productName).join(", ")}</p><p className="mt-1 text-xs text-gray-500">{order.products.length} produk</p></div><p className="font-extrabold text-green-700">{formatMoney(order.totalAmount)}</p><span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${isPaid ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{isPaid ? "Lunas" : order.paymentStatus || "Pending"}</span><Button type="button" size="sm" variant="outline" onClick={() => setExpandedOrderId((current) => current === order.orderId ? null : order.orderId)}><Eye className="mr-2 h-4 w-4"/>{expandedOrderId === order.orderId ? "Tutup" : "Detail"}</Button></div>
+              {expandedOrderId === order.orderId && <div className="border-t bg-gray-50 p-5"><div className="grid gap-6 lg:grid-cols-2"><div><h3 className="font-bold">Data pembeli</h3><dl className="mt-3 grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-sm"><dt className="text-gray-500">Nama</dt><dd>{order.fullName}</dd><dt className="text-gray-500">Email</dt><dd className="break-all">{order.email}</dd><dt className="text-gray-500">WhatsApp</dt><dd>{order.phone}</dd><dt className="text-gray-500">Akun</dt><dd className="break-all">{order.accountEmail || order.userId}</dd><dt className="text-gray-500">Catatan</dt><dd className="whitespace-pre-line">{order.notes || "-"}</dd></dl></div><div><h3 className="font-bold">Produk yang dibeli</h3><div className="mt-3 space-y-2">{order.products.map((product) => <div key={product.productId} className="flex justify-between gap-4 rounded-lg border bg-white px-4 py-3 text-sm"><span>{product.productName}</span><strong className="shrink-0">{formatMoney(product.price)}</strong></div>)}</div><dl className="mt-4 grid grid-cols-[140px_1fr] gap-x-3 gap-y-2 text-sm"><dt className="text-gray-500">Total</dt><dd className="font-bold">{formatMoney(order.totalAmount)}</dd><dt className="text-gray-500">Metode bayar</dt><dd>{order.paymentMethod || "-"}</dd><dt className="text-gray-500">Waktu lunas</dt><dd>{formatOrderDate(order.paidAt)}</dd></dl></div></div></div>}
+            </CardContent></Card>;
+          })}</div>}
+        </div>}
       </div>
     </div>
   );

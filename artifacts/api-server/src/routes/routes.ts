@@ -6765,6 +6765,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/digital-product-orders', isAuthenticated, canManageDigitalProducts, async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT o.id AS "orderId", o.user_id AS "userId", o.total_amount AS "totalAmount",
+                o.status AS "orderStatus", o.payment_status AS "paymentStatus",
+                o.payment_method AS "paymentMethod", o.paid_amount AS "paidAmount",
+                o.paid_at AS "paidAt", o.created_at AS "createdAt",
+                customer.full_name AS "fullName", customer.email, customer.phone, customer.notes,
+                account.email AS "accountEmail", account.first_name AS "accountFirstName",
+                account.last_name AS "accountLastName",
+                COALESCE(items.products, '[]'::json) AS products
+         FROM orders o
+         JOIN digital_order_customer_info customer ON customer.order_id = o.id
+         LEFT JOIN users account ON account.id = o.user_id
+         JOIN LATERAL (
+           SELECT json_agg(
+             json_build_object(
+               'productId', item.product_id,
+               'productName', item.product_name,
+               'price', item.price
+             ) ORDER BY item.id
+           ) AS products
+           FROM digital_order_items item
+           WHERE item.order_id = o.id
+         ) items ON items.products IS NOT NULL
+         ORDER BY o.created_at DESC, o.id DESC`,
+      );
+      return res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching digital product orders:', error);
+      return res.status(500).json({ message: 'Gagal memuat pembelian produk digital' });
+    }
+  });
+
   app.post('/api/admin/digital-products', isAuthenticated, canManageDigitalProducts, async (req: any, res) => {
     const parsed = digitalProductSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: 'Data produk tidak valid', errors: parsed.error.flatten() });
