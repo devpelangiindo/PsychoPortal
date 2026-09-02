@@ -77,11 +77,6 @@ export default function Footer() {
                   Asesmen Onsite
                 </Link>
               </li>
-              <li>
-                <Link href="/assessments/alat-tes" className="text-green-50 hover:text-white transition-colors">
-                  Alat Tes Psikologi
-                </Link>
-              </li>
             </ul>
           </div>
           

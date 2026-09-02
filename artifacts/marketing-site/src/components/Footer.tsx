@@ -8,7 +8,7 @@ const services = [
   { label: "Konseling", href: "__BOOKING__" },
   { label: "Terapi", href: "/produk-layanan/terapi" },
   { label: "Pelatihan", href: "/produk-layanan/pelatihan" },
-  { label: "Produk Digital", href: "/produk-layanan/produk-digital" },
+  { label: "Produk Edukasi", href: "/produk-layanan/produk-edukasi" },
   { label: "Kursus", href: "/produk-layanan/kursus" },
   { label: "Hospitality Services", href: "/produk-layanan/horecal" },
 ];

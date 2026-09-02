@@ -7,7 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Assessments from "@/pages/assessments";
-import AssessmentCategories, { OnsiteAssessments, PsychologyTestTools } from "@/pages/assessment-categories";
+import AssessmentCategories, { OnsiteAssessments } from "@/pages/assessment-categories";
+import LegacyPsychologyToolsRedirect from "@/pages/legacy-psychology-tools-redirect";
 import Cart from "@/pages/cart";
 import Checkout from "@/pages/checkout";
 import Dashboard from "@/pages/dashboard";
@@ -69,7 +70,7 @@ function Router() {
       {/* Public routes - always available */}
       <Route path="/assessments/online" component={Assessments} />
       <Route path="/assessments/onsite" component={OnsiteAssessments} />
-      <Route path="/assessments/alat-tes" component={PsychologyTestTools} />
+      <Route path="/assessments/alat-tes" component={LegacyPsychologyToolsRedirect} />
       <Route path="/assessments" component={AssessmentCategories} />
       <Route path="/layanan" component={Layanan} />
       <Route path="/layanan/:slug" component={LayananDetail} />

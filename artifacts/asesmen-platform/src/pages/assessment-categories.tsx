@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Building2, CheckCircle2, ClipboardList, Info, MessageCircle, MonitorCheck, PackageSearch, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CheckCircle2, Info, MessageCircle, MonitorCheck, PackageSearch, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import Footer from "@/components/layout/footer";
 import Header from "@/components/layout/header";
@@ -9,8 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import onsiteAssessmentTopImage from "@assets/asesmen-onsite-1.png";
 import onsiteAssessmentBottomImage from "@assets/asesmen-onsite-2.png";
-import psychologyTestToolsTopImage from "@assets/alat-tes-psikologi-1.png";
-import psychologyTestToolsBottomImage from "@assets/alat-tes-psikologi-2.png";
 import { apiUrl } from "@/lib/api-base";
 
 type AssessmentCategory = {
@@ -104,20 +102,11 @@ const assessmentCategories: AssessmentCategory[] = [
     iconStyle: "bg-sky-100 text-sky-700",
     availability: "Informasi layanan",
   },
-  {
-    title: "Alat Tes Psikologi",
-    description: "Katalog alat tes psikologi untuk mendukung kebutuhan praktisi, institusi pendidikan, dan organisasi.",
-    href: "/assessments/alat-tes",
-    icon: ClipboardList,
-    accent: "from-amber-500 to-orange-700",
-    iconStyle: "bg-amber-100 text-amber-700",
-    availability: "Informasi produk",
-  },
 ];
 
 export function AssessmentCategoryGrid() {
   return (
-    <div className="grid gap-6 md:grid-cols-3">
+    <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
       {assessmentCategories.map((category) => {
         const Icon = category.icon;
         return (
@@ -384,34 +373,6 @@ export function OnsiteAssessments() {
           { title: "Tenaga ahli yang sesuai", description: "Kami akan menugaskan psikolog atau asisten ahli yang memiliki spesialisasi tepat untuk kasus Anda." },
           { title: "Fleksibilitas Jadwal", description: "Menyesuaikan waktu terbaik antara Anda dan tim ahli kami agar proses asesmen berjalan tanpa terburu-buru." },
         ],
-      }}
-    />
-  );
-}
-
-export function PsychologyTestTools() {
-  return (
-    <InformationPage
-      title="Alat Tes Psikologi"
-      description="Informasi alat tes psikologi untuk mendukung kebutuhan praktisi, lembaga pendidikan, perusahaan, dan organisasi."
-      icon={ClipboardList}
-      highlights={["Informasi fungsi dan sasaran penggunaan", "Dukungan pemilihan alat sesuai kebutuhan", "Pemesanan dan ketersediaan melalui Hotline PI"]}
-      panelImages={{
-        top: { src: psychologyTestToolsTopImage, alt: "Profesional menelaah hasil pengukuran psikologis" },
-        bottom: { src: psychologyTestToolsBottomImage, alt: "Referensi dan materi alat tes psikologi" },
-      }}
-      details={{
-        buttonLabel: "Tentang Alat Tes Psikologi",
-        title: "Deskripsi Alat Tes Psikologi",
-        subtitle: "Instrumen tes psikologi profesional dari Pelangi Indonesia.",
-        introduction: "Menyediakan berbagai instrumen tes psikologi yang valid dan terstandar untuk mendukung kebutuhan profesional Anda, mulai dari kebutuhan deteksi tumbuh kembang, pendidikan, klinis, hingga manajemen sumber daya manusia.",
-        sectionTitle: "Mengapa Memilih Instrumen dari Pelangi Indonesia?",
-        items: [
-          { title: "Valid & Terstandar", description: "Menjamin kualitas hasil asesmen yang dapat dipertanggungjawabkan secara ilmiah." },
-          { title: "Koleksi Lengkap", description: "Tersedia berbagai macam alat tes dalam satu pintu." },
-          { title: "Konsultasi Ahli", description: "Kami membantu Anda merekomendasikan alat tes yang paling sesuai dengan tujuan asesmen Anda." },
-        ],
-        note: "Pembelian alat tes tertentu memerlukan bukti kualifikasi profesi (Psikolog/Sertifikasi Terkait) sesuai dengan kode etik yang berlaku.",
       }}
     />
   );

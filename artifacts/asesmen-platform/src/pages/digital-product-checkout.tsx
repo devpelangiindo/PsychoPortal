@@ -82,7 +82,7 @@ export default function DigitalProductCheckout() {
     <div className="min-h-screen bg-gray-50">
       <Header />
       <main className="container mx-auto max-w-6xl px-4 py-10">
-        <a href="https://pi-psychology.com/produk-layanan/produk-digital" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700"><ArrowLeft size={17} /> Kembali ke katalog</a>
+        <a href="https://pi-psychology.com/produk-layanan/produk-edukasi/produk-digital" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700"><ArrowLeft size={17} /> Kembali ke katalog</a>
         <div className="mb-8 flex items-center gap-3"><ShoppingCart className="text-green-700" /><h1 className="text-3xl font-extrabold">Keranjang Produk Digital</h1></div>
         <div className="grid gap-7 lg:grid-cols-[1.1fr_.9fr]">
           <Card>

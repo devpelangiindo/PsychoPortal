@@ -15,7 +15,7 @@ const FALLBACK_SERVICES = [
   { slug: "konseling", name: "Konseling", shortDescription: "Reservasi sesi konseling dengan psikolog melalui layanan booking online.", longDesc: "Layanan booking psikolog untuk konsultasi individu, keluarga, pendidikan, atau tindak lanjut asesmen. Setelah pembayaran berhasil, jadwal sesi dikonfirmasi bersama psikolog.", color: "#9A6E5E", externalHref: "__BOOKING__" },
   { slug: "terapi", name: "Terapi", shortDescription: "Program terapi tumbuh kembang yang terstruktur dan tepat sasaran.", longDesc: "Program terapi tumbuh kembang untuk anak berkebutuhan khusus (ABK) dan anak dengan tantangan perkembangan. Meliputi terapi wicara, terapi perilaku, terapi sensori integrasi, dan terapi bermain.", color: "#52B788" },
   { slug: "pelatihan", name: "Pelatihan", shortDescription: "Pelatihan profesional untuk tenaga pendidik dan terapis.", longDesc: "Workshop dan pelatihan profesional untuk guru, konselor, orang tua, dan tenaga kesehatan. Mencakup pelatihan manajemen perilaku anak, teknik konseling, dan asesmen psikologi.", color: "#40916C" },
-  { slug: "produk-digital", name: "Produk Digital", shortDescription: "Modul digital dan e-book berkualitas untuk pengembangan diri.", longDesc: "Berbagai modul pembelajaran digital, e-book, dan materi pelatihan yang dikembangkan oleh tim ahli Pelangi Indonesia.", color: "#1B4332" },
+  { slug: "produk-edukasi", name: "Produk Edukasi", shortDescription: "Produk digital, produk fisik, dan alat tes psikologi dalam satu katalog edukasi.", longDesc: "Kumpulan produk edukasi Pelangi Indonesia untuk mendukung pembelajaran, pendampingan, dan praktik profesional.", color: "#1B4332" },
   { slug: "kursus", name: "Kursus", shortDescription: "Kursus pengembangan minat bakat: musik, tari, olahraga, akademik.", longDesc: "Program kursus terstruktur untuk anak dan remaja: Baca Tulis, Matematika, Bimbingan Belajar Privat, Sempoa, Balet, Taekwondo, Renang, Tari, Musik, Senam, dan Yoga.", color: "#2D6A4F", highlights: ["Baca Tulis — Rp 325.000/bulan", "Matematika", "Sempoa", "Balet", "Taekwondo", "Renang", "Tari", "Musik", "Senam", "Yoga", "Bimbingan Belajar Privat"] },
   { slug: "sekolah", name: "Sekolah Pelangi Indonesia", shortDescription: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", longDesc: "Sekolah Pelangi Indonesia adalah lembaga pendidikan inklusif yang menerima semua anak termasuk Anak Berkebutuhan Khusus.", color: "#1B4332", externalHref: "https://www.pi-education.com/" },
   { slug: "horecal", name: "Hospitality Services", shortDescription: "Layanan hospitality profesional untuk mendukung fasilitas edukasi, kelembagaan, dan penyelenggaraan kegiatan.", longDesc: "Hospitality Services adalah unit usaha pendukung Pelangi Indonesia yang menyediakan layanan hospitality dan operasional secara profesional bagi fasilitas edukasi, kelembagaan, dan berbagai kegiatan.", color: "#9A6E5E" },
@@ -26,7 +26,7 @@ const serviceIcons: Record<string, string> = {
   konseling: "/services/konseling.png",
   terapi: "/services/terapi.png",
   pelatihan: "/services/pelatihan.png",
-  "produk-digital": "/services/produk-digital.png",
+  "produk-edukasi": "/services/produk-digital.png",
   kursus: "/services/kursus.png",
   sekolah: "/services/sekolah.png",
   horecal: "/services/horecal.png",
@@ -222,13 +222,16 @@ export default function ProdukLayanan() {
   // Use CMS data if available, otherwise fall back to hardcoded
   const services =
     (cmsServices?.docs?.length ?? 0) > 0
-      ? cmsServices!.docs.filter((s: CMSService) => s.slug !== "booking-psikolog" && s.slug !== "franchise").map((s: CMSService) => ({
-          slug: s.slug,
-          name: serviceDisplayName(s.slug, s.title),
-          shortDescription: serviceDisplayText(s.slug, s.shortDescription),
-          color: serviceColor(s.slug),
-          externalHref: FALLBACK_SERVICES.find((f) => f.slug === s.slug)?.externalHref,
-        }))
+      ? cmsServices!.docs.filter((s: CMSService) => s.slug !== "booking-psikolog" && s.slug !== "franchise").map((s: CMSService) => {
+          const slug = s.slug === "produk-digital" ? "produk-edukasi" : s.slug;
+          return {
+            slug,
+            name: slug === "produk-edukasi" ? "Produk Edukasi" : serviceDisplayName(slug, s.title),
+            shortDescription: slug === "produk-edukasi" ? "Produk digital, produk fisik, dan alat tes psikologi dalam satu katalog edukasi." : serviceDisplayText(slug, s.shortDescription),
+            color: serviceColor(slug),
+            externalHref: FALLBACK_SERVICES.find((f) => f.slug === slug)?.externalHref,
+          };
+        })
       : FALLBACK_SERVICES.map((s) => ({
           slug: s.slug,
           name: s.name,

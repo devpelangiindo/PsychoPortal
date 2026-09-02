@@ -621,7 +621,7 @@ export default function Dashboard() {
           <section className="mb-10">
             <div className="mb-4 flex items-end justify-between gap-4">
               <div><p className="text-sm font-bold uppercase tracking-wider text-green-700">Pembelian Anda</p><h2 className="text-2xl font-extrabold">Produk Digital Saya</h2></div>
-              <a href="https://pi-psychology.com/produk-layanan/produk-digital" className="text-sm font-semibold text-green-700 hover:underline">Lihat katalog</a>
+              <a href="https://pi-psychology.com/produk-layanan/produk-edukasi/produk-digital" className="text-sm font-semibold text-green-700 hover:underline">Lihat katalog</a>
             </div>
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {digitalPurchases.map((product) => (

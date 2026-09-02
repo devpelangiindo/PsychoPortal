@@ -39,7 +39,7 @@ const heroImages = [
 const businessUnits = [
   { label: "Klinik Psikologi & Terapi", icon: Brain },
   { label: "Pendidikan & Akademi", icon: BookOpen },
-  { label: "Pelatihan & Produk Digital", icon: Award },
+  { label: "Pelatihan & Produk Edukasi", icon: Award },
   { label: "Kemitraan & Pengembangan", icon: Users },
   { label: "Hospitality Services", icon: Star },
 ];
@@ -49,7 +49,7 @@ const services = [
   { slug: "konseling", name: "Konseling", desc: "Reservasi sesi konseling dengan psikolog melalui layanan booking online.", color: "#9A6E5E", appHref: "booking" },
   { slug: "terapi", name: "Terapi", desc: "Program terapi tumbuh kembang yang terstruktur dan tepat sasaran.", color: "#52B788" },
   { slug: "pelatihan", name: "Pelatihan", desc: "Pelatihan profesional untuk tenaga pendidik dan terapis.", color: "#40916C" },
-  { slug: "produk-digital", name: "Produk Digital", desc: "Modul digital dan e-book berkualitas untuk pengembangan diri.", color: "#1B4332" },
+  { slug: "produk-edukasi", name: "Produk Edukasi", desc: "Produk digital, produk fisik, dan alat tes psikologi untuk mendukung pembelajaran dan praktik profesional.", color: "#1B4332" },
   { slug: "kursus", name: "Kursus", desc: "Kursus pengembangan minat bakat: musik, tari, olahraga, akademik.", color: "#2D6A4F" },
   { slug: "sekolah", name: "Sekolah Pelangi Indonesia", desc: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", color: "#3A7D58", externalHref: "https://www.pi-education.com/" },
   { slug: "horecal", name: "Hospitality Services", desc: "Layanan hospitality profesional untuk mendukung fasilitas edukasi, kelembagaan, dan penyelenggaraan kegiatan.", color: "#1B4332" },
@@ -60,7 +60,7 @@ const serviceIcons: Record<string, string> = {
   konseling: "/services/konseling.png",
   terapi: "/services/terapi.png",
   pelatihan: "/services/pelatihan.png",
-  "produk-digital": "/services/produk-digital.png",
+  "produk-edukasi": "/services/produk-digital.png",
   kursus: "/services/kursus.png",
   sekolah: "/services/sekolah.png",
   horecal: "/services/horecal.png",

@@ -100,7 +100,7 @@ function DigitalProductDetail({ slug }: { slug: string }) {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 pb-20 pt-32 sm:px-6 lg:px-8">
-        <Link href="/produk-layanan/produk-digital" className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Produk Digital</Link>
+        <Link href="/produk-layanan/produk-edukasi/produk-digital" className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Produk Digital</Link>
         {isLoading || !product ? (
           <div className="flex justify-center py-24"><Loader2 className="animate-spin text-green-800" /></div>
         ) : (
@@ -127,7 +127,7 @@ function DigitalProductDetail({ slug }: { slug: string }) {
 }
 
 export default function DigitalProducts() {
-  const [detailMatch, detailParams] = useRoute("/produk-layanan/produk-digital/:productSlug");
+  const [detailMatch, detailParams] = useRoute("/produk-layanan/produk-edukasi/produk-digital/:productSlug");
   const { data: products = [], isLoading } = useQuery<DigitalProduct[]>({
     queryKey: ["digital-products"],
     queryFn: async () => {
@@ -163,7 +163,7 @@ export default function DigitalProducts() {
                     <p className="mt-2 flex-1 text-sm leading-6 text-gray-600">{product.shortDescription}</p>
                     <div className="mt-5"><ProductPrice product={product} /></div>
                     <div className="mt-5 grid grid-cols-2 gap-3">
-                      <Link href={`/produk-layanan/produk-digital/${product.slug}`} className="rounded-xl border border-green-800 px-4 py-2.5 text-center text-sm font-bold text-green-800">Detail</Link>
+                      <Link href={`/produk-layanan/produk-edukasi/produk-digital/${product.slug}`} className="rounded-xl border border-green-800 px-4 py-2.5 text-center text-sm font-bold text-green-800">Detail</Link>
                       <a href={checkoutUrl(product)} className="rounded-xl bg-green-800 px-4 py-2.5 text-center text-sm font-bold text-white">Beli</a>
                     </div>
                   </div>

@@ -21,7 +21,7 @@ const services: Array<{
   { label: "Konseling", href: "/booking" },
   { label: "Terapi", href: withMainSitePath("/produk-layanan/terapi") },
   { label: "Pelatihan", href: withMainSitePath("/produk-layanan/pelatihan") },
-  { label: "Produk Digital", href: withMainSitePath("/produk-layanan/produk-digital") },
+  { label: "Produk Edukasi", href: withMainSitePath("/produk-layanan/produk-edukasi") },
   { label: "Kursus", href: withMainSitePath("/produk-layanan/kursus") },
   { label: "Sekolah Pelangi Indonesia", href: "https://www.pi-education.com/", external: true },
   { label: "Hospitality Services", href: withMainSitePath("/produk-layanan/horecal") },
