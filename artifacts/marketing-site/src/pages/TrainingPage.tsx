@@ -16,6 +16,7 @@ type Training = {
 };
 type Testimonial = { id: number; name: string; occupation?: string | null; trainingName?: string | null; testimonial: string };
 type GalleryImage = { id: number; title?: string | null; caption?: string | null; focusX: number; focusY: number };
+type TestimonialSettings = { hasBackground: boolean; backgroundFocusX: number; backgroundFocusY: number; instagramUrl?: string | null; updatedAt?: string | null };
 
 function apiBase() {
   if (import.meta.env.VITE_ASESMEN_API_URL) return String(import.meta.env.VITE_ASESMEN_API_URL).replace(/\/$/, "");
@@ -105,6 +106,7 @@ export default function TrainingPage() {
   const timer = useRef<number | null>(null);
   const { data: trainings = [], isLoading } = useQuery<Training[]>({ queryKey: ["trainings"], queryFn: async () => (await fetch(`${apiBase()}/api/trainings`)).json(), enabled: !matchDetail });
   const { data: testimonials = [] } = useQuery<Testimonial[]>({ queryKey: ["training-testimonials"], queryFn: async () => (await fetch(`${apiBase()}/api/trainings/testimonials`)).json(), enabled: !matchDetail });
+  const { data: testimonialSettings } = useQuery<TestimonialSettings>({ queryKey: ["training-testimonial-settings"], queryFn: async () => { const response = await fetch(`${apiBase()}/api/trainings/testimonial-settings`); if (!response.ok) throw new Error("Pengaturan testimoni tidak tersedia"); return response.json(); }, enabled: !matchDetail });
   const { data: gallery = [] } = useQuery<GalleryImage[]>({ queryKey: ["training-gallery"], queryFn: async () => (await fetch(`${apiBase()}/api/trainings/gallery`)).json(), enabled: !matchDetail });
   useEffect(() => { if (gallery.length < 2) return; timer.current = window.setInterval(() => setGalleryIndex(current => (current + 1) % gallery.length), 4000); return () => { if (timer.current) window.clearInterval(timer.current); }; }, [gallery.length]);
   const currentTrainings = trainings.filter(training => !isTrainingCompleted(training));
@@ -126,7 +128,16 @@ export default function TrainingPage() {
       <section className="bg-gray-50 py-20"><div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><div className="mb-10"><p className="font-bold uppercase tracking-wider text-green-700">Dokumentasi Program</p><h2 className="mt-2 text-3xl font-extrabold text-gray-950">Pelatihan yang Telah Selesai</h2><p className="mt-3 max-w-2xl text-gray-500">Lihat kembali program pelatihan yang telah diselenggarakan oleh Pelangi Indonesia Group.</p></div>
         {isLoading ? <Loader2 className="mx-auto animate-spin text-green-700" /> : completedTrainings.length === 0 ? <div className="rounded-2xl bg-white p-12 text-center text-gray-500 ring-1 ring-gray-100">Belum ada pelatihan selesai yang ditampilkan.</div> : <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">{completedTrainings.map(training => <TrainingCard key={training.id} training={training} />)}</div>}
       </div></section>
-      {testimonials.length > 0 && <section className="bg-green-950 py-20 text-white"><div className="mx-auto max-w-4xl px-4 text-center"><p className="font-bold uppercase tracking-wider text-green-300">Testimoni Pelatihan</p><h2 className="mt-2 text-3xl font-extrabold">Cerita dari para peserta</h2><Slider count={testimonials.length} index={testimonialIndex} setIndex={setTestimonialIndex} label="Testimoni"><div className="mt-10 rounded-3xl bg-white/10 px-14 py-10"><p className="text-xl leading-9">“{testimonials[testimonialIndex].testimonial}”</p><p className="mt-6 font-extrabold">{testimonials[testimonialIndex].name}</p><p className="text-sm text-green-200">{[testimonials[testimonialIndex].occupation, testimonials[testimonialIndex].trainingName].filter(Boolean).join(" · ")}</p></div></Slider></div></section>}
+      {testimonials.length > 0 && <section className="relative isolate overflow-hidden bg-[#f4eadb] py-20 text-stone-900">
+        {testimonialSettings?.hasBackground && <img src={`${apiBase()}/api/trainings/testimonial-background?v=${encodeURIComponent(testimonialSettings.updatedAt || "")}`} alt="" aria-hidden="true" className="absolute inset-0 -z-20 h-full w-full object-cover" style={{objectPosition:`${testimonialSettings.backgroundFocusX ?? 50}% ${testimonialSettings.backgroundFocusY ?? 50}%`}}/>}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#ead8bc]/90 via-[#f5ead9]/80 to-white/90"/>
+        <div className="mx-auto max-w-4xl px-4 text-center">
+          <p className="font-bold uppercase tracking-wider text-amber-900">Testimoni Pelatihan</p>
+          <h2 className="mt-2 text-3xl font-extrabold text-stone-950">Cerita dari para peserta</h2>
+          {testimonialSettings?.instagramUrl && <p className="mt-2 text-sm font-medium text-stone-700">kata mereka tentang kami (<a href={testimonialSettings.instagramUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-green-800 underline decoration-green-500 underline-offset-4 hover:text-green-950">klik di sini</a>)</p>}
+          <Slider count={testimonials.length} index={testimonialIndex} setIndex={setTestimonialIndex} label="Testimoni"><div className="mt-10 rounded-3xl border border-white/80 bg-white/70 px-14 py-10 shadow-xl shadow-amber-950/10 backdrop-blur-sm"><p className="text-xl leading-9 text-stone-800">“{testimonials[testimonialIndex].testimonial}”</p><p className="mt-6 font-extrabold text-stone-950">{testimonials[testimonialIndex].name}</p><p className="text-sm text-stone-600">{[testimonials[testimonialIndex].occupation, testimonials[testimonialIndex].trainingName].filter(Boolean).join(" · ")}</p></div></Slider>
+        </div>
+      </section>}
       {gallery.length > 0 && <section className="mx-auto max-w-6xl px-4 py-20 text-center"><p className="font-bold uppercase tracking-wider text-green-700">Galeri Foto</p><h2 className="mt-2 text-3xl font-extrabold">Kegiatan yang telah berlangsung</h2><div className="mt-10 overflow-hidden rounded-3xl bg-gray-100 shadow-lg"><Slider count={gallery.length} index={galleryIndex} setIndex={setGalleryIndex} label="Galeri"><div className="aspect-video"><img src={galleryUrl(gallery[galleryIndex].id)} alt={gallery[galleryIndex].title || "Galeri pelatihan"} className="h-full w-full object-cover" style={{ objectPosition: `${gallery[galleryIndex].focusX}% ${gallery[galleryIndex].focusY}%` }} /></div></Slider></div>{(gallery[galleryIndex].title || gallery[galleryIndex].caption) && <div className="mt-4"><p className="font-bold">{gallery[galleryIndex].title}</p><p className="text-gray-500">{gallery[galleryIndex].caption}</p></div>}</section>}
     </main><Footer /></div>;
 }

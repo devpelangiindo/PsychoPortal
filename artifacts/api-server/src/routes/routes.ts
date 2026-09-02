@@ -231,6 +231,13 @@ async function ensureTrainingInfrastructure() {
       CONSTRAINT training_page_hero_focus_check CHECK (hero_focus_x BETWEEN 0 AND 100 AND hero_focus_y BETWEEN 0 AND 100)
     );
     INSERT INTO training_page_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+    ALTER TABLE training_page_settings
+      ADD COLUMN IF NOT EXISTS testimonial_background bytea,
+      ADD COLUMN IF NOT EXISTS testimonial_background_file_name varchar(255),
+      ADD COLUMN IF NOT EXISTS testimonial_background_mime_type varchar(100),
+      ADD COLUMN IF NOT EXISTS testimonial_background_focus_x smallint NOT NULL DEFAULT 50,
+      ADD COLUMN IF NOT EXISTS testimonial_background_focus_y smallint NOT NULL DEFAULT 50,
+      ADD COLUMN IF NOT EXISTS testimonial_instagram_url varchar(1000);
     CREATE TABLE IF NOT EXISTS trainings (
       id serial PRIMARY KEY,
       slug varchar(255) NOT NULL UNIQUE,
@@ -1076,6 +1083,20 @@ const trainingTestimonialSchema = z.object({
   testimonial: z.string().trim().min(5).max(5000),
   sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
   isActive: z.boolean().optional().default(true),
+});
+
+const trainingTestimonialSettingsSchema = z.object({
+  backgroundFocusX: z.coerce.number().int().min(0).max(100),
+  backgroundFocusY: z.coerce.number().int().min(0).max(100),
+  instagramUrl: z.string().trim().max(1000).optional().default("").refine(value => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && (url.hostname === "instagram.com" || url.hostname.endsWith(".instagram.com"));
+    } catch {
+      return false;
+    }
+  }, "Tautan harus berupa URL Instagram HTTPS"),
 });
 
 const trainingGallerySchema = courseGallerySchema;
@@ -6052,6 +6073,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/trainings/testimonial-settings', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT testimonial_background IS NOT NULL AS "hasBackground",
+                testimonial_background_focus_x AS "backgroundFocusX",
+                testimonial_background_focus_y AS "backgroundFocusY",
+                testimonial_instagram_url AS "instagramUrl",
+                updated_at AS "updatedAt"
+         FROM training_page_settings WHERE id = 1`,
+      );
+      return res.json(result.rows[0] || { hasBackground: false, backgroundFocusX: 50, backgroundFocusY: 50, instagramUrl: '' });
+    } catch (error) {
+      console.error('Error fetching training testimonial settings:', error);
+      return res.status(500).json({ message: 'Gagal memuat pengaturan testimoni' });
+    }
+  });
+
+  app.get('/api/trainings/testimonial-background', async (_req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT testimonial_background, testimonial_background_mime_type FROM training_page_settings WHERE id = 1`,
+      );
+      if (!result.rows[0]?.testimonial_background) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].testimonial_background_mime_type || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.send(result.rows[0].testimonial_background);
+    } catch (error) {
+      console.error('Error fetching training testimonial background:', error);
+      return res.status(500).end();
+    }
+  });
+
   app.get('/api/trainings/posters/:posterId', async (req, res) => {
     try {
       const result = await pool.query(`SELECT image_data, mime_type FROM training_posters WHERE id = $1`, [Number(req.params.posterId)]);
@@ -6243,7 +6296,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
     const settings = await pool.query(
       `SELECT hero_image IS NOT NULL AS "hasHero", hero_file_name AS "heroFileName",
-              hero_focus_x AS "heroFocusX", hero_focus_y AS "heroFocusY" FROM training_page_settings WHERE id = 1`,
+              hero_focus_x AS "heroFocusX", hero_focus_y AS "heroFocusY",
+              testimonial_background IS NOT NULL AS "hasTestimonialBackground",
+              testimonial_background_file_name AS "testimonialBackgroundFileName",
+              testimonial_background_focus_x AS "testimonialBackgroundFocusX",
+              testimonial_background_focus_y AS "testimonialBackgroundFocusY",
+              testimonial_instagram_url AS "testimonialInstagramUrl",
+              updated_at AS "settingsUpdatedAt"
+       FROM training_page_settings WHERE id = 1`,
     );
     const trainings = result.rows.map((training: any) => ({
       ...training,
@@ -6377,6 +6437,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!parsed.success) return res.status(400).json({ message: 'Posisi fokus tidak valid' });
     await pool.query(`UPDATE training_page_settings SET hero_focus_x=$1,hero_focus_y=$2,updated_at=now() WHERE id=1`, [parsed.data.focusX, parsed.data.focusY]);
     return res.json({ message: 'Posisi fokus banner disimpan' });
+  });
+
+  app.put('/api/admin/trainings/testimonial-background', isAuthenticated, canManageTrainings,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto background wajib dipilih' });
+      await pool.query(
+        `UPDATE training_page_settings
+         SET testimonial_background=$1,testimonial_background_file_name=$2,testimonial_background_mime_type=$3,
+             updated_by=$4,updated_at=now() WHERE id=1`,
+        [req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'background-testimoni-pelatihan')), req.headers['content-type'], req.user.claims.sub],
+      );
+      return res.json({ message: 'Background testimoni berhasil disimpan' });
+    });
+
+  app.delete('/api/admin/trainings/testimonial-background', isAuthenticated, canManageTrainings, async (_req: any, res) => {
+    await pool.query(
+      `UPDATE training_page_settings
+       SET testimonial_background=NULL,testimonial_background_file_name=NULL,testimonial_background_mime_type=NULL,updated_at=now()
+       WHERE id=1`,
+    );
+    return res.json({ message: 'Background testimoni dihapus' });
+  });
+
+  app.put('/api/admin/trainings/testimonial-settings', isAuthenticated, canManageTrainings, async (req, res) => {
+    const parsed = trainingTestimonialSettingsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Pengaturan testimoni tidak valid', errors: parsed.error.flatten() });
+    await pool.query(
+      `UPDATE training_page_settings
+       SET testimonial_background_focus_x=$1,testimonial_background_focus_y=$2,
+           testimonial_instagram_url=NULLIF($3,''),updated_at=now() WHERE id=1`,
+      [parsed.data.backgroundFocusX, parsed.data.backgroundFocusY, parsed.data.instagramUrl],
+    );
+    return res.json({ message: 'Pengaturan testimoni berhasil disimpan' });
   });
 
   app.get('/api/admin/training-testimonials', isAuthenticated, canManageTrainings, async (_req, res) => {
