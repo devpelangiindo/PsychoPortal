@@ -130,7 +130,7 @@ export default function TrainingPage() {
       </div></section>
       {testimonials.length > 0 && <section className="relative isolate overflow-hidden bg-[#f4eadb] py-20 text-stone-900">
         {testimonialSettings?.hasBackground && <img src={`${apiBase()}/api/trainings/testimonial-background?v=${encodeURIComponent(testimonialSettings.updatedAt || "")}`} alt="" aria-hidden="true" className="absolute inset-0 -z-20 h-full w-full object-cover" style={{objectPosition:`${testimonialSettings.backgroundFocusX ?? 50}% ${testimonialSettings.backgroundFocusY ?? 50}%`}}/>}
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#ead8bc]/90 via-[#f5ead9]/80 to-white/90"/>
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#ead8bc]/72 via-[#f5ead9]/58 to-white/72"/>
         <div className="mx-auto max-w-4xl px-4 text-center">
           <p className="font-bold uppercase tracking-wider text-amber-900">Testimoni Pelatihan</p>
           <h2 className="mt-2 text-3xl font-extrabold text-stone-950">Cerita dari para peserta</h2>
