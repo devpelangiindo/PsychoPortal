@@ -6439,7 +6439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.json({ message: 'Posisi fokus banner disimpan' });
   });
 
-  app.put('/api/admin/trainings/testimonial/background', isAuthenticated, canManageTrainings,
+  app.put('/api/admin/training-testimonial-section/background', isAuthenticated, canManageTrainings,
     express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '8mb' }), async (req: any, res) => {
       if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto background wajib dipilih' });
       await pool.query(
@@ -6451,7 +6451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ message: 'Background testimoni berhasil disimpan' });
     });
 
-  app.delete('/api/admin/trainings/testimonial/background', isAuthenticated, canManageTrainings, async (_req: any, res) => {
+  app.delete('/api/admin/training-testimonial-section/background', isAuthenticated, canManageTrainings, async (_req: any, res) => {
     await pool.query(
       `UPDATE training_page_settings
        SET testimonial_background=NULL,testimonial_background_file_name=NULL,testimonial_background_mime_type=NULL,updated_at=now()
@@ -6460,7 +6460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.json({ message: 'Background testimoni dihapus' });
   });
 
-  app.put('/api/admin/trainings/testimonial/settings', isAuthenticated, canManageTrainings, async (req, res) => {
+  app.put('/api/admin/training-testimonial-section/settings', isAuthenticated, canManageTrainings, async (req, res) => {
     const parsed = trainingTestimonialSettingsSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: 'Pengaturan testimoni tidak valid', errors: parsed.error.flatten() });
     await pool.query(
