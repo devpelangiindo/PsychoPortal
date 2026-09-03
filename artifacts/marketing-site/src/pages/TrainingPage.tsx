@@ -88,9 +88,8 @@ function TrainingDetail({ slug }: { slug: string }) {
           </div>
           <div className="mt-8"><h2 className="text-xl font-extrabold text-green-950">Tentang Pelatihan</h2>{training.descriptionHtml ? <div className="prose mt-3 max-w-none leading-7 text-gray-600 prose-headings:text-green-950 prose-a:text-green-700 prose-img:h-auto prose-img:max-w-full prose-img:rounded-xl" dangerouslySetInnerHTML={{__html:publicDescriptionHtml(training.descriptionHtml)}}/> : <div className="mt-3 whitespace-pre-line leading-7 text-gray-600">{training.description}</div>}</div>
           {training.options.length > 0 && <div className="mt-8"><h2 className="text-xl font-extrabold text-green-950">Pilihan Agenda</h2><div className="mt-3 space-y-3">{training.options.map(option => <div key={option.id} className="flex items-start justify-between gap-4 rounded-xl border border-green-100 p-4"><div><p className="font-bold">{option.name}</p>{option.description && <p className="mt-1 text-sm text-gray-500">{option.description}</p>}</div><p className="shrink-0 font-extrabold text-green-800">{money(option.price)}</p></div>)}</div></div>}
-          <div className="mt-9 grid gap-3 sm:grid-cols-2">
+          <div className="mt-9">
             <a href={`https://wa.me/6285117658242?text=${whatsappText}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3.5 font-bold text-white"><SiWhatsapp /> Hubungi Admin</a>
-            {canRegister ? <a href={registerHref} className="inline-flex items-center justify-center rounded-xl bg-green-800 px-5 py-3.5 font-bold text-white hover:bg-green-900">Daftar Sekarang</a> : <span className="inline-flex items-center justify-center rounded-xl bg-gray-200 px-5 py-3.5 font-bold text-gray-500">{isCompleted ? "Pelatihan Selesai" : "Pendaftaran Ditutup"}</span>}
           </div>
         </section>
       </div>
