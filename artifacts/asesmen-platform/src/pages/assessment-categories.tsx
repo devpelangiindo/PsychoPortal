@@ -350,6 +350,17 @@ function InformationPage({
                                 </ul>
                               </section>}
                             </div>
+                            <a
+                              href={`https://wa.me/6285117658242?text=${serviceMessage}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-1"
+                            >
+                              <Button className="w-full bg-[#25D366] font-semibold text-white hover:bg-[#1fb85a]">
+                                <MessageCircle className="mr-2 h-4 w-4" />
+                                Hubungi Admin
+                              </Button>
+                            </a>
                           </DialogContent>
                         </Dialog>}
                         <a
