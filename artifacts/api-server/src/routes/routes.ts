@@ -595,6 +595,8 @@ async function ensureOnsiteAssessmentInfrastructure() {
       slug varchar(180) NOT NULL UNIQUE,
       title varchar(255) NOT NULL,
       description text NOT NULL,
+      result_text text,
+      target_text text,
       price integer NOT NULL DEFAULT 0 CHECK (price >= 0),
       sort_order integer NOT NULL DEFAULT 0,
       is_active boolean NOT NULL DEFAULT true,
@@ -609,6 +611,8 @@ async function ensureOnsiteAssessmentInfrastructure() {
       deleted_at timestamp,
       CONSTRAINT onsite_assessment_services_focus_check CHECK (image_focus_x BETWEEN 0 AND 100 AND image_focus_y BETWEEN 0 AND 100)
     );
+    ALTER TABLE onsite_assessment_services ADD COLUMN IF NOT EXISTS result_text text;
+    ALTER TABLE onsite_assessment_services ADD COLUMN IF NOT EXISTS target_text text;
     CREATE INDEX IF NOT EXISTS onsite_assessment_services_catalog_idx ON onsite_assessment_services(is_active, sort_order, id);
   `);
   for (const service of DEFAULT_ONSITE_ASSESSMENT_SERVICES) {
@@ -1046,6 +1050,8 @@ const onsiteAssessmentServiceSchema = z.object({
   title: z.string().trim().min(2).max(255),
   slug: z.string().trim().max(180).optional(),
   description: z.string().trim().min(5).max(10000),
+  resultText: z.string().trim().max(10000).optional().default(""),
+  targetText: z.string().trim().max(10000).optional().default(""),
   price: z.coerce.number().int().min(0).max(999999999),
   sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
   isActive: z.boolean().default(true),
@@ -7261,7 +7267,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const onsiteAssessmentSelect = `SELECT id,slug,title,description,price,sort_order AS "sortOrder",is_active AS "isActive",
+  const onsiteAssessmentSelect = `SELECT id,slug,title,description,COALESCE(result_text,'') AS "resultText",
+    COALESCE(target_text,'') AS "targetText",price,sort_order AS "sortOrder",is_active AS "isActive",
     CASE WHEN image_data IS NULL THEN false ELSE true END AS "hasImage", image_focus_x AS "imageFocusX", image_focus_y AS "imageFocusY",
     created_at AS "createdAt",updated_at AS "updatedAt" FROM onsite_assessment_services`;
 
@@ -7278,14 +7285,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!parsed.success) return res.status(400).json({ message: 'Data layanan tidak valid', errors: parsed.error.flatten() });
     const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title).slice(0,180);
     try {
-      const result = await pool.query(`INSERT INTO onsite_assessment_services (slug,title,description,price,sort_order,is_active,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id,slug`, [slug,parsed.data.title,parsed.data.description,parsed.data.price,parsed.data.sortOrder,parsed.data.isActive,req.user.claims.sub]);
+      const result = await pool.query(`INSERT INTO onsite_assessment_services (slug,title,description,result_text,target_text,price,sort_order,is_active,created_by) VALUES ($1,$2,$3,NULLIF($4,''),NULLIF($5,''),$6,$7,$8,$9) RETURNING id,slug`, [slug,parsed.data.title,parsed.data.description,parsed.data.resultText,parsed.data.targetText,parsed.data.price,parsed.data.sortOrder,parsed.data.isActive,req.user.claims.sub]);
       return res.status(201).json(result.rows[0]);
     } catch (error:any) { if (error?.code === '23505') return res.status(409).json({ message: 'Slug layanan sudah digunakan' }); console.error('Error creating onsite assessment:', error); return res.status(500).json({ message: 'Gagal menambahkan layanan' }); }
   });
   app.put('/api/admin/onsite-assessments/:serviceId', isAuthenticated, isAdmin, async (req, res) => {
     const parsed = onsiteAssessmentServiceSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: 'Data layanan tidak valid', errors: parsed.error.flatten() });
-    try { const result = await pool.query(`UPDATE onsite_assessment_services SET title=$1,description=$2,price=$3,sort_order=$4,is_active=$5,updated_at=now() WHERE id=$6 AND deleted_at IS NULL RETURNING id,slug`, [parsed.data.title,parsed.data.description,parsed.data.price,parsed.data.sortOrder,parsed.data.isActive,Number(req.params.serviceId)]); if (!result.rowCount) return res.status(404).json({ message:'Layanan tidak ditemukan' }); return res.json(result.rows[0]); }
+    try { const result = await pool.query(`UPDATE onsite_assessment_services SET title=$1,description=$2,result_text=NULLIF($3,''),target_text=NULLIF($4,''),price=$5,sort_order=$6,is_active=$7,updated_at=now() WHERE id=$8 AND deleted_at IS NULL RETURNING id,slug`, [parsed.data.title,parsed.data.description,parsed.data.resultText,parsed.data.targetText,parsed.data.price,parsed.data.sortOrder,parsed.data.isActive,Number(req.params.serviceId)]); if (!result.rowCount) return res.status(404).json({ message:'Layanan tidak ditemukan' }); return res.json(result.rows[0]); }
     catch (error) { console.error('Error updating onsite assessment:', error); return res.status(500).json({ message:'Gagal memperbarui layanan' }); }
   });
   app.delete('/api/admin/onsite-assessments/:serviceId', isAuthenticated, isAdmin, async (req, res) => {

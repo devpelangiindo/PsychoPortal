@@ -26,11 +26,17 @@ type AssessmentService = {
   slug?: string;
   title: string;
   description: string;
+  resultText?: string;
+  targetText?: string;
   price: number;
   hasImage?: boolean;
   imageFocusX?: number;
   imageFocusY?: number;
 };
+
+function detailLines(value?: string) {
+  return (value || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+}
 
 const onsiteAssessmentServices: AssessmentService[] = [
   {
@@ -318,6 +324,34 @@ function InformationPage({
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Harga layanan</p>
                           <p className="mt-1 text-2xl font-extrabold text-emerald-700">{formatRupiah(service.price)}</p>
                         </div>
+                        {(service.resultText || service.targetText) && <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" className="mt-5 w-full border-emerald-200 text-emerald-800 hover:bg-emerald-50">
+                              <Info className="mr-2 h-4 w-4" />
+                              Lihat Selengkapnya
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle className="pr-6 text-2xl text-neutral-900">{service.title}</DialogTitle>
+                              <DialogDescription className="text-left leading-7 text-neutral-600">{service.description}</DialogDescription>
+                            </DialogHeader>
+                            <div className="mt-2 grid gap-5 md:grid-cols-2">
+                              {service.resultText && <section className="rounded-2xl bg-emerald-50 p-5">
+                                <h4 className="font-bold text-emerald-950">Hasil yang Diperoleh</h4>
+                                <ul className="mt-3 space-y-2 text-sm leading-6 text-neutral-700">
+                                  {detailLines(service.resultText).map((line, index) => <li key={index} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-700" /><span>{line}</span></li>)}
+                                </ul>
+                              </section>}
+                              {service.targetText && <section className="rounded-2xl bg-sky-50 p-5">
+                                <h4 className="font-bold text-sky-950">Sasaran Tes</h4>
+                                <ul className="mt-3 space-y-2 text-sm leading-6 text-neutral-700">
+                                  {detailLines(service.targetText).map((line, index) => <li key={index} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-sky-700" /><span>{line}</span></li>)}
+                                </ul>
+                              </section>}
+                            </div>
+                          </DialogContent>
+                        </Dialog>}
                         <a
                           href={`https://wa.me/6285117658242?text=${serviceMessage}`}
                           target="_blank"
