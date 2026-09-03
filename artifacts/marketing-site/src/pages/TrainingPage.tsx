@@ -10,7 +10,7 @@ import { getAsesmenPlatformHref } from "@/lib/platform-links";
 
 type TrainingOption = { id: number; name: string; description?: string | null; price: string; capacity?: number | null };
 type Training = {
-  id: number; slug: string; title: string; summary: string; description: string; startsAt?: string | null;
+  id: number; slug: string; title: string; summary: string; description: string; descriptionHtml?: string | null; startsAt?: string | null;
   endsAt?: string | null; location?: string | null; registrationDeadline?: string | null; status: "published" | "closed" | "completed";
   posterId?: number | null; posterFocusX?: number | null; posterFocusY?: number | null; posterUpdatedAt?: string | null; options: TrainingOption[];
 };
@@ -42,6 +42,9 @@ function posterUrl(id: number, updatedAt?: string | null) {
   return `${apiBase()}/api/trainings/posters/${id}${version}`;
 }
 function galleryUrl(id: number) { return `${apiBase()}/api/trainings/gallery/images/${id}`; }
+function publicDescriptionHtml(value: string) {
+  return value.replace(/src=(['"])(\/api\/trainings\/description-images\/\d+)\1/g, (_match, quote, path) => `src=${quote}${apiBase()}${path}${quote}`);
+}
 function isTrainingCompleted(training: Training) {
   if (training.status === "completed") return true;
   const finishedAt = training.endsAt || training.startsAt;
@@ -82,7 +85,7 @@ function TrainingDetail({ slug }: { slug: string }) {
             <div className="flex gap-3"><Clock3 className="shrink-0 text-green-700" size={20} /><span>{formatTime(training.startsAt)}{training.endsAt ? ` - ${formatTime(training.endsAt)}` : ""}</span></div>
             {training.location && <div className="flex gap-3 sm:col-span-2"><MapPin className="shrink-0 text-green-700" size={20} /><span>{training.location}</span></div>}
           </div>
-          <div className="mt-8"><h2 className="text-xl font-extrabold text-green-950">Tentang Pelatihan</h2><div className="mt-3 whitespace-pre-line leading-7 text-gray-600">{training.description}</div></div>
+          <div className="mt-8"><h2 className="text-xl font-extrabold text-green-950">Tentang Pelatihan</h2>{training.descriptionHtml ? <div className="prose mt-3 max-w-none leading-7 text-gray-600 prose-headings:text-green-950 prose-a:text-green-700 prose-img:h-auto prose-img:max-w-full prose-img:rounded-xl" dangerouslySetInnerHTML={{__html:publicDescriptionHtml(training.descriptionHtml)}}/> : <div className="mt-3 whitespace-pre-line leading-7 text-gray-600">{training.description}</div>}</div>
           {training.options.length > 0 && <div className="mt-8"><h2 className="text-xl font-extrabold text-green-950">Pilihan Agenda</h2><div className="mt-3 space-y-3">{training.options.map(option => <div key={option.id} className="flex items-start justify-between gap-4 rounded-xl border border-green-100 p-4"><div><p className="font-bold">{option.name}</p>{option.description && <p className="mt-1 text-sm text-gray-500">{option.description}</p>}</div><p className="shrink-0 font-extrabold text-green-800">{money(option.price)}</p></div>)}</div></div>}
           <div className="mt-9 grid gap-3 sm:grid-cols-2">
             <a href={`https://wa.me/6285117658242?text=${whatsappText}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3.5 font-bold text-white"><SiWhatsapp /> Hubungi Admin</a>

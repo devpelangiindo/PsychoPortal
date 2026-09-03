@@ -12,6 +12,7 @@ import { emailService } from "../emailService";
 import path from "path";
 import fs from "fs";
 import express from "express";
+import sanitizeHtml from "sanitize-html";
 import { pool } from "../db";
 import { DEFAULT_THERAPY_CATEGORIES, DEFAULT_THERAPY_SERVICES } from "../therapy-seed";
 import { DEFAULT_ONSITE_ASSESSMENT_SERVICES } from "../onsite-assessment-seed";
@@ -255,6 +256,7 @@ async function ensureTrainingInfrastructure() {
       updated_at timestamp DEFAULT now(),
       deleted_at timestamp
     );
+    ALTER TABLE trainings ADD COLUMN IF NOT EXISTS description_html text;
     DO $$
     BEGIN
       IF EXISTS (
@@ -287,6 +289,16 @@ async function ensureTrainingInfrastructure() {
       updated_at timestamp DEFAULT now(),
       CONSTRAINT training_posters_focus_check CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
     );
+    CREATE TABLE IF NOT EXISTS training_description_images (
+      id serial PRIMARY KEY,
+      training_id integer NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
+      image_data bytea NOT NULL,
+      file_name varchar(255) NOT NULL,
+      mime_type varchar(100) NOT NULL,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS training_description_images_training_idx ON training_description_images(training_id, id);
     CREATE TABLE IF NOT EXISTS training_options (
       id serial PRIMARY KEY,
       training_id integer NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
@@ -1044,6 +1056,7 @@ const trainingSchema = z.object({
   slug: z.string().trim().max(255).optional(),
   summary: z.string().trim().min(10).max(1000),
   description: z.string().trim().min(20).max(50000),
+  descriptionHtml: z.string().max(200000).optional().default(""),
   startsAt: z.union([z.string().min(10).max(40), z.literal(""), z.null()]).optional().default(null),
   endsAt: z.union([z.string().min(10).max(40), z.literal(""), z.null()]).optional().default(null),
   location: z.string().trim().max(500).optional().default(""),
@@ -1051,6 +1064,39 @@ const trainingSchema = z.object({
   sortOrder: z.coerce.number().int().min(0).max(9999).optional().default(0),
   status: z.enum(["draft", "published", "closed", "completed"]).optional().default("draft"),
 });
+
+function sanitizeTrainingDescription(value: string) {
+  return sanitizeHtml(value, {
+    allowedTags: ["h2", "h3", "p", "div", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li", "a", "img", "blockquote", "span", "font"],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+      img: ["src", "alt", "title", "style", "data-training-image-id"],
+      div: ["style", "align"], p: ["style", "align"], h2: ["style", "align"], h3: ["style", "align"], span: ["style"],
+      font: ["face", "color", "size"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedStyles: {
+      "*": {
+        color: [/^#[0-9a-f]{3,8}$/i, /^rgb\([\d\s,]+\)$/],
+        "text-align": [/^(left|center|right)$/],
+        "font-family": [/^[\w\s,'-]+$/],
+        "font-size": [/^(0\.75|0\.875|1|1\.125|1\.25|1\.5|1\.875|2\.25)rem$/],
+      },
+      img: {
+        width: [/^\d{1,3}%$/], "max-width": [/^100%$/], height: [/^auto$/],
+        display: [/^block$/], margin: [/^[\d.]+rem auto$/], "border-radius": [/^[\d.]+rem$/],
+      },
+    },
+    transformTags: {
+      a: (_tagName, attribs) => ({ tagName: "a", attribs: { ...attribs, target: "_blank", rel: "noopener noreferrer" } }),
+    },
+    exclusiveFilter: frame => frame.tag === "img" && !/^\/api\/trainings\/description-images\/\d+$/.test(frame.attribs.src || ""),
+  });
+}
+
+function getTrainingDescriptionImageIds(value: string) {
+  return Array.from(value.matchAll(/\/api\/trainings\/description-images\/(\d+)/g), match => Number(match[1]));
+}
 
 const trainingOptionSchema = z.object({
   name: z.string().trim().min(2).max(255),
@@ -6045,6 +6091,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const trainingSelect = `
     SELECT training.id, training.slug, training.title, training.summary, training.description,
+           training.description_html AS "descriptionHtml",
            training.starts_at AS "startsAt", training.ends_at AS "endsAt", training.location,
            training.registration_deadline AS "registrationDeadline",
            training.sort_order AS "sortOrder", training.status,
@@ -6128,6 +6175,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.send(result.rows[0].image_data);
     } catch (error) {
       console.error('Error fetching training gallery image:', error);
+      return res.status(500).end();
+    }
+  });
+
+  app.get('/api/trainings/description-images/:imageId', async (req, res) => {
+    try {
+      const result = await pool.query(`SELECT image_data, mime_type FROM training_description_images WHERE id = $1`, [Number(req.params.imageId)]);
+      if (!result.rowCount) return res.status(404).end();
+      res.setHeader('Content-Type', result.rows[0].mime_type);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.send(result.rows[0].image_data);
+    } catch (error) {
+      console.error('Error fetching training description image:', error);
       return res.status(500).end();
     }
   });
@@ -6323,10 +6383,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!slug) return res.status(400).json({ message: 'Slug pelatihan tidak valid' });
     try {
       const result = await pool.query(
-        `INSERT INTO trainings (slug, title, summary, description, starts_at, ends_at, location,
+        `INSERT INTO trainings (slug, title, summary, description, description_html, starts_at, ends_at, location,
           registration_deadline, sort_order, status, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),$8,$9,$10,$11) RETURNING id, slug`,
-        [slug, parsed.data.title, parsed.data.summary, parsed.data.description, parsed.data.startsAt || null,
+         VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,NULLIF($8,''),$9,$10,$11,$12) RETURNING id, slug`,
+        [slug, parsed.data.title, parsed.data.summary, parsed.data.description, sanitizeTrainingDescription(parsed.data.descriptionHtml), parsed.data.startsAt || null,
          parsed.data.endsAt || null, parsed.data.location, parsed.data.registrationDeadline || null,
          parsed.data.sortOrder, parsed.data.status, req.user.claims.sub],
       );
@@ -6341,16 +6401,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const parsed = trainingSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: 'Data pelatihan tidak valid', errors: parsed.error.flatten() });
     const slug = makeDigitalProductSlug(parsed.data.slug || parsed.data.title);
+    const descriptionHtml = sanitizeTrainingDescription(parsed.data.descriptionHtml);
     try {
       const result = await pool.query(
-        `UPDATE trainings SET slug=$1,title=$2,summary=$3,description=$4,starts_at=$5,ends_at=$6,
-          location=NULLIF($7,''),registration_deadline=$8,sort_order=$9,status=$10,updated_at=now()
-         WHERE id=$11 AND deleted_at IS NULL RETURNING id, slug`,
-        [slug, parsed.data.title, parsed.data.summary, parsed.data.description, parsed.data.startsAt || null,
+        `UPDATE trainings SET slug=$1,title=$2,summary=$3,description=$4,description_html=NULLIF($5,''),starts_at=$6,ends_at=$7,
+          location=NULLIF($8,''),registration_deadline=$9,sort_order=$10,status=$11,updated_at=now()
+         WHERE id=$12 AND deleted_at IS NULL RETURNING id, slug`,
+        [slug, parsed.data.title, parsed.data.summary, parsed.data.description, descriptionHtml, parsed.data.startsAt || null,
          parsed.data.endsAt || null, parsed.data.location, parsed.data.registrationDeadline || null,
          parsed.data.sortOrder, parsed.data.status, Number(req.params.trainingId)],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Pelatihan tidak ditemukan' });
+      const retainedImageIds = getTrainingDescriptionImageIds(descriptionHtml);
+      if (retainedImageIds.length) {
+        await pool.query(
+          `DELETE FROM training_description_images WHERE training_id=$1 AND NOT (id = ANY($2::int[]))`,
+          [Number(req.params.trainingId), retainedImageIds],
+        );
+      } else {
+        await pool.query(`DELETE FROM training_description_images WHERE training_id=$1`, [Number(req.params.trainingId)]);
+      }
       return res.json(result.rows[0]);
     } catch (error: any) {
       if (error?.code === '23505') return res.status(409).json({ message: 'Slug pelatihan sudah digunakan' });
@@ -6411,6 +6481,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [Number(req.params.trainingId), req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'poster-pelatihan')), req.headers['content-type']],
       );
       return res.json(result.rows[0]);
+    });
+
+  app.post('/api/admin/trainings/:trainingId/description-images', isAuthenticated, canManageTrainings,
+    express.raw({ type: ['image/jpeg','image/png','image/webp'], limit: '5mb' }), async (req: any, res) => {
+      if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ message: 'Foto deskripsi wajib dipilih' });
+      const trainingId = Number(req.params.trainingId);
+      const training = await pool.query(`SELECT id FROM trainings WHERE id=$1 AND deleted_at IS NULL`, [trainingId]);
+      if (!training.rowCount) return res.status(404).json({ message: 'Pelatihan tidak ditemukan' });
+      const count = await pool.query(`SELECT COUNT(*)::int AS total FROM training_description_images WHERE training_id=$1`, [trainingId]);
+      if (Number(count.rows[0].total) >= 5) return res.status(400).json({ message: 'Maksimal 5 foto pada deskripsi lengkap' });
+      const result = await pool.query(
+        `INSERT INTO training_description_images (training_id,image_data,file_name,mime_type,created_by)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [trainingId, req.body, decodeURIComponent(String(req.headers['x-file-name'] || 'foto-deskripsi-pelatihan')), req.headers['content-type'], req.user.claims.sub],
+      );
+      return res.status(201).json({ id: result.rows[0].id, src: `/api/trainings/description-images/${result.rows[0].id}` });
     });
 
   app.put('/api/admin/trainings/:trainingId/poster/focus', isAuthenticated, canManageTrainings, async (req, res) => {
