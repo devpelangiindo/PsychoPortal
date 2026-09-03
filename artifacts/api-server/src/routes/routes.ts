@@ -6050,6 +6050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
            training.sort_order AS "sortOrder", training.status,
            training.created_at AS "createdAt", training.updated_at AS "updatedAt",
            poster.id AS "posterId", poster.focus_x AS "posterFocusX", poster.focus_y AS "posterFocusY",
+           poster.updated_at AS "posterUpdatedAt",
            COALESCE(json_agg(
              json_build_object('id', option.id, 'name', option.name, 'description', option.description,
                'price', option.price, 'capacity', option.capacity, 'sortOrder', option.sort_order,
@@ -6279,7 +6280,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               registration.option_name AS "optionName", registration.price, registration.status,
               COALESCE(order_data.payment_status, registration.payment_status) AS "paymentStatus", registration.created_at AS "createdAt",
               training.starts_at AS "startsAt", training.ends_at AS "endsAt", training.location,
-              poster.id AS "posterId", poster.focus_x AS "posterFocusX", poster.focus_y AS "posterFocusY"
+              poster.id AS "posterId", poster.focus_x AS "posterFocusX", poster.focus_y AS "posterFocusY",
+              poster.updated_at AS "posterUpdatedAt"
        FROM training_registrations registration
        JOIN orders order_data ON order_data.id = registration.order_id
        JOIN trainings training ON training.id = registration.training_id

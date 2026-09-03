@@ -85,7 +85,7 @@ type DigitalPurchase = {
 type TrainingRegistration = {
   id: number; orderId: number; trainingTitle: string; optionName: string; price: string;
   status: string; paymentStatus: string; startsAt: string | null; endsAt: string | null;
-  location: string | null; posterId: number | null; posterFocusX: number | null; posterFocusY: number | null;
+  location: string | null; posterId: number | null; posterFocusX: number | null; posterFocusY: number | null; posterUpdatedAt: string | null;
 };
 
 const PAYMENT_EXPIRY_MINUTES = 15;
@@ -601,7 +601,7 @@ export default function Dashboard() {
               {trainingRegistrations.map((registration) => (
                 <Card key={registration.id} className="overflow-hidden">
                   <div className="h-40 bg-violet-50">
-                    {registration.posterId ? <img src={apiUrl(`/api/trainings/posters/${registration.posterId}`)} alt={registration.trainingTitle} className="h-full w-full object-cover" style={{ objectPosition: `${registration.posterFocusX ?? 50}% ${registration.posterFocusY ?? 50}%` }} /> : <div className="flex h-full items-center justify-center"><Presentation className="h-10 w-10 text-violet-700" /></div>}
+                    {registration.posterId ? <img src={apiUrl(`/api/trainings/posters/${registration.posterId}?v=${encodeURIComponent(registration.posterUpdatedAt || String(registration.posterId))}`)} alt={registration.trainingTitle} className="h-full w-full object-cover" style={{ objectPosition: `${registration.posterFocusX ?? 50}% ${registration.posterFocusY ?? 50}%` }} /> : <div className="flex h-full items-center justify-center"><Presentation className="h-10 w-10 text-violet-700" /></div>}
                   </div>
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-violet-700">Pesanan #{registration.orderId}</p><h3 className="mt-1 text-lg font-bold">{registration.trainingTitle}</h3></div><Badge className={registration.paymentStatus === "paid" ? "bg-green-700" : "bg-amber-600"}>{registration.paymentStatus === "paid" ? "Lunas" : "Menunggu bayar"}</Badge></div>

@@ -12,7 +12,7 @@ type TrainingOption = { id: number; name: string; description?: string | null; p
 type Training = {
   id: number; slug: string; title: string; summary: string; description: string; startsAt?: string | null;
   endsAt?: string | null; location?: string | null; registrationDeadline?: string | null; status: "published" | "closed" | "completed";
-  posterId?: number | null; posterFocusX?: number | null; posterFocusY?: number | null; options: TrainingOption[];
+  posterId?: number | null; posterFocusX?: number | null; posterFocusY?: number | null; posterUpdatedAt?: string | null; options: TrainingOption[];
 };
 type Testimonial = { id: number; name: string; occupation?: string | null; trainingName?: string | null; testimonial: string };
 type GalleryImage = { id: number; title?: string | null; caption?: string | null; focusX: number; focusY: number };
@@ -37,7 +37,10 @@ function money(value: string | number) {
   return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`;
 }
 
-function posterUrl(id: number) { return `${apiBase()}/api/trainings/posters/${id}`; }
+function posterUrl(id: number, updatedAt?: string | null) {
+  const version = updatedAt ? `?v=${encodeURIComponent(updatedAt)}` : "";
+  return `${apiBase()}/api/trainings/posters/${id}${version}`;
+}
 function galleryUrl(id: number) { return `${apiBase()}/api/trainings/gallery/images/${id}`; }
 function isTrainingCompleted(training: Training) {
   if (training.status === "completed") return true;
@@ -47,7 +50,7 @@ function isTrainingCompleted(training: Training) {
 
 function TrainingCard({ training }: { training: Training }) {
   return <Link href={`/produk-layanan/pelatihan/${training.slug}`} className="group overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100 transition hover:-translate-y-1 hover:shadow-xl">
-    <div className="aspect-[4/5] overflow-hidden bg-green-50">{training.posterId ? <img src={posterUrl(training.posterId)} alt={`Poster ${training.title}`} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" style={{ objectPosition: `${training.posterFocusX ?? 50}% ${training.posterFocusY ?? 50}%` }} /> : <div className="flex h-full w-full items-center justify-center font-bold text-green-800">Agenda Pelatihan</div>}</div>
+    <div className="aspect-[4/5] overflow-hidden bg-green-50">{training.posterId ? <img src={posterUrl(training.posterId, training.posterUpdatedAt)} alt={`Poster ${training.title}`} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" style={{ objectPosition: `${training.posterFocusX ?? 50}% ${training.posterFocusY ?? 50}%` }} /> : <div className="flex h-full w-full items-center justify-center font-bold text-green-800">Agenda Pelatihan</div>}</div>
     <div className="p-5"><h3 className="text-xl font-extrabold text-gray-950 group-hover:text-green-800">{training.title}</h3></div>
   </Link>;
 }
@@ -68,7 +71,7 @@ function TrainingDetail({ slug }: { slug: string }) {
       <Link href="/produk-layanan/pelatihan" className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Agenda Pelatihan</Link>
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
         <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
-          <div className="aspect-[4/5] bg-green-50">{training.posterId ? <img src={posterUrl(training.posterId)} alt={`Poster ${training.title}`} className="h-full w-full object-contain" /> : <div className="flex h-full items-center justify-center text-xl font-bold text-green-800">Agenda Pelatihan</div>}</div>
+          <div className="aspect-[4/5] bg-green-50">{training.posterId ? <img src={posterUrl(training.posterId, training.posterUpdatedAt)} alt={`Poster ${training.title}`} className="h-full w-full object-contain" /> : <div className="flex h-full items-center justify-center text-xl font-bold text-green-800">Agenda Pelatihan</div>}</div>
         </div>
         <section className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-100 sm:p-9">
           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${!isCompleted && training.status === "published" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>{isCompleted ? "Pelatihan Selesai" : training.status === "published" ? "Pendaftaran Dibuka" : "Pendaftaran Ditutup"}</span>
