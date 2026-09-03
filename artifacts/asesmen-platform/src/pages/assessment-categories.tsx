@@ -320,10 +320,6 @@ function InformationPage({
                       <div className="flex flex-1 flex-col p-6">
                         <h3 className="text-xl font-bold leading-snug text-neutral-900">{service.title}</h3>
                         <p className="mt-3 flex-1 leading-relaxed text-neutral-600">{service.description}</p>
-                        <div className="mt-6 border-t border-neutral-100 pt-5">
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Harga layanan</p>
-                          <p className="mt-1 text-2xl font-extrabold text-emerald-700">{formatRupiah(service.price)}</p>
-                        </div>
                         {(service.resultText || service.targetText) && <Dialog>
                           <DialogTrigger asChild>
                             <Button variant="outline" className="mt-5 w-full border-emerald-200 text-emerald-800 hover:bg-emerald-50">
@@ -363,6 +359,10 @@ function InformationPage({
                             </a>
                           </DialogContent>
                         </Dialog>}
+                        <div className="mt-6 border-t border-neutral-100 pt-5">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Harga layanan</p>
+                          <p className="mt-1 text-2xl font-extrabold text-emerald-700">{formatRupiah(service.price)}</p>
+                        </div>
                         <a
                           href={`https://wa.me/6285117658242?text=${serviceMessage}`}
                           target="_blank"
