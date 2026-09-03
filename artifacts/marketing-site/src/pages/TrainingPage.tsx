@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, Loader2, MapPin } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, Loader2, MapPin, TicketCheck } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { SiWhatsapp } from "react-icons/si";
 import Navbar from "@/components/Navbar";
@@ -66,6 +66,7 @@ function TrainingDetail({ slug }: { slug: string }) {
   if (isLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-green-700" /></div>;
   if (!training) return <div className="min-h-screen bg-white"><Navbar /><main className="mx-auto max-w-4xl px-4 pb-20 pt-36 text-center"><h1 className="text-3xl font-bold">Agenda tidak ditemukan</h1></main><Footer /></div>;
   const isCompleted = isTrainingCompleted(training);
+  const canRegister = !isCompleted && training.status === "published";
   const registerHref = `${getAsesmenPlatformHref().replace(/\/$/, "")}/training/register?training=${encodeURIComponent(training.slug)}`;
   const whatsappText = encodeURIComponent(`Halo Admin Pelangi Indonesia, saya ingin bertanya tentang pelatihan ${training.title}.`);
   return <div className="min-h-screen bg-gray-50">
@@ -89,11 +90,19 @@ function TrainingDetail({ slug }: { slug: string }) {
           {training.options.length > 0 && <div className="mt-8"><h2 className="text-xl font-extrabold text-green-950">Pilihan Agenda</h2><div className="mt-3 space-y-3">{training.options.map(option => <div key={option.id} className="flex items-start justify-between gap-4 rounded-xl border border-green-100 p-4"><div><p className="font-bold">{option.name}</p>{option.description && <p className="mt-1 text-sm text-gray-500">{option.description}</p>}</div><p className="shrink-0 font-extrabold text-green-800">{money(option.price)}</p></div>)}</div></div>}
           <div className="mt-9 grid gap-3 sm:grid-cols-2">
             <a href={`https://wa.me/6285117658242?text=${whatsappText}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3.5 font-bold text-white"><SiWhatsapp /> Hubungi Admin</a>
-            {!isCompleted && training.status === "published" ? <a href={registerHref} className="inline-flex items-center justify-center rounded-xl bg-green-800 px-5 py-3.5 font-bold text-white hover:bg-green-900">Daftar Sekarang</a> : <span className="inline-flex items-center justify-center rounded-xl bg-gray-200 px-5 py-3.5 font-bold text-gray-500">{isCompleted ? "Pelatihan Selesai" : "Pendaftaran Ditutup"}</span>}
+            {canRegister ? <a href={registerHref} className="inline-flex items-center justify-center rounded-xl bg-green-800 px-5 py-3.5 font-bold text-white hover:bg-green-900">Daftar Sekarang</a> : <span className="inline-flex items-center justify-center rounded-xl bg-gray-200 px-5 py-3.5 font-bold text-gray-500">{isCompleted ? "Pelatihan Selesai" : "Pendaftaran Ditutup"}</span>}
           </div>
         </section>
       </div>
-    </main><Footer />
+    </main>
+    {canRegister && <a
+      href={registerHref}
+      aria-label={`Daftar pelatihan ${training.title}`}
+      className="fixed bottom-24 right-4 z-[45] inline-flex items-center justify-center gap-2 rounded-full bg-green-800 px-5 py-3.5 text-sm font-extrabold text-white shadow-2xl shadow-green-950/30 ring-2 ring-white transition hover:-translate-y-0.5 hover:bg-green-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-300 sm:bottom-28 sm:right-8 sm:px-6 sm:text-base"
+    >
+      <TicketCheck size={20} /> Daftar Sekarang
+    </a>}
+    <Footer />
   </div>;
 }
 
