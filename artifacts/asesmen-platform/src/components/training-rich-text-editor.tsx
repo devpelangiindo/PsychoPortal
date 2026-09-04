@@ -10,7 +10,7 @@ type Props = {
   onChange: (html: string, plainText: string) => void;
 };
 
-const toolbarButton = "inline-flex h-9 w-9 items-center justify-center rounded-md border bg-white text-gray-700 hover:bg-green-50 hover:text-green-800";
+const toolbarButton = "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-white text-gray-700 hover:bg-green-50 hover:text-green-800";
 
 export default function TrainingRichTextEditor({ value, trainingId, onChange }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -90,8 +90,8 @@ export default function TrainingRichTextEditor({ value, trainingId, onChange }: 
   };
 
   return (
-    <div className="overflow-hidden rounded-md border bg-white">
-      <div className="flex flex-wrap items-center gap-1 border-b bg-gray-50 p-2" onMouseDown={event => {
+    <div className="rounded-md border bg-white">
+      <div className="sticky top-2 z-20 flex flex-nowrap items-center gap-1 overflow-x-auto rounded-t-md border-b bg-gray-50/95 p-2 shadow-sm backdrop-blur [&>*]:shrink-0 sm:flex-wrap sm:overflow-visible" onMouseDown={event => {
         rememberSelection();
         if ((event.target as HTMLElement).closest("button")) event.preventDefault();
       }}>
