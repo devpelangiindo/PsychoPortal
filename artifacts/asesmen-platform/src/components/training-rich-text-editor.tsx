@@ -22,15 +22,24 @@ export default function TrainingRichTextEditor({ value, trainingId, onChange }: 
     if (editorRef.current && editorRef.current.innerHTML !== value) editorRef.current.innerHTML = value;
   }, [value]);
 
+  useEffect(() => {
+    const trackEditorSelection = () => rememberSelection();
+    document.addEventListener("selectionchange", trackEditorSelection);
+    return () => document.removeEventListener("selectionchange", trackEditorSelection);
+  }, []);
+
   const emitChange = () => {
     const editor = editorRef.current;
     if (editor) onChange(editor.innerHTML, editor.innerText.trim());
   };
 
   const command = (name: string, commandValue?: string) => {
-    editorRef.current?.focus();
-    restoreSelection();
+    const editor = editorRef.current;
+    if (!editor || !savedRange.current) return;
+    editor.focus({ preventScroll: true });
+    if (!restoreSelection()) return;
     document.execCommand(name, false, commandValue);
+    rememberSelection();
     emitChange();
   };
 
@@ -41,9 +50,17 @@ export default function TrainingRichTextEditor({ value, trainingId, onChange }: 
 
   const restoreSelection = () => {
     const selection = window.getSelection();
-    if (!selection || !savedRange.current) return;
-    selection.removeAllRanges();
-    selection.addRange(savedRange.current);
+    const editor = editorRef.current;
+    const range = savedRange.current;
+    if (!selection || !editor || !range || !editor.contains(range.commonAncestorContainer)) return false;
+    try {
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    } catch {
+      savedRange.current = null;
+      return false;
+    }
   };
 
   const uploadImage = async (file: File) => {
@@ -74,7 +91,10 @@ export default function TrainingRichTextEditor({ value, trainingId, onChange }: 
 
   return (
     <div className="overflow-hidden rounded-md border bg-white">
-      <div className="flex flex-wrap items-center gap-1 border-b bg-gray-50 p-2" onMouseDown={rememberSelection}>
+      <div className="flex flex-wrap items-center gap-1 border-b bg-gray-50 p-2" onMouseDown={event => {
+        rememberSelection();
+        if ((event.target as HTMLElement).closest("button")) event.preventDefault();
+      }}>
         <button type="button" className={toolbarButton} title="Bold" onClick={() => command("bold")}><Bold size={17} /></button>
         <button type="button" className={toolbarButton} title="Italic" onClick={() => command("italic")}><Italic size={17} /></button>
         <button type="button" className={toolbarButton} title="Underline" onClick={() => command("underline")}><Underline size={17} /></button>
@@ -109,6 +129,7 @@ export default function TrainingRichTextEditor({ value, trainingId, onChange }: 
         onInput={emitChange}
         onKeyUp={rememberSelection}
         onMouseUp={rememberSelection}
+        onBlur={rememberSelection}
         className="prose min-h-64 max-w-none px-4 py-3 text-sm leading-7 outline-none prose-img:max-w-full prose-img:rounded-xl"
         data-placeholder="Tulis deskripsi lengkap pelatihan..."
       />

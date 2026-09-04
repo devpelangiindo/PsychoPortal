@@ -41,13 +41,23 @@ async function uploadBinary(path: string, file: File, method = "POST") {
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || "Upload gagal");
   return response.json();
 }
-function localDateTime(value?: string | null) { return value ? new Date(value).toISOString().slice(0, 16) : ""; }
+function localDateTime(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 16);
+}
+function jakartaDateTimeToIso(value: string) {
+  if (!value) return null;
+  const date = new Date(`${value.length === 16 ? `${value}:00` : value}+07:00`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 function money(value: string | number) { return `Rp ${new Intl.NumberFormat("id-ID").format(Number(value) || 0)}`; }
 function displayDate(value?: string | null, includeTime = false) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("id-ID", includeTime ? { dateStyle: "long", timeStyle: "short" } : { dateStyle: "long" }).format(date);
+  return new Intl.DateTimeFormat("id-ID", includeTime ? { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Jakarta" } : { dateStyle: "long", timeZone: "Asia/Jakarta" }).format(date);
 }
 function plainTextToHtml(value: string) {
   const escaped = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -104,7 +114,7 @@ export default function AdminTrainings() {
     });
   }, [data?.settings?.testimonialBackgroundFocusX, data?.settings?.testimonialBackgroundFocusY, data?.settings?.testimonialInstagramUrl]);
 
-  const saveTraining = useMutation({ mutationFn: () => apiRequest(editing ? "PUT" : "POST", editing ? `/api/admin/trainings/${editing.id}` : "/api/admin/trainings", { ...form, startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null, endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null, registrationDeadline: form.registrationDeadline ? new Date(form.registrationDeadline).toISOString() : null }), onSuccess: async () => { await refresh(); setEditing(null); setIsTrainingFormOpen(false); setForm(emptyTraining); toast({ title: "Agenda pelatihan tersimpan" }); }, onError: error => toast({ title: "Gagal menyimpan", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }) });
+  const saveTraining = useMutation({ mutationFn: () => apiRequest(editing ? "PUT" : "POST", editing ? `/api/admin/trainings/${editing.id}` : "/api/admin/trainings", { ...form, startsAt: jakartaDateTimeToIso(form.startsAt), endsAt: jakartaDateTimeToIso(form.endsAt), registrationDeadline: jakartaDateTimeToIso(form.registrationDeadline) }), onSuccess: async () => { await refresh(); setEditing(null); setIsTrainingFormOpen(false); setForm(emptyTraining); toast({ title: "Agenda pelatihan tersimpan" }); }, onError: error => toast({ title: "Gagal menyimpan", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }) });
   const saveOption = useMutation({ mutationFn: () => apiRequest(editingOption ? "PUT" : "POST", editingOption ? `/api/admin/trainings/${optionTraining!.id}/options/${editingOption.id}` : `/api/admin/trainings/${optionTraining!.id}/options`, { ...optionForm, capacity: optionForm.capacity ? Number(optionForm.capacity) : null }), onSuccess: async () => { await refresh(); setOptionTraining(null); setEditingOption(null); setOptionForm(emptyOption); toast({ title: "Pilihan agenda tersimpan" }); } });
   const deleteOption = useMutation({
     mutationFn: (option: Option) => apiRequest("DELETE", `/api/admin/trainings/${optionTraining!.id}/options/${option.id}`),
