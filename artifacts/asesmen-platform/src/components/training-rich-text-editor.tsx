@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlignCenter, AlignLeft, AlignRight, Bold, ImagePlus, Italic, List, ListOrdered, Redo2, Underline, Undo2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bold, Highlighter, ImagePlus, Italic, List, ListOrdered, Redo2, Underline, Undo2 } from "lucide-react";
 import { apiUrl } from "@/lib/api-base";
 import { getAuthToken } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -114,6 +114,7 @@ export default function TrainingRichTextEditor({ value, trainingId, onChange }: 
           <option value="2">Kecil</option><option value="3">Normal</option><option value="4">Sedang</option><option value="5">Besar</option><option value="6">Sangat besar</option>
         </select>
         <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-white px-2 text-xs font-semibold text-gray-700" title="Warna teks">Warna<input type="color" className="h-6 w-7 cursor-pointer border-0 bg-transparent p-0" onChange={event => command("foreColor", event.target.value)} /></label>
+        <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-white px-2 text-xs font-semibold text-gray-700" title="Warna highlight teks"><Highlighter size={15} />Sorot<input type="color" defaultValue="#fff59d" className="h-6 w-7 cursor-pointer border-0 bg-transparent p-0" onChange={event => command("hiliteColor", event.target.value)} /></label>
         <span className="mx-1 h-6 w-px bg-gray-300" />
         <button type="button" className={toolbarButton} title="Undo" onClick={() => command("undo")}><Undo2 size={17} /></button>
         <button type="button" className={toolbarButton} title="Redo" onClick={() => command("redo")}><Redo2 size={17} /></button>

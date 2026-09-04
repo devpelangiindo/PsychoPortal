@@ -1084,6 +1084,7 @@ function sanitizeTrainingDescription(value: string) {
     allowedStyles: {
       "*": {
         color: [/^#[0-9a-f]{3,8}$/i, /^rgb\([\d\s,]+\)$/],
+        "background-color": [/^#[0-9a-f]{3,8}$/i, /^rgb\([\d\s,]+\)$/],
         "text-align": [/^(left|center|right)$/],
         "font-family": [/^[\w\s,'-]+$/],
         "font-size": [/^(0\.75|0\.875|1|1\.125|1\.25|1\.5|1\.875|2\.25)rem$/],
