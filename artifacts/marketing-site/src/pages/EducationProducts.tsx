@@ -5,9 +5,9 @@ import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 
 const categories = [
-  { title: "Produk Digital", description: "Modul, e-book, dan materi digital pilihan untuk mendukung pengembangan diri dan keluarga.", href: "/produk-layanan/produk-edukasi/produk-digital", icon: BookOpen, image: "/services/produk-digital.png", status: "Katalog tersedia" },
-  { title: "Produk Fisik", description: "Produk edukasi fisik yang dirancang untuk mendukung pembelajaran, pendampingan, dan aktivitas pengembangan.", href: "/produk-layanan/produk-edukasi/produk-fisik", icon: Package, image: "/services/produk-digital.png", status: "Informasi produk" },
-  { title: "Alat Tes Psikologi", description: "Instrumen psikologi profesional untuk kebutuhan praktisi, lembaga pendidikan, perusahaan, dan organisasi.", href: "/produk-layanan/produk-edukasi/alat-tes-psikologi", icon: ClipboardList, image: "/services/alat-tes-psikologi-1.png", status: "Informasi produk" },
+  { title: "Produk Digital", description: "Modul, e-book, dan materi digital pilihan untuk mendukung pengembangan diri dan keluarga.", href: "/produk-layanan/produk-edukasi/produk-digital", icon: BookOpen, image: "/services/produk-digital-cover.png", imageAlt: "Produk edukasi digital yang dapat diakses melalui perangkat elektronik", status: "Katalog tersedia" },
+  { title: "Produk Fisik", description: "Produk edukasi fisik yang dirancang untuk mendukung pembelajaran, pendampingan, dan aktivitas pengembangan.", href: "/produk-layanan/produk-edukasi/produk-fisik", icon: Package, image: "/services/produk-fisik-cover.png", imageAlt: "Ruang belajar dengan beragam produk edukasi fisik", status: "Informasi produk" },
+  { title: "Alat Tes Psikologi", description: "Instrumen psikologi profesional untuk kebutuhan praktisi, lembaga pendidikan, perusahaan, dan organisasi.", href: "/produk-layanan/produk-edukasi/alat-tes-psikologi", icon: ClipboardList, image: "/services/alat-tes-psikologi-1.png", imageAlt: "Profesional menelaah alat tes psikologi", status: "Informasi produk" },
 ];
 
 function PageShell({ children }: { children: ReactNode }) {
@@ -29,8 +29,8 @@ export default function EducationProducts() {
             return (
               <Link key={category.title} href={category.href} className="group flex overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-xl">
                 <article className="flex w-full flex-col">
-                  <div className="relative h-52 overflow-hidden bg-green-50">
-                    <img src={category.image} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                  <div className="relative aspect-[3/2] overflow-hidden bg-green-50">
+                    <img src={category.image} alt={category.imageAlt} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-green-950/55 via-transparent to-transparent" />
                     <div className="absolute bottom-4 left-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/95 text-green-800 shadow"><Icon size={25} /></div>
                   </div>
