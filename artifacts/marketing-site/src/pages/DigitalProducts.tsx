@@ -87,6 +87,7 @@ function ProductGallery({ product, height = "h-56", fit = "cover" }: { product: 
 }
 
 function DigitalProductDetail({ slug }: { slug: string }) {
+  const [openingCheckout, setOpeningCheckout] = useState(false);
   const { data: product, isLoading } = useQuery<DigitalProduct>({
     queryKey: ["digital-product", slug],
     queryFn: async () => {
@@ -121,6 +122,16 @@ function DigitalProductDetail({ slug }: { slug: string }) {
           </div>
         )}
       </main>
+      {product && <a
+        href={checkoutUrl(product)}
+        aria-label={`Tambahkan ${product.name} ke keranjang`}
+        aria-disabled={openingCheckout}
+        onClick={() => setOpeningCheckout(true)}
+        className={`fixed bottom-24 right-4 z-[45] inline-flex items-center justify-center gap-2 rounded-full bg-green-800 px-5 py-3.5 text-sm font-extrabold text-white shadow-2xl shadow-green-950/30 ring-2 ring-white transition hover:-translate-y-0.5 hover:bg-green-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-300 sm:bottom-28 sm:right-8 sm:px-6 sm:text-base ${openingCheckout ? "pointer-events-none opacity-75" : ""}`}
+      >
+        {openingCheckout ? <Loader2 className="animate-spin" size={20} /> : <ShoppingCart size={20} />}
+        {openingCheckout ? "Membuka Keranjang..." : "Tambahkan ke Keranjang"}
+      </a>}
       <Footer />
     </div>
   );
