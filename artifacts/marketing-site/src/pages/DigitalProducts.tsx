@@ -109,7 +109,7 @@ function DigitalProductDetail({ slug }: { slug: string }) {
             <div className="grid items-start lg:grid-cols-2">
               <section className="p-7 sm:p-10">
                 <ProductGallery product={product} height="aspect-[4/3]" fit="contain" />
-                <a href={checkoutUrl(product)} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-800 px-6 py-3.5 font-bold text-white transition hover:bg-green-900"><ShoppingCart size={19} /> Tambahkan ke Keranjang</a>
+                <a href={checkoutUrl(product)} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-800 px-6 py-3.5 font-bold text-white transition hover:bg-green-900"><ShoppingCart size={19} /> Beli Sekarang</a>
                 <p className="mt-3 text-center text-xs text-gray-500">Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.</p>
               </section>
               <section className="flex flex-col border-t border-gray-100 p-7 sm:p-10 lg:border-l lg:border-t-0">
@@ -124,13 +124,13 @@ function DigitalProductDetail({ slug }: { slug: string }) {
       </main>
       {product && <a
         href={checkoutUrl(product)}
-        aria-label={`Tambahkan ${product.name} ke keranjang`}
+        aria-label={`Beli ${product.name} sekarang`}
         aria-disabled={openingCheckout}
         onClick={() => setOpeningCheckout(true)}
         className={`fixed bottom-24 right-4 z-[45] inline-flex items-center justify-center gap-2 rounded-full bg-green-800 px-5 py-3.5 text-sm font-extrabold text-white shadow-2xl shadow-green-950/30 ring-2 ring-white transition hover:-translate-y-0.5 hover:bg-green-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-300 sm:bottom-28 sm:right-8 sm:px-6 sm:text-base ${openingCheckout ? "pointer-events-none opacity-75" : ""}`}
       >
         {openingCheckout ? <Loader2 className="animate-spin" size={20} /> : <ShoppingCart size={20} />}
-        {openingCheckout ? "Membuka Keranjang..." : "Tambahkan ke Keranjang"}
+        {openingCheckout ? "Membuka Pembelian..." : "Beli Sekarang"}
       </a>}
       <Footer />
     </div>
