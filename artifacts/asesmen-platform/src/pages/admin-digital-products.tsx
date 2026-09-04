@@ -7,19 +7,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import TrainingRichTextEditor from "@/components/training-rich-text-editor";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
 
 type ProductImage = { id: number; fileName: string; focusX: number; focusY: number };
 type Product = {
-  id: number; slug: string; name: string; shortDescription: string; description: string; price: string;
+  id: number; slug: string; name: string; shortDescription: string; description: string; descriptionHtml?: string | null; price: string;
   promoPrice: string | null; effectivePrice: string;
   isActive: boolean; hasDeliveryFile: boolean; hasDeliveryUrl: boolean; deliveryFileName: string | null;
   deliveryUrl: string | null;
   images: ProductImage[];
 };
-type FormState = { name: string; slug: string; shortDescription: string; description: string; price: string; promoPrice: string; deliveryUrl: string; isActive: boolean };
+type FormState = { name: string; slug: string; shortDescription: string; description: string; descriptionHtml: string; price: string; promoPrice: string; deliveryUrl: string; isActive: boolean };
 type DigitalOrderItem = { productId: number; productName: string; price: string };
 type DigitalOrder = {
   orderId: number; userId: string; totalAmount: string; orderStatus: string; paymentStatus: string;
@@ -28,7 +29,12 @@ type DigitalOrder = {
   accountEmail?: string | null; accountFirstName?: string | null; accountLastName?: string | null;
   products: DigitalOrderItem[];
 };
-const emptyForm: FormState = { name: "", slug: "", shortDescription: "", description: "", price: "", promoPrice: "", deliveryUrl: "", isActive: true };
+const emptyForm: FormState = { name: "", slug: "", shortDescription: "", description: "", descriptionHtml: "", price: "", promoPrice: "", deliveryUrl: "", isActive: true };
+
+function plainTextToHtml(value: string) {
+  const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return value.split(/\n{2,}/).map((paragraph) => `<p>${escape(paragraph).replace(/\n/g, "<br>")}</p>`).join("");
+}
 
 async function uploadBinary(path: string, file: File, method = "POST", preserveMimeType = true) {
   const response = await fetch(apiUrl(path), {
@@ -92,7 +98,7 @@ export default function AdminDigitalProducts() {
 
   useEffect(() => {
     if (!editing) return setForm(emptyForm);
-    setForm({ name: editing.name, slug: editing.slug, shortDescription: editing.shortDescription, description: editing.description, price: editing.price, promoPrice: editing.promoPrice || "", deliveryUrl: editing.deliveryUrl || "", isActive: editing.isActive });
+    setForm({ name: editing.name, slug: editing.slug, shortDescription: editing.shortDescription, description: editing.description, descriptionHtml: editing.descriptionHtml || plainTextToHtml(editing.description), price: editing.price, promoPrice: editing.promoPrice || "", deliveryUrl: editing.deliveryUrl || "", isActive: editing.isActive });
   }, [editing]);
 
   const save = useMutation({
@@ -156,7 +162,15 @@ export default function AdminDigitalProducts() {
               <div><Label>Nama produk</Label><Input value={form.name} onChange={(event) => update("name", event.target.value)} /></div>
               <div><Label>Slug (opsional)</Label><Input value={form.slug} onChange={(event) => update("slug", event.target.value)} placeholder="dibuat otomatis dari nama" /></div>
               <div><Label>Deskripsi singkat</Label><Textarea value={form.shortDescription} onChange={(event) => update("shortDescription", event.target.value)} /></div>
-              <div><Label>Deskripsi lengkap</Label><Textarea rows={6} value={form.description} onChange={(event) => update("description", event.target.value)} /></div>
+              <div className="space-y-2">
+                <Label>Deskripsi lengkap</Label>
+                <TrainingRichTextEditor
+                  value={form.descriptionHtml}
+                  enableImageUpload={false}
+                  placeholder="Tulis deskripsi lengkap produk..."
+                  onChange={(descriptionHtml, description) => setForm((current) => ({ ...current, descriptionHtml, description }))}
+                />
+              </div>
               <div><Label>Harga Reguler</Label><Input type="number" min="0" value={form.price} onChange={(event) => update("price", event.target.value)} /></div>
               <div><Label>Harga Promo (opsional)</Label><Input type="number" min="0" value={form.promoPrice} onChange={(event) => update("promoPrice", event.target.value)} placeholder="Harus lebih rendah dari harga reguler" /></div>
               <div><Label>Link produk (opsional)</Label><Input type="url" value={form.deliveryUrl} onChange={(event) => update("deliveryUrl", event.target.value)} placeholder="https://..." /></div>

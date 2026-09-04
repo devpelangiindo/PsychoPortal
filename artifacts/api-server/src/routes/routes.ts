@@ -378,6 +378,7 @@ async function ensureDigitalProductInfrastructure() {
       name varchar(255) NOT NULL,
       short_description varchar(500) NOT NULL,
       description text NOT NULL,
+      description_html text,
       price numeric(10,2) NOT NULL CHECK (price >= 0),
       promo_price numeric(10,2),
       is_active boolean NOT NULL DEFAULT true,
@@ -430,6 +431,7 @@ async function ensureDigitalProductInfrastructure() {
       accessed_at timestamp DEFAULT now()
     );
     ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS promo_price numeric(10,2);
+    ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS description_html text;
     ALTER TABLE digital_product_images ADD COLUMN IF NOT EXISTS focus_x smallint NOT NULL DEFAULT 50;
     ALTER TABLE digital_product_images ADD COLUMN IF NOT EXISTS focus_y smallint NOT NULL DEFAULT 50;
     UPDATE digital_products SET promo_price = NULL
@@ -974,6 +976,7 @@ const digitalProductSchema = z.object({
   slug: z.string().trim().max(255).optional(),
   shortDescription: z.string().trim().min(5).max(500),
   description: z.string().trim().min(5).max(20000),
+  descriptionHtml: z.string().max(200000).optional().default(""),
   price: z.coerce.number().min(0).max(99999999),
   promoPrice: z.union([z.number().min(0).max(99999999), z.null()]).optional().default(null),
   isActive: z.boolean().optional().default(true),
@@ -1071,7 +1074,7 @@ const trainingSchema = z.object({
   status: z.enum(["draft", "published", "closed", "completed"]).optional().default("draft"),
 });
 
-function sanitizeTrainingDescription(value: string) {
+function sanitizeRichText(value: string, allowedImagePath?: RegExp) {
   return sanitizeHtml(value, {
     allowedTags: ["h2", "h3", "p", "div", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li", "a", "img", "blockquote", "span", "font"],
     allowedAttributes: {
@@ -1097,8 +1100,12 @@ function sanitizeTrainingDescription(value: string) {
     transformTags: {
       a: (_tagName, attribs) => ({ tagName: "a", attribs: { ...attribs, target: "_blank", rel: "noopener noreferrer" } }),
     },
-    exclusiveFilter: frame => frame.tag === "img" && !/^\/api\/trainings\/description-images\/\d+$/.test(frame.attribs.src || ""),
+    exclusiveFilter: frame => frame.tag === "img" && (!allowedImagePath || !allowedImagePath.test(frame.attribs.src || "")),
   });
+}
+
+function sanitizeTrainingDescription(value: string) {
+  return sanitizeRichText(value, /^\/api\/trainings\/description-images\/\d+$/);
 }
 
 function getTrainingDescriptionImageIds(value: string) {
@@ -6665,7 +6672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const digitalProductSelect = `
     SELECT p.id, p.slug, p.name, p.short_description AS "shortDescription",
-           p.description, p.price, p.promo_price AS "promoPrice",
+           p.description, p.description_html AS "descriptionHtml", p.price, p.promo_price AS "promoPrice",
            COALESCE(p.promo_price, p.price) AS "effectivePrice", p.is_active AS "isActive",
            p.delivery_url IS NOT NULL AND p.delivery_url <> '' AS "hasDeliveryUrl",
            p.delivery_file IS NOT NULL AS "hasDeliveryFile",
@@ -6901,9 +6908,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!slug) return res.status(400).json({ message: 'Slug produk tidak valid' });
     try {
       const result = await pool.query(
-        `INSERT INTO digital_products (slug, name, short_description, description, price, promo_price, is_active, delivery_url, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9) RETURNING id, slug`,
-        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub],
+        `INSERT INTO digital_products (slug, name, short_description, description, description_html, price, promo_price, is_active, delivery_url, created_by)
+         VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, NULLIF($9, ''), $10) RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub],
       );
       res.status(201).json(result.rows[0]);
     } catch (error: any) {
@@ -6920,9 +6927,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const result = await pool.query(
         `UPDATE digital_products SET slug = $1, name = $2, short_description = $3, description = $4,
-           price = $5, promo_price = $6, is_active = $7, delivery_url = NULLIF($8, ''), updated_at = now()
-         WHERE id = $9 RETURNING id, slug`,
-        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId)],
+           description_html = NULLIF($5, ''), price = $6, promo_price = $7, is_active = $8, delivery_url = NULLIF($9, ''), updated_at = now()
+         WHERE id = $10 RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId)],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Produk tidak ditemukan' });
       res.json(result.rows[0]);

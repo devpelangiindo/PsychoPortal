@@ -7,12 +7,14 @@ import { useToast } from "@/hooks/use-toast";
 type Props = {
   value: string;
   trainingId?: number;
+  enableImageUpload?: boolean;
+  placeholder?: string;
   onChange: (html: string, plainText: string) => void;
 };
 
 const toolbarButton = "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-white text-gray-700 hover:bg-green-50 hover:text-green-800";
 
-export default function TrainingRichTextEditor({ value, trainingId, onChange }: Props) {
+export default function TrainingRichTextEditor({ value, trainingId, enableImageUpload = true, placeholder = "Tulis deskripsi lengkap pelatihan...", onChange }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -118,10 +120,10 @@ export default function TrainingRichTextEditor({ value, trainingId, onChange }: 
         <span className="mx-1 h-6 w-px bg-gray-300" />
         <button type="button" className={toolbarButton} title="Undo" onClick={() => command("undo")}><Undo2 size={17} /></button>
         <button type="button" className={toolbarButton} title="Redo" onClick={() => command("redo")}><Redo2 size={17} /></button>
-        <label className={`inline-flex h-9 cursor-pointer items-center rounded-md border px-3 text-sm font-semibold ${trainingId ? "bg-green-700 text-white hover:bg-green-800" : "bg-gray-100 text-gray-400"}`} onMouseDown={rememberSelection}>
+        {enableImageUpload && <label className={`inline-flex h-9 cursor-pointer items-center rounded-md border px-3 text-sm font-semibold ${trainingId ? "bg-green-700 text-white hover:bg-green-800" : "bg-gray-100 text-gray-400"}`} onMouseDown={rememberSelection}>
           <ImagePlus className="mr-1.5 h-4 w-4" />{uploading ? "Mengunggah..." : "Tambah Foto"}
           <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.target.value = ""; }} />
-        </label>
+        </label>}
       </div>
       <div
         ref={editorRef}
@@ -132,9 +134,9 @@ export default function TrainingRichTextEditor({ value, trainingId, onChange }: 
         onMouseUp={rememberSelection}
         onBlur={rememberSelection}
         className="prose min-h-64 max-w-none px-4 py-3 text-sm leading-7 outline-none prose-img:max-w-full prose-img:rounded-xl"
-        data-placeholder="Tulis deskripsi lengkap pelatihan..."
+        data-placeholder={placeholder}
       />
-      <div className="border-t bg-gray-50 px-3 py-2 text-xs text-gray-500">Foto: JPG, PNG, atau WebP maksimal 5 MB dan maksimal 5 foto per agenda. Simpan agenda baru sebelum menambahkan foto.</div>
+      {enableImageUpload && <div className="border-t bg-gray-50 px-3 py-2 text-xs text-gray-500">Foto: JPG, PNG, atau WebP maksimal 5 MB dan maksimal 5 foto per agenda. Simpan agenda baru sebelum menambahkan foto.</div>}
     </div>
   );
 }

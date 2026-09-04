@@ -13,6 +13,7 @@ type DigitalProduct = {
   name: string;
   shortDescription: string;
   description: string;
+  descriptionHtml?: string | null;
   price: string;
   promoPrice: string | null;
   effectivePrice: string;
@@ -115,7 +116,9 @@ function DigitalProductDetail({ slug }: { slug: string }) {
                 <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">Produk Digital</span>
                 <h1 className="text-3xl font-extrabold leading-tight text-gray-900 lg:text-4xl">{product.name}</h1>
                 <div className="mt-4"><ProductPrice product={product} large /></div>
-                <p className="mt-6 whitespace-pre-line leading-7 text-gray-600">{product.description}</p>
+                {product.descriptionHtml
+                  ? <div className="prose mt-6 max-w-none leading-7 text-gray-600 prose-headings:text-gray-900 prose-a:text-green-800" dangerouslySetInnerHTML={{ __html: product.descriptionHtml }} />
+                  : <p className="mt-6 whitespace-pre-line leading-7 text-gray-600">{product.description}</p>}
               </section>
             </div>
           </div>
