@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Search, ShoppingCart, X } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -138,6 +138,7 @@ function DigitalProductDetail({ slug }: { slug: string }) {
 
 export default function DigitalProducts() {
   const [detailMatch, detailParams] = useRoute("/produk-layanan/produk-edukasi/produk-digital/:productSlug");
+  const [searchKeyword, setSearchKeyword] = useState("");
   const { data: products = [], isLoading } = useQuery<DigitalProduct[]>({
     queryKey: ["digital-products"],
     queryFn: async () => {
@@ -147,6 +148,10 @@ export default function DigitalProducts() {
     },
     enabled: !detailMatch,
   });
+  const normalizedKeyword = searchKeyword.trim().toLocaleLowerCase("id-ID");
+  const filteredProducts = normalizedKeyword
+    ? products.filter(product => product.name.toLocaleLowerCase("id-ID").includes(normalizedKeyword))
+    : products;
 
   if (detailMatch && detailParams?.productSlug) return <DigitalProductDetail slug={detailParams.productSlug} />;
 
@@ -158,13 +163,31 @@ export default function DigitalProducts() {
         <p className="mx-auto mt-4 max-w-2xl text-lg text-green-50/85">Modul, e-book, dan materi digital pilihan untuk mendukung pengembangan diri dan keluarga.</p>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-10 max-w-2xl">
+          <label htmlFor="digital-product-search" className="mb-2 block text-sm font-bold text-gray-800">Cari produk berdasarkan judul</label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              id="digital-product-search"
+              type="search"
+              value={searchKeyword}
+              onChange={event => setSearchKeyword(event.target.value)}
+              placeholder="Masukkan judul produk..."
+              className="h-14 w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-12 pr-12 text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-green-600 focus:ring-4 focus:ring-green-100"
+            />
+            {searchKeyword && <button type="button" aria-label="Hapus pencarian" onClick={() => setSearchKeyword("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"><X size={18} /></button>}
+          </div>
+          {normalizedKeyword && <p className="mt-3 text-sm text-gray-500">{filteredProducts.length} produk ditemukan untuk “{searchKeyword.trim()}”.</p>}
+        </div>
         {isLoading ? (
           <div className="flex justify-center py-24"><Loader2 className="animate-spin text-green-800" /></div>
         ) : products.length === 0 ? (
           <div className="rounded-2xl bg-white p-12 text-center text-gray-500 shadow-sm">Katalog produk digital sedang disiapkan.</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm"><Search className="mx-auto h-10 w-10 text-gray-300" /><h2 className="mt-4 text-lg font-bold text-gray-800">Produk tidak ditemukan</h2><p className="mt-2 text-sm text-gray-500">Coba gunakan keyword judul yang berbeda.</p><button type="button" onClick={() => setSearchKeyword("")} className="mt-5 rounded-xl bg-green-800 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-900">Tampilkan Semua Produk</button></div>
         ) : (
           <div className="grid grid-cols-1 gap-7 md:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <article key={product.id} className="flex overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-lg">
                 <div className="flex w-full flex-col">
                   <ProductGallery product={product} />
