@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Search, ShoppingCart, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Loader2, PlayCircle, Search, ShoppingCart, X } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getAsesmenPlatformHref } from "@/lib/platform-links";
 
 type ProductImage = { id: number; fileName: string; sortOrder: number; focusX: number; focusY: number };
+type ProductMedia = { id: number; title: string; url: string; mediaType: "video" | "documentation"; platform: string; sortOrder: number; isActive: boolean };
 type DigitalProduct = {
   id: number;
   slug: string;
@@ -18,6 +19,7 @@ type DigitalProduct = {
   promoPrice: string | null;
   effectivePrice: string;
   images: ProductImage[];
+  media?: ProductMedia[];
 };
 
 function apiBase() {
@@ -46,6 +48,30 @@ function ProductPrice({ product, large = false }: { product: DigitalProduct; lar
 function checkoutUrl(product: DigitalProduct) {
   const base = getAsesmenPlatformHref().replace(/\/$/, "");
   return `${base}/digital-products/checkout?product=${encodeURIComponent(product.slug)}`;
+}
+
+function youtubeEmbedUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    let videoId = "";
+    if (hostname === "youtu.be") videoId = url.pathname.split("/").filter(Boolean)[0] || "";
+    if (hostname.endsWith("youtube.com")) {
+      videoId = url.searchParams.get("v") || "";
+      if (!videoId) {
+        const parts = url.pathname.split("/").filter(Boolean);
+        if (["shorts", "embed", "live"].includes(parts[0])) videoId = parts[1] || "";
+      }
+    }
+    return /^[a-zA-Z0-9_-]{6,20}$/.test(videoId) ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function platformLabel(platform: string) {
+  const labels: Record<string, string> = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook", vimeo: "Vimeo", x: "X", linkedin: "LinkedIn" };
+  return labels[platform] || "Media sosial";
 }
 
 function ProductGallery({ product, height = "h-56", fit = "cover" }: { product: DigitalProduct; height?: string; fit?: "cover" | "contain" }) {
@@ -106,21 +132,35 @@ function DigitalProductDetail({ slug }: { slug: string }) {
         {isLoading || !product ? (
           <div className="flex justify-center py-24"><Loader2 className="animate-spin text-green-800" /></div>
         ) : (
-          <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
-            <div className="grid items-start lg:grid-cols-2">
-              <section className="p-7 sm:p-10">
-                <ProductGallery product={product} height="aspect-[4/3]" fit="contain" />
-                <p className="mt-4 text-center text-xs text-gray-500">Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.</p>
-              </section>
-              <section className="flex flex-col border-t border-gray-100 p-7 sm:p-10 lg:border-l lg:border-t-0">
-                <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">Produk Digital</span>
-                <h1 className="text-3xl font-extrabold leading-tight text-gray-900 lg:text-4xl">{product.name}</h1>
-                <div className="mt-4"><ProductPrice product={product} large /></div>
-                {product.descriptionHtml
-                  ? <div className="prose mt-6 max-w-none leading-7 text-gray-600 prose-headings:text-gray-900 prose-a:text-green-800" dangerouslySetInnerHTML={{ __html: product.descriptionHtml }} />
-                  : <p className="mt-6 whitespace-pre-line leading-7 text-gray-600">{product.description}</p>}
-              </section>
+          <div className="space-y-8">
+            <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
+              <div className="grid items-start lg:grid-cols-2">
+                <section className="p-7 sm:p-10">
+                  <ProductGallery product={product} height="aspect-[4/3]" fit="contain" />
+                  <p className="mt-4 text-center text-xs text-gray-500">Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.</p>
+                </section>
+                <section className="flex flex-col border-t border-gray-100 p-7 sm:p-10 lg:border-l lg:border-t-0">
+                  <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">Produk Digital</span>
+                  <h1 className="text-3xl font-extrabold leading-tight text-gray-900 lg:text-4xl">{product.name}</h1>
+                  <div className="mt-4"><ProductPrice product={product} large /></div>
+                  {product.descriptionHtml
+                    ? <div className="prose mt-6 max-w-none leading-7 text-gray-600 prose-headings:text-gray-900 prose-a:text-green-800" dangerouslySetInnerHTML={{ __html: product.descriptionHtml }} />
+                    : <p className="mt-6 whitespace-pre-line leading-7 text-gray-600">{product.description}</p>}
+                </section>
+              </div>
             </div>
+            {(product.media ?? []).some((media) => media.isActive) && <section className="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-black/5 sm:p-10">
+              <div className="mb-6"><p className="text-sm font-bold uppercase tracking-widest text-green-700">Media Eksternal</p><h2 className="mt-2 text-2xl font-extrabold text-gray-900 sm:text-3xl">Video & Dokumentasi</h2></div>
+              <div className="grid gap-5 md:grid-cols-2">{(product.media ?? []).filter((media) => media.isActive).map((media) => {
+                const embedUrl = media.platform === "youtube" && media.mediaType === "video" ? youtubeEmbedUrl(media.url) : null;
+                return embedUrl ? <article key={media.id} className="overflow-hidden rounded-2xl border bg-gray-50">
+                  <div className="aspect-video bg-black"><iframe className="h-full w-full" src={embedUrl} title={media.title} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>
+                  <div className="p-4"><p className="text-xs font-bold uppercase tracking-wide text-green-700">YouTube</p><h3 className="mt-1 font-bold text-gray-900">{media.title}</h3></div>
+                </article> : <a key={media.id} href={media.url} target="_blank" rel="noopener noreferrer" className="group flex min-h-36 items-center gap-4 rounded-2xl border bg-gradient-to-br from-green-50 to-white p-5 transition hover:-translate-y-0.5 hover:border-green-300 hover:shadow-md">
+                  <span className="rounded-full bg-green-800 p-3 text-white"><PlayCircle className="h-6 w-6" /></span><span className="min-w-0 flex-1"><span className="text-xs font-bold uppercase tracking-wide text-green-700">{platformLabel(media.platform)} · {media.mediaType === "video" ? "Video" : "Dokumentasi"}</span><span className="mt-1 block font-bold text-gray-900">{media.title}</span><span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-green-800">Buka media <ExternalLink className="h-4 w-4" /></span></span>
+                </a>;
+              })}</div>
+            </section>}
           </div>
         )}
       </main>

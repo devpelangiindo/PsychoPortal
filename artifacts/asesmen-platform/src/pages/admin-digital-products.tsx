@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Crosshair, Eye, FileUp, ImagePlus, Loader2, Pencil, Plus, Search, ShoppingBag, Trash2 } from "lucide-react";
+import { ArrowLeft, Crosshair, Eye, FileUp, ImagePlus, Link2, Loader2, Pencil, Plus, Search, ShoppingBag, Trash2, X } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +13,14 @@ import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
 
 type ProductImage = { id: number; fileName: string; focusX: number; focusY: number };
+type ProductMedia = { id: number; title: string; url: string; mediaType: "video" | "documentation"; platform: string; sortOrder: number; isActive: boolean };
 type Product = {
   id: number; slug: string; name: string; shortDescription: string; description: string; descriptionHtml?: string | null; price: string;
   promoPrice: string | null; effectivePrice: string;
   isActive: boolean; hasDeliveryFile: boolean; hasDeliveryUrl: boolean; deliveryFileName: string | null;
   deliveryUrl: string | null;
   images: ProductImage[];
+  media?: ProductMedia[];
 };
 type FormState = { name: string; slug: string; shortDescription: string; description: string; descriptionHtml: string; price: string; promoPrice: string; deliveryUrl: string; isActive: boolean };
 type DigitalOrderItem = { productId: number; productName: string; price: string };
@@ -30,6 +32,8 @@ type DigitalOrder = {
   products: DigitalOrderItem[];
 };
 const emptyForm: FormState = { name: "", slug: "", shortDescription: "", description: "", descriptionHtml: "", price: "", promoPrice: "", deliveryUrl: "", isActive: true };
+type MediaForm = { title: string; url: string; mediaType: "video" | "documentation"; sortOrder: string; isActive: boolean };
+const emptyMediaForm: MediaForm = { title: "", url: "", mediaType: "video", sortOrder: "0", isActive: true };
 
 function plainTextToHtml(value: string) {
   const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -68,6 +72,8 @@ export default function AdminDigitalProducts() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [focusEditor, setFocusEditor] = useState<{ productId: number; image: ProductImage; focusX: number; focusY: number } | null>(null);
+  const [mediaEditor, setMediaEditor] = useState<{ productId: number; mediaId?: number; form: MediaForm } | null>(null);
+  const [isSavingMedia, setIsSavingMedia] = useState(false);
   const [isSavingFocus, setIsSavingFocus] = useState(false);
   const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
   const [orderSearch, setOrderSearch] = useState("");
@@ -143,6 +149,43 @@ export default function AdminDigitalProducts() {
       toast({ title: "Gagal menyimpan titik fokus", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
     } finally {
       setIsSavingFocus(false);
+    }
+  };
+  const openMediaEditor = (productId: number, media?: ProductMedia) => setMediaEditor({
+    productId,
+    mediaId: media?.id,
+    form: media ? { title: media.title, url: media.url, mediaType: media.mediaType, sortOrder: String(media.sortOrder), isActive: media.isActive } : emptyMediaForm,
+  });
+  const updateMedia = <K extends keyof MediaForm>(key: K, value: MediaForm[K]) => setMediaEditor((current) => current ? { ...current, form: { ...current.form, [key]: value } } : current);
+  const saveMedia = async () => {
+    if (!mediaEditor) return;
+    setIsSavingMedia(true);
+    try {
+      await apiRequest(
+        mediaEditor.mediaId ? "PUT" : "POST",
+        mediaEditor.mediaId
+          ? `/api/admin/digital-products/${mediaEditor.productId}/media/${mediaEditor.mediaId}`
+          : `/api/admin/digital-products/${mediaEditor.productId}/media`,
+        { ...mediaEditor.form, sortOrder: Number(mediaEditor.form.sortOrder) || 0 },
+      );
+      await refresh();
+      setMediaEditor(null);
+      toast({ title: mediaEditor.mediaId ? "Media diperbarui" : "Media ditambahkan" });
+    } catch (error) {
+      toast({ title: "Gagal menyimpan media", description: error instanceof Error ? error.message : "Periksa kembali tautan yang dimasukkan", variant: "destructive" });
+    } finally {
+      setIsSavingMedia(false);
+    }
+  };
+  const removeMedia = async (productId: number, mediaId: number) => {
+    if (!confirm("Hapus video atau dokumentasi ini?")) return;
+    try {
+      await apiRequest("DELETE", `/api/admin/digital-products/${productId}/media/${mediaId}`);
+      await refresh();
+      if (mediaEditor?.mediaId === mediaId) setMediaEditor(null);
+      toast({ title: "Media dihapus" });
+    } catch (error) {
+      toast({ title: "Gagal menghapus media", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" });
     }
   };
 
@@ -232,6 +275,29 @@ export default function AdminDigitalProducts() {
                         <Button size="sm" variant="destructive" disabled={!product.isActive || remove.isPending} onClick={() => { if (confirm("Nonaktifkan produk ini dari katalog?")) remove.mutate(product.id); }}><Trash2 className="mr-2 h-4 w-4" />Hapus</Button>
                       </div>
                       <p className="mt-3 text-xs text-gray-500">Akses: {product.hasDeliveryFile ? `file (${product.deliveryFileName})` : "tanpa file"} · {product.hasDeliveryUrl ? "link tersedia" : "tanpa link"}</p>
+                      <div className="mt-5 border-t pt-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div><h3 className="font-bold text-gray-900">Video & Dokumentasi Eksternal</h3><p className="text-xs text-gray-500">Tautan YouTube, Instagram, TikTok, Facebook, Vimeo, X, atau LinkedIn. Maksimal 10.</p></div>
+                          <Button type="button" size="sm" variant="outline" disabled={(product.media ?? []).length >= 10} onClick={() => openMediaEditor(product.id)}><Plus className="mr-1.5 h-4 w-4" />Tambah Media</Button>
+                        </div>
+                        {(product.media ?? []).length > 0 && <div className="mt-3 space-y-2">{(product.media ?? []).map((media) => (
+                          <div key={media.id} className="flex flex-col gap-2 rounded-lg border bg-gray-50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Link2 className="h-4 w-4 shrink-0 text-green-700" /><span className="truncate text-sm font-semibold">{media.title}</span><span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-gray-500">{media.platform}</span>{!media.isActive && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold text-gray-600">Nonaktif</span>}</div><p className="mt-1 truncate text-xs text-gray-500">Urutan {media.sortOrder} · {media.mediaType === "video" ? "Video" : "Dokumentasi"} · {media.url}</p></div>
+                            <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" onClick={() => openMediaEditor(product.id, media)}><Pencil className="h-4 w-4" /></Button><Button type="button" size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => void removeMedia(product.id, media.id)}><Trash2 className="h-4 w-4" /></Button></div>
+                          </div>
+                        ))}</div>}
+                        {mediaEditor?.productId === product.id && <div className="mt-3 rounded-xl border border-green-200 bg-green-50/60 p-4">
+                          <div className="mb-3 flex items-center justify-between"><h4 className="font-bold">{mediaEditor.mediaId ? "Edit Media" : "Tambah Media"}</h4><button type="button" aria-label="Tutup form media" onClick={() => setMediaEditor(null)}><X className="h-4 w-4" /></button></div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div><Label>Judul/keterangan</Label><Input value={mediaEditor.form.title} onChange={(event) => updateMedia("title", event.target.value)} placeholder="Contoh: Video penggunaan produk" /></div>
+                            <div><Label>Jenis konten</Label><select className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={mediaEditor.form.mediaType} onChange={(event) => updateMedia("mediaType", event.target.value as MediaForm["mediaType"])}><option value="video">Video</option><option value="documentation">Dokumentasi</option></select></div>
+                            <div className="sm:col-span-2"><Label>Link media sosial</Label><Input type="url" value={mediaEditor.form.url} onChange={(event) => updateMedia("url", event.target.value)} placeholder="https://www.youtube.com/watch?v=..." /></div>
+                            <div><Label>Urutan tampil</Label><Input type="number" min="0" max="9999" value={mediaEditor.form.sortOrder} onChange={(event) => updateMedia("sortOrder", event.target.value)} /></div>
+                            <label className="flex items-end gap-2 pb-2 text-sm"><input type="checkbox" checked={mediaEditor.form.isActive} onChange={(event) => updateMedia("isActive", event.target.checked)} /> Tampilkan di halaman produk</label>
+                          </div>
+                          <Button type="button" size="sm" className="mt-3 bg-green-700 hover:bg-green-800" disabled={isSavingMedia || !mediaEditor.form.title.trim() || !mediaEditor.form.url.trim()} onClick={() => void saveMedia()}>{isSavingMedia && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan Media</Button>
+                        </div>}
+                      </div>
                     </div>
                   </div>
                 </CardContent>

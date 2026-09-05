@@ -404,6 +404,21 @@ async function ensureDigitalProductInfrastructure() {
     );
     CREATE INDEX IF NOT EXISTS digital_product_images_product_idx
       ON digital_product_images(product_id, sort_order, id);
+    CREATE TABLE IF NOT EXISTS digital_product_external_media (
+      id serial PRIMARY KEY,
+      product_id integer NOT NULL REFERENCES digital_products(id) ON DELETE CASCADE,
+      title varchar(255) NOT NULL,
+      url varchar(2000) NOT NULL,
+      media_type varchar(30) NOT NULL DEFAULT 'video',
+      platform varchar(50) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      CHECK (media_type IN ('video', 'documentation'))
+    );
+    CREATE INDEX IF NOT EXISTS digital_product_external_media_product_idx
+      ON digital_product_external_media(product_id, sort_order, id);
     CREATE TABLE IF NOT EXISTS digital_order_items (
       id serial PRIMARY KEY,
       order_id integer NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -1003,6 +1018,42 @@ const digitalOrderSchema = z.object({
 const digitalProductImageFocusSchema = z.object({
   focusX: z.number().int().min(0).max(100),
   focusY: z.number().int().min(0).max(100),
+});
+
+const allowedSocialMediaDomains = [
+  "youtube.com", "youtu.be", "instagram.com", "tiktok.com", "facebook.com", "fb.watch",
+  "vimeo.com", "x.com", "twitter.com", "linkedin.com",
+];
+
+function getSocialMediaPlatform(value: string) {
+  const hostname = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+  if (hostname === "youtu.be" || hostname.endsWith("youtube.com")) return "youtube";
+  if (hostname.endsWith("instagram.com")) return "instagram";
+  if (hostname.endsWith("tiktok.com")) return "tiktok";
+  if (hostname.endsWith("facebook.com") || hostname === "fb.watch") return "facebook";
+  if (hostname.endsWith("vimeo.com")) return "vimeo";
+  if (hostname === "x.com" || hostname.endsWith("twitter.com")) return "x";
+  if (hostname.endsWith("linkedin.com")) return "linkedin";
+  return "social-media";
+}
+
+function isAllowedSocialMediaUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return false;
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    return allowedSocialMediaDomains.some(domain => hostname === domain || hostname.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}
+
+const digitalProductExternalMediaSchema = z.object({
+  title: z.string().trim().min(2).max(255),
+  url: z.string().trim().url().max(2000).refine(isAllowedSocialMediaUrl, "Gunakan tautan HTTPS dari platform media sosial yang didukung"),
+  mediaType: z.enum(["video", "documentation"]).default("video"),
+  sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
+  isActive: z.boolean().default(true),
 });
 
 const courseSchema = z.object({
@@ -6670,7 +6721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.send(`\ufeff${headers.map(escape).join(',')}\n${rows.join('\n')}`);
   });
 
-  const digitalProductSelect = `
+  const digitalProductSelect = (includeInactiveMedia = false) => `
     SELECT p.id, p.slug, p.name, p.short_description AS "shortDescription",
            p.description, p.description_html AS "descriptionHtml", p.price, p.promo_price AS "promoPrice",
            COALESCE(p.promo_price, p.price) AS "effectivePrice", p.is_active AS "isActive",
@@ -6679,6 +6730,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
            p.delivery_file_name AS "deliveryFileName",
            p.delivery_file_size AS "deliveryFileSize",
            p.created_at AS "createdAt", p.updated_at AS "updatedAt",
+           COALESCE((
+             SELECT json_agg(
+               json_build_object(
+                 'id', media.id,
+                 'title', media.title,
+                 'url', media.url,
+                 'mediaType', media.media_type,
+                 'platform', media.platform,
+                 'sortOrder', media.sort_order,
+                 'isActive', media.is_active
+               ) ORDER BY media.sort_order, media.id
+             )
+             FROM digital_product_external_media media
+             WHERE media.product_id = p.id${includeInactiveMedia ? "" : " AND media.is_active = true"}
+           ), '[]'::json) AS media,
            COALESCE(json_agg(
              json_build_object(
                'id', image.id,
@@ -6695,7 +6761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/digital-products', async (_req, res) => {
     try {
       const result = await pool.query(
-        `${digitalProductSelect} WHERE p.is_active = true GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`,
+        `${digitalProductSelect()} WHERE p.is_active = true GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`,
       );
       res.json(result.rows);
     } catch (error) {
@@ -6707,7 +6773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/digital-products/:slug', async (req, res) => {
     try {
       const result = await pool.query(
-        `${digitalProductSelect} WHERE p.slug = $1 AND p.is_active = true GROUP BY p.id LIMIT 1`,
+        `${digitalProductSelect()} WHERE p.slug = $1 AND p.is_active = true GROUP BY p.id LIMIT 1`,
         [req.params.slug],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Produk digital tidak ditemukan' });
@@ -6859,7 +6925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/admin/digital-products', isAuthenticated, canManageDigitalProducts, async (_req, res) => {
     try {
-      const result = await pool.query(`${digitalProductSelect.replace('p.delivery_url IS NOT NULL', 'p.delivery_url AS "deliveryUrl", p.delivery_url IS NOT NULL')} GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`);
+      const result = await pool.query(`${digitalProductSelect(true).replace('p.delivery_url IS NOT NULL', 'p.delivery_url AS "deliveryUrl", p.delivery_url IS NOT NULL')} GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`);
       res.json(result.rows);
     } catch (error) {
       console.error('Error fetching admin digital products:', error);
@@ -6990,6 +7056,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating digital product image focus:', error);
       return res.status(500).json({ message: 'Gagal menyimpan posisi fokus gambar' });
+    }
+  });
+
+  app.post('/api/admin/digital-products/:productId/media', isAuthenticated, canManageDigitalProducts, async (req, res) => {
+    const parsed = digitalProductExternalMediaSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data video atau dokumentasi tidak valid', errors: parsed.error.flatten() });
+    try {
+      const productId = Number(req.params.productId);
+      const count = await pool.query(`SELECT count(*)::int AS total FROM digital_product_external_media WHERE product_id = $1`, [productId]);
+      if (Number(count.rows[0]?.total || 0) >= 10) return res.status(400).json({ message: 'Maksimal 10 video atau dokumentasi per produk' });
+      const result = await pool.query(
+        `INSERT INTO digital_product_external_media (product_id, title, url, media_type, platform, sort_order, is_active)
+         SELECT id, $2, $3, $4, $5, $6, $7 FROM digital_products WHERE id = $1
+         RETURNING id`,
+        [productId, parsed.data.title, parsed.data.url, parsed.data.mediaType, getSocialMediaPlatform(parsed.data.url), parsed.data.sortOrder, parsed.data.isActive],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Produk tidak ditemukan' });
+      return res.status(201).json(result.rows[0]);
+    } catch (error) {
+      console.error('Error creating digital product external media:', error);
+      return res.status(500).json({ message: 'Gagal menambahkan video atau dokumentasi' });
+    }
+  });
+
+  app.put('/api/admin/digital-products/:productId/media/:mediaId', isAuthenticated, canManageDigitalProducts, async (req, res) => {
+    const parsed = digitalProductExternalMediaSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data video atau dokumentasi tidak valid', errors: parsed.error.flatten() });
+    try {
+      const result = await pool.query(
+        `UPDATE digital_product_external_media
+         SET title = $1, url = $2, media_type = $3, platform = $4, sort_order = $5, is_active = $6, updated_at = now()
+         WHERE id = $7 AND product_id = $8 RETURNING id`,
+        [parsed.data.title, parsed.data.url, parsed.data.mediaType, getSocialMediaPlatform(parsed.data.url), parsed.data.sortOrder, parsed.data.isActive, Number(req.params.mediaId), Number(req.params.productId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Video atau dokumentasi tidak ditemukan' });
+      return res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Error updating digital product external media:', error);
+      return res.status(500).json({ message: 'Gagal memperbarui video atau dokumentasi' });
+    }
+  });
+
+  app.delete('/api/admin/digital-products/:productId/media/:mediaId', isAuthenticated, canManageDigitalProducts, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `DELETE FROM digital_product_external_media WHERE id = $1 AND product_id = $2 RETURNING id`,
+        [Number(req.params.mediaId), Number(req.params.productId)],
+      );
+      if (!result.rowCount) return res.status(404).json({ message: 'Video atau dokumentasi tidak ditemukan' });
+      return res.json({ message: 'Video atau dokumentasi dihapus' });
+    } catch (error) {
+      console.error('Error deleting digital product external media:', error);
+      return res.status(500).json({ message: 'Gagal menghapus video atau dokumentasi' });
     }
   });
 
