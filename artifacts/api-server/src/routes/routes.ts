@@ -725,6 +725,37 @@ async function ensureOnsiteAssessmentInfrastructure() {
   }
 }
 
+async function ensurePsychologyTestToolInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS psychology_test_tools (
+      id serial PRIMARY KEY,
+      slug varchar(255) NOT NULL UNIQUE,
+      category varchar(50) NOT NULL,
+      title varchar(255) NOT NULL,
+      description varchar(1000) NOT NULL,
+      detail_text text NOT NULL,
+      result_text text,
+      target_text text,
+      price numeric(12,2) NOT NULL CHECK (price >= 0),
+      sort_order integer NOT NULL DEFAULT 0,
+      is_active boolean NOT NULL DEFAULT true,
+      image_data bytea,
+      image_file_name varchar(255),
+      image_mime_type varchar(100),
+      image_focus_x smallint NOT NULL DEFAULT 50,
+      image_focus_y smallint NOT NULL DEFAULT 50,
+      created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(),
+      updated_at timestamp DEFAULT now(),
+      deleted_at timestamp,
+      CHECK (category IN ('kognitif','perkembangan','klinis','inventori-kepribadian')),
+      CHECK (image_focus_x BETWEEN 0 AND 100 AND image_focus_y BETWEEN 0 AND 100)
+    );
+    CREATE INDEX IF NOT EXISTS psychology_test_tools_catalog_idx
+      ON psychology_test_tools(category, is_active, sort_order, id) WHERE deleted_at IS NULL;
+  `);
+}
+
 async function ensureArticleInfrastructure() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS managed_articles (
@@ -1220,6 +1251,19 @@ const onsiteAssessmentServiceSchema = z.object({
   resultText: z.string().trim().max(10000).optional().default(""),
   targetText: z.string().trim().max(10000).optional().default(""),
   price: z.coerce.number().int().min(0).max(999999999),
+  sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
+  isActive: z.boolean().default(true),
+});
+
+const psychologyTestToolSchema = z.object({
+  category: z.enum(["kognitif", "perkembangan", "klinis", "inventori-kepribadian"]),
+  title: z.string().trim().min(2).max(255),
+  slug: z.string().trim().max(255).optional(),
+  description: z.string().trim().min(5).max(1000),
+  detailText: z.string().trim().min(5).max(20000),
+  resultText: z.string().trim().max(20000).optional().default(""),
+  targetText: z.string().trim().max(20000).optional().default(""),
+  price: z.coerce.number().min(0).max(999999999),
   sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
   isActive: z.boolean().default(true),
 });
@@ -3740,6 +3784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensurePhysicalProductInfrastructure();
     await ensureCourseInfrastructure();
     await ensureOnsiteAssessmentInfrastructure();
+    await ensurePsychologyTestToolInfrastructure();
     await ensureTherapyGalleryInfrastructure();
     await ensureTrainingInfrastructure();
     await ensureArticleInfrastructure();
@@ -7795,6 +7840,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   app.delete('/api/admin/onsite-assessments/:serviceId/image', isAuthenticated, isAdmin, async (req,res) => {
     try{const result=await pool.query(`UPDATE onsite_assessment_services SET image_data=NULL,image_file_name=NULL,image_mime_type=NULL,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`,[Number(req.params.serviceId)]);if(!result.rowCount)return res.status(404).json({message:'Layanan tidak ditemukan'});return res.json({message:'Gambar berhasil dihapus'});}catch{return res.status(500).json({message:'Gagal menghapus gambar'});}
+  });
+
+  const psychologyTestToolSelect = `SELECT id,slug,category,title,description,detail_text AS "detailText",
+    COALESCE(result_text,'') AS "resultText",COALESCE(target_text,'') AS "targetText",price,
+    sort_order AS "sortOrder",is_active AS "isActive",image_data IS NOT NULL AS "hasImage",
+    image_focus_x AS "imageFocusX",image_focus_y AS "imageFocusY",created_at AS "createdAt",updated_at AS "updatedAt"
+    FROM psychology_test_tools`;
+  app.get('/api/psychology-test-tools', async (_req,res) => {
+    try { const result=await pool.query(`${psychologyTestToolSelect} WHERE deleted_at IS NULL AND is_active=true ORDER BY sort_order,id`); return res.json(result.rows); }
+    catch(error){console.error('Error fetching psychology test tools:',error);return res.status(500).json({message:'Gagal memuat katalog alat tes psikologi'});}
+  });
+  app.get('/api/admin/psychology-test-tools',isAuthenticated,isAdmin,async(_req,res)=>{
+    try{const result=await pool.query(`${psychologyTestToolSelect} WHERE deleted_at IS NULL ORDER BY sort_order,id`);return res.json(result.rows);}
+    catch(error){console.error('Error fetching admin psychology test tools:',error);return res.status(500).json({message:'Gagal memuat alat tes psikologi'});}
+  });
+  app.post('/api/admin/psychology-test-tools',isAuthenticated,isAdmin,async(req:any,res)=>{
+    const parsed=psychologyTestToolSchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({message:'Data alat tes tidak valid',errors:parsed.error.flatten()});
+    const d=parsed.data,slug=makeDigitalProductSlug(d.slug||d.title);
+    try{const result=await pool.query(`INSERT INTO psychology_test_tools(slug,category,title,description,detail_text,result_text,target_text,price,sort_order,is_active,created_by)
+      VALUES($1,$2,$3,$4,$5,NULLIF($6,''),NULLIF($7,''),$8,$9,$10,$11) RETURNING id,slug`,[slug,d.category,d.title,d.description,d.detailText,d.resultText,d.targetText,d.price,d.sortOrder,d.isActive,req.user.claims.sub]);return res.status(201).json(result.rows[0]);}
+    catch(error:any){if(error?.code==='23505')return res.status(409).json({message:'Slug alat tes sudah digunakan'});console.error(error);return res.status(500).json({message:'Gagal menambahkan alat tes'});}
+  });
+  app.put('/api/admin/psychology-test-tools/:toolId',isAuthenticated,isAdmin,async(req,res)=>{
+    const parsed=psychologyTestToolSchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({message:'Data alat tes tidak valid',errors:parsed.error.flatten()});const d=parsed.data;
+    try{const result=await pool.query(`UPDATE psychology_test_tools SET category=$1,title=$2,description=$3,detail_text=$4,result_text=NULLIF($5,''),target_text=NULLIF($6,''),price=$7,sort_order=$8,is_active=$9,updated_at=now()
+      WHERE id=$10 AND deleted_at IS NULL RETURNING id,slug`,[d.category,d.title,d.description,d.detailText,d.resultText,d.targetText,d.price,d.sortOrder,d.isActive,Number(req.params.toolId)]);if(!result.rowCount)return res.status(404).json({message:'Alat tes tidak ditemukan'});return res.json(result.rows[0]);}
+    catch(error){console.error(error);return res.status(500).json({message:'Gagal memperbarui alat tes'});}
+  });
+  app.delete('/api/admin/psychology-test-tools/:toolId',isAuthenticated,isAdmin,async(req,res)=>{
+    const result=await pool.query(`UPDATE psychology_test_tools SET deleted_at=now(),is_active=false,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`,[Number(req.params.toolId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Alat tes tidak ditemukan'});return res.json({message:'Alat tes berhasil dihapus'});
+  });
+  app.get('/api/psychology-test-tools/:toolId/image',async(req,res)=>{
+    const result=await pool.query(`SELECT image_data,image_mime_type FROM psychology_test_tools WHERE id=$1 AND deleted_at IS NULL`,[Number(req.params.toolId)]);
+    if(!result.rowCount||!result.rows[0].image_data)return res.status(404).end();res.setHeader('Content-Type',result.rows[0].image_mime_type);res.setHeader('Cache-Control','public,max-age=3600');return res.send(result.rows[0].image_data);
+  });
+  app.put('/api/admin/psychology-test-tools/:toolId/image',isAuthenticated,isAdmin,express.raw({type:['image/jpeg','image/png','image/webp'],limit:'5mb'}),async(req,res)=>{
+    if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({message:'File gambar wajib dipilih'});
+    const result=await pool.query(`UPDATE psychology_test_tools SET image_data=$1,image_file_name=$2,image_mime_type=$3,updated_at=now() WHERE id=$4 AND deleted_at IS NULL RETURNING id`,[req.body,decodeURIComponent(String(req.headers['x-file-name']||'alat-tes')),req.headers['content-type'],Number(req.params.toolId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Alat tes tidak ditemukan'});return res.json(result.rows[0]);
+  });
+  app.put('/api/admin/psychology-test-tools/:toolId/image-focus',isAuthenticated,isAdmin,async(req,res)=>{
+    const parsed=therapyImageFocusSchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({message:'Posisi fokus tidak valid'});
+    const result=await pool.query(`UPDATE psychology_test_tools SET image_focus_x=$1,image_focus_y=$2,updated_at=now() WHERE id=$3 AND deleted_at IS NULL RETURNING id`,[parsed.data.focusX,parsed.data.focusY,Number(req.params.toolId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Alat tes tidak ditemukan'});return res.json(result.rows[0]);
+  });
+  app.delete('/api/admin/psychology-test-tools/:toolId/image',isAuthenticated,isAdmin,async(req,res)=>{
+    const result=await pool.query(`UPDATE psychology_test_tools SET image_data=NULL,image_file_name=NULL,image_mime_type=NULL,updated_at=now() WHERE id=$1 AND deleted_at IS NULL RETURNING id`,[Number(req.params.toolId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Alat tes tidak ditemukan'});return res.json({message:'Gambar berhasil dihapus'});
   });
 
   const loadTherapies = async (admin = false) => {

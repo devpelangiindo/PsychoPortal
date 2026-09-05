@@ -41,6 +41,7 @@ import AdminBookingPromos from "@/pages/admin-booking-promos";
 import AdminHospitality from "@/pages/admin-hospitality";
 import AdminTherapies from "@/pages/admin-therapies";
 import AdminOnsiteAssessments from "@/pages/admin-onsite-assessments";
+import AdminPsychologyTestTools from "@/pages/admin-psychology-test-tools";
 import DigitalProductCheckout from "@/pages/digital-product-checkout";
 import PhysicalProductCheckout from "@/pages/physical-product-checkout";
 import TrainingRegistration from "@/pages/training-registration";
@@ -132,6 +133,7 @@ function Router() {
       <Route path="/admin/hospitality" component={AdminHospitality} />
       <Route path="/admin/therapies" component={AdminTherapies} />
       <Route path="/admin/onsite-assessments" component={AdminOnsiteAssessments} />
+      <Route path="/admin/psychology-test-tools" component={AdminPsychologyTestTools} />
       <Route path="/admin/therapy-gallery" component={AdminTherapies} />
       <Route path="/admin/trainings" component={AdminTrainings} />
       <Route path="/cso/trainings" component={AdminTrainings} />

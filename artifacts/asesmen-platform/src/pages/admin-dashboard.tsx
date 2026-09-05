@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone, Building2, HeartHandshake } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone, Building2, HeartHandshake, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -21,7 +21,6 @@ interface AdminStats {
     revenue: number;
   }[];
 }
-
 const psychologists = [
   { name: "Tria Khusni Barokah, M.Psi., Psikolog", types: ["child"] },
   { name: "Retno Rahayu, M.Psi., Psikolog", types: ["child", "adult", "family"] },
@@ -418,6 +417,20 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             <CardContent>
               <Link href="/admin/onsite-assessments">
                 <Button className="w-full bg-sky-700 hover:bg-sky-800">Kelola Onsite</Button>
+              </Link>
+            </CardContent>
+          </Card>
+          )}
+
+          {!isCsoMode && (
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ClipboardList className="w-5 h-5 text-amber-700" />Alat Tes Psikologi</CardTitle>
+              <CardDescription>Kelola kategori, detail, harga, urutan, status, dan gambar katalog alat tes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/psychology-test-tools">
+                <Button className="w-full bg-amber-700 hover:bg-amber-800">Kelola Alat Tes</Button>
               </Link>
             </CardContent>
           </Card>
