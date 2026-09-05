@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { AlertCircle, CheckCircle2, ChevronDown, ClipboardCheck, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Presentation, Printer, Search, Video } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, ClipboardCheck, Clock, CreditCard, Download, ExternalLink, FileText, Loader2, MessageCircle, Presentation, Printer, Search, Truck, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +80,13 @@ type DigitalPurchase = {
   imageId: number | null;
   imageFocusX: number | null;
   imageFocusY: number | null;
+};
+
+type PhysicalOrder = {
+  orderId:number; totalAmount:string; orderStatus:string; paymentStatus:string; createdAt:string;
+  fulfillment_status:string; recipient_name:string; address:string; district:string; city:string; province:string; postal_code:string;
+  courier:string|null; tracking_number:string|null; tracking_url:string|null;
+  products:{productId:number;productName:string;sku:string;unitPrice:string;quantity:number;imageId:number|null}[];
 };
 
 type TrainingRegistration = {
@@ -352,6 +359,12 @@ export default function Dashboard() {
 
   const { data: digitalPurchases = [] } = useQuery<DigitalPurchase[]>({
     queryKey: ["/api/digital-products/purchases/me"],
+    enabled: isAuthenticated,
+    refetchInterval: 5000,
+  });
+
+  const { data: physicalOrders = [] } = useQuery<PhysicalOrder[]>({
+    queryKey: ["/api/physical-products/orders/me"],
     enabled: isAuthenticated,
     refetchInterval: 5000,
   });
@@ -642,6 +655,13 @@ export default function Dashboard() {
                 </Card>
               ))}
             </div>
+          </section>
+        )}
+
+        {physicalOrders.length > 0 && (
+          <section className="mb-10">
+            <div className="mb-4 flex items-end justify-between gap-4"><div><p className="text-sm font-bold uppercase tracking-wider text-emerald-700">Pengiriman Anda</p><h2 className="text-2xl font-extrabold">Pesanan Produk Fisik</h2></div><a href="https://pi-psychology.com/produk-layanan/produk-edukasi/produk-fisik" className="text-sm font-semibold text-green-700 hover:underline">Lihat katalog</a></div>
+            <div className="space-y-4">{physicalOrders.map(order => <Card key={order.orderId}><CardContent className="p-5"><div className="flex flex-col justify-between gap-5 md:flex-row"><div className="flex gap-4">{order.products[0]?.imageId?<img src={apiUrl(`/api/physical-products/images/${order.products[0].imageId}`)} className="h-24 w-28 rounded-xl object-cover"/>:<div className="flex h-24 w-28 items-center justify-center rounded-xl bg-emerald-50"><Truck className="text-emerald-700"/></div>}<div><p className="text-xs font-bold uppercase text-emerald-700">Pesanan #{order.orderId}</p>{order.products.map(p=><p key={p.productId} className="font-semibold">{p.quantity}× {p.productName}</p>)}<p className="mt-1 font-extrabold text-green-700">{formatCurrency(order.totalAmount)}</p></div></div><div className="md:text-right"><Badge className={order.paymentStatus==="paid"?"bg-green-700":"bg-amber-600"}>{order.paymentStatus==="paid"?order.fulfillment_status:"Menunggu pembayaran"}</Badge><p className="mt-2 max-w-md text-sm text-gray-600">{order.address}, {order.district}, {order.city}, {order.province} {order.postal_code}</p>{order.tracking_number&&<p className="mt-2 text-sm"><b>{order.courier||"Kurir"}:</b> {order.tracking_number}</p>}<div className="mt-3 flex justify-end gap-2">{order.paymentStatus!=="paid"&&!isOrderCancelled(order as any)&&<Button size="sm" disabled={settlePaymentMutation.isPending&&settlingOrderId===order.orderId} onClick={()=>{setSettlingOrderId(order.orderId);settlePaymentMutation.mutate(order.orderId)}}>Lanjutkan Pembayaran</Button>}{order.tracking_url&&<a href={order.tracking_url} target="_blank" rel="noreferrer"><Button size="sm" variant="outline"><ExternalLink className="mr-2 h-4 w-4"/>Lacak</Button></a>}</div></div></div></CardContent></Card>)}</div>
           </section>
         )}
 

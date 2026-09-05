@@ -472,6 +472,90 @@ async function ensureDigitalProductInfrastructure() {
   `);
 }
 
+async function ensurePhysicalProductInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS physical_products (
+      id serial PRIMARY KEY, slug varchar(255) NOT NULL UNIQUE, name varchar(255) NOT NULL,
+      short_description varchar(500) NOT NULL, description text NOT NULL, description_html text,
+      sku varchar(100) NOT NULL UNIQUE, price numeric(12,2) NOT NULL CHECK (price >= 0),
+      promo_price numeric(12,2), stock integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
+      low_stock_threshold integer NOT NULL DEFAULT 0 CHECK (low_stock_threshold >= 0),
+      weight_grams integer NOT NULL DEFAULT 0 CHECK (weight_grams >= 0),
+      shipping_fee numeric(12,2) NOT NULL DEFAULT 0 CHECK (shipping_fee >= 0),
+      is_active boolean NOT NULL DEFAULT true, created_by varchar REFERENCES users(id),
+      created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now(),
+      CHECK (promo_price IS NULL OR (promo_price >= 0 AND promo_price < price))
+    );
+    CREATE TABLE IF NOT EXISTS physical_product_images (
+      id serial PRIMARY KEY, product_id integer NOT NULL REFERENCES physical_products(id) ON DELETE CASCADE,
+      image_data bytea NOT NULL, file_name varchar(255) NOT NULL, mime_type varchar(100) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0, focus_x smallint NOT NULL DEFAULT 50,
+      focus_y smallint NOT NULL DEFAULT 50, created_at timestamp DEFAULT now(),
+      CHECK (focus_x BETWEEN 0 AND 100 AND focus_y BETWEEN 0 AND 100)
+    );
+    CREATE INDEX IF NOT EXISTS physical_product_images_product_idx ON physical_product_images(product_id, sort_order, id);
+    CREATE TABLE IF NOT EXISTS physical_product_external_media (
+      id serial PRIMARY KEY, product_id integer NOT NULL REFERENCES physical_products(id) ON DELETE CASCADE,
+      title varchar(255) NOT NULL, url varchar(2000) NOT NULL, media_type varchar(30) NOT NULL DEFAULT 'video',
+      platform varchar(50) NOT NULL, sort_order integer NOT NULL DEFAULT 0, is_active boolean NOT NULL DEFAULT true,
+      created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now(),
+      CHECK (media_type IN ('video', 'documentation'))
+    );
+    CREATE INDEX IF NOT EXISTS physical_product_external_media_product_idx ON physical_product_external_media(product_id, sort_order, id);
+    CREATE TABLE IF NOT EXISTS physical_order_items (
+      id serial PRIMARY KEY, order_id integer NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      product_id integer NOT NULL REFERENCES physical_products(id), product_name varchar(255) NOT NULL,
+      sku varchar(100) NOT NULL, unit_price numeric(12,2) NOT NULL, quantity integer NOT NULL CHECK (quantity > 0),
+      created_at timestamp DEFAULT now(), UNIQUE(order_id, product_id)
+    );
+    CREATE INDEX IF NOT EXISTS physical_order_items_order_idx ON physical_order_items(order_id);
+    CREATE TABLE IF NOT EXISTS physical_order_shipping (
+      order_id integer PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+      recipient_name varchar(255) NOT NULL, email varchar(255) NOT NULL, phone varchar(50) NOT NULL,
+      address text NOT NULL, district varchar(150) NOT NULL, city varchar(150) NOT NULL,
+      province varchar(150) NOT NULL, postal_code varchar(10) NOT NULL, notes text,
+      shipping_fee numeric(12,2) NOT NULL DEFAULT 0, fulfillment_status varchar(30) NOT NULL DEFAULT 'awaiting_payment',
+      courier varchar(100), tracking_number varchar(255), tracking_url varchar(2000),
+      stock_status varchar(20) NOT NULL DEFAULT 'reserved', reservation_expires_at timestamp NOT NULL,
+      shipped_at timestamp, completed_at timestamp, created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now(),
+      CHECK (fulfillment_status IN ('awaiting_payment','paid','processing','shipped','completed','cancelled')),
+      CHECK (stock_status IN ('reserved','committed','released'))
+    );
+  `);
+}
+
+async function releasePhysicalOrderStock(orderId: number) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const reservation = await client.query(
+      `SELECT order_id FROM physical_order_shipping WHERE order_id = $1 AND stock_status = 'reserved' FOR UPDATE`,
+      [orderId],
+    );
+    if (reservation.rowCount) {
+      const items = await client.query(`SELECT product_id, quantity FROM physical_order_items WHERE order_id = $1`, [orderId]);
+      for (const item of items.rows) await client.query(`UPDATE physical_products SET stock = stock + $1, updated_at = now() WHERE id = $2`, [item.quantity, item.product_id]);
+      await client.query(`UPDATE physical_order_shipping SET stock_status = 'released', fulfillment_status = 'cancelled', updated_at = now() WHERE order_id = $1`, [orderId]);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function releaseExpiredPhysicalReservations() {
+  const result = await pool.query(
+    `SELECT shipping.order_id FROM physical_order_shipping shipping
+     JOIN orders order_record ON order_record.id = shipping.order_id
+     WHERE shipping.stock_status = 'reserved' AND shipping.reservation_expires_at <= now()
+       AND order_record.payment_status <> 'paid'`,
+  );
+  for (const row of result.rows) await releasePhysicalOrderStock(row.order_id);
+}
+
 const DEFAULT_COURSES = [
   { slug: "balet", title: "Balet", price: "Mulai Rp 325.000/bulan", description: "Kelas balet membantu anak mengembangkan kelenturan, koordinasi gerak, keseimbangan motorik, disiplin, fokus, dan rasa percaya diri. Program bekerja sama dengan Flores Balet dengan pengajar bersertifikasi RAD.", details: ["Kurikulum RAD London", "4 kali pertemuan", "Free trial 1 kali", "Tersedia 7 klasifikasi kelompok", "Mulai usia 3 tahun (baby class)"], specialNote: null, sortOrder: 1 },
   { slug: "taekwondo", title: "Taekwondo", price: "Rp 250.000/bulan", description: "Kursus taekwondo melatih kekuatan fisik, ketahanan tubuh, dan kemampuan bela diri dasar. Anak juga belajar disiplin, tanggung jawab, pengendalian diri, serta membangun kepercayaan diri dan karakter positif.", details: ["4 kali pertemuan", "Free trial 1 kali", "Mulai usia 3 tahun"], specialNote: null, sortOrder: 2 },
@@ -1056,6 +1140,35 @@ const digitalProductExternalMediaSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+const physicalProductSchema = z.object({
+  name: z.string().trim().min(2).max(255), slug: z.string().trim().max(255).optional(),
+  shortDescription: z.string().trim().min(5).max(500), description: z.string().trim().min(5).max(20000),
+  descriptionHtml: z.string().max(200000).optional().default(""), sku: z.string().trim().min(2).max(100),
+  price: z.coerce.number().min(0).max(999999999), promoPrice: z.union([z.number().min(0).max(999999999), z.null()]).optional().default(null),
+  stock: z.coerce.number().int().min(0).max(1000000), lowStockThreshold: z.coerce.number().int().min(0).max(1000000).default(0),
+  weightGrams: z.coerce.number().int().min(0).max(10000000).default(0), shippingFee: z.coerce.number().min(0).max(999999999).default(0),
+  isActive: z.boolean().default(true),
+}).superRefine((value, ctx) => {
+  if (value.promoPrice !== null && value.promoPrice >= value.price) ctx.addIssue({ code: "custom", path: ["promoPrice"], message: "Harga promo harus lebih rendah dari harga reguler" });
+});
+
+const physicalOrderSchema = z.object({
+  items: z.array(z.object({ productId: z.number().int().positive(), quantity: z.number().int().min(1).max(100) })).min(1).max(20),
+  shipping: z.object({
+    recipientName: z.string().trim().min(2).max(255), email: z.string().trim().email().max(255),
+    phone: z.string().trim().min(7).max(50), address: z.string().trim().min(10).max(3000),
+    district: z.string().trim().min(2).max(150), city: z.string().trim().min(2).max(150),
+    province: z.string().trim().min(2).max(150), postalCode: z.string().trim().regex(/^\d{5}$/),
+    notes: z.string().trim().max(2000).optional().default(""),
+  }),
+});
+
+const physicalFulfillmentSchema = z.object({
+  fulfillmentStatus: z.enum(["paid", "processing", "shipped", "completed", "cancelled"]),
+  courier: z.string().trim().max(100).optional().default(""), trackingNumber: z.string().trim().max(255).optional().default(""),
+  trackingUrl: z.union([z.string().trim().url().max(2000).refine(value => /^https:\/\//i.test(value)), z.literal("")]).optional().default(""),
+});
+
 const courseSchema = z.object({
   title: z.string().trim().min(2).max(255),
   slug: z.string().trim().max(255).optional(),
@@ -1468,6 +1581,7 @@ async function expireOrderIfNeeded<T extends { id: number; status: string; payme
   if (!hasPaymentExpired(order)) return order;
 
   await storage.updateOrderStatus(order.id, "cancelled", order.paymentId || undefined, "expired");
+  await releasePhysicalOrderStock(order.id);
   return {
     ...order,
     status: "cancelled",
@@ -3581,6 +3695,16 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
     return { assessmentsCreated: 0, bookingUpdated: false };
   }
 
+  const physicalItems = await pool.query(`SELECT id FROM physical_order_items WHERE order_id = $1 LIMIT 1`, [orderId]);
+  if (physicalItems.rowCount) {
+    await pool.query(
+      `UPDATE physical_order_shipping SET stock_status = 'committed', fulfillment_status = CASE WHEN fulfillment_status = 'awaiting_payment' THEN 'paid' ELSE fulfillment_status END, updated_at = now()
+       WHERE order_id = $1 AND stock_status <> 'released'`,
+      [orderId],
+    );
+    return { assessmentsCreated: 0, bookingUpdated: false };
+  }
+
   const trainingRegistration = await pool.query(
     `UPDATE training_registrations
      SET status = 'registered', payment_status = 'paid', paid_at = COALESCE(paid_at, now()), updated_at = now()
@@ -3613,6 +3737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Initialize default assessments
     await ensureExternalAssessmentInfrastructure();
     await ensureDigitalProductInfrastructure();
+    await ensurePhysicalProductInfrastructure();
     await ensureCourseInfrastructure();
     await ensureOnsiteAssessmentInfrastructure();
     await ensureTherapyGalleryInfrastructure();
@@ -5257,7 +5382,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : { rows: [] as any[] };
       const digitalCustomer = digitalCustomerResult.rows[0];
 
-      const trainingResult = order.orderItems.length === 0 && !booking && digitalItemsResult.rows.length === 0
+      const physicalItemsResult = order.orderItems.length === 0 && !booking && digitalItemsResult.rows.length === 0
+        ? await pool.query(
+            `SELECT product_id, product_name, sku, unit_price, quantity
+             FROM physical_order_items WHERE order_id = $1 ORDER BY id`,
+            [order.id],
+          )
+        : { rows: [] as any[] };
+      const physicalCustomerResult = physicalItemsResult.rows.length
+        ? await pool.query(
+            `SELECT recipient_name, email, phone, shipping_fee
+             FROM physical_order_shipping WHERE order_id = $1`,
+            [order.id],
+          )
+        : { rows: [] as any[] };
+      const physicalCustomer = physicalCustomerResult.rows[0];
+
+      const trainingResult = order.orderItems.length === 0 && !booking && digitalItemsResult.rows.length === 0 && physicalItemsResult.rows.length === 0
         ? await pool.query(
             `SELECT registration.training_title, registration.option_name, registration.price,
                     registration.full_name, registration.email, registration.whatsapp_number
@@ -5282,7 +5423,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: item.product_name,
         price: parseInt(item.price),
         quantity: 1,
-      })) : trainingRegistration ? [{
+      })) : physicalItemsResult.rows.length ? [
+        ...physicalItemsResult.rows.map((item: any) => ({
+          id: `physical_product_${item.product_id}`,
+          name: item.product_name,
+          price: parseInt(item.unit_price),
+          quantity: parseInt(item.quantity),
+        })),
+        ...(parseInt(physicalCustomer?.shipping_fee || "0") > 0 ? [{
+          id: `physical_shipping_${order.id}`,
+          name: "Biaya pengiriman",
+          price: parseInt(physicalCustomer.shipping_fee),
+          quantity: 1,
+        }] : []),
+      ] : trainingRegistration ? [{
         id: `training_${order.id}`,
         name: `${trainingRegistration.training_title} - ${trainingRegistration.option_name}`,
         price: parseInt(trainingRegistration.price),
@@ -5298,10 +5452,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: parseInt(order.totalAmount),
         expiryMinutes: PAYMENT_EXPIRY_MINUTES,
         customerDetails: {
-          first_name: digitalCustomer?.full_name || trainingRegistration?.full_name || user.firstName || 'Customer',
-          last_name: digitalCustomer || trainingRegistration ? '' : (user.lastName || ''),
-          email: digitalCustomer?.email || trainingRegistration?.email || user.email,
-          phone: digitalCustomer?.phone || trainingRegistration?.whatsapp_number || user.whatsappNumber || ''
+          first_name: physicalCustomer?.recipient_name || digitalCustomer?.full_name || trainingRegistration?.full_name || user.firstName || 'Customer',
+          last_name: physicalCustomer || digitalCustomer || trainingRegistration ? '' : (user.lastName || ''),
+          email: physicalCustomer?.email || digitalCustomer?.email || trainingRegistration?.email || user.email,
+          phone: physicalCustomer?.phone || digitalCustomer?.phone || trainingRegistration?.whatsapp_number || user.whatsappNumber || ''
         },
         itemDetails
       };
@@ -7137,6 +7291,206 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: 'File produk dihapus' });
   });
 
+  const physicalProductSelect = (includeInactiveMedia = false) => `
+    SELECT p.id, p.slug, p.name, p.short_description AS "shortDescription",
+           p.description, p.description_html AS "descriptionHtml", p.sku, p.price,
+           p.promo_price AS "promoPrice", COALESCE(p.promo_price, p.price) AS "effectivePrice",
+           p.stock, p.low_stock_threshold AS "lowStockThreshold", p.weight_grams AS "weightGrams",
+           p.shipping_fee AS "shippingFee", p.is_active AS "isActive",
+           p.created_at AS "createdAt", p.updated_at AS "updatedAt",
+           COALESCE((SELECT json_agg(json_build_object(
+             'id', media.id, 'title', media.title, 'url', media.url, 'mediaType', media.media_type,
+             'platform', media.platform, 'sortOrder', media.sort_order, 'isActive', media.is_active
+           ) ORDER BY media.sort_order, media.id)
+           FROM physical_product_external_media media
+           WHERE media.product_id = p.id${includeInactiveMedia ? "" : " AND media.is_active = true"}), '[]'::json) AS media,
+           COALESCE(json_agg(json_build_object(
+             'id', image.id, 'fileName', image.file_name, 'sortOrder', image.sort_order,
+             'focusX', image.focus_x, 'focusY', image.focus_y
+           ) ORDER BY image.sort_order, image.id) FILTER (WHERE image.id IS NOT NULL), '[]'::json) AS images
+    FROM physical_products p LEFT JOIN physical_product_images image ON image.product_id = p.id`;
+
+  app.get('/api/physical-products', async (_req, res) => {
+    await releaseExpiredPhysicalReservations();
+    const result = await pool.query(`${physicalProductSelect()} WHERE p.is_active = true GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`);
+    res.json(result.rows);
+  });
+
+  app.get('/api/physical-products/images/:imageId', async (req, res) => {
+    const result = await pool.query(`SELECT image_data, mime_type FROM physical_product_images WHERE id = $1`, [Number(req.params.imageId)]);
+    if (!result.rowCount) return res.status(404).end();
+    res.setHeader('Content-Type', result.rows[0].mime_type);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(result.rows[0].image_data);
+  });
+
+  app.get('/api/physical-products/:slug', async (req, res) => {
+    const result = await pool.query(`${physicalProductSelect()} WHERE p.slug = $1 AND p.is_active = true GROUP BY p.id LIMIT 1`, [req.params.slug]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Produk fisik tidak ditemukan' });
+    res.json(result.rows[0]);
+  });
+
+  app.post('/api/physical-products/orders', isAuthenticated, async (req: any, res) => {
+    const parsed = physicalOrderSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Data pesanan tidak valid', errors: parsed.error.flatten() });
+    const quantities = new Map<number, number>();
+    for (const item of parsed.data.items) quantities.set(item.productId, (quantities.get(item.productId) || 0) + item.quantity);
+    const client = await pool.connect();
+    try {
+      await releaseExpiredPhysicalReservations();
+      await client.query('BEGIN');
+      const ids = [...quantities.keys()];
+      const products = await client.query(
+        `SELECT id, name, sku, stock, COALESCE(promo_price, price) AS price, shipping_fee
+         FROM physical_products WHERE id = ANY($1::int[]) AND is_active = true FOR UPDATE`, [ids]);
+      if (products.rowCount !== ids.length) throw Object.assign(new Error('Satu atau lebih produk tidak tersedia'), { status: 404 });
+      let subtotal = 0;
+      let shippingFee = 0;
+      for (const product of products.rows) {
+        const quantity = quantities.get(product.id)!;
+        if (Number(product.stock) < quantity) throw Object.assign(new Error(`Stok ${product.name} tidak mencukupi`), { status: 409 });
+        subtotal += Number(product.price) * quantity;
+        shippingFee += Number(product.shipping_fee) * quantity;
+        await client.query(`UPDATE physical_products SET stock = stock - $1, updated_at = now() WHERE id = $2`, [quantity, product.id]);
+      }
+      const totalAmount = subtotal + shippingFee;
+      const orderResult = await client.query(
+        `INSERT INTO orders (user_id, total_amount, status, payment_status, created_at, updated_at)
+         VALUES ($1, $2, 'pending', 'pending', now(), now()) RETURNING id`, [req.user.claims.sub, totalAmount]);
+      const orderId = orderResult.rows[0].id;
+      for (const product of products.rows) {
+        await client.query(
+          `INSERT INTO physical_order_items (order_id, product_id, product_name, sku, unit_price, quantity)
+           VALUES ($1,$2,$3,$4,$5,$6)`, [orderId, product.id, product.name, product.sku, product.price, quantities.get(product.id)]);
+      }
+      const shipping = parsed.data.shipping;
+      await client.query(
+        `INSERT INTO physical_order_shipping
+         (order_id,recipient_name,email,phone,address,district,city,province,postal_code,notes,shipping_fee,reservation_expires_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''),$11,now() + ($12 || ' minutes')::interval)`,
+        [orderId,shipping.recipientName,shipping.email,shipping.phone,shipping.address,shipping.district,shipping.city,shipping.province,shipping.postalCode,shipping.notes,shippingFee,PAYMENT_EXPIRY_MINUTES]);
+      await client.query('COMMIT');
+      res.status(201).json({ id: orderId, totalAmount: String(totalAmount), subtotal, shippingFee, status: 'pending' });
+    } catch (error: any) {
+      await client.query('ROLLBACK');
+      console.error('Error creating physical product order:', error);
+      res.status(error?.status || 500).json({ message: error?.message || 'Gagal membuat pesanan produk fisik' });
+    } finally { client.release(); }
+  });
+
+  app.get('/api/physical-products/orders/me', isAuthenticated, async (req: any, res) => {
+    await releaseExpiredPhysicalReservations();
+    const result = await pool.query(
+      `SELECT o.id AS "orderId", o.total_amount AS "totalAmount", o.status AS "orderStatus",
+              o.payment_status AS "paymentStatus", o.paid_at AS "paidAt", o.created_at AS "createdAt",
+              shipping.*, COALESCE(items.products, '[]'::json) AS products
+       FROM orders o JOIN physical_order_shipping shipping ON shipping.order_id=o.id
+       JOIN LATERAL (SELECT json_agg(json_build_object(
+         'productId',item.product_id,'productName',item.product_name,'sku',item.sku,
+         'unitPrice',item.unit_price,'quantity',item.quantity,
+         'imageId',(SELECT id FROM physical_product_images WHERE product_id=item.product_id ORDER BY sort_order,id LIMIT 1)
+       ) ORDER BY item.id) AS products FROM physical_order_items item WHERE item.order_id=o.id) items ON true
+       WHERE o.user_id=$1 ORDER BY o.created_at DESC`, [req.user.claims.sub]);
+    res.json(result.rows);
+  });
+
+  app.get('/api/admin/physical-products', isAuthenticated, canManageDigitalProducts, async (_req, res) => {
+    const result = await pool.query(`${physicalProductSelect(true)} GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`);
+    res.json(result.rows);
+  });
+
+  app.get('/api/admin/physical-product-orders', isAuthenticated, canManageDigitalProducts, async (_req, res) => {
+    await releaseExpiredPhysicalReservations();
+    const result = await pool.query(
+      `SELECT o.id AS "orderId",o.user_id AS "userId",o.total_amount AS "totalAmount",o.status AS "orderStatus",
+       o.payment_status AS "paymentStatus",o.paid_at AS "paidAt",o.created_at AS "createdAt",
+       shipping.*,COALESCE(items.products,'[]'::json) AS products
+       FROM orders o JOIN physical_order_shipping shipping ON shipping.order_id=o.id
+       JOIN LATERAL (SELECT json_agg(json_build_object('productId',item.product_id,'productName',item.product_name,
+       'sku',item.sku,'unitPrice',item.unit_price,'quantity',item.quantity) ORDER BY item.id) products
+       FROM physical_order_items item WHERE item.order_id=o.id) items ON true ORDER BY o.created_at DESC`);
+    res.json(result.rows);
+  });
+
+  app.post('/api/admin/physical-products', isAuthenticated, canManageDigitalProducts, async (req: any, res) => {
+    const parsed=physicalProductSchema.safeParse(req.body);
+    if(!parsed.success)return res.status(400).json({message:'Data produk tidak valid',errors:parsed.error.flatten()});
+    const slug=makeDigitalProductSlug(parsed.data.slug||parsed.data.name);
+    try {
+      const d=parsed.data; const result=await pool.query(
+        `INSERT INTO physical_products (slug,name,short_description,description,description_html,sku,price,promo_price,stock,low_stock_threshold,weight_grams,shipping_fee,is_active,created_by)
+         VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id,slug`,
+        [slug,d.name,d.shortDescription,d.description,sanitizeRichText(d.descriptionHtml),d.sku,d.price,d.promoPrice,d.stock,d.lowStockThreshold,d.weightGrams,d.shippingFee,d.isActive,req.user.claims.sub]);
+      res.status(201).json(result.rows[0]);
+    } catch(error:any){ if(error?.code==='23505')return res.status(409).json({message:'Slug atau SKU sudah digunakan'}); res.status(500).json({message:'Gagal menambahkan produk fisik'}); }
+  });
+
+  app.put('/api/admin/physical-products/:productId', isAuthenticated, canManageDigitalProducts, async (req,res) => {
+    const parsed=physicalProductSchema.safeParse(req.body);
+    if(!parsed.success)return res.status(400).json({message:'Data produk tidak valid',errors:parsed.error.flatten()});
+    const d=parsed.data; const slug=makeDigitalProductSlug(d.slug||d.name);
+    try { const result=await pool.query(
+      `UPDATE physical_products SET slug=$1,name=$2,short_description=$3,description=$4,description_html=NULLIF($5,''),sku=$6,
+       price=$7,promo_price=$8,stock=$9,low_stock_threshold=$10,weight_grams=$11,shipping_fee=$12,is_active=$13,updated_at=now()
+       WHERE id=$14 RETURNING id,slug`,[slug,d.name,d.shortDescription,d.description,sanitizeRichText(d.descriptionHtml),d.sku,d.price,d.promoPrice,d.stock,d.lowStockThreshold,d.weightGrams,d.shippingFee,d.isActive,Number(req.params.productId)]);
+      if(!result.rowCount)return res.status(404).json({message:'Produk tidak ditemukan'}); res.json(result.rows[0]);
+    } catch(error:any){if(error?.code==='23505')return res.status(409).json({message:'Slug atau SKU sudah digunakan'});res.status(500).json({message:'Gagal memperbarui produk fisik'});}
+  });
+
+  app.delete('/api/admin/physical-products/:productId',isAuthenticated,canManageDigitalProducts,async(req,res)=>{
+    const result=await pool.query(`UPDATE physical_products SET is_active=false,updated_at=now() WHERE id=$1 RETURNING id`,[Number(req.params.productId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Produk tidak ditemukan'});res.json({message:'Produk dinonaktifkan'});
+  });
+
+  app.post('/api/admin/physical-products/:productId/images',isAuthenticated,canManageDigitalProducts,
+    express.raw({type:['image/jpeg','image/png','image/webp'],limit:'8mb'}),async(req:any,res)=>{
+      if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({message:'File gambar wajib dipilih'});
+      const count=await pool.query(`SELECT count(*)::int total FROM physical_product_images WHERE product_id=$1`,[Number(req.params.productId)]);
+      if(Number(count.rows[0]?.total||0)>=10)return res.status(400).json({message:'Maksimal 10 gambar per produk'});
+      const result=await pool.query(`INSERT INTO physical_product_images(product_id,image_data,file_name,mime_type,sort_order)
+       SELECT id,$2,$3,$4,COALESCE((SELECT max(sort_order)+1 FROM physical_product_images WHERE product_id=$1),0) FROM physical_products WHERE id=$1 RETURNING id`,
+       [Number(req.params.productId),req.body,decodeURIComponent(String(req.headers['x-file-name']||'gambar-produk')),req.headers['content-type']]);
+      if(!result.rowCount)return res.status(404).json({message:'Produk tidak ditemukan'});res.status(201).json(result.rows[0]);
+    });
+  app.delete('/api/admin/physical-products/:productId/images/:imageId',isAuthenticated,canManageDigitalProducts,async(req,res)=>{
+    const result=await pool.query(`DELETE FROM physical_product_images WHERE id=$1 AND product_id=$2 RETURNING id`,[Number(req.params.imageId),Number(req.params.productId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Gambar tidak ditemukan'});res.json({message:'Gambar dihapus'});
+  });
+  app.put('/api/admin/physical-products/:productId/images/:imageId/focus',isAuthenticated,canManageDigitalProducts,async(req,res)=>{
+    const parsed=digitalProductImageFocusSchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({message:'Posisi fokus tidak valid'});
+    const result=await pool.query(`UPDATE physical_product_images SET focus_x=$1,focus_y=$2 WHERE id=$3 AND product_id=$4 RETURNING id`,[parsed.data.focusX,parsed.data.focusY,Number(req.params.imageId),Number(req.params.productId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Gambar tidak ditemukan'});res.json(result.rows[0]);
+  });
+
+  app.post('/api/admin/physical-products/:productId/media',isAuthenticated,canManageDigitalProducts,async(req,res)=>{
+    const parsed=digitalProductExternalMediaSchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({message:'Data media tidak valid',errors:parsed.error.flatten()});
+    const productId=Number(req.params.productId);const count=await pool.query(`SELECT count(*)::int total FROM physical_product_external_media WHERE product_id=$1`,[productId]);
+    if(Number(count.rows[0]?.total||0)>=10)return res.status(400).json({message:'Maksimal 10 video atau dokumentasi per produk'});
+    const d=parsed.data;const result=await pool.query(`INSERT INTO physical_product_external_media(product_id,title,url,media_type,platform,sort_order,is_active)
+     SELECT id,$2,$3,$4,$5,$6,$7 FROM physical_products WHERE id=$1 RETURNING id`,[productId,d.title,d.url,d.mediaType,getSocialMediaPlatform(d.url),d.sortOrder,d.isActive]);
+    if(!result.rowCount)return res.status(404).json({message:'Produk tidak ditemukan'});res.status(201).json(result.rows[0]);
+  });
+  app.put('/api/admin/physical-products/:productId/media/:mediaId',isAuthenticated,canManageDigitalProducts,async(req,res)=>{
+    const parsed=digitalProductExternalMediaSchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({message:'Data media tidak valid'});const d=parsed.data;
+    const result=await pool.query(`UPDATE physical_product_external_media SET title=$1,url=$2,media_type=$3,platform=$4,sort_order=$5,is_active=$6,updated_at=now()
+     WHERE id=$7 AND product_id=$8 RETURNING id`,[d.title,d.url,d.mediaType,getSocialMediaPlatform(d.url),d.sortOrder,d.isActive,Number(req.params.mediaId),Number(req.params.productId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Media tidak ditemukan'});res.json(result.rows[0]);
+  });
+  app.delete('/api/admin/physical-products/:productId/media/:mediaId',isAuthenticated,canManageDigitalProducts,async(req,res)=>{
+    const result=await pool.query(`DELETE FROM physical_product_external_media WHERE id=$1 AND product_id=$2 RETURNING id`,[Number(req.params.mediaId),Number(req.params.productId)]);
+    if(!result.rowCount)return res.status(404).json({message:'Media tidak ditemukan'});res.json({message:'Media dihapus'});
+  });
+
+  app.put('/api/admin/physical-product-orders/:orderId/fulfillment',isAuthenticated,canManageDigitalProducts,async(req,res)=>{
+    const parsed=physicalFulfillmentSchema.safeParse(req.body);if(!parsed.success)return res.status(400).json({message:'Data pengiriman tidak valid',errors:parsed.error.flatten()});
+    const orderId=Number(req.params.orderId);if(parsed.data.fulfillmentStatus==='cancelled')await releasePhysicalOrderStock(orderId);
+    const d=parsed.data;const result=await pool.query(`UPDATE physical_order_shipping shipping SET fulfillment_status=$1,courier=NULLIF($2,''),tracking_number=NULLIF($3,''),tracking_url=NULLIF($4,''),
+      shipped_at=CASE WHEN $1='shipped' AND shipped_at IS NULL THEN now() ELSE shipped_at END,completed_at=CASE WHEN $1='completed' THEN now() ELSE completed_at END,updated_at=now()
+      FROM orders order_data WHERE shipping.order_id=$5 AND order_data.id=shipping.order_id
+      AND (order_data.payment_status='paid' OR $1='cancelled') RETURNING shipping.order_id`,[d.fulfillmentStatus,d.courier,d.trackingNumber,d.trackingUrl,orderId]);
+    if(!result.rowCount)return res.status(409).json({message:'Pesanan belum lunas atau tidak ditemukan'});res.json({message:'Status pengiriman diperbarui'});
+  });
+
   const courseSelect = `
     SELECT course.id, course.slug, course.title, course.price, course.description,
            course.details, course.special_note AS "specialNote",
@@ -8934,6 +9288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`🎉 Midtrans: Order ${numericOrderId} completed successfully`, fulfillment);
       } else if (status === 'failed' || status === 'cancelled') {
         await storage.updateOrderStatus(numericOrderId, 'cancelled', orderId, status);
+        await releasePhysicalOrderStock(numericOrderId);
         console.log(`❌ Midtrans: Order ${numericOrderId} ${status}`);
       } else if (status === 'pending') {
         await storage.updateOrderStatus(numericOrderId, 'pending', orderId, 'pending');

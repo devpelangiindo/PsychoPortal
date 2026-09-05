@@ -8,7 +8,8 @@ import Home from "@/pages/Home";
 import TentangKami from "@/pages/TentangKami";
 import ProdukLayanan from "@/pages/ProdukLayanan";
 import DigitalProducts from "@/pages/DigitalProducts";
-import EducationProducts, { LegacyDigitalProductsRedirect, PhysicalProducts, PsychologyTestTools } from "@/pages/EducationProducts";
+import PhysicalProducts from "@/pages/PhysicalProducts";
+import EducationProducts, { LegacyDigitalProductsRedirect, PsychologyTestTools } from "@/pages/EducationProducts";
 import TherapyCategories from "@/pages/TherapyCategories";
 import CoursePage from "@/pages/CoursePage";
 import TrainingPage from "@/pages/TrainingPage";
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/produk-layanan" component={ProdukLayanan} />
       <Route path="/produk-layanan/produk-edukasi/produk-digital/:productSlug" component={DigitalProducts} />
       <Route path="/produk-layanan/produk-edukasi/produk-digital" component={DigitalProducts} />
+      <Route path="/produk-layanan/produk-edukasi/produk-fisik/:productSlug" component={PhysicalProducts} />
       <Route path="/produk-layanan/produk-edukasi/produk-fisik" component={PhysicalProducts} />
       <Route path="/produk-layanan/produk-edukasi/alat-tes-psikologi" component={PsychologyTestTools} />
       <Route path="/produk-layanan/produk-edukasi" component={EducationProducts} />

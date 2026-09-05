@@ -363,6 +363,18 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
 
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-emerald-700" />Produk Fisik</CardTitle>
+              <CardDescription>Kelola katalog, stok, pesanan, pengiriman, dan resi</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href={isCsoMode ? "/cso/physical-products" : "/admin/physical-products"}>
+                <Button className="w-full bg-emerald-700 hover:bg-emerald-800">Kelola Produk Fisik</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
               <CardTitle className="flex items-center gap-2"><KeyRound className="w-5 h-5 text-rose-600" />Tes Eksternal</CardTitle>
               <CardDescription>Kelola token tes dan unggah hasil klien</CardDescription>
             </CardHeader>

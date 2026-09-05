@@ -33,6 +33,7 @@ import AdminReports from "@/pages/admin-reports";
 import AdminAssessmentResult from "@/pages/admin-assessment-result";
 import AdminExternalAssessments from "@/pages/admin-external-assessments";
 import AdminDigitalProducts from "@/pages/admin-digital-products";
+import AdminPhysicalProducts from "@/pages/admin-physical-products";
 import AdminCourses from "@/pages/admin-courses";
 import AdminArticles from "@/pages/admin-articles";
 import AdminTrainings from "@/pages/admin-trainings";
@@ -41,6 +42,7 @@ import AdminHospitality from "@/pages/admin-hospitality";
 import AdminTherapies from "@/pages/admin-therapies";
 import AdminOnsiteAssessments from "@/pages/admin-onsite-assessments";
 import DigitalProductCheckout from "@/pages/digital-product-checkout";
+import PhysicalProductCheckout from "@/pages/physical-product-checkout";
 import TrainingRegistration from "@/pages/training-registration";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailed from "@/pages/payment-failed";
@@ -90,6 +92,7 @@ function Router() {
       <Route path="/checkout" component={Checkout} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/digital-products/checkout" component={DigitalProductCheckout} />
+      <Route path="/physical-products/checkout" component={PhysicalProductCheckout} />
       <Route path="/training/register" component={TrainingRegistration} />
       <Route path="/psychologist/dashboard" component={PsychologistDashboard} />
       <Route path="/assessment/:id" component={AssessmentDetail} />
@@ -121,6 +124,8 @@ function Router() {
       <Route path="/cso/external-assessments" component={AdminExternalAssessments} />
       <Route path="/admin/digital-products" component={AdminDigitalProducts} />
       <Route path="/cso/digital-products" component={AdminDigitalProducts} />
+      <Route path="/admin/physical-products" component={AdminPhysicalProducts} />
+      <Route path="/cso/physical-products" component={AdminPhysicalProducts} />
       <Route path="/admin/courses" component={AdminCourses} />
       <Route path="/admin/articles" component={AdminArticles} />
       <Route path="/admin/booking-promos" component={AdminBookingPromos} />
