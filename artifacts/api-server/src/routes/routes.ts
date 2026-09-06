@@ -6220,7 +6220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const offering = await client.query(`SELECT id FROM hospitality_offerings WHERE id=$1 AND service_id=$2 AND deleted_at IS NULL`, [offeringId, Number(req.params.serviceId)]);
         if (!offering.rowCount) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Detail/Paket tidak ditemukan' }); }
         const count = await client.query(`SELECT COUNT(*)::int AS total FROM hospitality_offering_images WHERE offering_id=$1`, [offeringId]);
-        if (Number(count.rows[0]?.total || 0) >= 4) { await client.query('ROLLBACK'); return res.status(409).json({ message: 'Setiap Detail/Paket maksimal memiliki 4 foto' }); }
+        if (Number(count.rows[0]?.total || 0) >= 6) { await client.query('ROLLBACK'); return res.status(409).json({ message: 'Setiap Detail/Paket maksimal memiliki 6 foto' }); }
         const next = await client.query(`SELECT COALESCE(MAX(sort_order),-1)+1 AS value FROM hospitality_offering_images WHERE offering_id=$1`, [offeringId]);
         const result = await client.query(
           `INSERT INTO hospitality_offering_images (offering_id,image_data,file_name,mime_type,sort_order,created_by)

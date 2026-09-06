@@ -903,7 +903,7 @@ export default function AdminHospitality() {
                                   }}
                                 >
                                   <ImagePlus className="mr-1 h-3.5 w-3.5" />
-                                  Foto ({offering.images?.length || 0}/4)
+                                  Foto ({offering.images?.length || 0}/6)
                                 </Button>
                                 <Button
                                   size="sm"
@@ -1484,13 +1484,13 @@ export default function AdminHospitality() {
           <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Foto {managedPhotoOffering.title}</DialogTitle>
-              <DialogDescription>Kelola maksimal empat foto. Atur urutan, status tampil, dan klik preview saat mengedit untuk menentukan titik fokus.</DialogDescription>
+              <DialogDescription>Kelola maksimal enam foto. Atur urutan, status tampil, dan klik preview saat mengedit untuk menentukan titik fokus.</DialogDescription>
             </DialogHeader>
             <div className="flex items-center justify-between rounded-xl bg-green-50 p-4">
-              <p className="text-sm font-bold text-green-900">{managedPhotoOffering.images?.length || 0} dari maksimal 4 foto</p>
-              <label className={`inline-flex items-center rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white ${(managedPhotoOffering.images?.length || 0) >= 4 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}>
+              <p className="text-sm font-bold text-green-900">{managedPhotoOffering.images?.length || 0} dari maksimal 6 foto</p>
+              <label className={`inline-flex items-center rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white ${(managedPhotoOffering.images?.length || 0) >= 6 ? "pointer-events-none opacity-50" : "cursor-pointer"}`}>
                 <ImagePlus className="mr-2 h-4 w-4" />Tambah Foto
-                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={(managedPhotoOffering.images?.length || 0) >= 4} onChange={(event) => { uploadOfferingPhoto(event.target.files?.[0]); event.target.value = ""; }} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={(managedPhotoOffering.images?.length || 0) >= 6} onChange={(event) => { uploadOfferingPhoto(event.target.files?.[0]); event.target.value = ""; }} />
               </label>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
