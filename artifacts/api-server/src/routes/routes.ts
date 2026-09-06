@@ -1017,6 +1017,38 @@ async function ensureHospitalityInfrastructure() {
      WHERE offering.image_data IS NOT NULL
   `);
 
+  await pool.query(`
+    WITH applied AS (
+      INSERT INTO application_data_migrations (migration_key)
+      VALUES ('normalize-hospitality-empty-promo-price-v1')
+      ON CONFLICT (migration_key) DO NOTHING RETURNING migration_key
+    ), normalized AS (
+      SELECT offering.id,
+             jsonb_agg(
+               CASE
+                 WHEN price_option.value ? 'promoPrice'
+                  AND jsonb_typeof(price_option.value->'promoPrice') = 'number'
+                  AND (price_option.value->>'promoPrice')::numeric = 0
+                  AND jsonb_typeof(price_option.value->'price') = 'number'
+                  AND (price_option.value->>'price')::numeric > 0
+                 THEN price_option.value - 'promoPrice'
+                 ELSE price_option.value
+               END
+               ORDER BY price_option.ordinality
+             ) AS price_options
+        FROM hospitality_offerings offering
+        CROSS JOIN applied
+        CROSS JOIN LATERAL jsonb_array_elements(offering.price_options)
+          WITH ORDINALITY AS price_option(value, ordinality)
+       GROUP BY offering.id
+    )
+    UPDATE hospitality_offerings offering
+       SET price_options = normalized.price_options, updated_at = now()
+      FROM normalized
+     WHERE offering.id = normalized.id
+       AND offering.price_options IS DISTINCT FROM normalized.price_options
+  `);
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -1432,7 +1464,10 @@ const hospitalityServiceSchema = z.object({
 const hospitalityPriceOptionSchema = z.object({
   label: z.string().trim().min(1).max(255),
   price: z.coerce.number().min(0).max(999999999),
-  promoPrice: z.union([z.coerce.number().min(0).max(999999999), z.null()]).optional().default(null),
+  promoPrice: z.preprocess(
+    (value) => value === "" || value === undefined ? null : value,
+    z.union([z.null(), z.coerce.number().min(0).max(999999999)]),
+  ).optional().default(null),
   unit: z.string().trim().max(100).optional().default(""),
 }).superRefine((value, ctx) => {
   if (value.promoPrice !== null && value.promoPrice >= value.price) {
