@@ -211,11 +211,11 @@ function canManageExternalAssessmentsRole(role?: string | null) {
 }
 
 function canManageDigitalProductsRole(role?: string | null) {
-  return role === "admin" || role === "internal" || role === "cso";
+  return role === "admin" || role === "internal";
 }
 
 function canManageTrainingsRole(role?: string | null) {
-  return role === "admin" || role === "internal" || role === "cso";
+  return role === "admin" || role === "internal";
 }
 
 async function ensureTrainingInfrastructure() {
@@ -5904,14 +5904,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   function canManageDigitalProducts(req: any, res: any, next: any) {
     if (!req.user || !canManageDigitalProductsRole(req.user.role)) {
-      return res.status(403).json({ message: 'Akses hanya untuk Admin atau CSO.' });
+      return res.status(403).json({ message: 'Akses hanya untuk Admin.' });
     }
     next();
   }
 
   function canManageTrainings(req: any, res: any, next: any) {
     if (!req.user || !canManageTrainingsRole(req.user.role)) {
-      return res.status(403).json({ message: 'Akses hanya untuk Admin atau CSO.' });
+      return res.status(403).json({ message: 'Akses hanya untuk Admin.' });
     }
     next();
   }

@@ -124,9 +124,7 @@ function Router() {
       <Route path="/admin/external-assessments" component={AdminExternalAssessments} />
       <Route path="/cso/external-assessments" component={AdminExternalAssessments} />
       <Route path="/admin/digital-products" component={AdminDigitalProducts} />
-      <Route path="/cso/digital-products" component={AdminDigitalProducts} />
       <Route path="/admin/physical-products" component={AdminPhysicalProducts} />
-      <Route path="/cso/physical-products" component={AdminPhysicalProducts} />
       <Route path="/admin/courses" component={AdminCourses} />
       <Route path="/admin/articles" component={AdminArticles} />
       <Route path="/admin/booking-promos" component={AdminBookingPromos} />
@@ -136,7 +134,6 @@ function Router() {
       <Route path="/admin/psychology-test-tools" component={AdminPsychologyTestTools} />
       <Route path="/admin/therapy-gallery" component={AdminTherapies} />
       <Route path="/admin/trainings" component={AdminTrainings} />
-      <Route path="/cso/trainings" component={AdminTrainings} />
       
       {/* 404 fallback */}
       <Route component={NotFound} />

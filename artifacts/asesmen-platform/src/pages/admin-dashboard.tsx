@@ -360,17 +360,19 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
           </Card>
           )}
 
+          {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-emerald-700" />Produk Fisik</CardTitle>
               <CardDescription>Kelola katalog, stok, pesanan, pengiriman, dan resi</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href={isCsoMode ? "/cso/physical-products" : "/admin/physical-products"}>
+              <Link href="/admin/physical-products">
                 <Button className="w-full bg-emerald-700 hover:bg-emerald-800">Kelola Produk Fisik</Button>
               </Link>
             </CardContent>
           </Card>
+          )}
 
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
@@ -384,29 +386,33 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             </CardContent>
           </Card>
 
+          {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-amber-600" />Produk Digital</CardTitle>
               <CardDescription>Kelola katalog, gambar, file, dan link produk</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href={isCsoMode ? "/cso/digital-products" : "/admin/digital-products"}>
+              <Link href="/admin/digital-products">
                 <Button className="w-full bg-amber-600 hover:bg-amber-700">Kelola Produk</Button>
               </Link>
             </CardContent>
           </Card>
+          )}
 
+          {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Presentation className="w-5 h-5 text-violet-700" />Pelatihan</CardTitle>
               <CardDescription>Kelola agenda, pilihan harga, peserta, testimoni, dan galeri</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href={isCsoMode ? "/cso/trainings" : "/admin/trainings"}>
+              <Link href="/admin/trainings">
                 <Button className="w-full bg-violet-700 hover:bg-violet-800">Kelola Pelatihan</Button>
               </Link>
             </CardContent>
           </Card>
+          )}
 
           {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
