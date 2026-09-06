@@ -202,6 +202,7 @@ export default function DigitalProducts() {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <header className="bg-gradient-to-br from-green-950 to-green-700 px-4 pb-16 pt-32 text-center text-white">
+        <p className="mb-3 font-semibold uppercase tracking-[.25em] text-green-200">Produk Edukasi</p>
         <h1 className="text-4xl font-extrabold lg:text-5xl">Produk Digital</h1>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-green-50/85">Modul, e-book, dan materi digital pilihan untuk mendukung pengembangan diri dan keluarga.</p>
       </header>
