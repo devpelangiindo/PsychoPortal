@@ -42,6 +42,7 @@ import AdminHospitality from "@/pages/admin-hospitality";
 import AdminTherapies from "@/pages/admin-therapies";
 import AdminOnsiteAssessments from "@/pages/admin-onsite-assessments";
 import AdminPsychologyTestTools from "@/pages/admin-psychology-test-tools";
+import AdminWebsiteAnalytics from "@/pages/admin-website-analytics";
 import DigitalProductCheckout from "@/pages/digital-product-checkout";
 import PhysicalProductCheckout from "@/pages/physical-product-checkout";
 import TrainingRegistration from "@/pages/training-registration";
@@ -58,6 +59,7 @@ import Artikel from "@/pages/artikel";
 import ArtikelDetail from "@/pages/artikel-detail";
 import TimDetail from "@/pages/tim-detail";
 import WhatsAppBranchChooser from "@/components/WhatsAppBranchChooser";
+import WebsiteAnalytics from "@/components/WebsiteAnalytics";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 
 import NotFound from "@/pages/not-found";
@@ -132,6 +134,7 @@ function Router() {
       <Route path="/admin/therapies" component={AdminTherapies} />
       <Route path="/admin/onsite-assessments" component={AdminOnsiteAssessments} />
       <Route path="/admin/psychology-test-tools" component={AdminPsychologyTestTools} />
+      <Route path="/admin/website-analytics" component={AdminWebsiteAnalytics} />
       <Route path="/admin/therapy-gallery" component={AdminTherapies} />
       <Route path="/admin/trainings" component={AdminTrainings} />
       
@@ -152,6 +155,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={routerBase}>
+          <WebsiteAnalytics />
           <Router />
           <WhatsAppBranchChooser variant="floating" />
         </WouterRouter>

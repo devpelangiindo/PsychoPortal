@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone, Building2, HeartHandshake, ClipboardList } from "lucide-react";
+import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone, Building2, HeartHandshake, ClipboardList, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -339,6 +339,20 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
 
         {/* Quick Actions */}
         <div className={`grid grid-cols-1 ${isCsoMode ? "md:grid-cols-3" : "md:grid-cols-3 lg:grid-cols-6"} gap-6`}>
+          {!isCsoMode && (
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5 text-indigo-700" />Analytics Website</CardTitle>
+              <CardDescription>Analisis pengunjung, konten populer, sumber trafik, CTA, dan konversi</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/website-analytics">
+                <Button className="w-full bg-indigo-700 hover:bg-indigo-800">Lihat Analytics</Button>
+              </Link>
+            </CardContent>
+          </Card>
+          )}
+
           {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>

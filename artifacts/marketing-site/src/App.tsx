@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import WhatsAppBranchChooser from "@/components/WhatsAppBranchChooser";
+import WebsiteAnalytics from "@/components/WebsiteAnalytics";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import TentangKami from "@/pages/TentangKami";
@@ -55,6 +56,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <WebsiteAnalytics />
           <Router />
           <WhatsAppBranchChooser variant="floating" />
         </WouterRouter>

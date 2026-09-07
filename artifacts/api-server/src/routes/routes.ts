@@ -6,7 +6,7 @@ import type { UserAssessmentWithDetails } from "@workspace/db";
 import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema, registerSchema, loginSchema, otpVerificationSchema, adminLoginSchema, userUpdateSchema, passwordResetSchema } from "@workspace/db";
 import { z } from "zod/v4";
 import PDFDocument from "pdfkit";
-import { randomBytes } from "crypto";
+import { createHmac, randomBytes } from "crypto";
 import { AuthUtils } from "../authUtils";
 import { emailService } from "../emailService";
 import path from "path";
@@ -756,6 +756,32 @@ async function ensurePsychologyTestToolInfrastructure() {
   `);
 }
 
+async function ensureWebsiteAnalyticsInfrastructure() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS website_analytics_events (
+      id bigserial PRIMARY KEY,
+      occurred_at timestamptz NOT NULL DEFAULT now(),
+      visitor_hash varchar(64) NOT NULL,
+      session_id varchar(64) NOT NULL,
+      event_type varchar(40) NOT NULL CHECK (event_type IN ('page_view','content_view','cta_click','checkout_start')),
+      page_path varchar(500) NOT NULL,
+      content_type varchar(50),
+      content_slug varchar(255),
+      cta_type varchar(50),
+      source varchar(100),
+      medium varchar(100),
+      campaign varchar(150),
+      referrer_host varchar(255),
+      device_type varchar(20) NOT NULL CHECK (device_type IN ('desktop','tablet','mobile','unknown')),
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS website_analytics_events_date_idx ON website_analytics_events(occurred_at);
+    CREATE INDEX IF NOT EXISTS website_analytics_events_content_idx ON website_analytics_events(content_type,content_slug,occurred_at);
+    CREATE INDEX IF NOT EXISTS website_analytics_events_type_idx ON website_analytics_events(event_type,occurred_at);
+  `);
+  await pool.query(`DELETE FROM website_analytics_events WHERE occurred_at < now() - interval '90 days'`);
+}
+
 async function ensureArticleInfrastructure() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS managed_articles (
@@ -1298,6 +1324,20 @@ const psychologyTestToolSchema = z.object({
   price: z.coerce.number().min(0).max(999999999),
   sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
   isActive: z.boolean().default(true),
+});
+
+const websiteAnalyticsEventSchema = z.object({
+  sessionId: z.string().regex(/^[a-zA-Z0-9-]{16,64}$/),
+  eventType: z.enum(["page_view", "content_view", "cta_click", "checkout_start"]),
+  pagePath: z.string().trim().startsWith("/").max(500),
+  contentType: z.enum(["digital-product", "physical-product", "psychology-test", "therapy", "course", "training", "hospitality", "article", "assessment"]).nullable().optional(),
+  contentSlug: z.string().trim().regex(/^[a-z0-9-]{1,255}$/).nullable().optional(),
+  ctaType: z.enum(["buy_now", "register_now", "more_info", "whatsapp", "contact", "add_to_cart"]).nullable().optional(),
+  source: z.string().trim().max(100).nullable().optional(),
+  medium: z.string().trim().max(100).nullable().optional(),
+  campaign: z.string().trim().max(150).nullable().optional(),
+  referrerHost: z.string().trim().max(255).nullable().optional(),
+  deviceType: z.enum(["desktop", "tablet", "mobile", "unknown"]),
 });
 
 const trainingSchema = z.object({
@@ -3820,6 +3860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureCourseInfrastructure();
     await ensureOnsiteAssessmentInfrastructure();
     await ensurePsychologyTestToolInfrastructure();
+    await ensureWebsiteAnalyticsInfrastructure();
     await ensureTherapyGalleryInfrastructure();
     await ensureTrainingInfrastructure();
     await ensureArticleInfrastructure();
@@ -5915,6 +5956,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   }
+
+  const analyticsHashSecret = process.env.ANALYTICS_HASH_SECRET || process.env.SESSION_SECRET || randomBytes(32).toString('hex');
+  const analyticsRateLimits = new Map<string, { startedAt: number; count: number }>();
+  app.post('/api/analytics/events', async (req: any, res) => {
+    const origin = String(req.headers.origin || '');
+    if (origin) {
+      try {
+        const hostname = new URL(origin).hostname.toLowerCase();
+        if (hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== 'pi-psychology.com' && hostname !== 'www.pi-psychology.com' && hostname !== 'asesmen.pi-psychology.com') {
+          return res.status(403).json({ message: 'Origin tidak diizinkan' });
+        }
+      } catch { return res.status(403).json({ message: 'Origin tidak valid' }); }
+    }
+    const parsed = websiteAnalyticsEventSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Event analytics tidak valid' });
+    const data = parsed.data;
+    const pagePath = data.pagePath.split('?')[0].split('#')[0].replace(/\/{2,}/g, '/');
+    const privatePath = /^\/(admin|cso|dashboard|psychologist|results|assessment\/|sensory-profile|learning-style|multiple-intelligence|mental-health-checkup|student-potential-test|career-potential-test|dass-screening|srq-screening|payment-)/;
+    const checkoutPath = /^\/(cart|checkout|digital-products\/checkout|physical-products\/checkout|training\/register)$/;
+    if (privatePath.test(pagePath) || (checkoutPath.test(pagePath) && data.eventType !== 'checkout_start')) return res.status(204).end();
+    const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit' }).format(new Date());
+    const forwardedIp = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+    const visitorHash = createHmac('sha256', analyticsHashSecret).update(`${month}|${forwardedIp}|${String(req.headers['user-agent'] || '').slice(0, 300)}`).digest('hex');
+    const now = Date.now(); const rate = analyticsRateLimits.get(visitorHash);
+    if (!rate || now - rate.startedAt > 60_000) analyticsRateLimits.set(visitorHash, { startedAt: now, count: 1 });
+    else if (rate.count >= 120) return res.status(429).json({ message: 'Terlalu banyak event' });
+    else rate.count += 1;
+    if (analyticsRateLimits.size > 10_000) for (const [key, value] of analyticsRateLimits) if (now - value.startedAt > 120_000) analyticsRateLimits.delete(key);
+    try {
+      await pool.query(
+        `INSERT INTO website_analytics_events
+          (visitor_hash,session_id,event_type,page_path,content_type,content_slug,cta_type,source,medium,campaign,referrer_host,device_type)
+         VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7,''),NULLIF($8,''),NULLIF($9,''),NULLIF($10,''),NULLIF($11,''),$12)`,
+        [visitorHash,data.sessionId,data.eventType,pagePath,data.contentType || '',data.contentSlug || '',data.ctaType || '',data.source || '',data.medium || '',data.campaign || '',data.referrerHost || '',data.deviceType],
+      );
+      return res.status(204).end();
+    } catch (error) { console.error('Error recording website analytics:', error); return res.status(500).json({ message: 'Gagal mencatat analytics' }); }
+  });
+
+  app.get('/api/admin/website-analytics', isAuthenticated, isAdmin, async (req, res) => {
+    const requestedDays = Number(req.query.days); const days = [7,30,90].includes(requestedDays) ? requestedDays : 30;
+    const baseParams = [days];
+    try {
+      const [summary,daily,topContent,topPages,sources,devices,paid] = await Promise.all([
+        pool.query(`SELECT COUNT(*) FILTER (WHERE event_type='page_view')::int AS "pageViews",COUNT(DISTINCT visitor_hash)::int AS "uniqueVisitors",COUNT(DISTINCT session_id)::int AS sessions,COUNT(*) FILTER (WHERE event_type='content_view')::int AS "contentViews",COUNT(*) FILTER (WHERE event_type='cta_click')::int AS "ctaClicks",COUNT(*) FILTER (WHERE event_type='checkout_start')::int AS "checkoutStarts" FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day')`,baseParams),
+        pool.query(`SELECT to_char((occurred_at AT TIME ZONE 'Asia/Jakarta')::date,'YYYY-MM-DD') AS day,COUNT(*) FILTER (WHERE event_type='page_view')::int AS "pageViews",COUNT(DISTINCT visitor_hash)::int AS visitors,COUNT(*) FILTER (WHERE event_type='cta_click')::int AS "ctaClicks" FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') GROUP BY 1 ORDER BY 1`,baseParams),
+        pool.query(`SELECT content_type AS "contentType",content_slug AS "contentSlug",COUNT(*)::int AS views,COUNT(DISTINCT visitor_hash)::int AS visitors FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') AND event_type='content_view' AND content_slug IS NOT NULL GROUP BY 1,2 ORDER BY views DESC LIMIT 12`,baseParams),
+        pool.query(`SELECT page_path AS path,COUNT(*)::int AS views,COUNT(DISTINCT visitor_hash)::int AS visitors FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') AND event_type='page_view' GROUP BY 1 ORDER BY views DESC LIMIT 12`,baseParams),
+        pool.query(`SELECT COALESCE(source,'direct') AS source,COUNT(DISTINCT session_id)::int AS sessions FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') AND event_type='page_view' GROUP BY 1 ORDER BY sessions DESC LIMIT 10`,baseParams),
+        pool.query(`SELECT device_type AS device,COUNT(DISTINCT session_id)::int AS sessions FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') GROUP BY 1 ORDER BY sessions DESC`,baseParams),
+        pool.query(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(total_amount),0) AS revenue FROM orders WHERE payment_status='paid' AND COALESCE(paid_at,updated_at,created_at) >= now()-($1::int*interval '1 day')`,baseParams),
+      ]);
+      const stats = summary.rows[0] || {}; const paidStats = paid.rows[0] || { orders:0,revenue:0 };
+      return res.json({ days, summary:{...stats,paidOrders:paidStats.orders,revenue:paidStats.revenue,conversionRate:Number(stats.checkoutStarts)>0?Math.round((Number(paidStats.orders)/Number(stats.checkoutStarts))*1000)/10:0}, daily:daily.rows,topContent:topContent.rows,topPages:topPages.rows,sources:sources.rows,devices:devices.rows,privacy:{rawRetentionDays:90,visitorRotation:'monthly'} });
+    } catch (error) { console.error('Error loading website analytics:',error); return res.status(500).json({message:'Gagal memuat analytics website'}); }
+  });
 
   const hospitalityServiceSelect = `
     SELECT service.id, service.slug, service.title, service.summary, service.description,
