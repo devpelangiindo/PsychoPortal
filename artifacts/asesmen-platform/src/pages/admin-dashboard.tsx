@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, Activity, TrendingUp, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone, Building2, HeartHandshake, ClipboardList, BarChart3 } from "lucide-react";
+import { Users, FileText, Activity, User, Settings, LogOut, CalendarCheck, UserPlus, KeyRound, ShoppingBag, BookOpen, Newspaper, Presentation, Megaphone, Building2, HeartHandshake, ClipboardList, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
@@ -541,27 +541,6 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
               <Link href="/admin/assessments">
                 <Button className="w-full bg-green-600 hover:bg-green-700">
                   Lihat Hasil
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-          )}
-
-          {!isCsoMode && (
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-                Laporan & Analisis
-              </CardTitle>
-              <CardDescription>
-                Analisis data dan laporan statistik
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href="/admin/reports">
-                <Button className="w-full bg-purple-600 hover:bg-purple-700">
-                  Lihat Laporan
                 </Button>
               </Link>
             </CardContent>
