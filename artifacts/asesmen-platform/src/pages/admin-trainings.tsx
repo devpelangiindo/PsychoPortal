@@ -216,9 +216,9 @@ export default function AdminTrainings() {
       </div>
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-left"><tr>{['Peserta','Pelatihan','Kontak','Harga','Pembayaran','Status','Detail'].map(label=><th key={label} className="whitespace-nowrap px-4 py-3">{label}</th>)}</tr></thead>
+          <thead className="bg-gray-50 text-left"><tr>{['Peserta','Pelatihan','Kontak','Harga','Pembayaran','Detail'].map(label=><th key={label} className="whitespace-nowrap px-4 py-3">{label}</th>)}</tr></thead>
           <tbody>
-            {registrations.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-500">Belum ada data peserta pelatihan.</td></tr>}
+            {registrations.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-500">Belum ada data peserta pelatihan.</td></tr>}
             {registrations.map(item => <Fragment key={item.id}>
               <tr className="border-t align-top">
                 <td className="px-4 py-3 font-semibold">{item.fullName}</td>
@@ -226,11 +226,10 @@ export default function AdminTrainings() {
                 <td className="px-4 py-3">{item.whatsappNumber}<br/><span className="text-xs text-gray-500">{item.email}</span></td>
                 <td className="whitespace-nowrap px-4 py-3">{money(item.price)}</td>
                 <td className="px-4 py-3">{item.paymentStatus}</td>
-                <td className="px-4 py-3"><select value={item.status} className="rounded border px-2 py-1" onChange={async e=>{await apiRequest('PUT',`/api/admin/training-registrations/${item.id}`,{status:e.target.value,adminNotes:item.adminNotes||''});await refresh();}}><option value="pending_payment">Menunggu bayar</option><option value="registered">Terdaftar</option><option value="attended">Hadir</option><option value="cancelled">Dibatalkan</option></select></td>
                 <td className="px-4 py-3"><Button type="button" size="sm" variant="outline" onClick={() => setExpandedRegistrationId(current => current === item.id ? null : item.id)}><Eye className="mr-1.5 h-4 w-4"/>{expandedRegistrationId === item.id ? "Tutup" : "Lihat"}</Button></td>
               </tr>
               {expandedRegistrationId === item.id && <tr className="border-t bg-green-50/50">
-                <td colSpan={7} className="px-4 py-5">
+                <td colSpan={6} className="px-4 py-5">
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nama lengkap</p><p className="mt-1 font-semibold">{item.fullName}</p></div>
                     <div><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tanggal lahir</p><p className="mt-1">{displayDate(item.birthDate)}</p></div>
