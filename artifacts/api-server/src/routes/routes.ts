@@ -778,8 +778,26 @@ async function ensureWebsiteAnalyticsInfrastructure() {
     CREATE INDEX IF NOT EXISTS website_analytics_events_date_idx ON website_analytics_events(occurred_at);
     CREATE INDEX IF NOT EXISTS website_analytics_events_content_idx ON website_analytics_events(content_type,content_slug,occurred_at);
     CREATE INDEX IF NOT EXISTS website_analytics_events_type_idx ON website_analytics_events(event_type,occurred_at);
+    CREATE TABLE IF NOT EXISTS website_checkout_attempts (
+      order_id integer PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+      checkout_type varchar(30) NOT NULL CHECK (checkout_type IN ('assessment','counseling','digital_product','physical_product','training')),
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS website_checkout_attempts_date_idx ON website_checkout_attempts(created_at);
   `);
   await pool.query(`DELETE FROM website_analytics_events WHERE occurred_at < now() - interval '90 days'`);
+}
+
+async function recordWebsiteCheckout(orderId: number, checkoutType: 'assessment' | 'counseling' | 'digital_product' | 'physical_product' | 'training') {
+  try {
+    await pool.query(
+      `INSERT INTO website_checkout_attempts (order_id,checkout_type) VALUES ($1,$2) ON CONFLICT (order_id) DO NOTHING`,
+      [orderId, checkoutType],
+    );
+  } catch (error) {
+    // Analytics must never prevent a customer order from completing.
+    console.error('Error recording website checkout:', error);
+  }
 }
 
 async function ensureArticleInfrastructure() {
@@ -5161,6 +5179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
       );
 
+      await recordWebsiteCheckout(created.order.id, 'counseling');
       const groupedBookings = await storage.getPsychologistBookingsByOrder(created.order.id);
       return res.status(201).json({
         ...groupedBookings[0],
@@ -5404,6 +5423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      await recordWebsiteCheckout(order.id, 'assessment');
       const orderWithItems = await storage.getOrder(order.id);
       res.json(orderWithItems);
     } catch (error) {
@@ -6001,8 +6021,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const analyticsWindow = (column: string) => `${column} >= (((now() AT TIME ZONE 'Asia/Jakarta')::date - ($1::int - 1))::timestamp AT TIME ZONE 'Asia/Jakarta')
       AND ${column} < (((now() AT TIME ZONE 'Asia/Jakarta')::date + 1)::timestamp AT TIME ZONE 'Asia/Jakarta')`;
     try {
-      const [summary,daily,topContent,topPages,sources,devices,paid] = await Promise.all([
-        pool.query(`SELECT COUNT(*) FILTER (WHERE event_type='page_view')::int AS "pageViews",COUNT(DISTINCT visitor_hash)::int AS "uniqueVisitors",COUNT(DISTINCT session_id)::int AS sessions,COUNT(*) FILTER (WHERE event_type='content_view')::int AS "contentViews",COUNT(*) FILTER (WHERE event_type='cta_click')::int AS "ctaClicks",COUNT(*) FILTER (WHERE event_type='checkout_start')::int AS "checkoutStarts" FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')}`,baseParams),
+      const [summary,daily,topContent,topPages,sources,devices,paid,checkoutCohort] = await Promise.all([
+        pool.query(`SELECT COUNT(*) FILTER (WHERE event_type='page_view')::int AS "pageViews",COUNT(DISTINCT visitor_hash)::int AS "uniqueVisitors",COUNT(DISTINCT session_id)::int AS sessions,COUNT(*) FILTER (WHERE event_type='content_view')::int AS "contentViews",COUNT(*) FILTER (WHERE event_type='cta_click')::int AS "ctaClicks",COUNT(*) FILTER (WHERE event_type='checkout_start')::int AS "checkoutPageViews",COUNT(DISTINCT visitor_hash) FILTER (WHERE event_type='checkout_start')::int AS "checkoutVisitors" FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')}`,baseParams),
         pool.query(`WITH bounds AS (
           SELECT (now() AT TIME ZONE 'Asia/Jakarta')::date - ($1::int - 1) AS start_date,
                  (now() AT TIME ZONE 'Asia/Jakarta')::date AS end_date
@@ -6021,10 +6041,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pool.query(`SELECT page_path AS path,COUNT(*)::int AS views,COUNT(DISTINCT visitor_hash)::int AS visitors FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')} AND event_type='page_view' GROUP BY 1 ORDER BY views DESC LIMIT 12`,baseParams),
         pool.query(`SELECT COALESCE(source,'direct') AS source,COUNT(DISTINCT session_id)::int AS sessions FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')} AND event_type='page_view' GROUP BY 1 ORDER BY sessions DESC LIMIT 10`,baseParams),
         pool.query(`SELECT device_type AS device,COUNT(DISTINCT session_id)::int AS sessions FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')} GROUP BY 1 ORDER BY sessions DESC`,baseParams),
-        pool.query(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(total_amount),0) AS revenue FROM orders WHERE payment_status='paid' AND paid_at IS NOT NULL AND ${analyticsWindow('paid_at')}`,baseParams),
+        pool.query(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(order_data.total_amount),0) AS revenue FROM orders order_data JOIN website_checkout_attempts attempt ON attempt.order_id=order_data.id WHERE order_data.payment_status='paid' AND order_data.paid_at IS NOT NULL AND ${analyticsWindow('order_data.paid_at')}`,baseParams),
+        pool.query(`SELECT COUNT(*)::int AS "checkoutStarts",COUNT(*) FILTER (WHERE order_data.payment_status='paid')::int AS "convertedOrders" FROM website_checkout_attempts attempt JOIN orders order_data ON order_data.id=attempt.order_id WHERE ${analyticsWindow('attempt.created_at')}`,baseParams),
       ]);
       const stats = summary.rows[0] || {}; const paidStats = paid.rows[0] || { orders:0,revenue:0 };
-      return res.json({ days,startDate:daily.rows[0]?.day,endDate:daily.rows[daily.rows.length-1]?.day,timezone:'Asia/Jakarta',summary:{...stats,paidOrders:paidStats.orders,revenue:paidStats.revenue,conversionRate:Number(stats.checkoutStarts)>0?Math.round((Number(paidStats.orders)/Number(stats.checkoutStarts))*1000)/10:0}, daily:daily.rows,topContent:topContent.rows,topPages:topPages.rows,sources:sources.rows,devices:devices.rows,privacy:{rawRetentionDays:90,visitorRotation:'monthly'} });
+      const checkoutStats = checkoutCohort.rows[0] || { checkoutStarts:0,convertedOrders:0 };
+      return res.json({ days,startDate:daily.rows[0]?.day,endDate:daily.rows[daily.rows.length-1]?.day,timezone:'Asia/Jakarta',summary:{...stats,...checkoutStats,paidOrders:paidStats.orders,revenue:paidStats.revenue,conversionRate:Number(checkoutStats.checkoutStarts)>0?Math.round((Number(checkoutStats.convertedOrders)/Number(checkoutStats.checkoutStarts))*1000)/10:0}, daily:daily.rows,topContent:topContent.rows,topPages:topPages.rows,sources:sources.rows,devices:devices.rows,privacy:{rawRetentionDays:90,visitorRotation:'monthly'} });
     } catch (error) { console.error('Error loading website analytics:',error); return res.status(500).json({message:'Gagal memuat analytics website'}); }
   });
 
@@ -6735,6 +6757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
          participant.education, participant.occupation],
       );
       await client.query('COMMIT');
+      await recordWebsiteCheckout(order.rows[0].id, 'training');
       return res.status(201).json({ ...registration.rows[0], totalAmount: order.rows[0].totalAmount });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -7183,6 +7206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [order.id, parsed.data.customer.fullName, parsed.data.customer.email, parsed.data.customer.phone, parsed.data.customer.notes || null],
       );
       await client.query('COMMIT');
+      await recordWebsiteCheckout(order.id, 'digital_product');
       res.status(201).json({ id: order.id, totalAmount: String(totalAmount), status: 'pending' });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -7562,6 +7586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''),$11,now() + ($12 || ' minutes')::interval)`,
         [orderId,shipping.recipientName,shipping.email,shipping.phone,shipping.address,shipping.district,shipping.city,shipping.province,shipping.postalCode,shipping.notes,shippingFee,PAYMENT_EXPIRY_MINUTES]);
       await client.query('COMMIT');
+      await recordWebsiteCheckout(orderId, 'physical_product');
       res.status(201).json({ id: orderId, totalAmount: String(totalAmount), subtotal, shippingFee, status: 'pending' });
     } catch (error: any) {
       await client.query('ROLLBACK');

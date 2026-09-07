@@ -16,7 +16,8 @@ type AnalyticsResponse = {
   timezone: string;
   summary: {
     pageViews: number; uniqueVisitors: number; sessions: number; contentViews: number;
-    ctaClicks: number; checkoutStarts: number; paidOrders: number; revenue: string | number; conversionRate: number;
+    ctaClicks: number; checkoutPageViews: number; checkoutVisitors: number; checkoutStarts: number;
+    convertedOrders: number; paidOrders: number; revenue: string | number; conversionRate: number;
   };
   daily: Array<{ day: string; pageViews: number; visitors: number; ctaClicks: number }>;
   topContent: Array<{ contentType: string; contentSlug: string; views: number; visitors: number }>;
@@ -100,8 +101,9 @@ export default function AdminWebsiteAnalytics() {
           <Metric title="Pengunjung unik" value={number.format(summary.uniqueVisitors)} detail="Estimasi anonim, dirotasi tiap bulan" icon={<Users className="h-5 w-5 text-blue-600" />} />
           <Metric title="Sesi" value={number.format(summary.sessions)} detail={`${number.format(summary.pageViews)} tayangan halaman`} icon={<Eye className="h-5 w-5 text-emerald-600" />} />
           <Metric title="Klik CTA" value={number.format(summary.ctaClicks)} detail={`${number.format(summary.contentViews)} tampilan produk/layanan`} icon={<MousePointerClick className="h-5 w-5 text-violet-600" />} />
-          <Metric title="Mulai checkout" value={number.format(summary.checkoutStarts)} detail={`${summary.conversionRate}% menjadi pembayaran berhasil`} icon={<ShoppingCart className="h-5 w-5 text-orange-600" />} />
-          <Metric title="Pembayaran berhasil" value={number.format(summary.paidOrders)} detail="Order berstatus paid pada periode ini" icon={<ShoppingCart className="h-5 w-5 text-teal-600" />} />
+          <Metric title="Masuk halaman checkout" value={number.format(summary.checkoutVisitors)} detail={`${number.format(summary.checkoutPageViews)} kunjungan halaman checkout`} icon={<ShoppingCart className="h-5 w-5 text-orange-600" />} />
+          <Metric title="Order dibuat" value={number.format(summary.checkoutStarts)} detail={`${number.format(summary.convertedOrders)} order sudah dibayar (${summary.conversionRate}%)`} icon={<ShoppingCart className="h-5 w-5 text-violet-600" />} />
+          <Metric title="Pembayaran berhasil" value={number.format(summary.paidOrders)} detail="Pembayaran website yang selesai pada periode ini" icon={<ShoppingCart className="h-5 w-5 text-teal-600" />} />
           <Metric title="Pendapatan tercatat" value={money.format(Number(summary.revenue || 0))} detail="Berdasarkan order berstatus paid" icon={<BarChart3 className="h-5 w-5 text-amber-600" />} />
         </div>
 
