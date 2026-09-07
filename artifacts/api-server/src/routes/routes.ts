@@ -5998,18 +5998,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/website-analytics', isAuthenticated, isAdmin, async (req, res) => {
     const requestedDays = Number(req.query.days); const days = [7,30,90].includes(requestedDays) ? requestedDays : 30;
     const baseParams = [days];
+    const analyticsWindow = (column: string) => `${column} >= (((now() AT TIME ZONE 'Asia/Jakarta')::date - ($1::int - 1))::timestamp AT TIME ZONE 'Asia/Jakarta')
+      AND ${column} < (((now() AT TIME ZONE 'Asia/Jakarta')::date + 1)::timestamp AT TIME ZONE 'Asia/Jakarta')`;
     try {
       const [summary,daily,topContent,topPages,sources,devices,paid] = await Promise.all([
-        pool.query(`SELECT COUNT(*) FILTER (WHERE event_type='page_view')::int AS "pageViews",COUNT(DISTINCT visitor_hash)::int AS "uniqueVisitors",COUNT(DISTINCT session_id)::int AS sessions,COUNT(*) FILTER (WHERE event_type='content_view')::int AS "contentViews",COUNT(*) FILTER (WHERE event_type='cta_click')::int AS "ctaClicks",COUNT(*) FILTER (WHERE event_type='checkout_start')::int AS "checkoutStarts" FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day')`,baseParams),
-        pool.query(`SELECT to_char((occurred_at AT TIME ZONE 'Asia/Jakarta')::date,'YYYY-MM-DD') AS day,COUNT(*) FILTER (WHERE event_type='page_view')::int AS "pageViews",COUNT(DISTINCT visitor_hash)::int AS visitors,COUNT(*) FILTER (WHERE event_type='cta_click')::int AS "ctaClicks" FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') GROUP BY 1 ORDER BY 1`,baseParams),
-        pool.query(`SELECT content_type AS "contentType",content_slug AS "contentSlug",COUNT(*)::int AS views,COUNT(DISTINCT visitor_hash)::int AS visitors FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') AND event_type='content_view' AND content_slug IS NOT NULL GROUP BY 1,2 ORDER BY views DESC LIMIT 12`,baseParams),
-        pool.query(`SELECT page_path AS path,COUNT(*)::int AS views,COUNT(DISTINCT visitor_hash)::int AS visitors FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') AND event_type='page_view' GROUP BY 1 ORDER BY views DESC LIMIT 12`,baseParams),
-        pool.query(`SELECT COALESCE(source,'direct') AS source,COUNT(DISTINCT session_id)::int AS sessions FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') AND event_type='page_view' GROUP BY 1 ORDER BY sessions DESC LIMIT 10`,baseParams),
-        pool.query(`SELECT device_type AS device,COUNT(DISTINCT session_id)::int AS sessions FROM website_analytics_events WHERE occurred_at >= now()-($1::int*interval '1 day') GROUP BY 1 ORDER BY sessions DESC`,baseParams),
-        pool.query(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(total_amount),0) AS revenue FROM orders WHERE payment_status='paid' AND COALESCE(paid_at,updated_at,created_at) >= now()-($1::int*interval '1 day')`,baseParams),
+        pool.query(`SELECT COUNT(*) FILTER (WHERE event_type='page_view')::int AS "pageViews",COUNT(DISTINCT visitor_hash)::int AS "uniqueVisitors",COUNT(DISTINCT session_id)::int AS sessions,COUNT(*) FILTER (WHERE event_type='content_view')::int AS "contentViews",COUNT(*) FILTER (WHERE event_type='cta_click')::int AS "ctaClicks",COUNT(*) FILTER (WHERE event_type='checkout_start')::int AS "checkoutStarts" FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')}`,baseParams),
+        pool.query(`WITH bounds AS (
+          SELECT (now() AT TIME ZONE 'Asia/Jakarta')::date - ($1::int - 1) AS start_date,
+                 (now() AT TIME ZONE 'Asia/Jakarta')::date AS end_date
+        ), dates AS (
+          SELECT generate_series(start_date,end_date,interval '1 day')::date AS day FROM bounds
+        ), totals AS (
+          SELECT (event.occurred_at AT TIME ZONE 'Asia/Jakarta')::date AS day,
+                 COUNT(*) FILTER (WHERE event.event_type='page_view')::int AS "pageViews",
+                 COUNT(DISTINCT event.visitor_hash)::int AS visitors,
+                 COUNT(*) FILTER (WHERE event.event_type='cta_click')::int AS "ctaClicks"
+          FROM website_analytics_events event WHERE ${analyticsWindow('event.occurred_at')} GROUP BY 1
+        ) SELECT to_char(dates.day,'YYYY-MM-DD') AS day,COALESCE(totals."pageViews",0)::int AS "pageViews",
+                 COALESCE(totals.visitors,0)::int AS visitors,COALESCE(totals."ctaClicks",0)::int AS "ctaClicks"
+          FROM dates LEFT JOIN totals USING(day) ORDER BY dates.day`,baseParams),
+        pool.query(`SELECT content_type AS "contentType",content_slug AS "contentSlug",COUNT(*)::int AS views,COUNT(DISTINCT visitor_hash)::int AS visitors FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')} AND event_type='content_view' AND content_slug IS NOT NULL GROUP BY 1,2 ORDER BY views DESC LIMIT 12`,baseParams),
+        pool.query(`SELECT page_path AS path,COUNT(*)::int AS views,COUNT(DISTINCT visitor_hash)::int AS visitors FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')} AND event_type='page_view' GROUP BY 1 ORDER BY views DESC LIMIT 12`,baseParams),
+        pool.query(`SELECT COALESCE(source,'direct') AS source,COUNT(DISTINCT session_id)::int AS sessions FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')} AND event_type='page_view' GROUP BY 1 ORDER BY sessions DESC LIMIT 10`,baseParams),
+        pool.query(`SELECT device_type AS device,COUNT(DISTINCT session_id)::int AS sessions FROM website_analytics_events WHERE ${analyticsWindow('occurred_at')} GROUP BY 1 ORDER BY sessions DESC`,baseParams),
+        pool.query(`SELECT COUNT(*)::int AS orders,COALESCE(SUM(total_amount),0) AS revenue FROM orders WHERE payment_status='paid' AND paid_at IS NOT NULL AND ${analyticsWindow('paid_at')}`,baseParams),
       ]);
       const stats = summary.rows[0] || {}; const paidStats = paid.rows[0] || { orders:0,revenue:0 };
-      return res.json({ days, summary:{...stats,paidOrders:paidStats.orders,revenue:paidStats.revenue,conversionRate:Number(stats.checkoutStarts)>0?Math.round((Number(paidStats.orders)/Number(stats.checkoutStarts))*1000)/10:0}, daily:daily.rows,topContent:topContent.rows,topPages:topPages.rows,sources:sources.rows,devices:devices.rows,privacy:{rawRetentionDays:90,visitorRotation:'monthly'} });
+      return res.json({ days,startDate:daily.rows[0]?.day,endDate:daily.rows[daily.rows.length-1]?.day,timezone:'Asia/Jakarta',summary:{...stats,paidOrders:paidStats.orders,revenue:paidStats.revenue,conversionRate:Number(stats.checkoutStarts)>0?Math.round((Number(paidStats.orders)/Number(stats.checkoutStarts))*1000)/10:0}, daily:daily.rows,topContent:topContent.rows,topPages:topPages.rows,sources:sources.rows,devices:devices.rows,privacy:{rawRetentionDays:90,visitorRotation:'monthly'} });
     } catch (error) { console.error('Error loading website analytics:',error); return res.status(500).json({message:'Gagal memuat analytics website'}); }
   });
 

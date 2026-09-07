@@ -11,6 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 type AnalyticsResponse = {
   days: number;
+  startDate: string;
+  endDate: string;
+  timezone: string;
   summary: {
     pageViews: number; uniqueVisitors: number; sessions: number; contentViews: number;
     ctaClicks: number; checkoutStarts: number; paidOrders: number; revenue: string | number; conversionRate: number;
@@ -35,6 +38,11 @@ function prettySlug(value: string) {
   return value.split("-").map((part) => part ? part[0].toUpperCase() + part.slice(1) : part).join(" ");
 }
 
+function periodDate(value?: string) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(`${value}T00:00:00+07:00`));
+}
+
 function Metric({ title, value, detail, icon }: { title: string; value: string; detail: string; icon: React.ReactNode }) {
   return <Card>
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -49,6 +57,8 @@ export default function AdminWebsiteAnalytics() {
   const { data, isLoading, error } = useQuery<AnalyticsResponse>({
     queryKey: ["website-analytics", days],
     queryFn: async () => (await apiRequest("GET", `/api/admin/website-analytics?days=${days}`)).json(),
+    staleTime: 30_000,
+    refetchOnMount: "always",
   });
 
   const exportCsv = () => {
@@ -60,7 +70,7 @@ export default function AdminWebsiteAnalytics() {
     const csv = `\uFEFF${rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n")}`;
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    link.download = `analytics-website-${days}-hari.csv`;
+    link.download = `analytics-website-${data.startDate}-${data.endDate}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
@@ -74,9 +84,12 @@ export default function AdminWebsiteAnalytics() {
           <h1 className="flex items-center gap-3 text-3xl font-bold text-slate-950"><BarChart3 className="h-8 w-8 text-emerald-700" />Analytics Website</h1>
           <p className="mt-2 text-slate-600">Ringkasan trafik publik, minat layanan, CTA, dan konversi pembayaran.</p>
         </div>
-        <div className="flex gap-2">
-          <Select value={days} onValueChange={setDays}><SelectTrigger className="w-[150px] bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="7">7 hari</SelectItem><SelectItem value="30">30 hari</SelectItem><SelectItem value="90">90 hari</SelectItem></SelectContent></Select>
-          <Button variant="outline" onClick={exportCsv} disabled={!data}><Download className="mr-2 h-4 w-4" />CSV</Button>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex gap-2">
+            <Select value={days} onValueChange={setDays}><SelectTrigger className="w-[150px] bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="7">7 hari</SelectItem><SelectItem value="30">30 hari</SelectItem><SelectItem value="90">90 hari</SelectItem></SelectContent></Select>
+            <Button variant="outline" onClick={exportCsv} disabled={!data}><Download className="mr-2 h-4 w-4" />CSV</Button>
+          </div>
+          {data && <p className="text-xs font-medium text-slate-600">{periodDate(data.startDate)} – {periodDate(data.endDate)} WIB</p>}
         </div>
       </div>
 
