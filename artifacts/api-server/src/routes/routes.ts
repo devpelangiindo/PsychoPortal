@@ -14,6 +14,7 @@ import fs from "fs";
 import express from "express";
 import sanitizeHtml from "sanitize-html";
 import { pool } from "../db";
+import { initializeInstagram, registerInstagramRoutes } from "../instagram";
 import { DEFAULT_THERAPY_CATEGORIES, DEFAULT_THERAPY_SERVICES } from "../therapy-seed";
 import { DEFAULT_ONSITE_ASSESSMENT_SERVICES } from "../onsite-assessment-seed";
 // Using Midtrans payment gateway
@@ -1462,6 +1463,8 @@ const trainingGallerySchema = courseGallerySchema;
 const ARTICLE_IMAGE_PLACEMENTS = ["cover", "after-first", "middle", "end"] as const;
 
 const managedArticleSchema = z.object({
+  instagramEnabled: z.boolean().optional().default(false),
+  instagramCaption: z.string().trim().max(2200).optional().default(''),
   title: z.string().trim().min(3).max(255),
   slug: z.string().trim().max(255).optional(),
   excerpt: z.string().trim().min(10).max(1000),
@@ -3882,6 +3885,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureTherapyGalleryInfrastructure();
     await ensureTrainingInfrastructure();
     await ensureArticleInfrastructure();
+    await initializeInstagram(pool);
     await ensureHospitalityInfrastructure();
     await initializeAssessments();
     await initializeBookingServices();
@@ -5949,6 +5953,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin middleware
+  registerInstagramRoutes(app, pool, isAuthenticated, isAdmin);
+
   function isAdmin(req: any, res: any, next: any) {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admin role required.' });
@@ -8634,7 +8640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/articles', isAuthenticated, isAdmin, async (_req, res) => {
     try {
       const result = await pool.query(
-        `${managedArticleSelect}
+        `${managedArticleSelect.replace('SELECT article.id', 'SELECT article.instagram_enabled AS "instagramEnabled", article.instagram_caption AS "instagramCaption", article.first_published AS "firstPublished", article.id')}
          WHERE article.deleted_at IS NULL
          GROUP BY article.id, category.name
          ORDER BY article.updated_at DESC, article.id DESC`,
@@ -8659,10 +8665,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       if (!category.rowCount) return res.status(400).json({ message: 'Kategori artikel tidak tersedia' });
       const result = await pool.query(
-        `INSERT INTO managed_articles (slug, title, excerpt, content, category, author_name, status, published_at, created_by)
-         VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), $7, $8, $9)
+        `INSERT INTO managed_articles (slug, title, excerpt, content, category, author_name, status, published_at, created_by, instagram_enabled, instagram_caption)
+         VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), $7, $8, $9, $10, $11)
          RETURNING id, slug`,
-        [slug, parsed.data.title, parsed.data.excerpt, parsed.data.content, parsed.data.category, parsed.data.authorName, parsed.data.status, publishedAt, req.user.claims.sub],
+        [slug, parsed.data.title, parsed.data.excerpt, parsed.data.content, parsed.data.category, parsed.data.authorName, parsed.data.status, publishedAt, req.user.claims.sub, parsed.data.instagramEnabled, parsed.data.instagramCaption],
       );
       return res.status(201).json(result.rows[0]);
     } catch (error: any) {
@@ -8693,9 +8699,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await pool.query(
         `UPDATE managed_articles SET slug = $1, title = $2, excerpt = $3, content = $4,
            category = $5, author_name = NULLIF($6, ''), status = $7, published_at = $8,
-           updated_at = now()
+           updated_at = now(), instagram_enabled = $10, instagram_caption = $11
          WHERE id = $9 AND deleted_at IS NULL RETURNING id, slug`,
-        [slug, parsed.data.title, parsed.data.excerpt, parsed.data.content, parsed.data.category, parsed.data.authorName, parsed.data.status, publishedAt, Number(req.params.articleId)],
+        [slug, parsed.data.title, parsed.data.excerpt, parsed.data.content, parsed.data.category, parsed.data.authorName, parsed.data.status, publishedAt, Number(req.params.articleId), parsed.data.instagramEnabled, parsed.data.instagramCaption],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Artikel tidak ditemukan' });
       return res.json(result.rows[0]);

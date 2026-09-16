@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
+import { InstagramArticleFields, InstagramConnectionPanel, InstagramPostStatus, type InstagramPost } from '@/components/admin-article-instagram';
 
 type ArticleImage = {
   id: number;
@@ -25,6 +26,9 @@ type ArticleImage = {
 };
 
 type Article = {
+  instagramEnabled: boolean;
+  instagramCaption: string;
+  firstPublished: boolean;
   id: number;
   slug: string;
   title: string;
@@ -61,6 +65,8 @@ type ArticlePromo = {
 type PromoFormState = Omit<ArticlePromo, "id">;
 
 type FormState = {
+  instagramEnabled: boolean;
+  instagramCaption: string;
   title: string;
   slug: string;
   excerpt: string;
@@ -72,6 +78,8 @@ type FormState = {
 };
 
 const emptyForm: FormState = {
+  instagramEnabled: false,
+  instagramCaption: '',
   title: "",
   slug: "",
   excerpt: "",
@@ -151,6 +159,10 @@ export default function AdminArticles() {
   } | null>(null);
   const [isSavingImage, setIsSavingImage] = useState(false);
   const { data: articles = [], isLoading } = useQuery<Article[]>({ queryKey: ["/api/admin/articles"] });
+  const { data: instagramPosts = [] } = useQuery<InstagramPost[]>({
+    queryKey: ['/api/admin/instagram/posts'],
+    refetchInterval: query => query.state.data?.some(post => ['pending', 'processing'].includes(post.status)) ? 15000 : false,
+  });
   const { data: promos = [], isLoading: promosLoading } = useQuery<ArticlePromo[]>({ queryKey: ["/api/admin/article-promos"] });
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<ArticleCategory[]>({ queryKey: ["/api/admin/article-categories"] });
 
@@ -161,6 +173,8 @@ export default function AdminArticles() {
       return;
     }
     setForm({
+      instagramEnabled: editing.instagramEnabled ?? false,
+      instagramCaption: editing.instagramCaption ?? '',
       title: editing.title,
       slug: editing.slug,
       excerpt: editing.excerpt,
@@ -188,6 +202,7 @@ export default function AdminArticles() {
     },
     onSuccess: async () => {
       await refresh();
+      await queryClient.invalidateQueries({ queryKey: ['/api/admin/instagram/posts'] });
       setFormOpen(false);
       setEditing(null);
       toast({ title: "Artikel berhasil disimpan" });
@@ -338,6 +353,7 @@ export default function AdminArticles() {
           <Button className="bg-green-700 hover:bg-green-800" onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Tambah Artikel</Button>
         </div>
 
+        <InstagramConnectionPanel />
         <section className="mb-10 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
@@ -426,6 +442,7 @@ export default function AdminArticles() {
                         <h2 className="mt-1 line-clamp-2 text-xl font-extrabold text-gray-900">{article.title}</h2>
                         <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-600">{article.excerpt}</p>
                         <p className="mt-2 text-xs text-gray-500">/{article.slug} · {article.images.length}/3 gambar</p>
+                        <InstagramPostStatus articleId={article.id} post={instagramPosts.find(post => post.articleId === article.id)} />
                         <div className="mt-auto flex flex-wrap gap-2 pt-4">
                           <Button size="sm" variant="outline" onClick={() => openEdit(article)}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
                           <label className={`inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium ${article.images.length >= 3 ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-gray-50"}`}><ImagePlus className="mr-2 h-4 w-4" />Tambah Gambar<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" disabled={article.images.length >= 3} onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; try { await uploadArticleImage(article.id, file); await refresh(); toast({ title: "Gambar berhasil diunggah" }); } catch (error) { toast({ title: "Gagal mengunggah gambar", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }); } event.target.value = ""; }} /></label>
@@ -507,6 +524,9 @@ export default function AdminArticles() {
               <div><Label>Status</Label><Select value={form.status} onValueChange={(value: "draft" | "published") => update("status", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="published">Terbit</SelectItem></SelectContent></Select></div>
               <div><Label>Tanggal publikasi (opsional)</Label><Input type="datetime-local" value={form.publishedAt} onChange={(event) => update("publishedAt", event.target.value)} /></div>
             </div>
+            <InstagramArticleFields articleId={editing?.id} hasImage={Boolean(editing?.images.length)} firstPublished={editing?.firstPublished ?? false}
+              enabled={form.instagramEnabled} caption={form.instagramCaption} title={form.title} excerpt={form.excerpt}
+              onEnabled={value => update('instagramEnabled', value)} onCaption={value => update('instagramCaption', value)} />
           </div>
           <div className="flex gap-2 border-t bg-white px-6 py-4"><Button variant="outline" className="flex-1" onClick={() => setFormOpen(false)}>Batal</Button><Button className="flex-1 bg-green-700 hover:bg-green-800" disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan</Button></div>
         </DialogContent>

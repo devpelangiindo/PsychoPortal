@@ -2,6 +2,8 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { registerRoutes } from "./routes/routes";
 import { startAutoSync } from "./auto-sync";
+import { pool } from './db';
+import { startInstagramWorker } from './instagram';
 
 const rawPort = process.env["PORT"];
 
@@ -22,6 +24,8 @@ const httpServer = await registerRoutes(app);
 httpServer.listen(port, () => {
   logger.info({ port }, "Server listening");
   startAutoSync();
+  const stopInstagram = startInstagramWorker(pool);
+  httpServer.once('close', stopInstagram);
 });
 
 httpServer.on("error", (err: Error) => {
