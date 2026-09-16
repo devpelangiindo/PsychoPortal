@@ -304,7 +304,7 @@ function InformationPage({
               <h2 id="onsite-catalog-title" className="mt-2 text-3xl font-bold text-neutral-900">Katalog Layanan Asesmen Onsite</h2>
               <p className="mx-auto mt-3 max-w-2xl text-neutral-600">Pilih layanan yang paling sesuai dengan kebutuhan Anda. Tim kami akan membantu proses pendaftaran dan penjadwalan.</p>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {catalog.map((service) => {
                 const serviceMessage = encodeURIComponent(`Halo PI, saya ingin mendaftar layanan Asesmen Onsite: ${service.title}. Mohon informasi selanjutnya.`);
                 return (
