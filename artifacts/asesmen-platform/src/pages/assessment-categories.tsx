@@ -318,11 +318,11 @@ function InformationPage({
                         </span>
                       </div>
                       <div className="flex flex-1 flex-col p-6">
-                        <h3 className="text-xl font-bold leading-snug text-neutral-900">{service.title}</h3>
-                        <p className="mt-3 flex-1 leading-relaxed text-neutral-600">{service.description}</p>
+                        <h3 className="text-xl font-bold leading-relaxed text-neutral-900">{service.title}</h3>
+                        <p className="mt-5 flex-1 leading-8 text-neutral-600">{service.description}</p>
                         {(service.resultText || service.targetText) && <Dialog>
                           <DialogTrigger asChild>
-                            <Button variant="outline" className="mt-5 w-full border-emerald-200 text-emerald-800 hover:bg-emerald-50">
+                            <Button variant="outline" className="mt-6 w-full border-emerald-200 text-emerald-800 hover:bg-emerald-50">
                               <Info className="mr-2 h-4 w-4" />
                               Lihat Selengkapnya
                             </Button>
@@ -359,15 +359,15 @@ function InformationPage({
                             </a>
                           </DialogContent>
                         </Dialog>}
-                        <div className="mt-6 border-t border-neutral-100 pt-5">
+                        <div className="mt-7 border-t border-neutral-100 pt-6">
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Harga layanan</p>
-                          <p className="mt-1 text-2xl font-extrabold text-emerald-700">{formatRupiah(service.price)}</p>
+                          <p className="mt-3 text-2xl font-extrabold text-emerald-700">{formatRupiah(service.price)}</p>
                         </div>
                         <a
                           href={`https://wa.me/6285117658242?text=${serviceMessage}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-5"
+                          className="mt-6"
                         >
                           <Button className="w-full bg-emerald-700 font-semibold hover:bg-emerald-800">
                             <MessageCircle className="mr-2 h-4 w-4" />
