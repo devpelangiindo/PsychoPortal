@@ -1,3 +1,5 @@
+import { trainingInstagramSchema } from './instagram-training-schema';
+
 // The outbox is created in the same transaction as the first publication.
 // Existing published articles are deliberately excluded from automatic posting.
 export const instagramSchema = `
@@ -15,6 +17,7 @@ CREATE TABLE IF NOT EXISTS instagram_oauth_states (
   state_hash text PRIMARY KEY, browser_hash text NOT NULL, admin_id varchar NOT NULL REFERENCES users(id),
   expires_at timestamptz NOT NULL
 );
+ALTER TABLE instagram_oauth_states ADD COLUMN IF NOT EXISTS return_to text NOT NULL DEFAULT 'article';
 CREATE TABLE IF NOT EXISTS article_instagram_posts (
   article_id integer PRIMARY KEY REFERENCES managed_articles(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
   account_id text,
@@ -47,4 +50,5 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS article_instagram_first_publish ON managed_articles;
 CREATE TRIGGER article_instagram_first_publish BEFORE INSERT OR UPDATE ON managed_articles
 FOR EACH ROW EXECUTE FUNCTION enqueue_article_instagram();
+${trainingInstagramSchema}
 `;

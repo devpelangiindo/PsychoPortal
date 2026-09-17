@@ -1360,6 +1360,8 @@ const websiteAnalyticsEventSchema = z.object({
 });
 
 const trainingSchema = z.object({
+  instagramEnabled: z.boolean().optional().default(false),
+  instagramCaption: z.string().trim().max(2200).optional().default(''),
   title: z.string().trim().min(3).max(255),
   slug: z.string().trim().max(255).optional(),
   summary: z.string().trim().min(10).max(1000),
@@ -6794,7 +6796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/admin/trainings', isAuthenticated, canManageTrainings, async (_req, res) => {
     const result = await pool.query(
-      `${trainingSelect} WHERE training.deleted_at IS NULL GROUP BY training.id, poster.id ORDER BY training.sort_order, training.id DESC`,
+      `${trainingSelect.replace('SELECT training.id', 'SELECT training.instagram_enabled AS "instagramEnabled", training.instagram_caption AS "instagramCaption", training.first_published AS "firstPublished", training.id')} WHERE training.deleted_at IS NULL GROUP BY training.id, poster.id ORDER BY training.sort_order, training.id DESC`,
     );
     const settings = await pool.query(
       `SELECT hero_image IS NOT NULL AS "hasHero", hero_file_name AS "heroFileName",
@@ -6824,11 +6826,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const result = await pool.query(
         `INSERT INTO trainings (slug, title, summary, description, description_html, starts_at, ends_at, location,
-          registration_deadline, sort_order, status, created_by)
-         VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,NULLIF($8,''),$9,$10,$11,$12) RETURNING id, slug`,
+          registration_deadline, sort_order, status, created_by, instagram_enabled, instagram_caption)
+         VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,NULLIF($8,''),$9,$10,$11,$12,$13,$14) RETURNING id, slug`,
         [slug, parsed.data.title, parsed.data.summary, parsed.data.description, sanitizeTrainingDescription(parsed.data.descriptionHtml), parsed.data.startsAt || null,
          parsed.data.endsAt || null, parsed.data.location, parsed.data.registrationDeadline || null,
-         parsed.data.sortOrder, parsed.data.status, req.user.claims.sub],
+         parsed.data.sortOrder, parsed.data.status, req.user.claims.sub, parsed.data.instagramEnabled, parsed.data.instagramCaption],
       );
       return res.status(201).json(result.rows[0]);
     } catch (error: any) {
@@ -6845,11 +6847,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const result = await pool.query(
         `UPDATE trainings SET slug=$1,title=$2,summary=$3,description=$4,description_html=NULLIF($5,''),starts_at=$6,ends_at=$7,
-          location=NULLIF($8,''),registration_deadline=$9,sort_order=$10,status=$11,updated_at=now()
+          location=NULLIF($8,''),registration_deadline=$9,sort_order=$10,status=$11,updated_at=now(),instagram_enabled=$13,instagram_caption=$14
          WHERE id=$12 AND deleted_at IS NULL RETURNING id, slug`,
         [slug, parsed.data.title, parsed.data.summary, parsed.data.description, descriptionHtml, parsed.data.startsAt || null,
          parsed.data.endsAt || null, parsed.data.location, parsed.data.registrationDeadline || null,
-         parsed.data.sortOrder, parsed.data.status, Number(req.params.trainingId)],
+         parsed.data.sortOrder, parsed.data.status, Number(req.params.trainingId), parsed.data.instagramEnabled, parsed.data.instagramCaption],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Pelatihan tidak ditemukan' });
       const retainedImageIds = getTrainingDescriptionImageIds(descriptionHtml);

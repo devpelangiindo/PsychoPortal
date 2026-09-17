@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
-import { InstagramArticleFields, InstagramConnectionPanel, InstagramPostStatus, type InstagramPost } from '@/components/admin-article-instagram';
+import { InstagramContentFields, InstagramConnectionPanel, InstagramPostStatus, type InstagramPost } from '@/components/admin-article-instagram';
 
 type ArticleImage = {
   id: number;
@@ -442,7 +442,7 @@ export default function AdminArticles() {
                         <h2 className="mt-1 line-clamp-2 text-xl font-extrabold text-gray-900">{article.title}</h2>
                         <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-600">{article.excerpt}</p>
                         <p className="mt-2 text-xs text-gray-500">/{article.slug} · {article.images.length}/3 gambar</p>
-                        <InstagramPostStatus articleId={article.id} post={instagramPosts.find(post => post.articleId === article.id)} />
+                        <InstagramPostStatus contentId={article.id} post={instagramPosts.find(post => post.articleId === article.id)} />
                         <div className="mt-auto flex flex-wrap gap-2 pt-4">
                           <Button size="sm" variant="outline" onClick={() => openEdit(article)}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
                           <label className={`inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium ${article.images.length >= 3 ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-gray-50"}`}><ImagePlus className="mr-2 h-4 w-4" />Tambah Gambar<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" disabled={article.images.length >= 3} onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; try { await uploadArticleImage(article.id, file); await refresh(); toast({ title: "Gambar berhasil diunggah" }); } catch (error) { toast({ title: "Gagal mengunggah gambar", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }); } event.target.value = ""; }} /></label>
@@ -524,7 +524,7 @@ export default function AdminArticles() {
               <div><Label>Status</Label><Select value={form.status} onValueChange={(value: "draft" | "published") => update("status", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="published">Terbit</SelectItem></SelectContent></Select></div>
               <div><Label>Tanggal publikasi (opsional)</Label><Input type="datetime-local" value={form.publishedAt} onChange={(event) => update("publishedAt", event.target.value)} /></div>
             </div>
-            <InstagramArticleFields articleId={editing?.id} hasImage={Boolean(editing?.images.length)} firstPublished={editing?.firstPublished ?? false}
+            <InstagramContentFields contentId={editing?.id} hasImage={Boolean(editing?.images.length)} firstPublished={editing?.firstPublished ?? false}
               enabled={form.instagramEnabled} caption={form.instagramCaption} title={form.title} excerpt={form.excerpt}
               onEnabled={value => update('instagramEnabled', value)} onCaption={value => update('instagramCaption', value)} />
           </div>

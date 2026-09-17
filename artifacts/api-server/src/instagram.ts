@@ -9,6 +9,19 @@ const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 const cookieName = 'instagram_connect';
 const callbackPath = '/api/admin/instagram/callback';
 const safeError = (error: unknown) => error instanceof InstagramError ? error.message : 'Pengiriman gagal. Periksa konfigurasi server, gambar, dan koneksi akun.';
+class PublicationCancelled extends Error {}
+
+// SQL identifiers are fixed here, never accepted from a request.
+const sources = {
+  article: {
+    posts: 'article_instagram_posts', id: 'article_id', content: 'managed_articles',
+    eligible: "a.status='published' AND a.deleted_at IS NULL AND a.instagram_enabled",
+  },
+  training: {
+    posts: 'training_instagram_posts', id: 'training_id', content: 'trainings',
+    eligible: 'training_instagram_eligible(a)',
+  },
+} as const;
 
 export async function initializeInstagram(pool: Pool) {
   const client = await pool.connect();
@@ -44,13 +57,15 @@ export function registerInstagramRoutes(app: Express, pool: Pool, authenticated:
   });
 
   app.post('/api/admin/instagram/connect', authenticated, admin, async (req: any, res) => {
+    const returnTo = req.body?.returnTo ?? 'article';
+    if (!['article','training'].includes(returnTo)) return res.status(400).json({ message: 'Halaman tujuan tidak valid.' });
     let config;
     try { config = instagramConfig(); } catch { return res.status(503).json({ message: 'Konfigurasi Meta belum tersedia. Hubungi pengelola server.' }); }
     const state = randomBytes(32).toString('hex');
     const browser = randomBytes(32).toString('hex');
     await pool.query('DELETE FROM instagram_oauth_states WHERE expires_at < now()');
-    await pool.query(`INSERT INTO instagram_oauth_states (state_hash,browser_hash,admin_id,expires_at) VALUES ($1,$2,$3,now()+interval '10 minutes')`,
-      [hash(state), hash(browser), req.user.claims.sub]);
+    await pool.query(`INSERT INTO instagram_oauth_states (state_hash,browser_hash,admin_id,expires_at,return_to) VALUES ($1,$2,$3,now()+interval '10 minutes',$4)`,
+      [hash(state), hash(browser), req.user.claims.sub, returnTo]);
     res.cookie(cookieName, browser, { httpOnly: true, secure: true, sameSite: 'lax', path: callbackPath, maxAge: 600000 });
     const url = new URL('https://www.instagram.com/oauth/authorize');
     url.search = new URLSearchParams({ client_id: config.appId, redirect_uri: config.redirect,
@@ -64,12 +79,14 @@ export function registerInstagramRoutes(app: Express, pool: Pool, authenticated:
     try { config = instagramConfig(); } catch { return res.status(503).send('Integrasi Instagram belum dikonfigurasi.'); }
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    const finish = (status: string) => res.redirect(`${config.adminUrl}?instagram=${status}`);
+    let returnUrl = config.adminUrl;
+    const finish = (status: string) => res.redirect(`${returnUrl}?instagram=${status}`);
     const browser = req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1) ?? '';
     res.clearCookie(cookieName, { httpOnly: true, secure: true, sameSite: 'lax', path: callbackPath });
     if (typeof req.query.state !== 'string' || !browser) return finish('invalid');
-    const state = await pool.query(`DELETE FROM instagram_oauth_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING admin_id`, [hash(req.query.state), hash(browser)]);
+    const state = await pool.query(`DELETE FROM instagram_oauth_states WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING admin_id,return_to`, [hash(req.query.state), hash(browser)]);
     if (!state.rowCount) return finish('invalid');
+    if (state.rows[0].return_to === 'training') returnUrl = new URL('trainings', config.adminUrl).toString();
     const allowed = await pool.query(`SELECT id FROM users WHERE id=$1 AND role='admin'`, [state.rows[0].admin_id]);
     if (!allowed.rowCount) return finish('invalid');
     if (req.query.error || typeof req.query.code !== 'string') return finish('cancelled');
@@ -103,6 +120,7 @@ export function registerInstagramRoutes(app: Express, pool: Pool, authenticated:
       await client.query('DELETE FROM instagram_connection');
       await client.query('DELETE FROM instagram_oauth_states');
       await client.query(`UPDATE article_instagram_posts SET status='cancelled',error='Koneksi akun diputus.',updated_at=now() WHERE status IN ('pending','processing') AND NOT publish_attempted`);
+      await client.query(`UPDATE training_instagram_posts SET status='cancelled',error='Koneksi akun diputus.',updated_at=now() WHERE status IN ('pending','processing') AND NOT publish_attempted`);
     });
     res.json({ message: 'Koneksi Instagram diputus. Postingan yang sudah terbit tetap tersedia di Instagram.' });
   });
@@ -111,6 +129,44 @@ export function registerInstagramRoutes(app: Express, pool: Pool, authenticated:
     const result = await pool.query(`SELECT article_id AS "articleId", status, caption, permalink, error, updated_at AS "updatedAt"
       FROM article_instagram_posts WHERE article_id IN (SELECT id FROM managed_articles WHERE deleted_at IS NULL)`);
     res.json(result.rows);
+  });
+
+  app.get('/api/admin/instagram/training-posts', authenticated, admin, async (_req, res) => {
+    const result = await pool.query(`SELECT training_id AS "trainingId",status,caption,permalink,error,updated_at AS "updatedAt"
+      FROM training_instagram_posts WHERE training_id IN (SELECT id FROM trainings WHERE deleted_at IS NULL)`);
+    res.json(result.rows);
+  });
+
+  app.post('/api/admin/trainings/:trainingId/instagram/retry', authenticated, admin, async (req, res) => {
+    const id = Number(req.params.trainingId);
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ message: 'Pelatihan tidak valid.' });
+    const changed = await exclusive(pool, async client => {
+      const account = await client.query('SELECT user_id FROM instagram_connection WHERE id=1 AND expires_at>now()');
+      if (!account.rowCount) return false;
+      const result = await client.query(`UPDATE training_instagram_posts p SET status='pending',error=NULL,updated_at=now(),
+        account_id=COALESCE(p.account_id,$2),
+        container_id=CASE WHEN publish_attempted THEN container_id ELSE NULL END,
+        image_jpeg=CASE WHEN publish_attempted THEN image_jpeg ELSE NULL END,
+        source_image=CASE WHEN publish_attempted THEN source_image ELSE
+          (SELECT image_data FROM training_posters WHERE training_id=p.training_id) END,
+        caption=CASE WHEN publish_attempted THEN p.caption ELSE training_instagram_caption(t) END
+        FROM trainings t WHERE p.training_id=$1 AND t.id=p.training_id AND t.deleted_at IS NULL
+        AND (p.publish_attempted OR training_instagram_eligible(t)) AND p.status IN ('failed','review','cancelled')
+        AND (p.account_id IS NULL OR p.account_id=$2) RETURNING p.training_id`, [id, account.rows[0].user_id]);
+      return Boolean(result.rowCount);
+    });
+    if (!changed) return res.status(409).json({ message: 'Pastikan akun tujuan semula terhubung, opsi Instagram aktif, dan pendaftaran pelatihan masih dibuka.' });
+    return res.json({ message: 'Pengiriman pelatihan masuk antrean. Hasil yang belum pasti akan diperiksa tanpa membuat posting baru.' });
+  });
+
+  app.get('/api/admin/trainings/:trainingId/instagram/preview', authenticated, admin, async (req, res) => {
+    const id = Number(req.params.trainingId);
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ message: 'Pelatihan tidak valid.' });
+    const result = await pool.query(`SELECT p.image_data FROM training_posters p JOIN trainings t ON t.id=p.training_id
+      WHERE t.id=$1 AND t.deleted_at IS NULL`, [id]);
+    if (!result.rowCount) return res.status(404).json({ message: 'Unggah poster pelatihan terlebih dahulu.' });
+    try { res.setHeader('Cache-Control', 'no-store'); return res.type('image/jpeg').send(await instagramImage(result.rows[0].image_data)); }
+    catch { return res.status(422).json({ message: 'Poster tidak dapat diproses. Unggah JPEG, PNG, atau WebP yang valid.' }); }
   });
 
   app.post('/api/admin/articles/:articleId/instagram/retry', authenticated, admin, async (req, res) => {
@@ -139,7 +195,9 @@ export function registerInstagramRoutes(app: Express, pool: Pool, authenticated:
   app.get('/api/instagram/media/:key', async (req, res) => {
     if (!/^[a-f0-9]{64}$/.test(String(req.params.key))) return res.status(404).end();
     const result = await pool.query(`SELECT image_jpeg FROM article_instagram_posts WHERE image_key=$1
-      AND image_jpeg IS NOT NULL AND status IN ('processing','pending','review') AND updated_at>now()-interval '2 days'`, [req.params.key]);
+      AND image_jpeg IS NOT NULL AND status IN ('processing','pending','review') AND updated_at>now()-interval '2 days'
+      UNION ALL SELECT image_jpeg FROM training_instagram_posts WHERE image_key=$1
+      AND image_jpeg IS NOT NULL AND status IN ('processing','pending','review') AND updated_at>now()-interval '2 days' LIMIT 1`, [req.params.key]);
     if (!result.rowCount) return res.status(404).end();
     res.setHeader('Cache-Control', 'no-store');
     return res.type('image/jpeg').send(result.rows[0].image_jpeg);
@@ -164,20 +222,26 @@ export async function processInstagramQueue(pool: Pool) {
     const lock = await client.query('SELECT pg_try_advisory_lock($1) AS locked', [LOCK]);
     locked = lock.rows[0].locked;
     if (!locked) return;
-    const result = await client.query(`SELECT p.*, a.status AS article_status,a.deleted_at,a.instagram_enabled FROM article_instagram_posts p
-      JOIN managed_articles a ON a.id=p.article_id WHERE p.status IN ('pending','processing') ORDER BY p.updated_at LIMIT 1`);
+    const next = await client.query(`SELECT 'article' AS kind,article_id AS id,updated_at FROM article_instagram_posts WHERE status IN ('pending','processing')
+      UNION ALL SELECT 'training' AS kind,training_id AS id,updated_at FROM training_instagram_posts WHERE status IN ('pending','processing')
+      ORDER BY updated_at LIMIT 1`);
+    if (!next.rowCount) return;
+    const kind = next.rows[0].kind === 'training' ? 'training' : 'article';
+    const source = sources[kind];
+    const result = await client.query(`SELECT p.*,p.${source.id} AS source_id,(${source.eligible}) AS eligible FROM ${source.posts} p
+      JOIN ${source.content} a ON a.id=p.${source.id} WHERE p.${source.id}=$1`, [next.rows[0].id]);
     if (!result.rowCount) return;
     const post = result.rows[0];
     const setStatus = async (status: string, error: string | null = null) => client.query(
-      'UPDATE article_instagram_posts SET status=$2,error=$3,updated_at=now() WHERE article_id=$1', [post.article_id, status, error]);
+      `UPDATE ${source.posts} SET status=$2,error=$3,updated_at=now() WHERE ${source.id}=$1`, [post.source_id, status, error]);
     if (post.media_id) { await setStatus('published'); return; }
-    if ((post.article_status !== 'published' || post.deleted_at || !post.instagram_enabled) && !post.publish_attempted) {
-      await setStatus('cancelled', 'Artikel tidak lagi terbit atau opsi Instagram dinonaktifkan.'); return;
+    if (!post.eligible && !post.publish_attempted) {
+      await setStatus('cancelled', kind === 'training' ? 'Pelatihan tidak lagi aktif atau opsi Instagram dinonaktifkan.' : 'Artikel tidak lagi terbit atau opsi Instagram dinonaktifkan.'); return;
     }
     try {
       const account = (await client.query('SELECT * FROM instagram_connection WHERE id=1')).rows[0];
       if (!account || new Date(account.expires_at).getTime() <= Date.now()) throw new InstagramError('Hubungkan akun Instagram yang aktif terlebih dahulu.');
-      if (post.account_id && post.account_id !== account.user_id) throw new InstagramError('Hubungkan kembali akun tujuan semula untuk artikel ini.');
+      if (post.account_id && post.account_id !== account.user_id) throw new InstagramError('Hubungkan kembali akun tujuan semula untuk pengiriman ini.');
       let token = decryptToken(account.token_cipher, config.key);
       if (new Date(account.expires_at).getTime() - Date.now() < 7 * 86400000 && Date.now() - new Date(account.refreshed_at).getTime() > 86400000) {
         const url = new URL('https://graph.instagram.com/refresh_access_token');
@@ -189,13 +253,13 @@ export async function processInstagramQueue(pool: Pool) {
           [encryptToken(token, config.key), new Date(Date.now()+fresh.expires_in*1000)]);
       }
       await setStatus('processing');
-      await client.query('UPDATE article_instagram_posts SET account_id=$2 WHERE article_id=$1', [post.article_id, account.user_id]);
+      await client.query(`UPDATE ${source.posts} SET account_id=$2 WHERE ${source.id}=$1`, [post.source_id, account.user_id]);
       if (!post.container_id) {
-        if (!post.source_image) throw new InstagramError('Gambar utama belum tersedia. Unggah gambar artikel lalu coba lagi.');
+        if (!post.source_image) throw new InstagramError(kind === 'training' ? 'Poster belum tersedia. Unggah poster pelatihan lalu coba lagi.' : 'Gambar utama belum tersedia. Unggah gambar artikel lalu coba lagi.');
         let jpeg;
         try { jpeg = await instagramImage(post.source_image); }
         catch { throw new InstagramError('Gambar tidak dapat diproses. Unggah JPEG, PNG, atau WebP yang valid lalu coba lagi.'); }
-        await client.query('UPDATE article_instagram_posts SET image_jpeg=$2 WHERE article_id=$1', [post.article_id, jpeg]);
+        await client.query(`UPDATE ${source.posts} SET image_jpeg=$2 WHERE ${source.id}=$1`, [post.source_id, jpeg]);
       }
       const outcome = await publishOnce(post, {
         create: async () => {
@@ -203,10 +267,13 @@ export async function processInstagramQueue(pool: Pool) {
           if (!/^\d+$/.test(String(data.id ?? ''))) throw new InstagramError('Instagram tidak mengembalikan ID media.');
           return String(data.id);
         },
-        saveContainer: async container => { await client.query('UPDATE article_instagram_posts SET container_id=$2 WHERE article_id=$1', [post.article_id, container]); },
+        saveContainer: async container => { await client.query(`UPDATE ${source.posts} SET container_id=$2 WHERE ${source.id}=$1`, [post.source_id, container]); },
         status: async container => (await graph(container, token, { fields: 'status_code' })).status_code,
         markAttempted: async () => {
-          await client.query('UPDATE article_instagram_posts SET publish_attempted=true WHERE article_id=$1', [post.article_id]);
+          const attempted = await client.query(`UPDATE ${source.posts} p SET publish_attempted=true
+            WHERE p.${source.id}=$1 AND p.status='processing' AND EXISTS
+            (SELECT 1 FROM ${source.content} a WHERE a.id=p.${source.id} AND (${source.eligible})) RETURNING p.${source.id}`, [post.source_id]);
+          if (!attempted.rowCount) throw new PublicationCancelled();
           post.publish_attempted = true;
         },
         publish: async container => {
@@ -215,18 +282,19 @@ export async function processInstagramQueue(pool: Pool) {
           return String(data.id);
         },
       });
-      await client.query('UPDATE article_instagram_posts SET media_id=COALESCE($2,media_id) WHERE article_id=$1', [post.article_id, outcome.mediaId]);
+      await client.query(`UPDATE ${source.posts} SET media_id=COALESCE($2,media_id) WHERE ${source.id}=$1`, [post.source_id, outcome.mediaId]);
       await setStatus(outcome.status, outcome.status === 'review' ? 'Hasil pengiriman belum pasti. Klik Periksa status; jangan membuat ulang posting.' : null);
       if (outcome.mediaId) {
         try {
           const media = await graph(outcome.mediaId, token, { fields: 'permalink' });
           const link = new URL(media.permalink);
           if (link.protocol === 'https:' && ['instagram.com','www.instagram.com'].includes(link.hostname))
-            await client.query('UPDATE article_instagram_posts SET permalink=$2 WHERE article_id=$1', [post.article_id, link.toString()]);
+            await client.query(`UPDATE ${source.posts} SET permalink=$2 WHERE ${source.id}=$1`, [post.source_id, link.toString()]);
         } catch { /* Publication already succeeded; link lookup must not republish. */ }
       }
     } catch (error) {
-      await setStatus(post.publish_attempted ? 'review' : 'failed', safeError(error));
+      await setStatus(error instanceof PublicationCancelled ? 'cancelled' : post.publish_attempted ? 'review' : 'failed',
+        error instanceof PublicationCancelled ? 'Pengiriman dibatalkan karena konten tidak lagi aktif.' : safeError(error));
     }
   } finally {
     try { if (locked) await client.query('SELECT pg_advisory_unlock($1)', [LOCK]); }
