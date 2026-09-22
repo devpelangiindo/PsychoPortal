@@ -374,7 +374,7 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
           </Card>
           )}
 
-          {!isCsoMode && <Card><CardHeader><CardTitle>Video E-Learning</CardTitle><CardDescription>Kelola rekaman pelatihan dan link e-learning</CardDescription></CardHeader><CardContent><Link href="/admin/video-e-learning"><Button className="w-full bg-green-700 hover:bg-green-800">Kelola Video E-Learning</Button></Link></CardContent></Card>}
+          {!isCsoMode && <Card><CardHeader><CardTitle>Video E-Learning</CardTitle><CardDescription>Kelola rekaman pelatihan dan link e-learning</CardDescription></CardHeader><CardContent><Link href="/admin/video-e-learning"><Button className="w-full bg-green-700 hover:bg-green-800">Kelola E-Learning</Button></Link></CardContent></Card>}
           {!isCsoMode && (
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
