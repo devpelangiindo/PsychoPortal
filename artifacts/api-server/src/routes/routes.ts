@@ -14,6 +14,7 @@ import fs from "fs";
 import express from "express";
 import sanitizeHtml from "sanitize-html";
 import { pool } from "../db";
+import { trainingPromoSchemaSql, registerTrainingPromoRoutes } from "../training-promos";
 import { initializeInstagram, registerInstagramRoutes } from "../instagram";
 import { DEFAULT_THERAPY_CATEGORIES, DEFAULT_THERAPY_SERVICES } from "../therapy-seed";
 import { DEFAULT_ONSITE_ASSESSMENT_SERVICES } from "../onsite-assessment-seed";
@@ -3888,6 +3889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureWebsiteAnalyticsInfrastructure();
     await ensureTherapyGalleryInfrastructure();
     await ensureTrainingInfrastructure();
+    await pool.query(trainingPromoSchemaSql);
     await ensureArticleInfrastructure();
     await initializeInstagram(pool);
     await ensureHospitalityInfrastructure();
@@ -5986,6 +5988,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   }
+
+  registerTrainingPromoRoutes(app, pool, isAuthenticated, canManageTrainings);
 
   const analyticsHashSecret = process.env.ANALYTICS_HASH_SECRET || process.env.SESSION_SECRET || randomBytes(32).toString('hex');
   const analyticsRateLimits = new Map<string, { startedAt: number; count: number }>();

@@ -1,3 +1,4 @@
+import AdminTrainingPromos from './admin-training-promos';
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download, Eye, ImagePlus, Loader2, Pencil, Plus, Save, Trash2, Users } from "lucide-react";
@@ -79,7 +80,7 @@ function trainingStatusLabel(training: Training) {
 
 export default function AdminTrainings() {
   const { toast } = useToast();
-  const [tab, setTab] = useState<"agenda" | "testimoni" | "galeri" | "peserta">("agenda");
+  const [tab, setTab] = useState<"agenda" | "testimoni" | "galeri" | "peserta" | "promo">("agenda");
   const [editing, setEditing] = useState<Training | null>(null);
   const [isTrainingFormOpen, setIsTrainingFormOpen] = useState(false);
   const [form, setForm] = useState<TrainingForm>(emptyTraining);
@@ -175,8 +176,9 @@ export default function AdminTrainings() {
   return <div className="min-h-screen bg-gray-50 p-4 sm:p-8"><div className="mx-auto max-w-7xl">
     <Link href="/admin/dashboard" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-green-700"><ArrowLeft size={17} /> Dashboard Admin</Link>
     <div className="mb-7 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-extrabold">Kelola Pelatihan</h1><p className="mt-1 text-gray-500">Kelola agenda, pilihan harga, peserta, banner, testimoni, dan galeri.</p></div><Button onClick={() => { setTab("agenda"); openTraining(); }} className="bg-green-700 hover:bg-green-800"><Plus className="mr-2 h-4 w-4" />Tambah Agenda</Button></div>
-    <div className="mb-6 flex flex-wrap gap-2">{([['agenda','Agenda'],['testimoni','Testimoni'],['galeri','Galeri'],['peserta',`Peserta (${registrationStats.total})`]] as const).map(([value,label]) => <Button key={value} variant={tab === value ? "default" : "outline"} className={tab === value ? "bg-green-700 hover:bg-green-800" : ""} onClick={() => setTab(value)}>{label}</Button>)}</div>
+    <div className="mb-6 flex flex-wrap gap-2">{([['agenda','Agenda'],['promo','Promo & Info'],['testimoni','Testimoni'],['galeri','Galeri'],['peserta',`Peserta (${registrationStats.total})`]] as const).map(([value,label]) => <Button key={value} variant={tab === value ? "default" : "outline"} className={tab === value ? "bg-green-700 hover:bg-green-800" : ""} onClick={() => setTab(value)}>{label}</Button>)}</div>
 
+    {tab === "promo" && <AdminTrainingPromos />}
     {tab === "agenda" && <div className="space-y-6">
       <InstagramConnectionPanel kind="training" />
       <Card><CardHeader><CardTitle>Banner Agenda Pelatihan</CardTitle></CardHeader><CardContent className="flex flex-wrap items-center gap-4"><div className="h-24 w-48 overflow-hidden rounded-xl bg-green-50">{data?.settings.hasHero && <img src={apiUrl("/api/trainings/hero")} alt="Banner" className="h-full w-full object-cover" />}</div><label className="inline-flex cursor-pointer items-center rounded-md border px-4 py-2 text-sm font-semibold"><ImagePlus className="mr-2 h-4 w-4" />{data?.settings.hasHero ? "Ganti Banner" : "Unggah Banner"}<input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async e => { const file=e.target.files?.[0]; if(!file)return; try{await uploadBinary('/api/admin/trainings/hero/image',file,'PUT');await refresh();toast({title:'Banner tersimpan'});}catch(error){toast({title:'Upload gagal',description:String(error),variant:'destructive'});}e.target.value='';}} /></label></CardContent></Card>

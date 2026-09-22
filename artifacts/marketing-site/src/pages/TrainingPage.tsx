@@ -6,6 +6,7 @@ import { Link, useRoute } from "wouter";
 import { SiWhatsapp } from "react-icons/si";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import TrainingPromos, { type TrainingPromo } from "@/components/TrainingPromos";
 import { getAsesmenPlatformHref } from "@/lib/platform-links";
 
 type TrainingOption = { id: number; name: string; description?: string | null; price: string; capacity?: number | null };
@@ -114,6 +115,11 @@ function Slider({ children, count, index, setIndex, label }: { children: ReactNo
 
 export default function TrainingPage() {
   const [matchDetail, params] = useRoute("/produk-layanan/pelatihan/:trainingSlug");
+  const { data: promos = [] } = useQuery<TrainingPromo[]>({ queryKey: ["training-promos"], queryFn: async () => {
+    const response = await fetch(`${apiBase()}/api/training-promos`);
+    if (!response.ok) throw new Error('Gagal memuat Promo & Info');
+    return response.json();
+  }, enabled: !matchDetail, staleTime: 60_000, retry: 1 });
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [heroAvailable, setHeroAvailable] = useState(true);
@@ -136,8 +142,9 @@ export default function TrainingPage() {
           <img src={`${apiBase()}/api/trainings/hero`} alt="Banner Agenda Pelatihan" className="block h-auto w-full object-contain" onError={() => setHeroAvailable(false)} />
         </div>
       </section>}
-      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8"><div className="mb-10"><p className="font-bold uppercase tracking-wider text-green-700">Program Terkini</p><h2 className="mt-2 text-3xl font-extrabold text-gray-950">Pilih pelatihan yang sesuai</h2></div>
-        {isLoading ? <Loader2 className="mx-auto animate-spin text-green-700" /> : currentTrainings.length === 0 ? <div className="rounded-2xl bg-green-50 p-12 text-center text-green-900">Agenda pelatihan sedang disiapkan.</div> : <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">{currentTrainings.map(training => <TrainingCard key={training.id} training={training} />)}</div>}
+      <section className={`mx-auto max-w-7xl gap-8 px-4 py-20 sm:px-6 lg:px-8 ${promos.length ? 'grid items-start lg:grid-cols-[minmax(0,1fr)_300px]' : ''}`}><div className="min-w-0"><div className="mb-10"><p className="font-bold uppercase tracking-wider text-green-700">Program Terkini</p><h2 className="mt-2 text-3xl font-extrabold text-gray-950">Pilih pelatihan yang sesuai</h2></div>
+        {isLoading ? <Loader2 className="mx-auto animate-spin text-green-700" /> : currentTrainings.length === 0 ? <div className="rounded-2xl bg-green-50 p-12 text-center text-green-900">Agenda pelatihan sedang disiapkan.</div> : <div className={`grid gap-7 sm:grid-cols-2 ${promos.length ? '' : 'lg:grid-cols-3'}`}>{currentTrainings.map(training => <TrainingCard key={training.id} training={training} />)}</div>}
+        </div>{promos.length > 0 && <TrainingPromos promos={promos} apiBase={apiBase()} />}
       </section>
       <section className="bg-gray-50 py-20"><div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><div className="mb-10"><p className="font-bold uppercase tracking-wider text-green-700">Dokumentasi Program</p><h2 className="mt-2 text-3xl font-extrabold text-gray-950">Pelatihan yang Telah Selesai</h2><p className="mt-3 max-w-2xl text-gray-500">Lihat kembali program pelatihan yang telah diselenggarakan oleh Pelangi Indonesia Group.</p></div>
         {isLoading ? <Loader2 className="mx-auto animate-spin text-green-700" /> : completedTrainings.length === 0 ? <div className="rounded-2xl bg-white p-12 text-center text-gray-500 ring-1 ring-gray-100">Belum ada pelatihan selesai yang ditampilkan.</div> : <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">{completedTrainings.map(training => <TrainingCard key={training.id} training={training} />)}</div>}
