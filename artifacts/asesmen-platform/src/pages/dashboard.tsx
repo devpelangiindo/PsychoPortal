@@ -68,6 +68,7 @@ type ExternalAssessmentAccess = {
 };
 
 type DigitalPurchase = {
+  category: "digital" | "elearning";
   productId: number;
   slug: string;
   name: string;
@@ -633,14 +634,14 @@ export default function Dashboard() {
         {digitalPurchases.length > 0 && (
           <section className="mb-10">
             <div className="mb-4 flex items-end justify-between gap-4">
-              <div><p className="text-sm font-bold uppercase tracking-wider text-green-700">Pembelian Anda</p><h2 className="text-2xl font-extrabold">Produk Digital Saya</h2></div>
-              <a href="https://pi-psychology.com/produk-layanan/produk-edukasi/produk-digital" className="text-sm font-semibold text-green-700 hover:underline">Lihat katalog</a>
+              <div><p className="text-sm font-bold uppercase tracking-wider text-green-700">Pembelian Anda</p><h2 className="text-2xl font-extrabold">Produk Digital & E-Learning Saya</h2></div>
+              <a href="https://pi-psychology.com/produk-layanan/produk-edukasi" className="text-sm font-semibold text-green-700 hover:underline">Lihat katalog</a>
             </div>
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {digitalPurchases.map((product) => (
                 <Card key={product.productId} className="overflow-hidden">
                   <div className="h-40 bg-green-50">
-                    {product.imageId ? <img src={apiUrl(`/api/digital-products/images/${product.imageId}`)} alt={product.name} className="h-full w-full object-cover" style={{ objectPosition: `${product.imageFocusX ?? 50}% ${product.imageFocusY ?? 50}%` }} /> : <div className="flex h-full items-center justify-center font-semibold text-green-800">Produk Digital</div>}
+                    {product.imageId ? <img src={apiUrl(`/api/digital-products/images/${product.imageId}`)} alt={product.name} className="h-full w-full object-cover" style={{ objectPosition: `${product.imageFocusX ?? 50}% ${product.imageFocusY ?? 50}%` }} /> : <div className="flex h-full items-center justify-center font-semibold text-green-800">{product.category === "elearning" ? "Video E-Learning" : "Produk Digital"}</div>}
                   </div>
                   <CardContent className="p-5">
                     <p className="text-xs font-bold uppercase tracking-wide text-green-700">Pesanan #{product.orderId}</p>
@@ -648,7 +649,7 @@ export default function Dashboard() {
                     <p className="mt-2 text-sm leading-6 text-gray-600">{product.shortDescription}</p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {product.hasFile && <Button size="sm" onClick={() => downloadProtectedFile(`/api/digital-products/purchases/${product.productId}/download`, product.fileName || product.name)}><Download className="mr-2 h-4 w-4" />Download</Button>}
-                      {product.hasLink && <Button size="sm" variant="outline" onClick={async () => { try { const response = await apiRequest("GET", `/api/digital-products/purchases/${product.productId}/link`); const data = await response.json(); window.open(data.url, "_blank", "noopener,noreferrer"); } catch (error) { toast({ title: "Link tidak dapat dibuka", description: error instanceof Error ? error.message : "Silakan hubungi admin.", variant: "destructive" }); } }}><ExternalLink className="mr-2 h-4 w-4" />Buka Link</Button>}
+                      {product.hasLink && <Button size="sm" variant="outline" onClick={async () => { try { const response = await apiRequest("GET", `/api/digital-products/purchases/${product.productId}/link`); const data = await response.json(); window.open(data.url, "_blank", "noopener,noreferrer"); } catch (error) { toast({ title: "Link tidak dapat dibuka", description: error instanceof Error ? error.message : "Silakan hubungi admin.", variant: "destructive" }); } }}><ExternalLink className="mr-2 h-4 w-4" />{product.category === "elearning" ? "Buka E-Learning" : "Buka Link"}</Button>}
                       {!product.hasFile && !product.hasLink && <Badge variant="secondary">Konten sedang disiapkan</Badge>}
                     </div>
                   </CardContent>

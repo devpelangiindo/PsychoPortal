@@ -125,7 +125,8 @@ function Router() {
       <Route path="/admin/assessment-result/:userAssessmentId" component={AdminAssessmentResult} />
       <Route path="/admin/external-assessments" component={AdminExternalAssessments} />
       <Route path="/cso/external-assessments" component={AdminExternalAssessments} />
-      <Route path="/admin/digital-products" component={AdminDigitalProducts} />
+      <Route path="/admin/video-e-learning"><AdminDigitalProducts key="elearning" elearning /></Route>
+      <Route path="/admin/digital-products"><AdminDigitalProducts key="digital" /></Route>
       <Route path="/admin/physical-products" component={AdminPhysicalProducts} />
       <Route path="/admin/courses" component={AdminCourses} />
       <Route path="/admin/articles" component={AdminArticles} />

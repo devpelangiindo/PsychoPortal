@@ -10,6 +10,7 @@ type ProductImage = { id: number; fileName: string; sortOrder: number; focusX: n
 type ProductMedia = { id: number; title: string; url: string; mediaType: "video" | "documentation"; platform: string; sortOrder: number; isActive: boolean };
 type DigitalProduct = {
   id: number;
+  category: "digital" | "elearning";
   slug: string;
   name: string;
   shortDescription: string;
@@ -47,7 +48,7 @@ function ProductPrice({ product, large = false }: { product: DigitalProduct; lar
 
 function checkoutUrl(product: DigitalProduct) {
   const base = getAsesmenPlatformHref().replace(/\/$/, "");
-  return `${base}/digital-products/checkout?product=${encodeURIComponent(product.slug)}`;
+  return `${base}/digital-products/checkout?product=${encodeURIComponent(product.slug)}&category=${product.category}`;
 }
 
 function youtubeEmbedUrl(value: string) {
@@ -80,7 +81,7 @@ function ProductGallery({ product, height = "h-56", fit = "cover" }: { product: 
   const move = (direction: number) => setActive((current) => (current + direction + images.length) % images.length);
 
   if (!images.length) {
-    return <div className={`${height} flex items-center justify-center bg-green-50 text-green-800 font-semibold`}>Produk Digital</div>;
+    return <div className={`${height} flex items-center justify-center bg-green-50 text-green-800 font-semibold`}>{product.category === "elearning" ? "Video E-Learning" : "Produk Digital"}</div>;
   }
 
   return (
@@ -113,12 +114,15 @@ function ProductGallery({ product, height = "h-56", fit = "cover" }: { product: 
   );
 }
 
-function DigitalProductDetail({ slug }: { slug: string }) {
+function DigitalProductDetail({ slug, elearning }: { slug: string; elearning: boolean }) {
+  const title = elearning ? "Video E-Learning" : "Produk Digital";
+  const category = elearning ? "elearning" : "digital";
+  const basePath = `/produk-layanan/produk-edukasi/${elearning ? "video-e-learning" : "produk-digital"}`;
   const [openingCheckout, setOpeningCheckout] = useState(false);
   const { data: product, isLoading } = useQuery<DigitalProduct>({
-    queryKey: ["digital-product", slug],
+    queryKey: ["digital-product", category, slug],
     queryFn: async () => {
-      const response = await fetch(`${apiBase()}/api/digital-products/${encodeURIComponent(slug)}`);
+      const response = await fetch(`${apiBase()}/api/digital-products/${encodeURIComponent(slug)}?category=${category}`);
       if (!response.ok) throw new Error("Produk tidak ditemukan");
       return response.json();
     },
@@ -128,9 +132,11 @@ function DigitalProductDetail({ slug }: { slug: string }) {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 pb-20 pt-32 sm:px-6 lg:px-8">
-        <Link href="/produk-layanan/produk-edukasi/produk-digital" className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke Produk Digital</Link>
-        {isLoading || !product ? (
+        <Link href={basePath} className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-green-800"><ArrowLeft size={17} /> Kembali ke {title}</Link>
+        {isLoading ? (
           <div className="flex justify-center py-24"><Loader2 className="animate-spin text-green-800" /></div>
+        ) : !product ? (
+          <p role="alert" className="rounded-2xl bg-white p-10 text-center text-gray-600">Produk tidak ditemukan atau belum dapat dimuat. Silakan kembali ke katalog.</p>
         ) : (
           <div className="space-y-8">
             <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
@@ -140,7 +146,7 @@ function DigitalProductDetail({ slug }: { slug: string }) {
                   <p className="mt-4 text-center text-xs text-gray-500">Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.</p>
                 </section>
                 <section className="flex flex-col border-t border-gray-100 p-7 sm:p-10 lg:border-l lg:border-t-0">
-                  <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">Produk Digital</span>
+                  <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">{title}</span>
                   <h1 className="text-3xl font-extrabold leading-tight text-gray-900 lg:text-4xl">{product.name}</h1>
                   <div className="mt-4"><ProductPrice product={product} large /></div>
                   {product.descriptionHtml
@@ -179,13 +185,16 @@ function DigitalProductDetail({ slug }: { slug: string }) {
   );
 }
 
-export default function DigitalProducts() {
-  const [detailMatch, detailParams] = useRoute("/produk-layanan/produk-edukasi/produk-digital/:productSlug");
+export default function DigitalProducts({ elearning = false }: { elearning?: boolean }) {
+  const title = elearning ? "Video E-Learning" : "Produk Digital";
+  const category = elearning ? "elearning" : "digital";
+  const basePath = `/produk-layanan/produk-edukasi/${elearning ? "video-e-learning" : "produk-digital"}`;
+  const [detailMatch, detailParams] = useRoute(`${basePath}/:productSlug`);
   const [searchKeyword, setSearchKeyword] = useState("");
-  const { data: products = [], isLoading } = useQuery<DigitalProduct[]>({
-    queryKey: ["digital-products"],
+  const { data: products = [], isLoading, isError, refetch } = useQuery<DigitalProduct[]>({
+    queryKey: ["digital-products", category],
     queryFn: async () => {
-      const response = await fetch(`${apiBase()}/api/digital-products`);
+      const response = await fetch(`${apiBase()}/api/digital-products?category=${category}`);
       if (!response.ok) throw new Error("Gagal memuat produk digital");
       return response.json();
     },
@@ -196,15 +205,15 @@ export default function DigitalProducts() {
     ? products.filter(product => product.name.toLocaleLowerCase("id-ID").includes(normalizedKeyword))
     : products;
 
-  if (detailMatch && detailParams?.productSlug) return <DigitalProductDetail slug={detailParams.productSlug} />;
+  if (detailMatch && detailParams?.productSlug) return <DigitalProductDetail key={`${category}:${detailParams.productSlug}`} slug={detailParams.productSlug} elearning={elearning} />;
 
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <header className="bg-gradient-to-br from-green-950 to-green-700 px-4 pb-16 pt-32 text-center text-white">
         <p className="mb-3 font-semibold uppercase tracking-[.25em] text-green-200">Produk Edukasi</p>
-        <h1 className="text-4xl font-extrabold lg:text-5xl">Produk Digital</h1>
-        <p className="mx-auto mt-4 max-w-2xl text-lg text-green-50/85">Modul, e-book, dan materi digital pilihan untuk mendukung pengembangan diri dan keluarga.</p>
+        <h1 className="text-4xl font-extrabold lg:text-5xl">{title}</h1>
+        <p className="mx-auto mt-4 max-w-2xl text-lg text-green-50/85">{elearning ? "Fasilitas belajar mandiri melalui koleksi rekaman pelatihan psikologi dan pengembangan diri yang komprehensif, aplikatif, dan mudah diakses." : "Modul, e-book, dan materi digital pilihan untuk mendukung pengembangan diri dan keluarga."}</p>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto mb-10 max-w-2xl">
@@ -225,8 +234,10 @@ export default function DigitalProducts() {
         </div>
         {isLoading ? (
           <div className="flex justify-center py-24"><Loader2 className="animate-spin text-green-800" /></div>
+        ) : isError ? (
+          <div role="alert" className="rounded-2xl bg-white p-12 text-center text-gray-600">Katalog belum dapat dimuat.<button type="button" onClick={() => void refetch()} className="ml-2 font-bold text-green-800 underline">Coba lagi</button></div>
         ) : products.length === 0 ? (
-          <div className="rounded-2xl bg-white p-12 text-center text-gray-500 shadow-sm">Katalog produk digital sedang disiapkan.</div>
+          <div className="rounded-2xl bg-white p-12 text-center text-gray-500 shadow-sm">Katalog {title.toLowerCase()} sedang disiapkan.</div>
         ) : filteredProducts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center shadow-sm"><Search className="mx-auto h-10 w-10 text-gray-300" /><h2 className="mt-4 text-lg font-bold text-gray-800">Produk tidak ditemukan</h2><p className="mt-2 text-sm text-gray-500">Coba gunakan keyword judul yang berbeda.</p><button type="button" onClick={() => setSearchKeyword("")} className="mt-5 rounded-xl bg-green-800 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-900">Tampilkan Semua Produk</button></div>
         ) : (
@@ -240,7 +251,7 @@ export default function DigitalProducts() {
                     <p className="mt-2 flex-1 text-sm leading-6 text-gray-600">{product.shortDescription}</p>
                     <div className="mt-5"><ProductPrice product={product} /></div>
                     <div className="mt-5 grid grid-cols-2 gap-3">
-                      <Link href={`/produk-layanan/produk-edukasi/produk-digital/${product.slug}`} className="rounded-xl border border-green-800 px-4 py-2.5 text-center text-sm font-bold text-green-800">Detail</Link>
+                      <Link href={`${basePath}/${product.slug}`} className="rounded-xl border border-green-800 px-4 py-2.5 text-center text-sm font-bold text-green-800">Detail</Link>
                       <a href={checkoutUrl(product)} className="rounded-xl bg-green-800 px-4 py-2.5 text-center text-sm font-bold text-white">Beli</a>
                     </div>
                   </div>

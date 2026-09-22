@@ -66,7 +66,9 @@ function formatOrderDate(value?: string | null) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-export default function AdminDigitalProducts() {
+export default function AdminDigitalProducts({ elearning = false }: { elearning?: boolean }) {
+  const category = elearning ? "elearning" : "digital";
+  const catalogKey = `/api/admin/digital-products?category=${category}`;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Product | null>(null);
@@ -80,8 +82,8 @@ export default function AdminDigitalProducts() {
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const isCso = window.location.pathname.startsWith("/cso");
-  const { data: products = [], isLoading } = useQuery<Product[]>({ queryKey: ["/api/admin/digital-products"] });
-  const { data: digitalOrders = [], isLoading: ordersLoading } = useQuery<DigitalOrder[]>({ queryKey: ["/api/admin/digital-product-orders"] });
+  const { data: products = [], isLoading } = useQuery<Product[]>({ queryKey: [catalogKey] });
+  const { data: digitalOrders = [], isLoading: ordersLoading } = useQuery<DigitalOrder[]>({ queryKey: [`/api/admin/digital-product-orders?category=${category}`] });
 
   const filteredOrders = useMemo(() => {
     const query = orderSearch.trim().toLowerCase();
@@ -111,21 +113,22 @@ export default function AdminDigitalProducts() {
     mutationFn: async () => {
       const response = await apiRequest(editing ? "PUT" : "POST", editing ? `/api/admin/digital-products/${editing.id}` : "/api/admin/digital-products", {
         ...form,
+        category,
         price: Number(form.price),
         promoPrice: form.promoPrice === "" ? null : Number(form.promoPrice),
       });
       return response.json();
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/digital-products"] }); setEditing(null); setForm(emptyForm); toast({ title: "Produk tersimpan" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: [catalogKey] }); setEditing(null); setForm(emptyForm); toast({ title: "Produk tersimpan" }); },
     onError: (error) => toast({ title: "Gagal menyimpan", description: error instanceof Error ? error.message : "Silakan coba lagi", variant: "destructive" }),
   });
 
   const remove = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/digital-products/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/digital-products"] }); toast({ title: "Produk dinonaktifkan" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: [catalogKey] }); toast({ title: "Produk dinonaktifkan" }); },
   });
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/digital-products"] });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: [catalogKey] });
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((current) => ({ ...current, [key]: value }));
   const setFocusPreset = (focusX: number, focusY: number) => setFocusEditor((current) => current ? { ...current, focusX, focusY } : current);
   const handleFocusClick = (event: MouseEvent<HTMLButtonElement>) => {
@@ -193,7 +196,7 @@ export default function AdminDigitalProducts() {
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-7xl">
         <Link href={isCso ? "/cso/dashboard" : "/admin/dashboard"} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700"><ArrowLeft size={17} /> Kembali ke Dashboard</Link>
-        <div className="mb-7"><h1 className="text-3xl font-extrabold">Pengelolaan Produk Digital</h1><p className="mt-2 text-gray-600">Tambah katalog, gambar, file unduhan, atau link akses produk.</p></div>
+        <div className="mb-7"><h1 className="text-3xl font-extrabold">Pengelolaan {elearning ? "Video E-Learning" : "Produk Digital"}</h1><p className="mt-2 text-gray-600">{elearning ? "Kelola koleksi rekaman pelatihan, gambar, materi pendukung, dan link e-learning." : "Tambah katalog, gambar, file unduhan, atau link akses produk."}</p></div>
         <div className="mb-6 flex flex-wrap gap-2">
           <Button type="button" variant={activeTab === "products" ? "default" : "outline"} className={activeTab === "products" ? "bg-green-700 hover:bg-green-800" : ""} onClick={() => setActiveTab("products")}><ShoppingBag className="mr-2 h-4 w-4"/>Produk</Button>
           <Button type="button" variant={activeTab === "orders" ? "default" : "outline"} className={activeTab === "orders" ? "bg-green-700 hover:bg-green-800" : ""} onClick={() => setActiveTab("orders")}>Pembelian ({orderStats.total})</Button>
@@ -216,14 +219,14 @@ export default function AdminDigitalProducts() {
               </div>
               <div><Label>Harga Reguler</Label><Input type="number" min="0" value={form.price} onChange={(event) => update("price", event.target.value)} /></div>
               <div><Label>Harga Promo (opsional)</Label><Input type="number" min="0" value={form.promoPrice} onChange={(event) => update("promoPrice", event.target.value)} placeholder="Harus lebih rendah dari harga reguler" /></div>
-              <div><Label>Link produk (opsional)</Label><Input type="url" value={form.deliveryUrl} onChange={(event) => update("deliveryUrl", event.target.value)} placeholder="https://..." /></div>
+              <div><Label>{elearning ? "Link E-Learning" : "Link produk"} (opsional)</Label><Input type="url" value={form.deliveryUrl} onChange={(event) => update("deliveryUrl", event.target.value)} placeholder="https://..." /></div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={(event) => update("isActive", event.target.checked)} /> Tampilkan di katalog</label>
               <div className="flex gap-2"><Button className="flex-1 bg-green-700 hover:bg-green-800" disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan</Button>{editing && <Button variant="outline" onClick={() => setEditing(null)}>Batal</Button>}</div>
             </CardContent>
           </Card>
 
           <div className="space-y-5">
-            {isLoading ? <Loader2 className="animate-spin" /> : products.length === 0 ? <Card><CardContent className="p-10 text-center text-gray-500">Belum ada produk digital.</CardContent></Card> : products.map((product) => (
+            {isLoading ? <Loader2 className="animate-spin" /> : products.length === 0 ? <Card><CardContent className="p-10 text-center text-gray-500">Belum ada {elearning ? "video e-learning" : "produk digital"}.</CardContent></Card> : products.map((product) => (
               <Card key={product.id} className={!product.isActive ? "opacity-65" : ""}>
                 <CardContent className="p-5">
                   <div className="flex flex-col gap-5 xl:flex-row">

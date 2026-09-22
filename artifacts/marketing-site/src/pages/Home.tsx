@@ -49,7 +49,7 @@ const services = [
   { slug: "konseling", name: "Konseling", desc: "Reservasi sesi konseling dengan psikolog melalui layanan booking online.", color: "#9A6E5E", appHref: "booking" },
   { slug: "terapi", name: "Terapi", desc: "Program terapi tumbuh kembang yang terstruktur dan tepat sasaran.", color: "#52B788" },
   { slug: "pelatihan", name: "Pelatihan", desc: "Pelatihan profesional untuk tenaga pendidik dan terapis.", color: "#40916C" },
-  { slug: "produk-edukasi", name: "Produk Edukasi", desc: "Produk digital, produk fisik, dan alat tes psikologi untuk mendukung pembelajaran dan praktik profesional.", color: "#1B4332" },
+  { slug: "produk-edukasi", name: "Produk Edukasi", desc: "Video e-learning, produk digital, produk fisik, dan alat tes psikologi untuk mendukung pembelajaran dan praktik profesional.", color: "#1B4332" },
   { slug: "kursus", name: "Kursus", desc: "Kursus pengembangan minat bakat: musik, tari, olahraga, akademik.", color: "#2D6A4F" },
   { slug: "sekolah", name: "Sekolah Pelangi Indonesia", desc: "Pendidikan inklusif dengan metode pembelajaran aktif dan inovatif.", color: "#3A7D58", externalHref: "https://www.pi-education.com/" },
   { slug: "horecal", name: "Hospitality Services", desc: "Layanan hospitality profesional untuk mendukung fasilitas edukasi, kelembagaan, dan penyelenggaraan kegiatan.", color: "#1B4332" },

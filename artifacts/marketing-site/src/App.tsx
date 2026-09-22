@@ -27,8 +27,10 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/tentang-kami" component={TentangKami} />
       <Route path="/produk-layanan" component={ProdukLayanan} />
-      <Route path="/produk-layanan/produk-edukasi/produk-digital/:productSlug" component={DigitalProducts} />
-      <Route path="/produk-layanan/produk-edukasi/produk-digital" component={DigitalProducts} />
+      <Route path="/produk-layanan/produk-edukasi/video-e-learning/:productSlug"><DigitalProducts key="elearning" elearning /></Route>
+      <Route path="/produk-layanan/produk-edukasi/video-e-learning"><DigitalProducts key="elearning" elearning /></Route>
+      <Route path="/produk-layanan/produk-edukasi/produk-digital/:productSlug"><DigitalProducts key="digital" /></Route>
+      <Route path="/produk-layanan/produk-edukasi/produk-digital"><DigitalProducts key="digital" /></Route>
       <Route path="/produk-layanan/produk-edukasi/produk-fisik/:productSlug" component={PhysicalProducts} />
       <Route path="/produk-layanan/produk-edukasi/produk-fisik" component={PhysicalProducts} />
       <Route path="/produk-layanan/produk-edukasi/alat-tes-psikologi" component={PsychologyTestTools} />

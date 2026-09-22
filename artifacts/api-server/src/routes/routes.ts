@@ -446,6 +446,7 @@ async function ensureDigitalProductInfrastructure() {
       access_type varchar(30) NOT NULL,
       accessed_at timestamp DEFAULT now()
     );
+    ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'digital' CHECK (category IN ('digital', 'elearning'));
     ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS promo_price numeric(10,2);
     ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS description_html text;
     ALTER TABLE digital_product_images ADD COLUMN IF NOT EXISTS focus_x smallint NOT NULL DEFAULT 50;
@@ -1179,6 +1180,7 @@ function makeDigitalProductSlug(value: string) {
 }
 
 const digitalProductSchema = z.object({
+  category: z.enum(['digital', 'elearning']).optional().default('digital'),
   name: z.string().trim().min(2).max(255),
   slug: z.string().trim().max(255).optional(),
   shortDescription: z.string().trim().min(5).max(500),
@@ -7099,7 +7101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const digitalProductSelect = (includeInactiveMedia = false) => `
-    SELECT p.id, p.slug, p.name, p.short_description AS "shortDescription",
+    SELECT p.id, p.category, p.slug, p.name, p.short_description AS "shortDescription",
            p.description, p.description_html AS "descriptionHtml", p.price, p.promo_price AS "promoPrice",
            COALESCE(p.promo_price, p.price) AS "effectivePrice", p.is_active AS "isActive",
            p.delivery_url IS NOT NULL AND p.delivery_url <> '' AS "hasDeliveryUrl",
@@ -7135,10 +7137,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     FROM digital_products p
     LEFT JOIN digital_product_images image ON image.product_id = p.id`;
 
-  app.get('/api/digital-products', async (_req, res) => {
+  app.get('/api/digital-products', async (req, res) => {
     try {
       const result = await pool.query(
-        `${digitalProductSelect()} WHERE p.is_active = true GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`,
+        `${digitalProductSelect()} WHERE p.is_active = true AND p.category = $1 GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`,
+        [req.query.category === 'elearning' ? 'elearning' : 'digital'],
       );
       res.json(result.rows);
     } catch (error) {
@@ -7150,8 +7153,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/digital-products/:slug', async (req, res) => {
     try {
       const result = await pool.query(
-        `${digitalProductSelect()} WHERE p.slug = $1 AND p.is_active = true GROUP BY p.id LIMIT 1`,
-        [req.params.slug],
+        `${digitalProductSelect()} WHERE p.slug = $1 AND p.is_active = true AND ($2::text IS NULL OR p.category = $2) GROUP BY p.id LIMIT 1`,
+        [req.params.slug, req.query.category === 'elearning' ? 'elearning' : req.query.category === 'digital' ? 'digital' : null],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Produk digital tidak ditemukan' });
       res.json(result.rows[0]);
@@ -7228,7 +7231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/digital-products/purchases/me', isAuthenticated, async (req: any, res) => {
     try {
       const result = await pool.query(
-        `SELECT DISTINCT ON (p.id) p.id AS "productId", p.slug, p.name,
+        `SELECT DISTINCT ON (p.id) p.id AS "productId", p.category, p.slug, p.name,
                 p.short_description AS "shortDescription", p.price,
                 o.id AS "orderId", o.paid_at AS "paidAt",
                 p.delivery_file IS NOT NULL AS "hasFile",
@@ -7301,9 +7304,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/digital-products', isAuthenticated, canManageDigitalProducts, async (_req, res) => {
+  app.get('/api/admin/digital-products', isAuthenticated, canManageDigitalProducts, async (req, res) => {
     try {
-      const result = await pool.query(`${digitalProductSelect(true).replace('p.delivery_url IS NOT NULL', 'p.delivery_url AS "deliveryUrl", p.delivery_url IS NOT NULL')} GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`);
+      const result = await pool.query(`${digitalProductSelect(true).replace('p.delivery_url IS NOT NULL', 'p.delivery_url AS "deliveryUrl", p.delivery_url IS NOT NULL')} WHERE p.category = $1 GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC`, [req.query.category === 'elearning' ? 'elearning' : 'digital']);
       res.json(result.rows);
     } catch (error) {
       console.error('Error fetching admin digital products:', error);
@@ -7311,7 +7314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/digital-product-orders', isAuthenticated, canManageDigitalProducts, async (_req, res) => {
+  app.get('/api/admin/digital-product-orders', isAuthenticated, canManageDigitalProducts, async (req, res) => {
     try {
       const result = await pool.query(
         `SELECT o.id AS "orderId", o.user_id AS "userId", o.total_amount AS "totalAmount",
@@ -7334,9 +7337,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
              ) ORDER BY item.id
            ) AS products
            FROM digital_order_items item
-           WHERE item.order_id = o.id
+           WHERE item.order_id = o.id AND EXISTS (SELECT 1 FROM digital_products p WHERE p.id = item.product_id AND p.category = $1)
          ) items ON items.products IS NOT NULL
          ORDER BY o.created_at DESC, o.id DESC`,
+        [req.query.category === 'elearning' ? 'elearning' : 'digital'],
       );
       return res.json(result.rows);
     } catch (error) {
@@ -7352,9 +7356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!slug) return res.status(400).json({ message: 'Slug produk tidak valid' });
     try {
       const result = await pool.query(
-        `INSERT INTO digital_products (slug, name, short_description, description, description_html, price, promo_price, is_active, delivery_url, created_by)
-         VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, NULLIF($9, ''), $10) RETURNING id, slug`,
-        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub],
+        `INSERT INTO digital_products (slug, name, short_description, description, description_html, price, promo_price, is_active, delivery_url, created_by, category)
+         VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, NULLIF($9, ''), $10, $11) RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub, parsed.data.category],
       );
       res.status(201).json(result.rows[0]);
     } catch (error: any) {
@@ -7372,8 +7376,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await pool.query(
         `UPDATE digital_products SET slug = $1, name = $2, short_description = $3, description = $4,
            description_html = NULLIF($5, ''), price = $6, promo_price = $7, is_active = $8, delivery_url = NULLIF($9, ''), updated_at = now()
-         WHERE id = $10 RETURNING id, slug`,
-        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId)],
+         WHERE id = $10 AND category = $11 RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId), parsed.data.category],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Produk tidak ditemukan' });
       res.json(result.rows[0]);

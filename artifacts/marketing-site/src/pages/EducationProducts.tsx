@@ -1,10 +1,11 @@
 import { useEffect, type ReactNode } from "react";
-import { ArrowRight, BookOpen, ClipboardList, Package } from "lucide-react";
+import { ArrowRight, BookOpen, ClipboardList, Package, PlayCircle } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 
 const categories = [
+  { title: "Video E-Learning", description: "Fasilitas belajar mandiri melalui koleksi rekaman pelatihan psikologi dan pengembangan diri yang komprehensif, aplikatif, dan mudah diakses.", href: "/produk-layanan/produk-edukasi/video-e-learning", icon: PlayCircle, image: "/services/produk-digital.png", imageAlt: "Pembelajaran mandiri melalui materi digital", status: "Informasi Produk" },
   { title: "Produk Digital", description: "Modul, e-book, dan materi digital pilihan untuk mendukung pengembangan diri dan keluarga.", href: "/produk-layanan/produk-edukasi/produk-digital", icon: BookOpen, image: "/services/produk-digital-cover.png", imageAlt: "Produk edukasi digital yang dapat diakses melalui perangkat elektronik", status: "Informasi Produk" },
   { title: "Produk Fisik", description: "Produk edukasi fisik yang dirancang untuk mendukung pembelajaran, pendampingan, dan aktivitas pengembangan.", href: "/produk-layanan/produk-edukasi/produk-fisik", icon: Package, image: "/services/produk-fisik-cover.png", imageAlt: "Ruang belajar dengan beragam produk edukasi fisik", status: "Informasi produk" },
   { title: "Alat Tes Psikologi", description: "Instrumen psikologi profesional untuk kebutuhan praktisi, lembaga pendidikan, perusahaan, dan organisasi.", href: "/produk-layanan/produk-edukasi/alat-tes-psikologi", icon: ClipboardList, image: "/services/alat-tes-psikologi-1.png", imageAlt: "Profesional menelaah alat tes psikologi", status: "Informasi produk" },
@@ -19,10 +20,10 @@ export default function EducationProducts() {
       <header className="bg-gradient-to-br from-green-950 via-green-900 to-green-700 px-4 pb-16 pt-32 text-center text-white">
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-green-200">Produk & Layanan</p>
         <h1 className="mt-3 text-4xl font-extrabold lg:text-5xl">Produk Edukasi</h1>
-        <p className="mx-auto mt-4 max-w-3xl text-lg leading-relaxed text-green-50/85">Pilih produk digital, produk fisik, atau alat tes psikologi sesuai kebutuhan belajar dan praktik profesional Anda.</p>
+        <p className="mx-auto mt-4 max-w-3xl text-lg leading-relaxed text-green-50/85">Pilih video e-learning, produk digital, produk fisik, atau alat tes psikologi sesuai kebutuhan belajar dan praktik profesional Anda.</p>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid gap-7 md:grid-cols-3">
+        <div className="grid gap-7 md:grid-cols-2">
           {categories.map((category) => {
             const Icon = category.icon;
             return (
