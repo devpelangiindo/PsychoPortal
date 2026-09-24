@@ -448,6 +448,8 @@ async function ensureDigitalProductInfrastructure() {
       accessed_at timestamp DEFAULT now()
     );
     ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'digital' CHECK (category IN ('digital', 'elearning'));
+    ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS purchase_method text NOT NULL DEFAULT 'midtrans' CHECK (purchase_method IN ('midtrans','manual'));
+    ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS admin_whatsapp varchar(15) NOT NULL DEFAULT '';
     ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS promo_price numeric(10,2);
     ALTER TABLE digital_products ADD COLUMN IF NOT EXISTS description_html text;
     ALTER TABLE digital_product_images ADD COLUMN IF NOT EXISTS focus_x smallint NOT NULL DEFAULT 50;
@@ -1182,6 +1184,8 @@ function makeDigitalProductSlug(value: string) {
 
 const digitalProductSchema = z.object({
   category: z.enum(['digital', 'elearning']).optional().default('digital'),
+  purchaseMethod: z.enum(['midtrans','manual']).default('midtrans'),
+  adminWhatsapp: z.string().trim().max(30).default('').transform(value => value.replace(/[\s()+-]/g,'').replace(/^0/, '62')).refine(value => !value || /^[1-9]\d{7,14}$/.test(value), 'Nomor WhatsApp tidak valid'),
   name: z.string().trim().min(2).max(255),
   slug: z.string().trim().max(255).optional(),
   shortDescription: z.string().trim().min(5).max(500),
@@ -1195,6 +1199,9 @@ const digitalProductSchema = z.object({
     z.literal(""),
   ]).optional(),
 }).superRefine((value, ctx) => {
+  if(value.purchaseMethod === 'manual' && (value.category !== 'elearning' || !value.adminWhatsapp)) {
+    ctx.addIssue({code:'custom',path:['adminWhatsapp'],message:'Pembelian manual hanya untuk E-Learning dan memerlukan nomor WhatsApp admin.'});
+  }
   if (value.promoPrice !== null && value.promoPrice >= value.price) {
     ctx.addIssue({ code: "custom", path: ["promoPrice"], message: "Harga promo harus lebih rendah dari harga reguler" });
   }
@@ -7105,7 +7112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const digitalProductSelect = (includeInactiveMedia = false) => `
-    SELECT p.id, p.category, p.slug, p.name, p.short_description AS "shortDescription",
+    SELECT p.id, p.category, p.purchase_method AS "purchaseMethod", p.admin_whatsapp AS "adminWhatsapp", p.slug, p.name, p.short_description AS "shortDescription",
            p.description, p.description_html AS "descriptionHtml", p.price, p.promo_price AS "promoPrice",
            COALESCE(p.promo_price, p.price) AS "effectivePrice", p.is_active AS "isActive",
            p.delivery_url IS NOT NULL AND p.delivery_url <> '' AS "hasDeliveryUrl",
@@ -7193,7 +7200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await client.query('BEGIN');
       const productIds = [...new Set(parsed.data.productIds)];
       const products = await client.query(
-        `SELECT id, name, COALESCE(promo_price, price) AS price
+        `SELECT id, name, purchase_method, COALESCE(promo_price, price) AS price
          FROM digital_products WHERE id = ANY($1::int[]) AND is_active = true FOR SHARE`,
         [productIds],
       );
@@ -7202,6 +7209,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Satu atau lebih produk tidak tersedia' });
       }
 
+      if(products.rows.some(product => product.purchase_method === 'manual')) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({message:'Video ini dibeli melalui admin. Silakan hubungi admin dari halaman katalog.'});
+      }
       const totalAmount = products.rows.reduce((sum, product) => sum + Number(product.price), 0);
       const orderResult = await client.query(
         `INSERT INTO orders (user_id, total_amount, status, payment_status, created_at, updated_at)
@@ -7360,9 +7371,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!slug) return res.status(400).json({ message: 'Slug produk tidak valid' });
     try {
       const result = await pool.query(
-        `INSERT INTO digital_products (slug, name, short_description, description, description_html, price, promo_price, is_active, delivery_url, created_by, category)
-         VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, NULLIF($9, ''), $10, $11) RETURNING id, slug`,
-        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub, parsed.data.category],
+        `INSERT INTO digital_products (slug, name, short_description, description, description_html, price, promo_price, is_active, delivery_url, created_by, category, purchase_method, admin_whatsapp)
+         VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, NULLIF($9, ''), $10, $11, $12, $13) RETURNING id, slug`,
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', req.user.claims.sub, parsed.data.category, parsed.data.purchaseMethod, parsed.data.adminWhatsapp],
       );
       res.status(201).json(result.rows[0]);
     } catch (error: any) {
@@ -7379,9 +7390,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const result = await pool.query(
         `UPDATE digital_products SET slug = $1, name = $2, short_description = $3, description = $4,
-           description_html = NULLIF($5, ''), price = $6, promo_price = $7, is_active = $8, delivery_url = NULLIF($9, ''), updated_at = now()
+           description_html = NULLIF($5, ''), price = $6, promo_price = $7, is_active = $8, delivery_url = NULLIF($9, ''), purchase_method=$12, admin_whatsapp=$13, updated_at = now()
          WHERE id = $10 AND category = $11 RETURNING id, slug`,
-        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId), parsed.data.category],
+        [slug, parsed.data.name, parsed.data.shortDescription, parsed.data.description, sanitizeRichText(parsed.data.descriptionHtml), parsed.data.price, parsed.data.promoPrice, parsed.data.isActive, parsed.data.deliveryUrl || '', Number(req.params.productId), parsed.data.category, parsed.data.purchaseMethod, parsed.data.adminWhatsapp],
       );
       if (!result.rowCount) return res.status(404).json({ message: 'Produk tidak ditemukan' });
       res.json(result.rows[0]);

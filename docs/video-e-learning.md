@@ -14,6 +14,13 @@
   akses memakai alur yang sudah ada. Link hanya dikembalikan kepada pemilik
   pesanan yang telah dibayar/diselesaikan, melalui tombol **Buka E-Learning**.
 - Slug tetap unik di seluruh produk digital dan E-Learning.
+- Metode pembelian per video: Midtrans (default untuk data lama) atau manual.
+  Pada metode manual, isi nomor WhatsApp admin dengan kode negara. Nomor lokal
+  berawalan 0 dinormalisasi ke 62. Tombol katalog dan detail berubah menjadi
+  **Hubungi Admin untuk Beli**, dengan pesan berisi judul video.
+- Video manual ditolak oleh API pembuatan pesanan dan tidak dapat dibayar melalui
+  keranjang Midtrans. Pembayaran dan pemberian akses manual ditangani admin;
+  tidak ada pencatatan pembayaran atau pemberian akses otomatis dari WhatsApp.
 
 Deploy API, dashboard asesmen, dan situs marketing bersama. Migrasi kolom
 kategori dijalankan oleh inisialisasi API dan dapat dijalankan ulang.

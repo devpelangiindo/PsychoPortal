@@ -18,11 +18,11 @@ type Product = {
   id: number; slug: string; name: string; shortDescription: string; description: string; descriptionHtml?: string | null; price: string;
   promoPrice: string | null; effectivePrice: string;
   isActive: boolean; hasDeliveryFile: boolean; hasDeliveryUrl: boolean; deliveryFileName: string | null;
-  deliveryUrl: string | null;
+  deliveryUrl: string | null; purchaseMethod: "midtrans" | "manual"; adminWhatsapp: string;
   images: ProductImage[];
   media?: ProductMedia[];
 };
-type FormState = { name: string; slug: string; shortDescription: string; description: string; descriptionHtml: string; price: string; promoPrice: string; deliveryUrl: string; isActive: boolean };
+type FormState = { purchaseMethod: "midtrans" | "manual"; adminWhatsapp: string; name: string; slug: string; shortDescription: string; description: string; descriptionHtml: string; price: string; promoPrice: string; deliveryUrl: string; isActive: boolean };
 type DigitalOrderItem = { productId: number; productName: string; price: string };
 type DigitalOrder = {
   orderId: number; userId: string; totalAmount: string; orderStatus: string; paymentStatus: string;
@@ -31,7 +31,7 @@ type DigitalOrder = {
   accountEmail?: string | null; accountFirstName?: string | null; accountLastName?: string | null;
   products: DigitalOrderItem[];
 };
-const emptyForm: FormState = { name: "", slug: "", shortDescription: "", description: "", descriptionHtml: "", price: "", promoPrice: "", deliveryUrl: "", isActive: true };
+const emptyForm: FormState = { purchaseMethod: "midtrans", adminWhatsapp: "", name: "", slug: "", shortDescription: "", description: "", descriptionHtml: "", price: "", promoPrice: "", deliveryUrl: "", isActive: true };
 type MediaForm = { title: string; url: string; mediaType: "video" | "documentation"; sortOrder: string; isActive: boolean };
 const emptyMediaForm: MediaForm = { title: "", url: "", mediaType: "video", sortOrder: "0", isActive: true };
 
@@ -106,7 +106,7 @@ export default function AdminDigitalProducts({ elearning = false }: { elearning?
 
   useEffect(() => {
     if (!editing) return setForm(emptyForm);
-    setForm({ name: editing.name, slug: editing.slug, shortDescription: editing.shortDescription, description: editing.description, descriptionHtml: editing.descriptionHtml || plainTextToHtml(editing.description), price: editing.price, promoPrice: editing.promoPrice || "", deliveryUrl: editing.deliveryUrl || "", isActive: editing.isActive });
+    setForm({ purchaseMethod: editing.purchaseMethod || "midtrans", adminWhatsapp: editing.adminWhatsapp || "", name: editing.name, slug: editing.slug, shortDescription: editing.shortDescription, description: editing.description, descriptionHtml: editing.descriptionHtml || plainTextToHtml(editing.description), price: editing.price, promoPrice: editing.promoPrice || "", deliveryUrl: editing.deliveryUrl || "", isActive: editing.isActive });
   }, [editing]);
 
   const save = useMutation({
@@ -220,6 +220,11 @@ export default function AdminDigitalProducts({ elearning = false }: { elearning?
               <div><Label>Harga Reguler</Label><Input type="number" min="0" value={form.price} onChange={(event) => update("price", event.target.value)} /></div>
               <div><Label>Harga Promo (opsional)</Label><Input type="number" min="0" value={form.promoPrice} onChange={(event) => update("promoPrice", event.target.value)} placeholder="Harus lebih rendah dari harga reguler" /></div>
               <div><Label>{elearning ? "Link E-Learning" : "Link produk"} (opsional)</Label><Input type="url" value={form.deliveryUrl} onChange={(event) => update("deliveryUrl", event.target.value)} placeholder="https://..." /></div>
+              {elearning && <div className="space-y-3 rounded-lg border bg-green-50 p-3">
+                <Label htmlFor="purchase-method">Metode pembelian</Label>
+                <select id="purchase-method" className="h-10 w-full rounded-md border bg-white px-3" value={form.purchaseMethod} onChange={event=>update('purchaseMethod',event.target.value as FormState['purchaseMethod'])}><option value="midtrans">Pembayaran Midtrans</option><option value="manual">Manual — hubungi admin</option></select>
+                {form.purchaseMethod === 'manual' && <div><Label htmlFor="admin-whatsapp">Nomor WhatsApp admin</Label><Input id="admin-whatsapp" type="tel" value={form.adminWhatsapp} onChange={event=>update('adminWhatsapp',event.target.value)} placeholder="6285117658242" /><p className="mt-2 text-xs text-gray-600">Tombol publik menjadi Hubungi Admin untuk Beli. Pembayaran dan pemberian akses ditangani admin. Gunakan kode negara, misalnya 62 untuk Indonesia.</p></div>}
+              </div>}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={(event) => update("isActive", event.target.checked)} /> Tampilkan di katalog</label>
               <div className="flex gap-2"><Button className="flex-1 bg-green-700 hover:bg-green-800" disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Simpan</Button>{editing && <Button variant="outline" onClick={() => setEditing(null)}>Batal</Button>}</div>
             </CardContent>

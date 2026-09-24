@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { apiUrl } from "@/lib/api-base";
 
-type Product = { id: number; slug: string; name: string; shortDescription: string; price: string; promoPrice: string | null; effectivePrice: string; images: { id: number; focusX: number; focusY: number }[] };
+type Product = { purchaseMethod?: "midtrans" | "manual"; id: number; slug: string; name: string; shortDescription: string; price: string; promoPrice: string | null; effectivePrice: string; images: { id: number; focusX: number; focusY: number }[] };
 
 
 function money(value: string | number) {
@@ -57,6 +57,7 @@ export default function DigitalProductCheckout() {
 
   const { data: allProducts = [], isLoading } = useQuery<Product[]>({ queryKey: [`/api/digital-products?category=${category}`] });
   const products = useMemo(() => allProducts.filter((product) => cartSlugs.includes(product.slug)), [allProducts, cartSlugs]);
+  const hasManualProduct = products.some(product => product.purchaseMethod === "manual");
   const total = products.reduce((sum, product) => sum + Number(product.effectivePrice), 0);
 
   const checkout = useMutation({
@@ -79,7 +80,7 @@ export default function DigitalProductCheckout() {
 
   if (authLoading || !isAuthenticated) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin text-green-700" /></div>;
 
-  const invalid = !products.length || fullName.trim().length < 2 || !email.includes("@") || phone.trim().length < 7;
+  const invalid = hasManualProduct || !products.length || fullName.trim().length < 2 || !email.includes("@") || phone.trim().length < 7;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,6 +88,7 @@ export default function DigitalProductCheckout() {
       <main className="container mx-auto max-w-6xl px-4 py-10">
         <a href={`https://pi-psychology.com/produk-layanan/produk-edukasi/${elearning ? "video-e-learning" : "produk-digital"}`} className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-green-700"><ArrowLeft size={17} /> Kembali ke katalog</a>
         <div className="mb-8 flex items-center gap-3"><ShoppingCart className="text-green-700" /><h1 className="text-3xl font-extrabold">Keranjang {elearning ? "Video E-Learning" : "Produk Digital"}</h1></div>
+        {hasManualProduct && <p role="alert" className="mb-5 rounded-xl bg-amber-50 p-4 text-amber-900">Ada video yang kini dibeli melalui admin. Hapus video tersebut dari keranjang dan hubungi admin melalui halaman katalog.</p>}
         <div className="grid gap-7 lg:grid-cols-[1.1fr_.9fr]">
           <Card>
             <CardHeader><CardTitle>Produk yang dipilih</CardTitle></CardHeader>

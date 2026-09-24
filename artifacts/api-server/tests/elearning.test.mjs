@@ -10,7 +10,7 @@ import express from 'express';
 // Authentication middleware and unrelated HTML sanitization are outside this test.
 const source = readFileSync(new URL('../src/routes/routes.ts', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
 const migration = source.split('async function ensureDigitalProductInfrastructure() {')[1].split('await pool.query(`')[1].split('`);')[0];
-const schema = source.slice(source.indexOf('const digitalProductSchema ='), source.indexOf('const digitalOrderSchema ='));
+const schema = source.slice(source.indexOf('const digitalProductSchema ='), source.indexOf('const digitalProductImageFocusSchema ='));
 const routes = source.slice(source.indexOf('  const digitalProductSelect ='), source.indexOf('  const physicalProductSelect ='));
 
 test('E-Learning catalog migration, CRUD, category isolation and private access links', async () => {
@@ -26,8 +26,9 @@ test('E-Learning catalog migration, CRUD, category isolation and private access 
   const handlers = new Map();
   const app = Object.fromEntries(['get','post','put','delete'].map(method => [method, (path,...stack) => handlers.set(`${method} ${path}`,stack.at(-1))]));
   const pool = { query: async (...args) => { const result = await db.query(...args); return {...result, rowCount: result.rows.length || result.affectedRows || 0}; } };
+  pool.connect = async () => ({query:pool.query,release(){}});
   const { code } = await transform(schema + routes, {loader:'ts',format:'cjs'});
-  new Function('app','pool','z','express','isAuthenticated','canManageDigitalProducts','sanitizeRichText','makeDigitalProductSlug', code)(app,pool,z,express,()=>{},()=>{},value=>value,value=>value);
+  new Function('app','pool','z','express','isAuthenticated','canManageDigitalProducts','sanitizeRichText','makeDigitalProductSlug','recordWebsiteCheckout', code)(app,pool,z,express,()=>{},()=>{},value=>value,value=>value,async()=>{});
   async function call(method,path,{body={},query={},params={}}={}) {
     let status=200,data;
     const response={status(value){status=value;return this;},json(value){data=value;return this;}};
@@ -65,5 +66,25 @@ test('E-Learning catalog migration, CRUD, category isolation and private access 
   assert.equal((await call('get','/api/digital-products',{query:{category:'elearning'}})).data.length,0);
   assert.equal((await call('get','/api/admin/digital-products',{query:{category:'elearning'}})).data.length,1);
   assert.equal((await call('get','/api/digital-products')).data[0].slug,'legacy');
+  assert.equal((await call('get','/api/digital-products')).data[0].purchaseMethod,'midtrans');
+  const manual={...body,slug:'manual-video',purchaseMethod:'manual',adminWhatsapp:'0812-3456-7890'};
+  for(const invalid of [{...manual,adminWhatsapp:''},{...manual,adminWhatsapp:'https://bad.example'},{...manual,category:'digital'}]) {
+    assert.equal((await call('post','/api/admin/digital-products',{body:invalid})).status,400);
+  }
+  const manualCreated=await call('post','/api/admin/digital-products',{body:manual});
+  assert.equal(manualCreated.status,201);
+  const manualId=manualCreated.data.id;
+  const publicManual=(await call('get','/api/digital-products/:slug',{params:{slug:'manual-video'},query:{category:'elearning'}})).data;
+  assert.equal(publicManual.purchaseMethod,'manual');
+  assert.equal(publicManual.adminWhatsapp,'6281234567890');
+  const customer={fullName:'Test Buyer',email:'buyer@example.com',phone:'081234567890'};
+  const countBefore=(await db.query('SELECT count(*) FROM orders')).rows[0].count;
+  for(const productIds of [[manualId],[manualId,1]]) {
+    assert.equal((await call('post','/api/digital-products/orders',{body:{productIds,customer}})).status,400);
+  }
+  assert.equal((await db.query('SELECT count(*) FROM orders')).rows[0].count,countBefore);
+  assert.equal((await call('put','/api/admin/digital-products/:productId',{params:{productId:manualId},body:{...manual,purchaseMethod:'midtrans'}})).status,200);
+  await db.exec("ALTER TABLE orders ADD COLUMN total_amount numeric; ALTER TABLE orders ADD COLUMN created_at timestamp; ALTER TABLE orders ADD COLUMN updated_at timestamp; SELECT setval('orders_id_seq',100);");
+  assert.equal((await call('post','/api/digital-products/orders',{body:{productIds:[manualId],customer}})).status,201);
   await db.close();
 });

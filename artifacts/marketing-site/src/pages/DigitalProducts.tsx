@@ -11,6 +11,8 @@ type ProductMedia = { id: number; title: string; url: string; mediaType: "video"
 type DigitalProduct = {
   id: number;
   category: "digital" | "elearning";
+  purchaseMethod?: "midtrans" | "manual";
+  adminWhatsapp?: string;
   slug: string;
   name: string;
   shortDescription: string;
@@ -46,7 +48,9 @@ function ProductPrice({ product, large = false }: { product: DigitalProduct; lar
   );
 }
 
+function isManual(product: DigitalProduct) { return product.category === 'elearning' && product.purchaseMethod === 'manual'; }
 function checkoutUrl(product: DigitalProduct) {
+  if(isManual(product)) return 'https://wa.me/' + product.adminWhatsapp + '?text=' + encodeURIComponent('Halo Admin, saya ingin membeli video e-learning "' + product.name + '". Mohon informasi pembelian dan aksesnya.');
   const base = getAsesmenPlatformHref().replace(/\/$/, "");
   return `${base}/digital-products/checkout?product=${encodeURIComponent(product.slug)}&category=${product.category}`;
 }
@@ -143,7 +147,7 @@ function DigitalProductDetail({ slug, elearning }: { slug: string; elearning: bo
               <div className="grid items-start lg:grid-cols-2">
                 <section className="p-7 sm:p-10">
                   <ProductGallery product={product} height="aspect-[4/3]" fit="contain" />
-                  <p className="mt-4 text-center text-xs text-gray-500">Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.</p>
+                  <p className="mt-4 text-center text-xs text-gray-500">{isManual(product) ? 'Hubungi admin untuk informasi pembayaran dan akses e-learning.' : 'Anda akan diminta login atau mendaftar sebelum melanjutkan transaksi.'}</p>
                 </section>
                 <section className="flex flex-col border-t border-gray-100 p-7 sm:p-10 lg:border-l lg:border-t-0">
                   <span className="mb-3 text-sm font-bold uppercase tracking-widest text-green-700">{title}</span>
@@ -172,13 +176,14 @@ function DigitalProductDetail({ slug, elearning }: { slug: string; elearning: bo
       </main>
       {product && <a
         href={checkoutUrl(product)}
-        aria-label={`Beli ${product.name} sekarang`}
+        aria-label={isManual(product) ? `Hubungi Admin untuk Beli ${product.name}` : `Beli ${product.name} sekarang`}
+        target={isManual(product) ? "_blank" : undefined} rel={isManual(product) ? "noopener noreferrer" : undefined}
         aria-disabled={openingCheckout}
-        onClick={() => setOpeningCheckout(true)}
+        onClick={() => { if(!isManual(product)) setOpeningCheckout(true); }}
         className={`fixed bottom-24 right-4 z-[45] inline-flex items-center justify-center gap-2 rounded-full bg-green-800 px-5 py-3.5 text-sm font-extrabold text-white shadow-2xl shadow-green-950/30 ring-2 ring-white transition hover:-translate-y-0.5 hover:bg-green-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-green-300 sm:bottom-28 sm:right-8 sm:px-6 sm:text-base ${openingCheckout ? "pointer-events-none opacity-75" : ""}`}
       >
         {openingCheckout ? <Loader2 className="animate-spin" size={20} /> : <ShoppingCart size={20} />}
-        {openingCheckout ? "Membuka Pembelian..." : "Beli Sekarang"}
+        {isManual(product) ? "Hubungi Admin untuk Beli" : openingCheckout ? "Membuka Pembelian..." : "Beli Sekarang"}
       </a>}
       <Footer />
     </div>
@@ -252,7 +257,7 @@ export default function DigitalProducts({ elearning = false }: { elearning?: boo
                     <div className="mt-5"><ProductPrice product={product} /></div>
                     <div className="mt-5 grid grid-cols-2 gap-3">
                       <Link href={`${basePath}/${product.slug}`} className="rounded-xl border border-green-800 px-4 py-2.5 text-center text-sm font-bold text-green-800">Detail</Link>
-                      <a href={checkoutUrl(product)} className="rounded-xl bg-green-800 px-4 py-2.5 text-center text-sm font-bold text-white">Beli</a>
+                      <a href={checkoutUrl(product)} target={isManual(product) ? "_blank" : undefined} rel={isManual(product) ? "noopener noreferrer" : undefined} className="rounded-xl bg-green-800 px-4 py-2.5 text-center text-sm font-bold text-white">{isManual(product) ? "Hubungi Admin untuk Beli" : "Beli"}</a>
                     </div>
                   </div>
                 </div>
