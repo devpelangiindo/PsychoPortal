@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import express from 'express';
+import sharp from 'sharp';
+import {PGlite} from '@electric-sql/pglite';
+import {psychologistMediaSql,registerPsychologistMedia,readStoredSignature} from '../src/psychologist-media';
+
+test('psychologist uploads validate images, preserve transparency and protect signatures',async t=>{
+  const db=new PGlite();await db.exec(psychologistMediaSql);await db.exec(psychologistMediaSql);
+  const pool:any={query:async(s:string,p:any[]=[])=>{const r=await db.query(s,p);return {...r,rowCount:r.rows.length||r.affectedRows||0,rows:r.rows.map((v:any)=>v.image_data?{...v,image_data:Buffer.from(v.image_data)}:v)};}};
+  const app=express();app.use(express.json());
+  registerPsychologistMedia(app,pool,(req,res,next)=>{if(!req.headers.authorization){res.sendStatus(401);return;}next();},(req,res,next)=>{if(req.headers.authorization!=='admin'){res.sendStatus(403);return;}next();});
+  const server=app.listen(0,'127.0.0.1');await new Promise<void>(resolve=>server.once('listening',resolve));
+  t.after(async()=>{await new Promise<void>(resolve=>server.close(()=>resolve()));await db.close();});
+  const base=`http://127.0.0.1:${(server.address() as any).port}`;
+  const png=await sharp({create:{width:600,height:200,channels:4,background:{r:0,g:0,b:0,alpha:0}}}).png().toBuffer();
+  const upload=(kind:string,body=png,auth='admin')=>fetch(`${base}/api/admin/psychologist-media/${kind}`,{method:'POST',headers:{'Content-Type':'image/png',...(auth?{Authorization:auth}:{})},body});
+  assert.equal((await upload('photo',png,'')).status,401);
+  assert.equal((await upload('signature',png,'customer')).status,403);
+  assert.equal((await upload('invalid')).status,400);
+  assert.equal((await upload('photo',Buffer.from('<svg/>'))).status,400);
+  const photoResponse=await upload('photo');assert.equal(photoResponse.status,201);
+  const photo=await photoResponse.json();
+  assert.equal((await fetch(base+photo.url)).status,200);
+  const signature=await (await upload('signature')).json();
+  assert.equal((await fetch(base+signature.url)).status,404);
+  const privateUrl=base+signature.url.replace('/api/','/api/admin/');
+  assert.equal((await fetch(privateUrl)).status,401);
+  assert.equal((await fetch(privateUrl,{headers:{Authorization:'customer'}})).status,403);
+  const preview=await fetch(privateUrl,{headers:{Authorization:'admin'}});
+  assert.equal(preview.status,200);assert.equal(preview.headers.get('cache-control'),'no-store');
+  const bytes=Buffer.from(await preview.arrayBuffer());const meta=await sharp(bytes).metadata();
+  assert.equal(meta.format,'png');assert.equal(meta.hasAlpha,true);
+  assert.deepEqual(await readStoredSignature(pool,signature.url),bytes);
+  assert.equal(await readStoredSignature(pool,photo.url),undefined);
+  assert.equal(await readStoredSignature(pool,'https://example.com/old.png'),undefined);
+  assert.equal(await readStoredSignature(pool,'/api/psychologist-media/'+'-'.repeat(36)),undefined);
+});

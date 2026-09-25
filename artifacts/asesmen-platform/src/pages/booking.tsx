@@ -1,3 +1,4 @@
+import { apiUrl } from "@/lib/api-base";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent, ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -197,7 +198,7 @@ const getMergedPsychologistProfile = (psychologist: PsychologistOption) => {
     name: psychologist.name,
     sipp: psychologist.sipp || staticProfile?.sipp || "",
     licenseType: psychologist.licenseType || staticProfile?.licenseType || "SIPP",
-    photo: psychologist.profileImageUrl || staticProfile?.photo || "",
+    photo: psychologist.profileImageUrl ? apiUrl(psychologist.profileImageUrl) : staticProfile?.photo || "",
     description: psychologist.description || staticProfile?.description || "",
     details: psychologist.details || "",
   };

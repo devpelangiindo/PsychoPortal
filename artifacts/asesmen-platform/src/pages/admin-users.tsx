@@ -1,3 +1,4 @@
+import PsychologistImageUpload from "@/components/psychologist-image-upload";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -83,7 +84,7 @@ const consultationTypeOptions = [
 
 type ConsultationType = (typeof consultationTypeOptions)[number]["value"];
 
-function PsychologistProfileFields({ form }: { form: any }) {
+function PsychologistProfileFields({ form, onUploadState }: { form: any; onUploadState:(kind:"photo"|"signature",busy:boolean)=>void }) {
   const selectedTypes = (form.watch("psychologistConsultationTypes") ?? []) as ConsultationType[];
 
   const toggleType = (type: ConsultationType, checked: boolean) => {
@@ -177,9 +178,9 @@ function PsychologistProfileFields({ form }: { form: any }) {
           name="profileImageUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>URL Foto Profil</FormLabel>
+              <FormLabel>Foto Profil</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} placeholder="https://..." />
+                <PsychologistImageUpload kind="photo" value={field.value ?? ""} onChange={field.onChange} onBusy={busy=>onUploadState("photo",busy)} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -190,9 +191,9 @@ function PsychologistProfileFields({ form }: { form: any }) {
           name="psychologistSignatureUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>URL Tanda Tangan</FormLabel>
+              <FormLabel>Tanda Tangan</FormLabel>
               <FormControl>
-                <Input {...field} value={field.value ?? ""} placeholder="https://..." />
+                <PsychologistImageUpload kind="signature" value={field.value ?? ""} onChange={field.onChange} onBusy={busy=>onUploadState("signature",busy)} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -232,6 +233,9 @@ function PsychologistProfileFields({ form }: { form: any }) {
 }
 
 export default function AdminUsers() {
+  const [uploads,setUploads]=useState({photo:false,signature:false});
+  const uploadBusy=uploads.photo||uploads.signature;
+  const onUploadState=(kind:"photo"|"signature",busy:boolean)=>setUploads(current=>({...current,[kind]:busy}));
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -695,7 +699,7 @@ export default function AdminUsers() {
             <DialogTitle>Tambah Psikolog Associate</DialogTitle>
           </DialogHeader>
           <Form {...createPsychologistForm}>
-            <form onSubmit={createPsychologistForm.handleSubmit(onCreatePsychologist)} className="space-y-4">
+            <form onSubmit={createPsychologistForm.handleSubmit(data=>{if(!uploadBusy)onCreatePsychologist(data);})} className="space-y-4">
               <FormField
                 control={createPsychologistForm.control}
                 name="psychologistProfileName"
@@ -709,7 +713,7 @@ export default function AdminUsers() {
                   </FormItem>
                   )}
                 />
-              <PsychologistProfileFields form={createPsychologistForm} />
+              <PsychologistProfileFields form={createPsychologistForm} onUploadState={onUploadState} />
               <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={createPsychologistForm.control}
@@ -784,7 +788,7 @@ export default function AdminUsers() {
                 <Button type="button" variant="outline" onClick={() => setIsCreatePsychologistDialogOpen(false)}>
                   Batal
                 </Button>
-                <Button type="submit" disabled={createPsychologistMutation.isPending}>
+                <Button type="submit" disabled={uploadBusy || createPsychologistMutation.isPending}>
                   {createPsychologistMutation.isPending ? "Menyimpan..." : "Tambah Psikolog"}
                 </Button>
               </div>
@@ -800,7 +804,7 @@ export default function AdminUsers() {
             <DialogTitle>Edit Pengguna</DialogTitle>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onUpdateUser)} className="space-y-4">
+            <form onSubmit={editForm.handleSubmit(data=>{if(!uploadBusy)onUpdateUser(data);})} className="space-y-4">
               <FormField
                 control={editForm.control}
                 name="firstName"
@@ -878,7 +882,7 @@ export default function AdminUsers() {
                       </FormItem>
                     )}
                   />
-                  <PsychologistProfileFields form={editForm} />
+                  <PsychologistProfileFields form={editForm} onUploadState={onUploadState} />
                 </div>
               )}
 
@@ -913,7 +917,7 @@ export default function AdminUsers() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={updateUserMutation.isPending}
+                  disabled={uploadBusy || updateUserMutation.isPending}
                 >
                   {updateUserMutation.isPending ? "Menyimpan..." : "Simpan"}
                 </Button>

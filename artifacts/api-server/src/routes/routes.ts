@@ -15,6 +15,7 @@ import express from "express";
 import sanitizeHtml from "sanitize-html";
 import { pool } from "../db";
 import { trainingPromoSchemaSql, registerTrainingPromoRoutes } from "../training-promos";
+import { psychologistMediaSql, registerPsychologistMedia, readStoredSignature, mediaPathPattern } from "../psychologist-media";
 import { initializeInstagram, registerInstagramRoutes } from "../instagram";
 import { DEFAULT_THERAPY_CATEGORIES, DEFAULT_THERAPY_SERVICES } from "../therapy-seed";
 import { DEFAULT_ONSITE_ASSESSMENT_SERVICES } from "../onsite-assessment-seed";
@@ -1828,8 +1829,8 @@ const adminCreatePsychologistSchema = z.object({
   psychologistLicenseType: z.enum(["SIPP", "SILP"]).optional(),
   psychologistDescription: z.string().optional(),
   psychologistDetails: z.string().optional(),
-  psychologistSignatureUrl: z.string().url("URL tanda tangan tidak valid").optional().or(z.literal("")),
-  profileImageUrl: z.string().url("URL foto tidak valid").optional().or(z.literal("")),
+  psychologistSignatureUrl: z.union([z.string().url(),z.string().regex(mediaPathPattern),z.literal("")]).optional(),
+  profileImageUrl: z.union([z.string().url(),z.string().regex(mediaPathPattern),z.literal("")]).optional(),
 }).superRefine((data, ctx) => {
   data.psychologistConsultationTypes.forEach((type) => {
     const field = (type === "child" ? "psychologistChildPrice" : type === "adult" ? "psychologistAdultPrice" : "psychologistFamilyPrice") as "psychologistChildPrice" | "psychologistAdultPrice" | "psychologistFamilyPrice";
@@ -2170,6 +2171,7 @@ function getReportAssetPath(fileName: string) {
 
 async function getSignatureImage(signatureUrl?: string | null) {
   if (!signatureUrl) return undefined;
+  if(signatureUrl.startsWith("/api/psychologist-media/")) return readStoredSignature(pool,signatureUrl);
   if (signatureUrl.startsWith("asset:")) {
     return getReportAssetPath(signatureUrl.slice("asset:".length));
   }
@@ -3897,6 +3899,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await ensureTherapyGalleryInfrastructure();
     await ensureTrainingInfrastructure();
     await pool.query(trainingPromoSchemaSql);
+    await pool.query(psychologistMediaSql);
     await ensureArticleInfrastructure();
     await initializeInstagram(pool);
     await ensureHospitalityInfrastructure();
@@ -5997,6 +6000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   registerTrainingPromoRoutes(app, pool, isAuthenticated, canManageTrainings);
+  registerPsychologistMedia(app, pool, isAuthenticated, isAdmin);
 
   const analyticsHashSecret = process.env.ANALYTICS_HASH_SECRET || process.env.SESSION_SECRET || randomBytes(32).toString('hex');
   const analyticsRateLimits = new Map<string, { startedAt: number; count: number }>();
