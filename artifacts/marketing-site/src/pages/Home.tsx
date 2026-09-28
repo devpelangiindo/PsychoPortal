@@ -227,6 +227,60 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Layanan */}
+      <section className="py-20" style={{ background: "#F7FAF8" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <div className="section-divider mx-auto" />
+            <h2 className="text-3xl lg:text-4xl font-extrabold" style={{ color: "#1B4332" }}>Produk & Layanan</h2>
+            <p className="text-gray-500 mt-3 max-w-xl mx-auto">
+              Beragam layanan psikologi, pendidikan, dan pengembangan kapasitas untuk semua kalangan.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {services.map((s) => {
+              const cardClass = "service-card block p-6 bg-white rounded-2xl border border-gray-100 shadow-sm group";
+              const inner = (
+                <>
+                  <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-xl bg-white">
+                    <img
+                      src={serviceIcons[s.slug]}
+                      alt=""
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                    />
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-2 group-hover:text-green-800 transition-colors">{s.name}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
+                  <div className="mt-4 flex items-center gap-1 text-xs font-semibold" style={{ color: "#2D6A4F" }}>
+                    Selengkapnya <ArrowRight size={12} />
+                  </div>
+                </>
+              );
+              if ("appHref" in s) {
+                const href = s.appHref === "booking" ? getBookingHref() : getAsesmenPlatformHref();
+                return <a key={s.slug} href={href} className={cardClass}>{inner}</a>;
+              }
+              return s.externalHref ? (
+                <a key={s.slug} href={s.externalHref} target="_blank" rel="noopener noreferrer" className={cardClass}>{inner}</a>
+              ) : (
+                <Link key={s.slug} href={`/produk-layanan/${s.slug}`} className={cardClass}>{inner}</Link>
+              );
+            })}
+          </div>
+          <div className="text-center mt-10">
+            <Link
+              href="/produk-layanan"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all hover:scale-105 hover:shadow-md"
+              style={{ background: "#2D6A4F" }}
+            >
+              Lihat Semua Layanan
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Sejarah */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -357,60 +411,6 @@ export default function Home() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Layanan */}
-      <section className="py-20" style={{ background: "#F7FAF8" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <div className="section-divider mx-auto" />
-            <h2 className="text-3xl lg:text-4xl font-extrabold" style={{ color: "#1B4332" }}>Produk & Layanan</h2>
-            <p className="text-gray-500 mt-3 max-w-xl mx-auto">
-              Beragam layanan psikologi, pendidikan, dan pengembangan kapasitas untuk semua kalangan.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {services.map((s) => {
-              const cardClass = "service-card block p-6 bg-white rounded-2xl border border-gray-100 shadow-sm group";
-              const inner = (
-                <>
-                  <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-xl bg-white">
-                    <img
-                      src={serviceIcons[s.slug]}
-                      alt=""
-                      className="h-full w-full object-contain"
-                      loading="lazy"
-                    />
-                  </div>
-                  <h3 className="font-bold text-gray-900 mb-2 group-hover:text-green-800 transition-colors">{s.name}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">{s.desc}</p>
-                  <div className="mt-4 flex items-center gap-1 text-xs font-semibold" style={{ color: "#2D6A4F" }}>
-                    Selengkapnya <ArrowRight size={12} />
-                  </div>
-                </>
-              );
-              if ("appHref" in s) {
-                const href = s.appHref === "booking" ? getBookingHref() : getAsesmenPlatformHref();
-                return <a key={s.slug} href={href} className={cardClass}>{inner}</a>;
-              }
-              return s.externalHref ? (
-                <a key={s.slug} href={s.externalHref} target="_blank" rel="noopener noreferrer" className={cardClass}>{inner}</a>
-              ) : (
-                <Link key={s.slug} href={`/produk-layanan/${s.slug}`} className={cardClass}>{inner}</Link>
-              );
-            })}
-          </div>
-          <div className="text-center mt-10">
-            <Link
-              href="/produk-layanan"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-all hover:scale-105 hover:shadow-md"
-              style={{ background: "#2D6A4F" }}
-            >
-              Lihat Semua Layanan
-              <ArrowRight size={16} />
-            </Link>
           </div>
         </div>
       </section>
