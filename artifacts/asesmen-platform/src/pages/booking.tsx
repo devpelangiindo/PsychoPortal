@@ -1192,6 +1192,14 @@ export default function Booking() {
                     </ul>
                     <p className="mt-3">Transfer pengembalian dana kepada klien dilakukan dalam kurun waktu maksimal 6 hari kerja.</p>
                   </div>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+                    <p className="font-semibold">Keterangan Pembayaran Tambahan</p>
+                    <p className="mt-2">Jika layanan berlangsung lebih dari 1 sesi, maka pembayaran tambahan dapat dilakukan dengan ketentuan sebagai berikut:</p>
+                    <ul className="mt-3 list-disc space-y-2 pl-5">
+                      <li>Sesi luring (offline): pembayaran tambahan dilakukan langsung di lokasi.</li>
+                      <li>Sesi daring: pembayaran tambahan dilakukan melalui admin.</li>
+                    </ul>
+                  </div>
                 </CardContent>
               </Card>
             )}
