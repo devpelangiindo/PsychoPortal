@@ -3,6 +3,7 @@ databases:
     plan: basic-256mb
     databaseName: psychoportal
     user: psychoportal
+    ipAllowList: []
 
 services:
   - type: web
