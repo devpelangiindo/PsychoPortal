@@ -25,7 +25,32 @@ app.use(
     },
   }),
 );
-app.use(cors());
+const productionOrigins = new Set([
+  "https://pi-psychology.com",
+  "https://www.pi-psychology.com",
+  "https://asesmen.pi-psychology.com",
+  "https://psychoportal-asesmen-4djc.onrender.com",
+  "https://psychoportal-marketing-oekw.onrender.com",
+  ...(process.env.CORS_ALLOWED_ORIGINS || "").split(",").map((origin) => origin.trim()).filter(Boolean),
+]);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || productionOrigins.has(origin)) {
+      return callback(null, true);
+    }
+
+    if (
+      process.env.NODE_ENV !== "production" &&
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+
+    return callback(null, false);
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

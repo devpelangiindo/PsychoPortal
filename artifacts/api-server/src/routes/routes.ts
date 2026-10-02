@@ -3832,7 +3832,7 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
           status: 'available',
         });
         assessmentsCreated++;
-        console.log(`📚 Created assessment ${item.assessmentId} for user ${order.userId}`);
+        console.log(`📚 Created assessment ${item.assessmentId} for order ${order.id}`);
       }
     }
 
@@ -3881,6 +3881,59 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
   }
 
   return { assessmentsCreated: 0, bookingUpdated: false };
+}
+
+async function applyVerifiedMidtransStatus(order: Awaited<ReturnType<typeof storage.getOrder>>, providerStatus: any) {
+  if (!order || !order.paymentId || providerStatus.order_id !== order.paymentId) {
+    return { valid: false as const };
+  }
+
+  const expectedAmount = Math.round(Number(order.totalAmount));
+  const reportedAmount = Math.round(Number(providerStatus.gross_amount));
+  if (!Number.isSafeInteger(expectedAmount) || !Number.isSafeInteger(reportedAmount) || expectedAmount !== reportedAmount) {
+    return { valid: false as const };
+  }
+
+  const paymentStatus = getMidtransPaymentStatus(
+    providerStatus.transaction_status,
+    providerStatus.fraud_status,
+  );
+  let updatedStatus = order.status;
+
+  if (paymentStatus === "paid") {
+    await fulfillPaidOrder(order.id, order.paymentId);
+    updatedStatus = "completed";
+  } else if ((paymentStatus === "failed" || paymentStatus === "cancelled") && order.status === "pending" && order.paymentStatus !== "paid") {
+    await storage.updateOrderStatus(order.id, "cancelled", order.paymentId, paymentStatus);
+    await releasePhysicalOrderStock(order.id);
+    updatedStatus = "cancelled";
+  } else if (paymentStatus === "pending" && order.status === "pending" && order.paymentStatus !== "pending") {
+    await storage.updateOrderStatus(order.id, "pending", order.paymentId, "pending");
+  }
+
+  return {
+    valid: true as const,
+    orderId: order.id,
+    previousStatus: order.status,
+    currentStatus: updatedStatus,
+    paymentStatus,
+    midtransStatus: providerStatus.transaction_status,
+    synced: updatedStatus !== order.status || paymentStatus === "paid",
+  };
+}
+
+async function synchronizeOwnedMidtransOrder(userId: string, orderId: number) {
+  const order = await storage.getOrder(orderId);
+  if (!order || order.userId !== userId) {
+    return { valid: false as const, reason: "not_found" as const };
+  }
+  if (!order.paymentId) {
+    return { valid: false as const, reason: "payment_not_initialized" as const };
+  }
+
+  const providerStatus = await checkTransactionStatus(order.paymentId);
+  const result = await applyVerifiedMidtransStatus(order, providerStatus);
+  return result.valid ? result : { valid: false as const, reason: "provider_mismatch" as const };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -5296,7 +5349,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         waReminderPlaceholder,
       });
     } catch (error) {
-      console.error("Error creating booking payment:", error);
+      console.error("Booking payment creation failed", {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       res.status(500).json({ message: "Failed to create booking payment" });
     }
   });
@@ -5569,7 +5624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : { rows: [] as any[] };
       const trainingRegistration = trainingResult.rows[0];
 
-      const itemDetails = order.orderItems.length > 0 ? order.orderItems.map(item => ({
+      const itemDetails = order.orderItems.length > 0 ? order.orderItems.filter(item => parseInt(item.price) > 0).map(item => ({
         id: `assessment_${item.assessmentId}`,
         name: item.assessment.name,
         price: parseInt(item.price),
@@ -5621,7 +5676,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemDetails
       };
 
-      console.log(`💳 Creating Midtrans transaction:`, transactionData);
+      console.info("Creating Midtrans transaction", { orderId });
 
       // Create Midtrans transaction
       const midtransResult = await createMidtransTransaction(transactionData);
@@ -5637,11 +5692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         trigger: "after_midtrans_payment_deadline_if_unpaid",
       });
       
-      console.log(`✅ Midtrans transaction created successfully:`, {
-        token: midtransResult.token?.substring(0, 20) + '...',
-        redirect_url: midtransResult.redirect_url,
-        orderId: midtransOrderId
-      });
+      console.info("Midtrans transaction created", { orderId, hasToken: Boolean(midtransResult.token) });
 
       res.json({
         token: midtransResult.token,
@@ -5653,7 +5704,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         waReminderPlaceholder,
       });
     } catch (error) {
-      console.error("❌ Error creating Midtrans payment:", error);
+      console.error("Midtrans payment creation failed", {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       res.status(500).json({ message: "Failed to create payment" });
     }
   });
@@ -9481,299 +9534,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Midtrans payment routes
-
-  // Midtrans Payment Routes
-  app.post('/api/midtrans/create-transaction', isAuthenticated, async (req: any, res) => {
+  app.post('/api/midtrans/webhook', async (req, res): Promise<void> => {
     try {
-      const { orderId, amount, customerDetails, itemDetails } = req.body;
-      
-      console.log('💳 Creating Midtrans transaction with data:', {
-        orderId,
-        amount,
-        customerDetails,
-        itemCount: itemDetails?.length || 0,
-        environment: process.env.NODE_ENV,
-        domain: req.get('host'),
-        userAgent: req.get('User-Agent')
-      });
-
-      // Validate required fields
-      if (!orderId || !amount || !customerDetails || !itemDetails) {
-        console.error('❌ Missing required fields:', { orderId, amount, customerDetails, itemDetails });
-        return res.status(400).json({ 
-          error: 'Missing required fields: orderId, amount, customerDetails, itemDetails' 
-        });
+      const submittedOrderId = req.body?.order_id;
+      const match = typeof submittedOrderId === 'string' ? /^order_(\d+)_(\d+)$/.exec(submittedOrderId) : null;
+      if (!match) {
+        res.status(400).json({ error: 'Invalid notification' });
+        return;
       }
 
-      if (!customerDetails.first_name || !customerDetails.email) {
-        console.error('❌ Invalid customer details:', customerDetails);
-        return res.status(400).json({ 
-          error: 'Customer details must include first_name and email' 
-        });
-      }
-
-      // Create Midtrans transaction
-      const transaction = await createMidtransTransaction({
-        orderId,
-        amount,
-        customerDetails,
-        itemDetails
-      });
-
-      console.log('✅ Midtrans transaction created successfully:', {
-        orderId,
-        hasToken: !!transaction.token,
-        hasRedirectUrl: !!transaction.redirect_url,
-        tokenPrefix: transaction.token?.substring(0, 20) + '...'
-      });
-
-      // CRITICAL FIX: Save payment_id to database for auto-sync functionality
-      try {
-        const numericOrderId = parseInt(orderId.replace(/^order_/, '').replace(/_\d+$/, ''));
-        console.log(`📝 Saving payment_id ${orderId} for order ${numericOrderId}`);
-        
-        await storage.updateOrderStatus(numericOrderId, 'pending', orderId, 'pending');
-        console.log(`✅ Payment ID saved successfully for order ${numericOrderId}`);
-      } catch (paymentIdSaveError) {
-        console.error('❌ Failed to save payment_id to database:', paymentIdSaveError);
-        // Continue anyway - transaction was created successfully
-      }
-
-      res.json(transaction);
-    } catch (error: any) {
-      console.error('❌ Error creating Midtrans transaction:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        cause: error.cause
-      });
-      
-      // Return more specific error message
-      let errorMessage = 'Failed to create transaction';
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      res.status(500).json({ error: errorMessage });
-    }
-  });
-
-  app.post('/api/midtrans/webhook', async (req, res) => {
-    try {
-      console.log('🔔 Midtrans webhook received:', req.body);
-      
       const notificationResult = await handleMidtransCallback(req, res);
-      
-      if (!notificationResult) {
-        return res.status(400).json({ error: 'Invalid notification' });
+      if (!notificationResult || !match || notificationResult.orderId !== submittedOrderId) {
+        res.status(400).json({ error: 'Invalid notification' });
+        return;
       }
 
-      const { orderId, status, amount } = notificationResult;
-      console.log(`📝 Midtrans notification: orderId=${orderId}, status=${status}, amount=${amount}`);
-      
-      // Extract numeric order ID from Midtrans format (order_123_timestamp)
-      const orderIdMatch = orderId.match(/order_(\d+)_/);
-      const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1]) : parseInt(orderId);
-      
-      console.log(`🔄 Processing real-time sync for order ${numericOrderId} with status: ${status}`);
-      
-      // Update order status based on Midtrans notification (ALWAYS sync regardless of current status)
-      if (status === 'paid') {
-        const fulfillment = await fulfillPaidOrder(numericOrderId, orderId);
-        console.log(`🎉 Midtrans: Order ${numericOrderId} completed successfully`, fulfillment);
-      } else if (status === 'failed' || status === 'cancelled') {
-        await storage.updateOrderStatus(numericOrderId, 'cancelled', orderId, status);
-        await releasePhysicalOrderStock(numericOrderId);
-        console.log(`❌ Midtrans: Order ${numericOrderId} ${status}`);
-      } else if (status === 'pending') {
-        await storage.updateOrderStatus(numericOrderId, 'pending', orderId, 'pending');
-        console.log(`⏳ Midtrans: Order ${numericOrderId} pending`);
-      } else {
-        console.log(`⚠️ Midtrans: Unknown status ${status} for order ${numericOrderId}`);
+      const numericOrderId = Number(match[1]);
+      if (!Number.isSafeInteger(numericOrderId) || numericOrderId <= 0) {
+        res.status(400).json({ error: 'Invalid order ID' });
+        return;
       }
 
+      const order = await storage.getOrder(numericOrderId);
+      if (!order || order.paymentId !== notificationResult.orderId) {
+        res.status(404).json({ error: 'Order payment not found' });
+        return;
+      }
+
+      const applied = await applyVerifiedMidtransStatus(order, {
+        order_id: notificationResult.orderId,
+        gross_amount: notificationResult.amount,
+        transaction_status: notificationResult.transactionStatus,
+        fraud_status: notificationResult.fraudStatus,
+      });
+      if (!applied.valid) {
+        res.status(409).json({ error: 'Payment details do not match the order' });
+        return;
+      }
+
+      console.info('Midtrans notification processed', {
+        orderId: numericOrderId,
+        paymentStatus: applied.paymentStatus,
+      });
       res.json({ status: 'ok' });
     } catch (error) {
-      console.error('❌ Error handling Midtrans webhook:', error);
+      console.error('Midtrans webhook processing failed', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   });
 
-  app.get('/api/midtrans/status/:orderId', isAuthenticated, async (req, res) => {
+  app.get('/api/midtrans/status/:orderId', isAuthenticated, async (req: any, res): Promise<void> => {
     try {
-      const orderId = req.params.orderId;
-      const status = await checkTransactionStatus(orderId);
-      res.json(status);
+      if (!/^\d+$/.test(req.params.orderId)) {
+        res.status(400).json({ error: 'Invalid order ID' });
+        return;
+      }
+      const order = await storage.getOrder(Number(req.params.orderId));
+      if (!order || order.userId !== req.user.claims.sub) {
+        res.status(404).json({ error: 'Order not found' });
+        return;
+      }
+      if (!order.paymentId) {
+        res.status(409).json({ error: 'Payment has not been initialized' });
+        return;
+      }
+
+      const status = await checkTransactionStatus(order.paymentId);
+      if (
+        status.order_id !== order.paymentId ||
+        Math.round(Number(status.gross_amount)) !== Math.round(Number(order.totalAmount))
+      ) {
+        res.status(409).json({ error: 'Payment details do not match the order' });
+        return;
+      }
+      res.json({
+        order_id: status.order_id,
+        transaction_status: status.transaction_status,
+        fraud_status: status.fraud_status,
+        gross_amount: status.gross_amount,
+      });
     } catch (error) {
-      console.error('Error checking Midtrans transaction status:', error);
+      console.error('Midtrans status lookup failed', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       res.status(500).json({ error: 'Failed to check transaction status' });
     }
   });
 
-  // Sync order status with Midtrans - manually check and update
-  app.post('/api/midtrans/sync-status/:orderId', isAuthenticated, async (req, res) => {
+  app.post('/api/midtrans/sync-status/:orderId', isAuthenticated, async (req: any, res): Promise<void> => {
     try {
-      const numericOrderId = parseInt(req.params.orderId);
-      const order = await storage.getOrder(numericOrderId);
-      
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
+      if (!/^\d+$/.test(req.params.orderId)) {
+        res.status(400).json({ error: 'Invalid order ID' });
+        return;
       }
-
-      // Try different possible Midtrans order ID formats
-      const baseTimestamp = Math.round(new Date(order.createdAt!).getTime() / 1000);
-      const possibleOrderIds = [
-        order.paymentId || '',                          // Use existing payment_id if available
-        `order_${numericOrderId}_${baseTimestamp}511`,  // Order 211 specific format
-        `order_${numericOrderId}_${baseTimestamp}795`,  // Millisecond variation
-        `order_${numericOrderId}_${baseTimestamp}`,     // Standard format
-        `order_${numericOrderId}_1753458173795`,        // Known working format for 210
-        `order_${numericOrderId}_1753460559511`,        // Known working format for 211
-        `order_${numericOrderId}_1753461365435`,        // Known working format for 212
-      ].filter(id => id.length > 0);
-      
-      let midtransStatus: any = null;
-      let workingOrderId: string = '';
-      
-      // Try each possible order ID format until one works
-      for (const orderId of possibleOrderIds) {
-        try {
-          console.log(`🔍 Trying order ID: ${orderId}`);
-          midtransStatus = await checkTransactionStatus(orderId);
-          workingOrderId = orderId;
-          console.log(`✅ Found working order ID: ${workingOrderId}`);
-          break;
-        } catch (error) {
-          console.log(`❌ Failed with order ID: ${orderId}`, (error as Error).message);
-          continue;
-        }
+      const result = await synchronizeOwnedMidtransOrder(req.user.claims.sub, Number(req.params.orderId));
+      if (!result.valid) {
+        const statusCode = result.reason === 'not_found' ? 404 : 409;
+        const message = result.reason === 'not_found'
+          ? 'Order not found'
+          : result.reason === 'payment_not_initialized'
+            ? 'Payment has not been initialized'
+            : 'Payment details do not match the order';
+        res.status(statusCode).json({ error: message });
+        return;
       }
-      
-      if (!midtransStatus || !workingOrderId) {
-        return res.status(404).json({ 
-          error: 'Transaction not found in Midtrans',
-          triedOrderIds: possibleOrderIds
-        });
-      }
-      
-      console.log(`🔄 Syncing order ${numericOrderId} with Midtrans...`);
-      console.log(`   Working Midtrans Order ID: ${workingOrderId}`);
-      console.log(`   Current Midtrans status:`, midtransStatus);
-      
-      // Convert Midtrans status to our system status
-      const paymentStatus = getMidtransPaymentStatus(
-        midtransStatus.transaction_status,
-        midtransStatus.fraud_status
-      );
-      
-      console.log(`   Converted payment status: ${paymentStatus}`);
-      
-      // Update order status if different
-      let updatedStatus = order.status;
-      if (paymentStatus === 'paid' && order.status !== 'completed') {
-        updatedStatus = 'completed';
-        await fulfillPaidOrder(numericOrderId, workingOrderId);
-        
-        console.log(`✅ Order ${numericOrderId} updated to completed`);
-      } else if ((paymentStatus === 'failed' || paymentStatus === 'cancelled') && order.status === 'pending') {
-        updatedStatus = 'cancelled';
-        await storage.updateOrderStatus(numericOrderId, 'cancelled', workingOrderId, paymentStatus);
-        console.log(`❌ Order ${numericOrderId} updated to cancelled (payment status: ${paymentStatus})`);
-      }
-      
-      res.json({
-        orderId: numericOrderId,
-        previousStatus: order.status,
-        currentStatus: updatedStatus,
-        paymentStatus: paymentStatus,
-        midtransStatus: midtransStatus.transaction_status,
-        synced: updatedStatus !== order.status
-      });
-      
+      res.json(result);
     } catch (error) {
-      console.error('❌ Error syncing order status:', error);
+      console.error('Midtrans order sync failed', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       res.status(500).json({ error: 'Failed to sync order status' });
     }
   });
-
-  // Simulate Midtrans payment completion (for testing) - no auth required for auto-completion
-  app.post('/api/midtrans/simulate-payment/:orderId', async (req: any, res: any) => {
-    try {
-      const orderId = parseInt(req.params.orderId);
-      
-      console.log(`🧪 Auto-completing Midtrans payment for order ${orderId} - bypass mode enabled`);
-      
-      // Get order details
-      const order = await storage.getOrder(orderId);
-      if (!order) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-      
-      // Check if assessments exist for completed orders
-      let assessmentsCreated = 0;
-      if (order.status === 'completed' && order.paymentStatus === 'paid') {
-        console.log(`Order ${orderId} already completed, checking for missing assessments...`);
-        const fulfillment = await fulfillPaidOrder(orderId, order.paymentId || `midtrans_sim_${orderId}`);
-        assessmentsCreated += fulfillment.assessmentsCreated;
-        
-        // Create user assessments if they don't exist for this specific order
-        if (order.orderItems) {
-          for (const item of order.orderItems) {
-            if (isExternalAssessmentType(item.assessment.type)) continue;
-            // Check if assessment exists for THIS SPECIFIC ORDER (not just user+assessment combo)
-            const existingAssessment = await storage.getUserAssessmentByOrder(order.userId, item.assessmentId, orderId);
-            if (!existingAssessment) {
-              await storage.createUserAssessment({
-                userId: order.userId,
-                assessmentId: item.assessmentId,
-                orderId: orderId,
-                status: 'available' as const
-              });
-              assessmentsCreated++;
-              console.log(`📚 Created missing assessment ${item.assessmentId} for completed order ${orderId}`);
-            } else {
-              console.log(`⚠️ Assessment ${item.assessmentId} already exists for order ${orderId}`);
-            }
-          }
-        }
-        
-        if (assessmentsCreated > 0) {
-          return res.json({ 
-            message: 'Missing assessments created for completed order',
-            orderId,
-            status: 'completed',
-            assessmentsCreated
-          });
-        } else {
-          return res.json({ 
-            message: 'Order already completed and all assessments exist',
-            orderId,
-            status: 'completed'
-          });
-        }
-      }
-      
-      const fulfillment = await fulfillPaidOrder(orderId, `midtrans_sim_${orderId}`);
-      assessmentsCreated += fulfillment.assessmentsCreated;
-      console.log(`✅ Order ${orderId} status updated to completed via Midtrans simulation`);
-      
-      res.json({ 
-        message: 'Midtrans payment simulated successfully',
-        orderId,
-        status: 'completed',
-        assessmentsCreated,
-        bookingUpdated: fulfillment.bookingUpdated,
-      });
-    } catch (error: any) {
-      console.error('❌ Error simulating Midtrans payment:', error);
-      res.status(500).json({ error: error.message || 'Failed to simulate payment' });
-    }
-  });
-  
-  // Admin simulation endpoints for Midtrans
-
   // Payment success/failure pages endpoints
   app.get('/api/payment-status/:orderId', isAuthenticated, async (req: any, res) => {
     try {
@@ -9809,27 +9683,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Real-time sync trigger endpoint
-  app.post('/api/sync/trigger', async (req, res) => {
+  // Sync only the signed-in user's recent pending orders.
+  app.post('/api/sync/trigger', isAuthenticated, async (req: any, res) => {
     try {
-      console.log('🔄 Manual sync trigger requested');
-      
-      // Import auto-sync function
-      const { autoSyncOrders } = await import('../auto-sync');
-      await autoSyncOrders();
-      
-      res.json({ 
-        success: true, 
-        message: 'Sync completed',
-        timestamp: new Date().toISOString()
+      const orders = await storage.getUserOrders(req.user.claims.sub);
+      const pendingOrders = orders
+        .filter((order) => order.status === 'pending' && Boolean(order.paymentId))
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 10);
+      let synced = 0;
+      let failed = 0;
+
+      for (const order of pendingOrders) {
+        try {
+          const result = await synchronizeOwnedMidtransOrder(req.user.claims.sub, order.id);
+          if (result.valid && result.synced) synced++;
+          else if (!result.valid) failed++;
+        } catch {
+          failed++;
+        }
+      }
+
+      res.json({
+        success: true,
+        attempted: pendingOrders.length,
+        synced,
+        failed,
+        timestamp: new Date().toISOString(),
       });
-    } catch (error: any) {
-      console.error('❌ Manual sync failed:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Sync failed',
-        message: error.message 
+    } catch (error) {
+      console.error('User payment sync failed', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
       });
+      res.status(500).json({ success: false, error: 'Sync failed' });
     }
   });
 
@@ -10158,5 +10044,5 @@ async function ensureDefaultAdminUser() {
     isEmailVerified: true,
   });
 
-  console.log(`👤 Default admin user ready: ${adminEmail}`);
+  console.log('Default admin account is ready.');
 }

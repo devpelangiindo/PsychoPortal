@@ -32,19 +32,9 @@ export default function Cart() {
       });
       return await response.json();
     },
-    onSuccess: async (orderData) => {
+    onSuccess: (orderData) => {
       setCurrentOrderId(orderData.id);
-      
-      if (getTotalAmount() === 0) {
-        // Free assessment - process immediately
-        processDemoPaymentMutation.mutate({
-          orderId: orderData.id,
-          paymentMethod: 'free_access'
-        });
-      } else {
-        // For paid assessments, show payment options
-        setShowPayment(true);
-      }
+      setShowPayment(true);
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -66,31 +56,28 @@ export default function Cart() {
     },
   });
 
-  // Demo payment processing
-  const processDemoPaymentMutation = useMutation({
-    mutationFn: async ({ orderId, paymentMethod }: { orderId: number; paymentMethod: string }) => {
-      const response = await apiRequest("POST", "/api/payments/create", {
-        orderId,
-        paymentMethod,
-      });
-      return await response.json();
+  const freeAccessMutation = useMutation({
+    mutationFn: async () => {
+      const freeItems = items.filter((item) => Number(item.price) === 0);
+      for (const item of freeItems) {
+        await apiRequest("POST", `/api/assessments/${item.id}/direct-access`, {});
+      }
     },
     onSuccess: () => {
       clearCart();
       queryClient.invalidateQueries({ queryKey: ["/api/user-assessments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      
       toast({
-        title: getTotalAmount() === 0 ? "Akses Gratis Berhasil!" : "Pembayaran Demo Berhasil!",
+        title: "Akses Gratis Berhasil!",
         description: "Asesmen Anda sekarang tersedia di dashboard.",
         variant: "default",
       });
       setLocation("/dashboard");
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
-        description: "Gagal memproses pembayaran. Silakan coba lagi.",
+        description: "Gagal memberikan akses gratis. Silakan coba lagi.",
         variant: "destructive",
       });
     },
@@ -113,7 +100,7 @@ export default function Cart() {
     createOrderMutation.mutate();
   };
 
-  const handleCheckoutMidtrans = () => {
+  const handleFreeAccess = () => {
     if (!isAuthenticated) {
       toast({
         title: "Silakan masuk",
@@ -125,23 +112,7 @@ export default function Cart() {
       }, 500);
       return;
     }
-    // Create order and show Midtrans payment directly
-    createOrderMutation.mutate();
-    setShowPayment(true);
-  };
-
-  const handlePaymentSuccess = (invoiceData: any) => {
-    // Clear cart and redirect to success page
-    clearCart();
-    setLocation(`/payment-success?orderId=${currentOrderId}`);
-  };
-
-  const handlePaymentError = (error: string) => {
-    toast({
-      title: "Error Pembayaran",
-      description: error,
-      variant: "destructive",
-    });
+    freeAccessMutation.mutate();
   };
 
   if (authLoading) {
@@ -312,10 +283,10 @@ export default function Cart() {
                     <Button 
                       className="w-full" 
                       size="lg"
-                      onClick={handleCheckout}
-                      disabled={createOrderMutation.isPending}
+                      onClick={handleFreeAccess}
+                      disabled={freeAccessMutation.isPending}
                     >
-                      {createOrderMutation.isPending ? "Memproses Akses..." : "Dapatkan Akses Gratis"}
+                      {freeAccessMutation.isPending ? "Memproses Akses..." : "Dapatkan Akses Gratis"}
                     </Button>
                   ) : (
                     // Midtrans payment only
@@ -373,14 +344,8 @@ export default function Cart() {
               </div>
               
               <MidtransPayment
-                orderId={`order_${currentOrderId}_${Date.now()}`}
+                orderId={currentOrderId}
                 amount={getTotalAmount()}
-                customerDetails={{
-                  firstName: user?.firstName || 'Customer',
-                  lastName: user?.lastName || '',
-                  email: user?.email || '',
-                  whatsappNumber: user?.whatsappNumber || '',
-                }}
                 items={items.map(item => ({
                   id: item.id.toString(),
                   name: item.name,
@@ -405,11 +370,10 @@ export default function Cart() {
                   setLocation("/dashboard");
                 }}
                 onError={(error) => {
-                  console.error("Midtrans payment error:", error);
                   setShowPayment(false);
                   toast({
                     title: "Pembayaran Gagal",
-                    description: "Terjadi kesalahan dalam pembayaran. Silakan coba lagi.",
+                    description: error instanceof Error ? error.message : "Terjadi kesalahan dalam pembayaran. Silakan coba lagi.",
                     variant: "destructive",
                   });
                 }}

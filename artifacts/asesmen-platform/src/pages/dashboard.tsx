@@ -152,9 +152,11 @@ function parseDateSearch(query: string) {
   return exact ? { start: exact, end: exact } : null;
 }
 
-function isDateInSearchRange(dateValue: string | null | undefined, range: { start: string; end: string }) {
+function isDateInSearchRange(dateValue: string | Date | null | undefined, range: { start: string; end: string }) {
   if (!dateValue) return false;
-  const normalized = dateValue.slice(0, 10);
+  const normalized = dateValue instanceof Date
+    ? `${dateValue.getFullYear()}-${String(dateValue.getMonth() + 1).padStart(2, "0")}-${String(dateValue.getDate()).padStart(2, "0")}`
+    : dateValue.slice(0, 10);
   return normalized >= range.start && normalized <= range.end;
 }
 
@@ -430,17 +432,7 @@ export default function Dashboard() {
     
     setIsRefreshing(true);
     try {
-      // Get the access token for sync trigger
-      const accessToken = localStorage.getItem('accessToken');
-      
-      // Trigger real-time sync first
-      await fetch('/api/sync/trigger', { 
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
+      await apiRequest('POST', '/api/sync/trigger', {});
       
       // Then refresh local data
       await Promise.all([

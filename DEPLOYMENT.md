@@ -25,7 +25,7 @@ This repo is prepared for Render Blueprint deploys with `render.yaml`.
    - Marketing: `VITE_ASESMEN_PLATFORM_URL`
    - Asesmen: `VITE_API_BASE_URL`, `VITE_MAIN_SITE_URL`
 5. In Midtrans dashboard, configure the payment notification/webhook URL:
-   - `https://psychoportal-api.onrender.com/api/midtrans/webhook`
+   - `https://psychoportal-api-k3k5.onrender.com/api/midtrans/webhook`
    - Replace the hostname if Render/custom domain differs.
 
 ## Notes
@@ -39,6 +39,6 @@ This repo is prepared for Render Blueprint deploys with `render.yaml`.
 
 ```bash
 pnpm --filter @workspace/api-server run build
-PORT=8084 BASE_PATH=/ VITE_API_BASE_URL=https://psychoportal-api.onrender.com VITE_MAIN_SITE_URL=https://pi-psychology.com VITE_MIDTRANS_PRODUCTION_CLIENT_KEY=placeholder pnpm --filter @workspace/asesmen-platform run build
+PORT=8084 BASE_PATH=/ VITE_API_BASE_URL=https://psychoportal-api-k3k5.onrender.com VITE_MAIN_SITE_URL=https://pi-psychology.com VITE_MIDTRANS_PRODUCTION_CLIENT_KEY=placeholder pnpm --filter @workspace/asesmen-platform run build
 PORT=8081 BASE_PATH=/ VITE_ASESMEN_PLATFORM_URL=https://asesmen.pi-psychology.com pnpm --filter @workspace/marketing-site run build
 ```

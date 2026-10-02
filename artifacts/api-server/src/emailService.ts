@@ -40,7 +40,7 @@ class EmailService {
     const emailPass = process.env.EMAIL_PASS;
 
     if (!emailHost || !emailPort || !emailUser || !emailPass) {
-      console.log('Email service not configured. OTP emails will be logged to console.');
+      console.warn('Email service is not configured; outbound email is unavailable.');
       return;
     }
 
@@ -134,17 +134,10 @@ class EmailService {
     `;
 
     if (!this.transporter) {
-      console.log('\n=== CONTACT FORM MESSAGE (Development Mode) ===');
-      console.log(`From: ${name} <${email}>`);
-      if (phone) console.log(`Phone: ${phone}`);
-      console.log(`Subject: ${subject}`);
-      console.log(`Message:\n${message}`);
-      console.log('================================================\n');
       if (process.env.NODE_ENV === 'production') {
         console.warn('[WARN] Email transporter not configured in production. Contact message was NOT delivered.');
-        return false;
       }
-      return true;
+      return false;
     }
 
     if (!adminEmail) {
@@ -162,7 +155,9 @@ class EmailService {
       });
       return true;
     } catch (error) {
-      console.error('Failed to send contact email:', error);
+      console.error('Failed to send contact email', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       return false;
     }
   }
@@ -199,7 +194,9 @@ class EmailService {
       });
       return true;
     } catch (error) {
-      console.error('Failed to send OTP email:', error);
+      console.error('Failed to send OTP email', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       return false;
     }
   }

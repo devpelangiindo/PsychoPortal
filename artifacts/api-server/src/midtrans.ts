@@ -26,16 +26,6 @@ if (!merchantId && !allowMissingMidtrans) {
 const isProduction = true; // Use production environment
 const asesmenSiteUrl = (process.env.ASESMEN_SITE_URL || 'https://asesmen.pi-psychology.com').replace(/\/$/, '');
 
-console.log(`Midtrans Environment: ${isProduction ? 'PRODUCTION' : 'SANDBOX'}`);
-console.log(`Midtrans Server Key: ${serverKey?.substring(0, 10)}...`);
-console.log(`Midtrans Client Key: ${clientKey?.substring(0, 10)}...`);
-console.log(`Midtrans Merchant ID: ${merchantId?.substring(0, 10)}...`);
-console.log('Environment Variables Status:');
-console.log('- NODE_ENV:', process.env.NODE_ENV);
-console.log('- MIDTRANS_PRODUCTION_SERVER_KEY:', process.env.MIDTRANS_PRODUCTION_SERVER_KEY ? 'EXISTS' : 'MISSING');
-console.log('- MIDTRANS_PRODUCTION_CLIENT_KEY:', process.env.MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
-console.log('- MIDTRANS_PRODUCTION_MERCHANT_ID:', process.env.MIDTRANS_PRODUCTION_MERCHANT_ID ? 'EXISTS' : 'MISSING');
-console.log('- VITE_MIDTRANS_PRODUCTION_CLIENT_KEY:', process.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
 if (!hasMidtransCredentials) {
   console.warn('Midtrans credentials are missing. Local development will use mock payment responses.');
 }
@@ -75,13 +65,6 @@ export interface MidtransTransactionData {
 
 export async function createMidtransTransaction(transactionData: MidtransTransactionData) {
   try {
-    if (!hasMidtransCredentials) {
-      return {
-        token: `local-dev-${nanoid()}`,
-        redirect_url: `http://localhost:8084/asesmen/payment-return?order_id=${encodeURIComponent(transactionData.orderId)}`,
-      };
-    }
-
     const itemDetails = transactionData.itemDetails.map((item) => ({
       ...item,
       id: item.id.slice(0, 50),
@@ -89,12 +72,36 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
       price: Math.round(item.price),
       quantity: item.quantity,
     }));
-    const grossAmount = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const expectedAmount = Math.round(Number(transactionData.amount));
+    const itemTotal = itemDetails.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    if (!Number.isSafeInteger(expectedAmount) || expectedAmount <= 0) {
+      throw new Error('Payment amount must be a positive integer');
+    }
+    if (itemDetails.length === 0 || itemDetails.some((item) =>
+      !item.id || !item.name || !Number.isSafeInteger(item.price) || item.price <= 0 ||
+      !Number.isSafeInteger(item.quantity) || item.quantity <= 0
+    )) {
+      throw new Error('Payment items must have a name and positive integer prices and quantities');
+    }
+    if (!Number.isSafeInteger(itemTotal) || itemTotal !== expectedAmount) {
+      throw new Error('Payment amount does not match the item total');
+    }
+    if (!transactionData.customerDetails.first_name || !transactionData.customerDetails.email) {
+      throw new Error('Customer name and email are required');
+    }
+
+    if (!hasMidtransCredentials) {
+      return {
+        token: `local-dev-${nanoid()}`,
+        redirect_url: `http://localhost:8084/asesmen/payment-return?order_id=${encodeURIComponent(transactionData.orderId)}`,
+      };
+    }
 
     const parameter = {
       transaction_details: {
         order_id: transactionData.orderId,
-        gross_amount: grossAmount,
+        gross_amount: expectedAmount,
       },
       customer_details: transactionData.customerDetails,
       item_details: itemDetails,
@@ -136,42 +143,16 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
       ],
     };
 
-    // Enhanced logging untuk debugging payment methods
-    console.log('🔧 MIDTRANS TRANSACTION DEBUG - START');
-    console.log('📋 Transaction Details:');
-    console.log('   - Order ID:', parameter.transaction_details.order_id);
-    console.log('   - Amount:', parameter.transaction_details.gross_amount);
-    console.log('💳 Payment Methods Configuration:');
-    console.log('   - Total enabled methods:', parameter.enabled_payments.length);
-    console.log('   - Full list:', JSON.stringify(parameter.enabled_payments, null, 2));
-    console.log('   - Bank Mandiri VA included:', parameter.enabled_payments.includes('mandiri_va') ? '✅ YES' : '❌ NO');
-    console.log('   - GoPay included:', parameter.enabled_payments.includes('gopay') ? '✅ YES' : '❌ NO');
-    console.log('   - Danamon VA included:', parameter.enabled_payments.includes('danamon_va') ? '✅ YES' : '❌ NO');
-    console.log('   - Dana E-Wallet included:', parameter.enabled_payments.includes('dana') ? '✅ YES' : '❌ NO');
-    console.log('🌐 Environment Configuration:');
-    console.log('   - Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
-    console.log('   - Server Key exists:', !!serverKey);
-    console.log('   - Client Key exists:', !!clientKey);
-    console.log('   - Merchant ID exists:', !!merchantId);
-    console.log('📦 Full Parameter Object:');
-    console.log(JSON.stringify(parameter, null, 2));
-    console.log('🔧 MIDTRANS TRANSACTION DEBUG - END');
-
     const transaction = await snap.createTransaction(parameter);
-    
-    console.log('✅ Midtrans Response:');
-    console.log('- Token:', transaction.token?.substring(0, 20) + '...');
-    console.log('- Redirect URL:', transaction.redirect_url);
-    console.log('- Full Transaction Response:', JSON.stringify(transaction, null, 2));
     
     return {
       token: transaction.token,
       redirect_url: transaction.redirect_url,
     };
   } catch (error) {
-    console.error('❌ Error creating Midtrans transaction:', error instanceof Error ? error.message : error);
-    console.error('- Environment:', isProduction ? 'PRODUCTION' : 'SANDBOX');
-    console.error('- Enabled payments configured:', ['credit_card', 'bca_va', 'bni_va', 'bri_va', 'cimb_va', 'danamon_va', 'mandiri_va', 'permata_va', 'other_va', 'gopay', 'gopay_static_qr', 'shopeepay', 'qris', 'akulaku', 'indomaret', 'alfamart']);
+    console.error('Midtrans transaction creation failed', {
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     throw error;
   }
 }
@@ -189,7 +170,9 @@ export async function checkTransactionStatus(orderId: string) {
     const statusResponse = await coreApi.transaction.status(orderId);
     return statusResponse;
   } catch (error) {
-    console.error('Error checking transaction status:', error instanceof Error ? error.message : error);
+    console.error('Midtrans transaction status lookup failed', {
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     throw error;
   }
 }
@@ -234,6 +217,8 @@ export async function handleMidtransCallback(req: Request, res: Response) {
         orderId: notification.order_id,
         status: getMidtransPaymentStatus(notification.transaction_status || 'pending', notification.fraud_status),
         amount: Number(notification.gross_amount || 0),
+        transactionStatus: notification.transaction_status || 'pending',
+        fraudStatus: notification.fraud_status,
         paymentType: notification.payment_type || 'local-dev',
         transactionTime: notification.transaction_time,
         settlementTime: notification.settlement_time,
@@ -253,12 +238,16 @@ export async function handleMidtransCallback(req: Request, res: Response) {
       orderId: parsedNotification.order_id,
       status: paymentStatus,
       amount: parsedNotification.gross_amount,
+      transactionStatus: parsedNotification.transaction_status,
+      fraudStatus: parsedNotification.fraud_status,
       paymentType: parsedNotification.payment_type,
       transactionTime: parsedNotification.transaction_time,
       settlementTime: parsedNotification.settlement_time,
     };
   } catch (error) {
-    console.error('Error handling Midtrans callback:', error);
+    console.error('Midtrans notification verification failed', {
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     throw error;
   }
 }

@@ -1,20 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, CreditCard, Building2, Smartphone, QrCode, Store } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
 interface MidtransPaymentProps {
-  orderId: string;
+  orderId: number;
   amount: number;
-  customerDetails: {
-    firstName: string;
-    lastName?: string;
-    email: string;
-    whatsappNumber?: string;
-  };
   items: Array<{
     id: string;
     name: string;
@@ -35,7 +28,6 @@ declare global {
 export default function MidtransPayment({
   orderId,
   amount,
-  customerDetails,
   items,
   onSuccess,
   onPending,
@@ -47,7 +39,6 @@ export default function MidtransPayment({
   const loadMidtransScript = () => {
     return new Promise<void>((resolve, reject) => {
       if (window.snap) {
-        console.log('Midtrans script already loaded');
         resolve();
         return;
       }
@@ -56,14 +47,6 @@ export default function MidtransPayment({
       const scriptUrl = 'https://app.midtrans.com/snap/snap.js';
       // Only use production client key - no fallback to sandbox
       const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY;
-      
-      console.log('Loading Midtrans script (PRODUCTION ONLY):', scriptUrl);
-      console.log('Client Key:', clientKey?.substring(0, 10) + '...');
-      console.log('Domain:', window.location.hostname);
-      console.log('Protocol:', window.location.protocol);
-      console.log('Environment Variables Check:');
-      console.log('- VITE_MIDTRANS_PRODUCTION_CLIENT_KEY:', import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY ? 'EXISTS' : 'MISSING');
-      console.log('- Final clientKey used:', clientKey ? 'EXISTS' : 'MISSING');
       
       if (!clientKey) {
         reject(new Error('VITE_MIDTRANS_PRODUCTION_CLIENT_KEY is missing'));
@@ -76,7 +59,6 @@ export default function MidtransPayment({
       
       // Add timeout for script loading
       const timeoutId = setTimeout(() => {
-        console.error('Midtrans script loading timeout');
         if (document.head.contains(script)) {
           document.head.removeChild(script);
         }
@@ -85,14 +67,11 @@ export default function MidtransPayment({
       
       script.onload = () => {
         clearTimeout(timeoutId);
-        console.log('Midtrans script loaded successfully');
         // Wait a bit for snap to be available
         setTimeout(() => {
           if (window.snap) {
-            console.log('window.snap available:', !!window.snap);
             resolve();
           } else {
-            console.error('Midtrans snap object not available after script load');
             reject(new Error('Midtrans snap object not available after script load'));
           }
         }, 1000); // Increased timeout for production
@@ -100,9 +79,6 @@ export default function MidtransPayment({
       
       script.onerror = (error) => {
         clearTimeout(timeoutId);
-        console.error('Failed to load Midtrans script:', error);
-        console.error('Script URL:', scriptUrl);
-        console.error('Client Key:', clientKey?.substring(0, 10) + '...');
         reject(new Error('Failed to load Midtrans script from ' + scriptUrl));
       };
       
@@ -116,42 +92,20 @@ export default function MidtransPayment({
     setIsLoading(true);
     try {
       const clientKey = import.meta.env.VITE_MIDTRANS_PRODUCTION_CLIENT_KEY;
-      console.log('Sending transaction request with data:', {
+      if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+        throw new Error('ID pesanan tidak valid');
+      }
+
+      const response = await apiRequest('POST', '/api/payments/create', {
         orderId,
-        amount,
-        customerDetails: {
-          first_name: customerDetails.firstName,
-          last_name: customerDetails.lastName || '',
-          email: customerDetails.email,
-          phone: customerDetails.whatsappNumber || '',
-        },
-        itemDetails: items,
-      });
-      console.log('API URL:', '/api/midtrans/create-transaction');
-      console.log('Full URL:', window.location.origin + '/api/midtrans/create-transaction');
-      
-      const response = await apiRequest('POST', '/api/midtrans/create-transaction', {
-        orderId,
-        amount,
-        customerDetails: {
-          first_name: customerDetails.firstName,
-          last_name: customerDetails.lastName || '',
-          email: customerDetails.email,
-          phone: customerDetails.whatsappNumber || '',
-        },
-        itemDetails: items,
+        paymentMethod: 'midtrans',
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Transaction API error:', errorText);
-        console.error('Response status:', response.status);
-        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-        throw new Error(`Gagal membuat transaksi: HTTP ${response.status} - ${errorText || response.statusText}`);
+        throw new Error(`Gagal membuat transaksi: HTTP ${response.status}`);
       }
 
       const transactionData = await response.json();
-      console.log('Transaction response:', transactionData);
 
       if (!transactionData.token) {
         throw new Error('Token pembayaran tidak ditemukan dalam response');
@@ -173,60 +127,40 @@ export default function MidtransPayment({
         throw new Error('Midtrans script tidak berhasil dimuat');
       }
 
-      console.log('About to call window.snap.pay with token:', token);
-
       // Validate window.snap exists and has pay method
       if (!window.snap || typeof window.snap.pay !== 'function') {
-        console.error('window.snap status:', {
-          exists: !!window.snap,
-          hasPayMethod: window.snap && typeof window.snap.pay === 'function',
-          snapObject: window.snap
-        });
         throw new Error('Midtrans Snap tidak tersedia. Coba refresh halaman.');
       }
 
       // Open Midtrans payment page
       window.snap.pay(token, {
         onSuccess: async (result: any) => {
-          console.log('Payment success:', result);
-          
-          // Auto-complete the order since webhook might not trigger immediately
-          if (result.order_id) {
-            const orderIdMatch = result.order_id.match(/order_(\d+)_/);
-            const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1]) : null;
-            
-            if (numericOrderId) {
-              try {
-                console.log(`🔄 Auto-completing order ${numericOrderId} after successful payment`);
-                const simulateResponse = await fetch(`/api/midtrans/simulate-payment/${numericOrderId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    order_id: result.order_id,
-                    transaction_status: result.transaction_status || 'capture',
-                    fraud_status: result.fraud_status || 'accept'
-                  })
-                });
-                
-                if (simulateResponse.ok) {
-                  console.log('✅ Order auto-completion successful');
-                } else {
-                  console.log('⚠️ Order auto-completion failed, webhook should handle it');
-                }
-              } catch (error) {
-                console.log('⚠️ Auto-completion error, webhook should handle payment:', error);
-              }
+          try {
+            await apiRequest('POST', `/api/midtrans/sync-status/${orderId}`, {});
+            const statusResponse = await apiRequest('GET', `/api/payment-status/${orderId}`);
+            const payment = await statusResponse.json();
+            if (payment.paymentStatus === 'paid' || payment.status === 'completed') {
+              toast({
+                title: "Pembayaran Berhasil",
+                description: "Pembayaran Anda telah dikonfirmasi.",
+              });
+              onSuccess?.(payment);
+            } else {
+              toast({
+                title: "Pembayaran Sedang Diverifikasi",
+                description: "Status pembayaran belum final. Periksa kembali beberapa saat lagi.",
+              });
+              onPending?.(payment);
             }
+          } catch {
+            toast({
+              title: "Pembayaran Sedang Diverifikasi",
+              description: "Midtrans menerima pembayaran. Status pesanan sedang disinkronkan.",
+            });
+            onPending?.(result);
           }
-          
-          toast({
-            title: "Pembayaran Berhasil",
-            description: "Pembayaran Anda telah berhasil diproses.",
-          });
-          onSuccess?.(result);
         },
         onPending: (result: any) => {
-          console.log('Payment pending:', result);
           toast({
             title: "Pembayaran Tertunda",
             description: "Pembayaran Anda sedang diproses. Kami akan memberitahu Anda setelah konfirmasi.",
@@ -234,23 +168,21 @@ export default function MidtransPayment({
           });
           onPending?.(result);
         },
-        onError: (result: any) => {
-          console.error('Payment error:', result);
+        onError: (_result: any) => {
           toast({
             title: "Pembayaran Gagal",
             description: "Terjadi kesalahan saat memproses pembayaran. Silakan coba lagi.",
             variant: "destructive",
           });
-          onError?.(result);
+          onError?.(_result);
         },
         onClose: () => {
-          console.log('Payment popup closed by user');
           // Don't show toast for close event to avoid confusion
           setIsLoading(false);
         },
       });
     } catch (error) {
-      console.error('Payment initialization error:', error);
+      console.error('Payment initialization failed');
       
       // More detailed error handling
       let errorMessage = "Gagal memulai proses pembayaran.";

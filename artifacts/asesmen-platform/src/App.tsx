@@ -46,10 +46,7 @@ import AdminWebsiteAnalytics from "@/pages/admin-website-analytics";
 import DigitalProductCheckout from "@/pages/digital-product-checkout";
 import PhysicalProductCheckout from "@/pages/physical-product-checkout";
 import TrainingRegistration from "@/pages/training-registration";
-import PaymentSuccess from "@/pages/payment-success";
-import PaymentFailed from "@/pages/payment-failed";
 import PaymentReturn from "@/pages/payment-return";
-import AutoRedirect from "@/pages/auto-redirect";
 import Kontak from "@/pages/kontak";
 import Booking from "@/pages/booking";
 import PsychologistDashboard, { AdminPsychologistBookings } from "@/pages/psychologist-dashboard";
@@ -97,7 +94,7 @@ function Router() {
       <Route path="/digital-products/checkout" component={DigitalProductCheckout} />
       <Route path="/physical-products/checkout" component={PhysicalProductCheckout} />
       <Route path="/training/register" component={TrainingRegistration} />
-      <Route path="/psychologist/dashboard" component={PsychologistDashboard} />
+      <Route path="/psychologist/dashboard" component={() => <PsychologistDashboard />} />
       <Route path="/assessment/:id" component={AssessmentDetail} />
       <Route path="/sensory-profile/:assessmentId" component={SensoryProfile} />
       <Route path="/learning-style/:assessmentId" component={LearningStyle} />
@@ -108,14 +105,14 @@ function Router() {
       <Route path="/dass-screening/:orderId" component={DassScreening} />
       <Route path="/srq-screening/:orderId" component={SrqScreening} />
       <Route path="/results/:assessmentId" component={AssessmentResults} />
-      <Route path="/payment-success" component={PaymentSuccess} />
-      <Route path="/payment-failed" component={PaymentFailed} />
+      <Route path="/payment-success" component={PaymentReturn} />
+      <Route path="/payment-failed" component={PaymentReturn} />
       <Route path="/payment-return" component={PaymentReturn} />
-      <Route path="/payment-success-redirect" component={AutoRedirect} />
+      <Route path="/payment-success-redirect" component={PaymentReturn} />
       
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLogin} />
-      <Route path="/admin/dashboard" component={AdminDashboard} />
+      <Route path="/admin/dashboard" component={() => <AdminDashboard mode="admin" />} />
       <Route path="/admin/bookings" component={AdminPsychologistBookings} />
       <Route path="/cso/dashboard" component={() => <AdminDashboard mode="cso" />} />
       <Route path="/cso/bookings" component={AdminPsychologistBookings} />

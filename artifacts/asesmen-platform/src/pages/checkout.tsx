@@ -1,24 +1,22 @@
-import { useEffect, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, CreditCard, Building, InfoIcon } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import PaymentForm from "@/components/payment-form";
+import MidtransPayment from "@/components/MidtransPayment";
 import type { OrderWithItems } from "@shared/schema";
 
 export default function Checkout() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'card' | 'bank'>('card');
 
   // Get order ID from URL params
   const urlParams = new URLSearchParams(window.location.search);
@@ -28,58 +26,6 @@ export default function Checkout() {
     queryKey: [`/api/orders/${orderId}`],
     enabled: !!orderId && isAuthenticated,
   });
-
-  console.log('Checkout page - orderId:', orderId, 'order:', order, 'isLoading:', isLoading);
-
-  const paymentMutation = useMutation({
-    mutationFn: async (paymentData: { orderId: number; paymentMethod: string }) => {
-      console.log('Sending payment request:', paymentData);
-      const response = await apiRequest("POST", "/api/payments/create", paymentData);
-      const result = await response.json();
-      console.log('Payment response:', result);
-      return result;
-    },
-    onSuccess: (result) => {
-      // Invalidate cache to refresh user assessments
-      queryClient.invalidateQueries({ queryKey: ["/api/user-assessments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      
-      toast({
-        title: "Pembayaran Berhasil!",
-        description: "Asesmen Anda sekarang tersedia di dashboard.",
-        variant: "default",
-      });
-      setLocation("/dashboard");
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Tidak Diizinkan",
-          description: "Anda telah keluar. Masuk lagi...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Payment Failed",
-        description: "There was an error processing your payment. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handlePayment = () => {
-    if (!order) return;
-    
-    console.log('Processing payment for order:', order.id);
-    paymentMutation.mutate({
-      orderId: order.id,
-      paymentMethod: selectedPaymentMethod,
-    });
-  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -149,15 +95,6 @@ export default function Checkout() {
             Kembali ke Keranjang
           </Button>
           
-          {/* Demo Mode Banner */}
-          <Alert className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950/20">
-            <InfoIcon className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800 dark:text-blue-200">
-              <strong>Mode Demo:</strong> Sistem pembayaran ini adalah simulasi untuk testing. 
-              Tidak ada transaksi uang sungguhan yang akan diproses.
-            </AlertDescription>
-          </Alert>
-          
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground">
             Checkout Aman
           </h1>
@@ -220,7 +157,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex items-center">
                     <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Kepatuhan HIPAA
+                    Akses asesmen diberikan setelah pembayaran dikonfirmasi
                   </div>
                 </div>
               </CardContent>
@@ -231,70 +168,36 @@ export default function Checkout() {
           <div>
             <Card>
               <CardHeader>
-                <CardTitle>Payment Method</CardTitle>
+                <CardTitle>Pembayaran dengan Midtrans</CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Payment Method Selection */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <button
-                    onClick={() => setSelectedPaymentMethod('card')}
-                    className={`payment-card p-4 rounded-lg border-2 transition-all ${
-                      selectedPaymentMethod === 'card' ? 'selected' : ''
-                    }`}
-                  >
-                    <CreditCard className="w-6 h-6 mx-auto mb-2" />
-                    <span className="text-sm font-medium">Credit Card</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => setSelectedPaymentMethod('bank')}
-                    className={`payment-card p-4 rounded-lg border-2 transition-all ${
-                      selectedPaymentMethod === 'bank' ? 'selected' : ''
-                    }`}
-                  >
-                    <Building className="w-6 h-6 mx-auto mb-2" />
-                    <span className="text-sm font-medium">Bank Transfer</span>
-                  </button>
-                </div>
-
-                {/* Simple Demo Payment Button */}
-                <div className="space-y-6">
-                  <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
-                    <InfoIcon className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-blue-800 dark:text-blue-200">
-                      <strong>Mode Demo:</strong> Klik tombol di bawah untuk mensimulasi pembayaran. 
-                      Tidak ada uang sungguhan yang akan ditagih.
-                    </AlertDescription>
-                  </Alert>
-
-                  <Card className="bg-neutral-50 dark:bg-muted/20">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="font-medium text-neutral-900 dark:text-foreground">
-                          Total Pembayaran
-                        </span>
-                        <span className="text-2xl font-bold text-primary">
-                          Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
-                        </span>
-                      </div>
-                      
-                      <Button
-                        onClick={handlePayment}
-                        disabled={paymentMutation.isPending}
-                        className="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors text-lg"
-                      >
-                        {paymentMutation.isPending ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            <span>Memproses Pembayaran...</span>
-                          </div>
-                        ) : (
-                          `Bayar Sekarang - Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}`
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
+                <MidtransPayment
+                  orderId={order.id}
+                  amount={Number(order.totalAmount)}
+                  items={order.orderItems.map((item) => ({
+                    id: String(item.assessmentId),
+                    name: item.assessment.name,
+                    price: Number(item.price),
+                    quantity: 1,
+                  }))}
+                  onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["/api/user-assessments"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+                    toast({
+                      title: "Pembayaran Berhasil",
+                      description: "Pembayaran telah dikonfirmasi oleh Midtrans.",
+                    });
+                    setLocation("/dashboard");
+                  }}
+                  onPending={() => setLocation(`/payment-return?orderId=${order.id}`)}
+                  onError={() => {
+                    toast({
+                      title: "Pembayaran gagal dimulai",
+                      description: "Silakan coba lagi beberapa saat lagi.",
+                      variant: "destructive",
+                    });
+                  }}
+                />
               </CardContent>
             </Card>
           </div>
