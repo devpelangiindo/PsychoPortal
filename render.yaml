@@ -10,7 +10,8 @@ services:
     runtime: node
     plan: starter
     buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm --filter @workspace/api-server run build
-    startCommand: pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run start:prod
+    # Keep schema changes out of service startup: drizzle-kit push can drop populated tables.
+    startCommand: pnpm --filter @workspace/api-server run start:prod
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV

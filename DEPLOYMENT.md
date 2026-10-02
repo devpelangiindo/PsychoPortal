@@ -30,7 +30,7 @@ This repo is prepared for Render Blueprint deploys with `render.yaml`.
 
 ## Notes
 
-- The API start command runs `pnpm --filter @workspace/db run push` before booting, so a fresh Render Postgres database gets the Drizzle schema.
+- The API starts without changing the database schema. Do not run `drizzle-kit push` automatically against a populated production database: schema drift can make it drop tables and their data. For a new, empty database, initialize the schema once after reviewing the proposed changes. For future production schema changes, use reviewed, versioned migrations and take a database backup first.
 - The Payload CMS is intentionally not deployed in this blueprint to keep launch costs down. CMS-backed content will fall back to the static content already in the frontends.
 - If a CMS is needed later, restore the `psychoportal-cms` service in `render.yaml` and set `VITE_CMS_BASE_URL` on the marketing site plus `PAYLOAD_PUBLIC_SERVER_URL` on the API.
 - Static frontend routes are rewritten to `index.html` so browser refreshes on client-side routes work.
