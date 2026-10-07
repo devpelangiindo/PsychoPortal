@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -18,8 +19,17 @@ import TrainingPage from "@/pages/TrainingPage";
 import HospitalityServices from "@/pages/HospitalityServices";
 import Artikel, { ArticleDetailPage } from "@/pages/Artikel";
 import Kontak from "@/pages/Kontak";
+import { getBookingHref } from "@/lib/platform-links";
 
 const queryClient = new QueryClient();
+
+function LegacyBookingRedirect() {
+  useEffect(() => {
+    window.location.replace(getBookingHref());
+  }, []);
+
+  return null;
+}
 
 function Router() {
   return (
@@ -48,6 +58,8 @@ function Router() {
       <Route path="/artikel" component={Artikel} />
       <Route path="/artikel/:slug" component={ArticleDetailPage} />
       <Route path="/kontak" component={Kontak} />
+      <Route path="/booking" component={LegacyBookingRedirect} />
+      <Route path="/booking/form" component={LegacyBookingRedirect} />
       <Route component={NotFound} />
     </Switch>
   );
