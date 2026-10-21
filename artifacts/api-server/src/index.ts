@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { registerRoutes } from "./routes/routes";
 import { pool } from './db';
 import { startInstagramWorker } from './instagram';
+import { startPaymentReconciliationWorker } from './payment-worker-startup';
 
 const rawPort = process.env["PORT"];
 
@@ -24,8 +25,12 @@ httpServer.listen(port, () => {
   logger.info({ port }, "Server listening");
   const stopInstagram = startInstagramWorker(pool);
   httpServer.once('close', stopInstagram);
-  const stopPayments = app.locals.startPaymentWorker?.();
-  if (stopPayments) httpServer.once('close', stopPayments);
+  const paymentsEnabled = startPaymentReconciliationWorker(
+    { PAYMENT_RECONCILIATION_WORKER_ENABLED: process.env.PAYMENT_RECONCILIATION_WORKER_ENABLED },
+    () => app.locals.startPaymentWorker(),
+    (stopPayments) => { httpServer.once('close', stopPayments); },
+  );
+  logger.info({ enabled: paymentsEnabled }, "Payment reconciliation worker startup");
 });
 
 httpServer.on("error", (err: Error) => {
