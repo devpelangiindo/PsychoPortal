@@ -45,10 +45,16 @@ const coreApi = new midtransClient.CoreApi({
   merchantId: merchantId || 'local-dev-merchant-id',
 });
 
+// Bound network calls so an unavailable provider cannot stall reconciliation indefinitely.
+for (const gateway of [snap, coreApi]) {
+  if (gateway.httpClient?.http_client?.defaults) gateway.httpClient.http_client.defaults.timeout = 10000;
+}
+
 export interface MidtransTransactionData {
   orderId: string;
   amount: number;
   expiryMinutes?: number;
+  expiryStartTime?: Date;
   customerDetails: {
     first_name: string;
     last_name?: string;
@@ -111,6 +117,8 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
         error: `${asesmenSiteUrl}/payment-failed?order_id=${encodeURIComponent(transactionData.orderId)}`,
       },
       expiry: {
+        start_time: new Date((transactionData.expiryStartTime ?? new Date()).getTime() + 7 * 60 * 60 * 1000)
+          .toISOString().slice(0, 19).replace('T', ' ') + ' +0700',
         duration: transactionData.expiryMinutes ?? 15,
         unit: 'minutes',
       },
@@ -129,14 +137,13 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
         'bri_va',
         'cimb_va',
         'danamon_va',
-        'mandiri_va',
+        'echannel',
         'permata_va',
         'other_va',
         'gopay',
-        'gopay_static_qr',
         'shopeepay',
         'dana',
-        'qris',
+        'other_qris',
         'akulaku',
         'indomaret',
         'alfamart',
@@ -177,6 +184,21 @@ export async function checkTransactionStatus(orderId: string) {
   }
 }
 
+export async function expireMidtransTransaction(orderId: string) {
+  if (!hasMidtransCredentials) throw new Error('Midtrans is not configured');
+  return coreApi.transaction.expire(orderId);
+}
+
+export async function cancelMidtransSession(token: string): Promise<boolean> {
+  if (!hasMidtransCredentials) throw new Error('Midtrans is not configured');
+  const response = await fetch(`https://app.midtrans.com/snap/v1/transactions/${encodeURIComponent(token)}/cancel`, {
+    method: 'POST', headers: { Authorization: serverKey!,
+      'Content-Type': 'application/json', Accept: 'application/json' }, signal: AbortSignal.timeout(10000),
+  });
+  const result = await response.json() as { canceled_at?: string; error_messages?: string[] };
+  return Boolean(response.ok && result.canceled_at) || Boolean(result.error_messages?.includes('token already canceled'));
+}
+
 export function parseMidtransNotification(notification: any) {
   return {
     order_id: notification.order_id,
@@ -193,10 +215,10 @@ export function getMidtransPaymentStatus(transaction_status: string, fraud_statu
   if (transaction_status === 'capture') {
     if (fraud_status === 'challenge') {
       return 'pending';
-    } else if (fraud_status === 'accept') {
+    } else if (!fraud_status || fraud_status === 'accept') {
       return 'paid';
     }
-  } else if (transaction_status === 'settlement') {
+  } else if (transaction_status === 'settlement' && (!fraud_status || fraud_status === 'accept')) {
     return 'paid';
   } else if (transaction_status === 'cancel') {
     return 'cancelled';

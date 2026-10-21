@@ -13,12 +13,16 @@ import { apiUrl } from "@/lib/api-base";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import AssessmentCard from "@/components/assessment-card";
-import type { UserAssessmentWithDetails, OrderWithItems, Assessment } from "@shared/schema";
+import type { UserAssessmentWithDetails, OrderWithItems as BaseOrderWithItems, Assessment } from "@shared/schema";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-format";
+import { BookingPaymentNotice, confirmedFinancialOrders, financialOrder, hasConfirmedPayment, needsPaymentReview, paymentMethodLabel, type PaymentOrder } from "@/components/booking-payment-state";
+
+type OrderWithItems = BaseOrderWithItems & PaymentOrder;
 
 type Booking = {
   id: number;
   orderId: number;
+  status?: string;
   clientName: string;
   preferredDate: string;
   preferredTime: string;
@@ -96,10 +100,8 @@ type TrainingRegistration = {
   location: string | null; posterId: number | null; posterFocusX: number | null; posterFocusY: number | null; posterUpdatedAt: string | null;
 };
 
-const PAYMENT_EXPIRY_MINUTES = 15;
-
 function isOrderPaid(order: OrderWithItems) {
-  return order.status === "completed" || order.paymentStatus === "paid";
+  return hasConfirmedPayment(order);
 }
 
 function isOrderCancelled(order: OrderWithItems) {
@@ -107,12 +109,9 @@ function isOrderCancelled(order: OrderWithItems) {
 }
 
 function getPaymentDeadline(order: OrderWithItems) {
-  if (!order.paymentId || isOrderPaid(order) || isOrderCancelled(order) || !order.updatedAt) return null;
-
-  const updatedAt = new Date(order.updatedAt).getTime();
-  if (Number.isNaN(updatedAt)) return null;
-
-  return new Date(updatedAt + PAYMENT_EXPIRY_MINUTES * 60 * 1000);
+  if (!order.paymentId || isOrderPaid(order) || isOrderCancelled(order) || !order.paymentExpiresAt) return null;
+  const deadline = new Date(order.paymentExpiresAt);
+  return Number.isNaN(deadline.getTime()) ? null : deadline;
 }
 
 function isOrderPaymentExpired(order: OrderWithItems) {
@@ -206,7 +205,9 @@ function escapeHtml(value: unknown) {
 
 function printReceipt(order: OrderWithItems, bookings: Booking[] = []) {
   if (!isOrderPaid(order)) return;
-  const paidAt = order.paidAt ?? order.updatedAt ?? order.createdAt;
+  const payment = financialOrder(order);
+  if (!payment) return;
+  const paidAt = payment.paidAt;
   const booking = bookings[0];
 
   const items = order.orderItems.length > 0
@@ -219,7 +220,7 @@ function printReceipt(order: OrderWithItems, bookings: Booking[] = []) {
     : `
         <tr>
           <td>${escapeHtml(`${booking?.service.name ?? "Booking Psikolog"}${bookings.length > 1 ? ` (${bookings.length} sesi)` : ""}`)}</td>
-          <td class="right">${escapeHtml(formatCurrency(order.totalAmount))}</td>
+          <td class="right">${escapeHtml(formatCurrency(payment.totalAmount ?? order.totalAmount))}</td>
         </tr>
       `;
 
@@ -228,7 +229,8 @@ function printReceipt(order: OrderWithItems, bookings: Booking[] = []) {
       <h2>Detail Konseling</h2>
       <div class="row"><span>Nama Klien</span><strong>${escapeHtml(booking.clientName)}</strong></div>
       <div class="row"><span>Psikolog</span><strong>${escapeHtml(booking.psychologistName)}</strong></div>
-      ${bookings.map((item, index) => `<div class="row"><span>Sesi ${index + 1}</span><strong>${escapeHtml(`${formatDisplayDate(item.preferredDate)}, ${item.preferredTime}`)}</strong></div>`).join("")}
+      ${bookings.map((item, index) => `<div class="row"><span>Sesi ${index + 1}${item.status === "schedule_review" ? " (jadwal perlu konfirmasi)" : ""}</span><strong>${escapeHtml(`${formatDisplayDate(item.preferredDate)}, ${item.preferredTime}`)}</strong></div>`).join("")}
+      ${order.replacedByOrderId ? `<div class="row"><span>Layanan pada pesanan pengganti</span><strong>#${escapeHtml(order.replacedByOrderId)}</strong></div>` : ""}
       <div class="row"><span>Lokasi</span><strong>${escapeHtml(booking.location ?? "-")}</strong></div>
     </div>
   ` : "";
@@ -240,7 +242,7 @@ function printReceipt(order: OrderWithItems, bookings: Booking[] = []) {
     <!doctype html>
     <html>
       <head>
-        <title>Resi Transaksi #${escapeHtml(order.id)}</title>
+        <title>Resi Transaksi #${escapeHtml(payment.id)}</title>
         <style>
           body { font-family: Arial, sans-serif; color: #1f2937; margin: 32px; }
           .receipt { max-width: 680px; margin: 0 auto; }
@@ -266,10 +268,12 @@ function printReceipt(order: OrderWithItems, bookings: Booking[] = []) {
 
           <div class="section">
             <h2>Detail Pembayaran</h2>
-            <div class="row"><span>No. Order</span><strong>#${escapeHtml(order.id)}</strong></div>
-            <div class="row"><span>Payment ID</span><strong>${escapeHtml(order.paymentId)}</strong></div>
-            <div class="row"><span>Tanggal/Jam Bayar</span><strong>${escapeHtml(paidAt ? formatDisplayDateTime(paidAt) : "-")}</strong></div>
-            <div class="row"><span>Status</span><strong>${escapeHtml(order.paymentStatus ?? order.status)}</strong></div>
+            <div class="row"><span>No. Order Pembayaran</span><strong>#${escapeHtml(payment.id)}</strong></div>
+            ${payment.id !== order.id ? `<div class="row"><span>Pesanan Layanan Pengganti</span><strong>#${escapeHtml(order.id)}</strong></div>` : ""}
+            <div class="row"><span>Payment ID</span><strong>${escapeHtml(payment.paymentId)}</strong></div>
+            <div class="row"><span>Metode</span><strong>${escapeHtml(paymentMethodLabel(payment.paymentMethod))}</strong></div>
+            <div class="row"><span>${payment.paymentMethod === "manual_offline" ? "Waktu Pencatatan Pembayaran" : "Tanggal/Jam Bayar"}</span><strong>${escapeHtml(paidAt ? formatDisplayDateTime(paidAt) : "Belum tersedia")}</strong></div>
+            <div class="row"><span>Status</span><strong>${escapeHtml(payment.paymentStatus ?? payment.status)}</strong></div>
           </div>
 
           ${details}
@@ -279,7 +283,7 @@ function printReceipt(order: OrderWithItems, bookings: Booking[] = []) {
             <table>
               <thead><tr><th>Item</th><th class="right">Nominal</th></tr></thead>
               <tbody>${items}</tbody>
-              <tfoot><tr><td class="total">Total</td><td class="right total">${escapeHtml(formatCurrency(order.totalAmount))}</td></tr></tfoot>
+              <tfoot><tr><td class="total">Total</td><td class="right total">${escapeHtml(formatCurrency(payment.totalAmount ?? order.totalAmount))}</td></tr></tfoot>
             </table>
           </div>
         </div>
@@ -323,11 +327,12 @@ export default function Dashboard() {
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
   });
 
-  const { data: orders, isLoading: ordersLoading, refetch: refetchOrders } = useQuery<OrderWithItems[]>({
+  const { data: orders, isLoading: ordersLoading, error: ordersError, refetch: refetchOrders } = useQuery<OrderWithItems[]>({
     queryKey: ["/api/orders"],
     enabled: isAuthenticated,
     refetchInterval: 2000, // Auto refresh every 2 seconds for real-time sync
     refetchIntervalInBackground: true, // Continue refreshing when tab is in background
+    refetchOnWindowFocus: "always",
   });
 
   const { data: assessments, isLoading: assessmentsForSaleLoading } = useQuery<Assessment[]>({
@@ -335,10 +340,11 @@ export default function Dashboard() {
     enabled: isAuthenticated,
   });
 
-  const { data: bookings } = useQuery<Booking[]>({
+  const { data: bookings, error: bookingsError } = useQuery<Booking[]>({
     queryKey: ["/api/bookings"],
     enabled: isAuthenticated,
     refetchInterval: 5000,
+    refetchOnWindowFocus: "always",
   });
 
   const { data: dassEligibility } = useQuery<DassEligibilityResponse>({
@@ -388,6 +394,7 @@ export default function Dashboard() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user-assessments"] });
 
       if (result.redirect_url) {
@@ -401,12 +408,28 @@ export default function Dashboard() {
       });
       refetchOrders();
     },
-    onError: () => {
+    onError: async (error) => {
+      let code = "";
+      let message = "Pembayaran belum dapat diproses. Hubungi tim layanan jika membutuhkan bantuan.";
+      const raw = error instanceof Error ? error.message : "";
+      const jsonStart = raw.indexOf("{");
+      if (jsonStart >= 0) {
+        try {
+          const details = JSON.parse(raw.slice(jsonStart)) as { code?: string; message?: string };
+          code = details.code || "";
+          message = details.message || message;
+        } catch { /* Keep a neutral message when a response is not structured JSON. */ }
+      }
+      const pending = ["VERIFICATION_PENDING", "INITIALIZATION_UNCERTAIN", "PAYMENT_VERIFICATION_PENDING", "PAYMENT_INITIALIZING"].includes(code);
       toast({
-        title: "Gagal membuat pembayaran",
-        description: "Silakan coba lagi atau hubungi admin.",
-        variant: "destructive",
+        title: pending ? "Pembayaran sedang diverifikasi" : "Pembayaran belum dapat diproses",
+        description: pending ? "Status pembayaran sebelumnya belum dapat dipastikan. Sistem akan memeriksa pesanan yang sama; gunakan tombol sinkronisasi atau hubungi CSO jika sudah membayar." : message,
+        variant: pending ? "default" : "destructive",
       });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/bookings"] }),
+      ]);
     },
     onSettled: () => {
       setSettlingOrderId(null);
@@ -432,18 +455,21 @@ export default function Dashboard() {
     
     setIsRefreshing(true);
     try {
-      await apiRequest('POST', '/api/sync/trigger', {});
+      const response = await apiRequest('POST', '/api/sync/trigger', {});
+      const result = await response.json() as { attempted?: number; synced?: number; failed?: number; review?: number; needsReview?: number };
       
       // Then refresh local data
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ["/api/user-assessments"] }),
         queryClient.refetchQueries({ queryKey: ["/api/orders"] }),
+        queryClient.refetchQueries({ queryKey: ["/api/bookings"] }),
         queryClient.refetchQueries({ queryKey: ["/api/dass-screenings/eligibility"] }),
         queryClient.refetchQueries({ queryKey: ["/api/srq-screenings/eligibility"] }),
       ]);
       toast({
-        title: "Sinkronisasi Berhasil",
-        description: "Status pesanan telah disinkronisasi dengan Midtrans",
+        title: result.failed ? "Pemeriksaan sebagian belum berhasil" : "Pemeriksaan pembayaran selesai",
+        description: `${result.attempted ?? 0} diperiksa, ${result.synced ?? 0} diperbarui, ${result.failed ?? 0} belum berhasil, ${result.review ?? result.needsReview ?? 0} perlu ditinjau.${!result.attempted ? " Tidak ada pesanan yang perlu diperiksa saat ini." : ""}`,
+        variant: result.failed ? "destructive" : "default",
       });
     } catch (error) {
       toast({
@@ -500,7 +526,7 @@ export default function Dashboard() {
   };
 
   const canSettleOrderPayment = (order: OrderWithItems) =>
-    !isOrderPaid(order) && !isOrderCancelled(order) && !isOrderPaymentExpired(order);
+    !isOrderPaid(order) && !isOrderCancelled(order) && !isOrderPaymentExpired(order) && !needsPaymentReview(order) && !order.paymentSourceOrderId && !order.replacedByOrderId && order.status !== "schedule_review";
 
   const handleSettleOrderPayment = (order: OrderWithItems) => {
     if (!canSettleOrderPayment(order) || settlePaymentMutation.isPending) return;
@@ -820,10 +846,10 @@ export default function Dashboard() {
           <Card>
             <CardContent className="p-6 text-center">
               <div className="text-3xl font-bold text-primary mb-2">
-                {orders?.filter(o => o.status === 'completed').length || 0}
+                {confirmedFinancialOrders(orders ?? []).length}
               </div>
               <div className="text-neutral-500 dark:text-muted-foreground">
-                Pesanan
+                Pembayaran terkonfirmasi
               </div>
             </CardContent>
           </Card>
@@ -971,6 +997,8 @@ export default function Dashboard() {
                     <div key={i} className="h-16 bg-muted rounded animate-pulse" />
                   ))}
                 </div>
+              ) : ordersError && !orders ? (
+                <div role="alert" className="rounded-lg border border-red-200 p-4 text-sm text-red-800">Riwayat pesanan belum dapat dimuat. Status pembayaran belum dapat disimpulkan. <Button variant="outline" size="sm" onClick={() => refetchOrders()}>Coba lagi</Button></div>
               ) : filteredOrders.length > 0 ? (
                 <div className="space-y-4">
                   {filteredOrders.map((order) => {
@@ -987,11 +1015,11 @@ export default function Dashboard() {
                           <h3 className="font-medium text-neutral-900 dark:text-foreground">
                             Pesanan #{order.id}
                           </h3>
-                          {getOrderStatusBadge(order.status)}
+                          {order.replacedByOrderId ? <Badge variant="secondary">{isOrderPaid(order) ? "Lunas · " : ""}Layanan #{order.replacedByOrderId}</Badge> : order.status === "schedule_review" || booking?.status === "schedule_review" ? <Badge className="bg-amber-700">{isOrderPaid(order) ? "Lunas · perlu penjadwalan" : "Perlu penjadwalan"}</Badge> : needsPaymentReview(order) ? <Badge className="bg-amber-700">Pembayaran diperiksa</Badge> : isOrderPaid(order) ? <Badge className="bg-green-700">Lunas</Badge> : getOrderStatusBadge(order.status)}
                         </div>
                         <p className="text-sm text-neutral-500 dark:text-muted-foreground">
                           {order.orderItems.length > 0 ? `${order.orderItems.length} item` : `${orderBookings.length || 1} sesi psikolog`} •
-                          Rp {new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}
+                          {order.paymentSourceOrderId ? `Nilai layanan Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}, dibayar melalui #${order.paymentSourceOrderId}` : `Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(order.totalAmount))}`}
                         </p>
                         {booking?.psychologistName && (
                           <p className="mt-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
@@ -1015,13 +1043,16 @@ export default function Dashboard() {
                             )}
                           </div>
                         ))}
+                        <BookingPaymentNotice order={order} status={booking?.status} />
+                        {bookingsError && <p role="alert" className="mt-2 text-sm text-amber-800">Detail jadwal belum dapat diperbarui. Status pembayaran mengikuti pesanan di atas.</p>}
+                        {ordersError && <p role="alert" className="mt-2 text-sm text-amber-800">Pembaruan terakhir belum berhasil. Data ini merupakan data terakhir yang tersedia.</p>}
                         <p className="text-xs text-neutral-400 dark:text-muted-foreground mt-1">
                           {formatDisplayDate(order.createdAt)}
                         </p>
                         {paymentDeadline && canPay && (
                           <p className="mt-2 inline-flex items-center gap-1 text-xs text-amber-700">
                             <Clock className="w-3 h-3" />
-                            Batas pembayaran: {formatDisplayDateTime(paymentDeadline)}. Kode pembayaran berlaku 15 menit.
+                            Batas pembayaran: {formatDisplayDateTime(paymentDeadline)}.
                           </p>
                         )}
                         {canPay && (
@@ -1030,10 +1061,13 @@ export default function Dashboard() {
                             Placeholder pengingat WA pembayaran: menunggu setup WhatsApp Business API.
                           </p>
                         )}
-                        {(paymentExpired || isOrderCancelled(order)) && !isOrderPaid(order) && (
+                        {paymentExpired && !isOrderCancelled(order) && !isOrderPaid(order) && (
+                          <p className="mt-2 text-sm text-amber-800">Batas waktu pembayaran telah lewat. Status akhir sedang diverifikasi; jika sudah membayar, gunakan tombol sinkronisasi atau hubungi tim layanan.</p>
+                        )}
+                        {isOrderCancelled(order) && !isOrderPaid(order) && !needsPaymentReview(order) && (
                           <p className="mt-2 inline-flex items-center gap-1 text-xs text-red-700">
                             <AlertCircle className="w-3 h-3" />
-                            Pesanan sudah kadaluwarsa/dibatalkan. Silakan isi booking atau buat pesanan ulang.
+                            Pesanan tercatat tidak aktif. Jika sudah membayar, hubungi tim layanan dengan nomor pesanan ini untuk pemeriksaan pembayaran.
                           </p>
                         )}
                       </div>
@@ -1064,7 +1098,7 @@ export default function Dashboard() {
                             className="whitespace-nowrap"
                           >
                             <Printer className="w-4 h-4 mr-2" />
-                            Cetak Resi
+                            {order.paymentSourceOrderId ? `Resi pesanan #${order.paymentSourceOrderId}` : "Cetak Resi"}
                           </Button>
                         </div>
                       )}

@@ -107,6 +107,14 @@ export default function MidtransPayment({
 
       const transactionData = await response.json();
 
+      if (transactionData.alreadyPaid || transactionData.status === 'completed') {
+        const statusResponse = await apiRequest('GET', `/api/payment-status/${orderId}`);
+        const payment = await statusResponse.json();
+        toast({title:'Pesanan sudah lunas',description:'Pembayaran telah tercatat. Resi tersedia di riwayat pesanan.'});
+        onSuccess?.(payment);
+        return;
+      }
+
       if (!transactionData.token) {
         throw new Error('Token pembayaran tidak ditemukan dalam response');
       }
@@ -183,6 +191,17 @@ export default function MidtransPayment({
       });
     } catch (error) {
       console.error('Payment initialization failed');
+
+      let paymentError: {code?: string; message?: string} | null = null;
+      if (error instanceof Error) {
+        const jsonStart=error.message.indexOf('{');
+        if(jsonStart>=0) { try { paymentError=JSON.parse(error.message.slice(jsonStart)); } catch {} }
+      }
+      if (paymentError && ['VERIFICATION_PENDING','INITIALIZATION_UNCERTAIN','BOOKING_REVIEW'].includes(paymentError.code || '')) {
+        toast({title:'Pembayaran sedang diperiksa',description:paymentError.message || 'Periksa status pesanan dari dashboard.'});
+        onPending?.({orderId,status:'pending',review:true});
+        return;
+      }
       
       // More detailed error handling
       let errorMessage = "Gagal memulai proses pembayaran.";
