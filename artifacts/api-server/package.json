@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:booking-payments": "node tests/run-booking-payments.mjs",
     "test:instagram": "node tests/run-instagram.mjs",
     "dev": "pnpm run build && pnpm run start",
     "build": "node ./build.mjs",

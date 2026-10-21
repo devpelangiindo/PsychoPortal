@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
@@ -8,6 +8,7 @@ import { Users, FileText, Activity, User, Settings, LogOut, CalendarCheck, UserP
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken } from "@/lib/queryClient";
 import logoPath from "@assets/Logo_Rumah_Psikologi_Pelangi_Indonesia_1752037860440.png";
+import BookingReconciliation from "@/components/booking-reconciliation";
 
 interface AdminStats {
   totalUsers: number;
@@ -80,7 +81,7 @@ const defaultManualBookingForm: ManualBookingForm = {
   endTime: "10:00",
   psychologistName: "Dr. Yeni Triwahyuningsih, S.Psi., MM., Psikolog",
   location: "online",
-  markAsPaid: true,
+  markAsPaid: false,
 };
 
 function calculateManualBookingAge(birthDateValue: string, referenceDateValue?: string) {
@@ -96,7 +97,12 @@ function calculateManualBookingAge(birthDateValue: string, referenceDateValue?: 
 
 export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "cso" }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [manualForm, setManualForm] = useState<ManualBookingForm>(defaultManualBookingForm);
+  const [manualMode, setManualMode] = useState<"new" | "recovery">("new");
+  const [sourceOrderInput, setSourceOrderInput] = useState("");
+  const [reconciliationOrderId, setReconciliationOrderId] = useState<number | null>(null);
+  const [manualConflictIds, setManualConflictIds] = useState<number[]>([]);
   const isCsoMode = mode === "cso";
 
   const token = localStorage.getItem('adminToken');
@@ -169,6 +175,13 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
   const manualBookingMutation = useMutation({
     mutationFn: async () => {
       if (!getAuthToken()) throw new Error("Token login tidak ditemukan. Silakan login ulang.");
+      const sourceOrderId = manualMode === "recovery" ? Number(sourceOrderInput) : undefined;
+      if (manualMode === "recovery" && (!Number.isSafeInteger(sourceOrderId) || !sourceOrderId || sourceOrderId <= 0)) {
+        throw new Error("Masukkan nomor pesanan website asal yang valid.");
+      }
+      if (sourceOrderId) {
+        return (await apiRequest("POST", "/api/admin/manual-counseling-bookings", { sourceOrderId })).json();
+      }
 
       const response = await apiRequest("POST", "/api/admin/manual-counseling-bookings", {
         clientName: manualForm.clientName,
@@ -187,21 +200,43 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
         preferredTime: `${manualForm.startTime.replace(":", ".")} - ${manualForm.endTime.replace(":", ".")}`,
         psychologistName: manualForm.psychologistName,
         location: manualForm.location,
-        markAsPaid: manualForm.markAsPaid,
+        markAsPaid: manualMode === "new" && manualForm.markAsPaid,
+        ...(sourceOrderId ? { sourceOrderId } : {}),
       });
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast({
         title: "Booking manual tersimpan",
         description: data?.message || "Data klien konseling berhasil ditambahkan.",
       });
       setManualForm(defaultManualBookingForm);
+      setSourceOrderInput("");
+      setManualMode("new");
+      setManualConflictIds([]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/psychologist/bookings"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/bookings"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/booking-reconciliation/candidates"] }),
+      ]);
     },
     onError: (error) => {
+      let description = error instanceof Error ? error.message : "Silakan cek data dan coba lagi.";
+      const jsonStart = description.indexOf("{");
+      if (jsonStart >= 0) {
+        try {
+          const details = JSON.parse(description.slice(jsonStart)) as { code?: string; message?: string; candidates?: { id: number }[] };
+          description = details.message || description;
+          if (details.code === "EXISTING_BOOKING_REVIEW_REQUIRED") {
+            setManualConflictIds((details.candidates || []).map((candidate) => candidate.id));
+          }
+        } catch { /* Preserve the readable error if no structured details are available. */ }
+      }
       toast({
         title: "Gagal menyimpan booking manual",
-        description: error instanceof Error ? error.message : "Silakan cek data dan coba lagi.",
+        description,
         variant: "destructive",
       });
     },
@@ -587,6 +622,8 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
           </Card>
         </div>
 
+        <BookingReconciliation initialOrderId={reconciliationOrderId} />
+
         <Card id="manual-counseling-booking" className="mt-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -594,10 +631,24 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
               Tambah Klien Konseling Manual
             </CardTitle>
             <CardDescription>
-              Untuk booking yang tidak melalui website. Jika email sudah terdaftar, booking akan terhubung ke akun klien tersebut.
+              Catat booking baru dengan pembayaran manual, atau pulihkan booking dari pesanan website yang sudah ada.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            <div className="space-y-3 rounded-lg border bg-neutral-50 p-4">
+              <ManualField label="Tujuan pencatatan">
+                <select className={adminInputClass} value={manualMode} onChange={(event) => setManualMode(event.target.value as "new" | "recovery")}>
+                  <option value="new">Booking baru dengan pembayaran terpisah</option>
+                  <option value="recovery">Pulihkan booking pesanan website</option>
+                </select>
+              </ManualField>
+              {manualMode === "recovery" ? <>
+                <ManualField label="Nomor pesanan website asal"><input type="number" min="1" className={adminInputClass} value={sourceOrderInput} onChange={(event) => setSourceOrderInput(event.target.value)} placeholder="Contoh: 116" /></ManualField>
+                <p className="text-sm text-amber-800">Pembayaran diverifikasi pada pesanan asal dan booking aslinya dipulihkan. Alur ini tidak membuat pesanan atau pembayaran manual baru. Jika booking manual sudah ada, hubungkan melalui panel pemeriksaan di atas.</p>
+              </> : <p className="text-sm text-neutral-600">Jika klien sudah membayar pesanan website, gunakan alur pemulihan agar satu pembayaran tidak tercatat dua kali.</p>}
+            </div>
+            {manualConflictIds.length > 0 && <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><p>Sudah ada pesanan untuk sesi yang sama. Periksa pesanan yang ada sebelum mencatat pembayaran manual.</p><div className="mt-3 flex flex-wrap gap-2">{manualConflictIds.map((id) => <Button key={id} variant="outline" onClick={() => { setReconciliationOrderId(id); document.getElementById("booking-reconciliation")?.scrollIntoView({ behavior: "smooth" }); }}>Periksa pesanan #{id}</Button>)}</div></div>}
+            {manualMode === "new" && <>
             <div className="grid md:grid-cols-2 gap-4">
               <ManualField label="Nama klien">
                 <input className={adminInputClass} value={manualForm.clientName} onChange={(event) => updateManualForm("clientName", event.target.value)} />
@@ -687,7 +738,7 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
               <ManualField label="Status pembayaran">
                 <label className="flex h-10 items-center gap-2 rounded-md border border-gray-300 px-3 text-sm">
                   <input type="checkbox" checked={manualForm.markAsPaid} onChange={(event) => updateManualForm("markAsPaid", event.target.checked)} />
-                  Tandai sudah bayar
+                  Pembayaran manual sudah diverifikasi
                 </label>
               </ManualField>
             </div>
@@ -695,14 +746,15 @@ export default function AdminDashboard({ mode = "admin" }: { mode?: "admin" | "c
             <div className="rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
               Data manual akan memakai email sebagai kunci integrasi. Jika klien sudah punya akun website, booking masuk ke dashboard klien tersebut.
             </div>
+            </>}
 
             <div className="flex justify-end">
               <Button
                 onClick={() => manualBookingMutation.mutate()}
-                disabled={manualBookingMutation.isPending || !manualForm.gender || manualForm.age === ""}
+                disabled={manualBookingMutation.isPending || (manualMode === "new" && (!manualForm.gender || manualForm.age === "")) || (manualMode === "recovery" && !/^[1-9]\d*$/.test(sourceOrderInput))}
                 className="bg-teal-600 hover:bg-teal-700"
               >
-                {manualBookingMutation.isPending ? "Menyimpan..." : "Simpan Klien Manual"}
+                {manualBookingMutation.isPending ? "Memproses..." : manualMode === "recovery" ? "Pulihkan booking asli" : "Simpan Klien Manual"}
               </Button>
             </div>
           </CardContent>

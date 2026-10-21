@@ -2,233 +2,146 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, Clock, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { CheckCircle, Clock, Loader2, AlertCircle } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
+import { BookingPaymentNotice, hasConfirmedPayment, needsPaymentReview, type PaymentOrder } from "@/components/booking-payment-state";
+
+type PaymentResult = PaymentOrder & { orderId: number };
+type ReturnState = "loading" | "success" | "pending" | "inactive" | "unverified";
+const transientReviewReasons = new Set(["verification_pending", "payment_initializing", "initialization_uncertain", "fulfillment_pending"]);
 
 export default function PaymentReturn() {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const { isLoading: authLoading, isAuthenticated } = useAuth();
-  const [paymentStatus, setPaymentStatus] = useState<'loading' | 'success' | 'failed' | 'pending'>('loading');
-  const [orderData, setOrderData] = useState<any>(null);
-  const [error, setError] = useState<string>('');
+  const [paymentStatus, setPaymentStatus] = useState<ReturnState>("loading");
+  const [orderData, setOrderData] = useState<PaymentResult | null>(null);
+  const [error, setError] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     if (authLoading) return;
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempt = 0;
+    let latest: PaymentResult | null = null;
+    setError("");
+    setChecking(false);
+    if (!isAuthenticated) {
+      setPaymentStatus("unverified");
+      setError("Masuk ke akun yang membuat pesanan untuk memeriksa pembayaran.");
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const paymentId = params.get("external_id") || params.get("order_id") || params.get("transaction_order_id");
+    const directId = params.get("orderId");
+    const match = paymentId ? /^order_(\d+)_\d+$/.exec(paymentId) : null;
+    const orderId = Number(match?.[1] || (/^\d+$/.test(directId || "") ? directId : /^\d+$/.test(paymentId || "") ? paymentId : 0));
+    if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+      setPaymentStatus("unverified");
+      setError("Nomor pesanan tidak tersedia pada tautan pembayaran. Buka riwayat pesanan di dashboard.");
+      return;
+    }
 
-    const checkPaymentStatus = async () => {
-      if (!isAuthenticated) {
-        setError('Silakan masuk ke akun yang membuat pesanan untuk melihat status pembayaran.');
-        setPaymentStatus('failed');
-        return;
-      }
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const paymentOrderId = urlParams.get('external_id') || urlParams.get('order_id') || urlParams.get('transaction_order_id');
-      const directOrderId = urlParams.get('orderId');
-      const match = paymentOrderId ? /^order_(\d+)_\d+$/.exec(paymentOrderId) : null;
-      const orderId = match ? Number(match[1]) : /^\d+$/.test(directOrderId || '')
-        ? Number(directOrderId)
-        : /^\d+$/.test(paymentOrderId || '')
-          ? Number(paymentOrderId)
-          : null;
-
-      if (!orderId || !Number.isSafeInteger(orderId) || orderId <= 0) {
-        setError('Nomor pesanan tidak ditemukan pada halaman pembayaran. Buka status pesanan dari dashboard.');
-        setPaymentStatus('failed');
-        return;
-      }
-
+    const check = async () => {
+      if (!active) return;
+      attempt++;
+      setChecking(true);
+      let providerChecked = false;
       try {
         try {
-          await apiRequest('POST', `/api/midtrans/sync-status/${orderId}`, {});
+          const sync = await apiRequest("POST", `/api/midtrans/sync-status/${orderId}`, {});
+          const result = await sync.json() as { valid?: boolean; failed?: boolean };
+          providerChecked = result.valid !== false && result.failed !== true;
         } catch {
-          // The webhook may already have updated the order, or Midtrans may still be processing it.
+          // A saved successful payment can still be shown if the provider is temporarily unavailable.
         }
-
-        const response = await apiRequest('GET', `/api/payment-status/${orderId}`);
-        const payment = await response.json();
         if (!active) return;
+        const response = await apiRequest("GET", `/api/payment-status/${orderId}`);
+        const payment = await response.json() as PaymentResult;
+        if (!active) return;
+        payment.id = payment.id || payment.orderId;
+        latest = payment;
         setOrderData(payment);
-
-        if (payment.paymentStatus === 'paid' || payment.status === 'completed') {
-          setPaymentStatus('success');
-          toast({
-            title: 'Pembayaran Berhasil!',
-            description: 'Pembayaran Anda telah dikonfirmasi.',
-          });
-        } else if (payment.paymentStatus === 'pending' || payment.status === 'pending') {
-          setPaymentStatus('pending');
-        } else {
-          setError('Pembayaran tidak berhasil atau dibatalkan.');
-          setPaymentStatus('failed');
+        const financialReview = [payment.paymentReviewReason, payment.paymentSourceOrder?.paymentReviewReason]
+          .some((reason) => reason === "payment_reversal_review" || reason === "payment_status_conflict");
+        if (financialReview) {
+          setPaymentStatus("unverified");
+          setError("Pembayaran sebelumnya tercatat diterima, tetapi status transaksi terbaru memerlukan pemeriksaan tim layanan. Hubungi CSO dengan nomor pesanan dan bukti pembayaran Anda.");
+          setChecking(false);
+          return;
         }
-      } catch (statusError) {
+        const transientReview = transientReviewReasons.has(payment.paymentReviewReason ?? "");
+        if (hasConfirmedPayment(payment)) {
+          setPaymentStatus("success");
+          setError("");
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["/api/orders"] }),
+            queryClient.invalidateQueries({ queryKey: ["/api/bookings"] }),
+            queryClient.invalidateQueries({ queryKey: ["/api/user-assessments"] }),
+          ]);
+          if (!transientReview) {
+            setChecking(false);
+            return;
+          }
+        } else if ((needsPaymentReview(payment) && !transientReview) || payment.status === "schedule_review") {
+          setPaymentStatus("unverified");
+          setError("Pembayaran sedang diperiksa oleh tim layanan. Simpan bukti pembayaran dan nomor pesanan ini.");
+          setChecking(false);
+          return;
+        } else if (providerChecked && ["expired", "cancelled", "failed"].includes(payment.paymentStatus || "")) {
+          setPaymentStatus("inactive");
+          setChecking(false);
+          return;
+        } else {
+          setPaymentStatus("pending");
+        }
+      } catch {
         if (!active) return;
-        setError(statusError instanceof Error ? statusError.message : 'Gagal memeriksa status pembayaran.');
-        setPaymentStatus('failed');
+        if (latest && hasConfirmedPayment(latest)) {
+          setPaymentStatus("success");
+          setError("");
+        } else {
+          setPaymentStatus("unverified");
+          setError("Status belum dapat diverifikasi karena pemeriksaan belum berhasil. Ini tidak berarti pembayaran dibatalkan.");
+        }
+      }
+      if (!active) return;
+      if (attempt < 6) timer = setTimeout(() => { void check(); }, 3000);
+      else {
+        setChecking(false);
+        if (!latest || latest.status === "cancelled") {
+          setPaymentStatus("unverified");
+          setError("Status akhir belum dapat dipastikan. Jika sudah membayar, hubungi tim layanan dengan bukti pembayaran dan nomor pesanan ini.");
+        }
       }
     };
+    void check();
+    return () => { active = false; if (timer) clearTimeout(timer); };
+  }, [authLoading, isAuthenticated, retryKey]);
 
-    void checkPaymentStatus();
-    return () => {
-      active = false;
-    };
-  }, [authLoading, isAuthenticated, toast]);
-  const handleContinue = () => {
-    if (paymentStatus === 'success') {
-      setLocation('/dashboard');
-    } else {
-      setLocation('/cart');
-    }
-  };
-
-  const renderContent = () => {
-    switch (paymentStatus) {
-      case 'loading':
-        return (
-          <Card className="max-w-md mx-auto">
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2">
-                <Loader2 className="w-6 h-6 animate-spin" />
-                Memverifikasi Pembayaran
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <p className="text-muted-foreground">
-                Sedang memverifikasi status pembayaran Anda...
-              </p>
-            </CardContent>
-          </Card>
-        );
-
-      case 'success':
-        return (
-          <Card className="max-w-md mx-auto">
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2 text-green-600">
-                <CheckCircle className="w-6 h-6" />
-                Pembayaran Berhasil!
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-muted-foreground">
-                Terima kasih! Pembayaran Anda telah berhasil diproses.
-              </p>
-              {orderData && (
-                <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg">
-                  <p className="text-sm">
-                    <strong>Order ID:</strong> {orderData.orderId}
-                  </p>
-                  <p className="text-sm">
-                    <strong>Total:</strong> {new Intl.NumberFormat('id-ID', { 
-                      style: 'currency', 
-                      currency: 'IDR',
-                      minimumFractionDigits: 0 
-                    }).format(parseFloat(orderData.totalAmount) || 0)}
-                  </p>
-                </div>
-              )}
-              <p className="text-sm text-green-600">
-                Asesmen Anda sekarang tersedia di dashboard.
-              </p>
-              <Button onClick={handleContinue} className="w-full">
-                Lanjut ke Dashboard
-              </Button>
-            </CardContent>
-          </Card>
-        );
-
-      case 'pending':
-        return (
-          <Card className="max-w-md mx-auto">
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2 text-yellow-600">
-                <Clock className="w-6 h-6" />
-                Pembayaran Pending
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-muted-foreground">
-                Pembayaran Anda sedang diproses. Ini mungkin membutuhkan beberapa menit.
-              </p>
-              {orderData && (
-                <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg">
-                  <p className="text-sm">
-                    <strong>Order ID:</strong> {orderData.orderId}
-                  </p>
-                  <p className="text-sm">
-                    <strong>Status:</strong> Menunggu Pembayaran
-                  </p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
-                  Periksa Status Lagi
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-
-      case 'failed':
-        return (
-          <Card className="max-w-md mx-auto">
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2 text-red-600">
-                <XCircle className="w-6 h-6" />
-                Pembayaran Gagal
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-muted-foreground">
-                {error || 'Pembayaran tidak berhasil atau dibatalkan.'}
-              </p>
-              {orderData && (
-                <div className="bg-red-50 dark:bg-red-950/20 p-4 rounded-lg">
-                  <p className="text-sm">
-                    <strong>Order ID:</strong> {orderData.orderId}
-                  </p>
-                  <p className="text-sm">
-                    <strong>Status:</strong> {orderData.status}
-                  </p>
-                </div>
-              )}
-              <Button onClick={handleContinue} variant="outline" className="w-full">
-                Kembali ke Keranjang
-              </Button>
-            </CardContent>
-          </Card>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-background">
-      <Header />
-      
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-foreground mb-4">
-            Status Pembayaran
-          </h1>
-          <p className="text-neutral-600 dark:text-muted-foreground">
-            Hasil Pembayaran
-          </p>
-        </div>
-
-        {renderContent()}
-      </main>
-
-      <Footer />
-    </div>
-  );
+  const success = paymentStatus === "success";
+  const title = success ? "Pembayaran terkonfirmasi" : paymentStatus === "loading" ? "Memverifikasi pembayaran" : paymentStatus === "pending" ? "Menunggu konfirmasi pembayaran" : paymentStatus === "inactive" ? "Pembayaran tidak aktif" : "Status perlu diperiksa";
+  return <div className="min-h-screen bg-neutral-50 dark:bg-background">
+    <Header />
+    <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+      <h1 className="mb-8 text-center text-3xl font-bold">Status Pembayaran</h1>
+      <Card className="mx-auto max-w-md">
+        <CardHeader><CardTitle className={`flex items-center justify-center gap-2 ${success ? "text-green-700" : "text-amber-800"}`}>
+          {success ? <CheckCircle /> : checking ? <Loader2 className="animate-spin" /> : paymentStatus === "pending" ? <Clock /> : <AlertCircle />}{title}
+        </CardTitle></CardHeader>
+        <CardContent className="space-y-4 text-center">
+          {success ? <p>Pembayaran Anda sudah tercatat. Buka dashboard untuk melihat resi dan status layanan.</p> : paymentStatus === "inactive" ? <p>Pemeriksaan terakhir menunjukkan pembayaran tidak aktif. Jika dana sudah terpotong, hubungi tim layanan dengan bukti pembayaran sebelum membuat pembayaran baru.</p> : <p>{error || "Pembayaran mungkin masih diproses. Status diperiksa otomatis beberapa kali."}</p>}
+          {orderData && <div className="rounded-lg bg-neutral-100 p-4 text-sm dark:bg-neutral-900"><p>Pesanan <strong>#{orderData.orderId}</strong></p><p>Rp {Number(orderData.totalAmount || 0).toLocaleString("id-ID")}</p><BookingPaymentNotice order={orderData} /></div>}
+          {checking && <p role="status" className="text-sm text-neutral-600">Pemeriksaan otomatis sedang berjalan...</p>}
+          {!success && <Button variant="outline" className="w-full" disabled={checking} onClick={() => { setPaymentStatus("loading"); setRetryKey((value) => value + 1); }}>Periksa kembali</Button>}
+          <Button className="w-full" onClick={() => setLocation(isAuthenticated ? "/dashboard" : "/login")}>{isAuthenticated ? "Buka dashboard" : "Masuk ke akun"}</Button>
+        </CardContent>
+      </Card>
+    </main>
+    <Footer />
+  </div>;
 }

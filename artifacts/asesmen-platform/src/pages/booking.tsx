@@ -413,6 +413,8 @@ export default function Booking() {
   const [scheduleNow, setScheduleNow] = useState(() => new Date());
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [hasAppliedPreviousProfile, setHasAppliedPreviousProfile] = useState(false);
+  const savedBookingRef = useRef<{ id: number; orderId: number } | null>(null);
+  const [savedBooking, setSavedBooking] = useState<{ id: number; orderId: number } | null>(null);
   const isFormRoute = location.startsWith("/booking/form");
   const [form, setForm] = useState<BookingForm>({
     clientName: "",
@@ -526,13 +528,16 @@ export default function Booking() {
     date.setDate(date.getDate() + 30);
     return formatDateInput(date);
   }, []);
-  const { data: availabilityData } = useQuery<AvailabilityResponse>({
+  const { data: availabilityData, isSuccess: availabilityLoaded, error: availabilityError } = useQuery<AvailabilityResponse>({
     queryKey: ["/api/psychologist-availability", form.psychologistName],
     queryFn: async () => {
       const response = await apiRequest("GET", `/api/psychologist-availability?psychologistName=${encodeURIComponent(form.psychologistName)}`);
       return response.json();
     },
     enabled: Boolean(form.psychologistName),
+    staleTime: 0,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: "always",
   });
   const dateScheduleSlots = useMemo(() => {
     if (!form.preferredDate || !availabilityData?.scheduleSlots?.length) return [];
@@ -583,16 +588,20 @@ export default function Booking() {
     [scheduleOptions],
   );
   useEffect(() => {
+    if (!availabilityLoaded || availabilityError || !form.preferredDate || savedBookingRef.current) return;
     const selectedOption = scheduleOptions.find((option) => option.time === form.preferredTime);
-    if (!selectedOption?.isPast) return;
+    const additionalOption = scheduleOptions.find((option) => option.time === form.additionalPreferredTime);
+    const primaryAvailable = !form.preferredTime || Boolean(selectedOption && !selectedOption.isPast);
+    const additionalAvailable = !form.additionalPreferredTime || Boolean(additionalOption && !additionalOption.isPast);
+    if (primaryAvailable && additionalAvailable) return;
 
     setForm((current) => ({
       ...current,
-      preferredTime: "",
-      additionalPreferredTime: "",
-      location: "online",
+      preferredTime: primaryAvailable ? current.preferredTime : "",
+      additionalPreferredTime: primaryAvailable && additionalAvailable ? current.additionalPreferredTime : "",
+      location: primaryAvailable ? current.location : "online",
     }));
-  }, [form.preferredTime, scheduleOptions]);
+  }, [availabilityError, availabilityLoaded, form.additionalPreferredTime, form.preferredDate, form.preferredTime, scheduleOptions]);
   const availableTimeSlots = useMemo(() => {
     return availableScheduleOptions
       .filter((option) => !form.preferredDate || option.date === form.preferredDate)
@@ -714,6 +723,10 @@ export default function Booking() {
 
   const createBookingMutation = useMutation({
     mutationFn: async () => {
+      if (savedBookingRef.current) {
+        const response = await apiRequest("POST", `/api/bookings/${savedBookingRef.current.id}/pay`, {});
+        return response.json();
+      }
       if (!selectedService) throw new Error("Pilih layanan terlebih dahulu");
       if (!selectedPsychologist) throw new Error("Pilih psikolog terlebih dahulu");
 
@@ -721,7 +734,9 @@ export default function Booking() {
         serviceId: selectedService.id,
         ...buildBookingPayload(form, user),
       });
-      const booking = await bookingResponse.json();
+      const booking = await bookingResponse.json() as { id: number; orderId: number };
+      savedBookingRef.current = { id: booking.id, orderId: booking.orderId };
+      setSavedBooking(savedBookingRef.current);
 
       const paymentResponse = await apiRequest("POST", `/api/bookings/${booking.id}/pay`, {});
       return await paymentResponse.json();
@@ -731,16 +746,25 @@ export default function Booking() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
         title: "Booking dibuat",
-        description: "Anda akan diarahkan ke pembayaran Midtrans.",
+        description: payment.redirect_url ? "Anda akan diarahkan ke pembayaran Midtrans." : "Status pembayaran akan diperiksa pada pesanan yang sudah tersimpan.",
       });
 
       if (payment.redirect_url) {
         window.location.href = payment.redirect_url;
       } else {
-        setLocation(`/payment-return?order_id=${payment.orderId}`);
+        setLocation(`/payment-return?orderId=${savedBookingRef.current?.orderId || payment.orderId}`);
       }
     },
     onError: (error) => {
+      if (savedBookingRef.current) {
+        queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        toast({
+          title: "Booking tersimpan; pembayaran perlu diperiksa",
+          description: `Pesanan #${savedBookingRef.current.orderId} sudah dibuat. Periksa status pembayaran melalui dashboard sebelum mencoba pembayaran kembali.`,
+        });
+        return;
+      }
       toast({
         title: "Booking gagal",
         description: error instanceof Error ? error.message : "Silakan cek data dan coba lagi.",
@@ -842,6 +866,10 @@ export default function Booking() {
   };
 
   const handleSubmit = () => {
+    if (savedBookingRef.current) {
+      setLocation(`/payment-return?orderId=${savedBookingRef.current.orderId}`);
+      return;
+    }
     const incompleteStep = firstIncompleteStepBefore(4);
     const error = incompleteStep === -1 ? currentStepError : validateStep(incompleteStep);
     if (error) {
@@ -901,6 +929,8 @@ export default function Booking() {
             Isi data diri, pilih kebutuhan konsultasi, tentukan jadwal preferensi, lalu lanjutkan ke pembayaran.
           </p>
         </div>
+
+        {savedBooking && !createBookingMutation.isPending && <div role="status" className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Booking sudah tersimpan pada pesanan #{savedBooking.orderId}.</p><p className="mt-1">Status pembayaran belum dapat dipastikan dari halaman ini. Gunakan pesanan yang sama untuk memeriksa status; pengisian booking baru belum diperlukan.</p><div className="mt-3 flex flex-wrap gap-3"><Button variant="outline" onClick={() => setLocation(`/payment-return?orderId=${savedBooking.orderId}`)}>Periksa pembayaran</Button><Button variant="outline" onClick={() => setLocation("/dashboard")}>Buka riwayat pesanan</Button></div></div>}
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-8">
           <div className="space-y-6">
@@ -1213,7 +1243,7 @@ export default function Booking() {
                   Berikutnya
                 </Button>
               ) : (
-                <Button onClick={handleSubmit} className="bg-green-700 hover:bg-green-800" disabled={authLoading || createBookingMutation.isPending || !canSubmitBooking}>
+                <Button onClick={handleSubmit} className="bg-green-700 hover:bg-green-800" disabled={authLoading || createBookingMutation.isPending || (!savedBooking && !canSubmitBooking)}>
                   {createBookingMutation.isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1222,7 +1252,7 @@ export default function Booking() {
                   ) : (
                     <>
                       <CreditCard className="w-4 h-4 mr-2" />
-                      Pembayaran
+                      {savedBooking ? "Periksa pembayaran" : "Pembayaran"}
                     </>
                   )}
                 </Button>

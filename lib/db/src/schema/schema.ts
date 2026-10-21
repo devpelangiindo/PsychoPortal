@@ -1,5 +1,6 @@
 import {
   pgTable,
+  type AnyPgColumn,
   text,
   varchar,
   timestamp,
@@ -129,6 +130,11 @@ export const orders = pgTable("orders", {
   paymentId: varchar("payment_id"),
   paymentStatus: varchar("payment_status", { length: 50 }).default("pending"),
   paymentMethod: varchar("payment_method", { length: 50 }),
+  paymentExpiresAt: timestamp("payment_expires_at"),
+  paymentReviewReason: text("payment_review_reason"),
+  // Operational replacements point to the original payment; count that payment once.
+  paymentSourceOrderId: integer("payment_source_order_id").references((): AnyPgColumn => orders.id),
+  replacedByOrderId: integer("replaced_by_order_id").references((): AnyPgColumn => orders.id),
   // Using Midtrans payment gateway
   paidAt: timestamp("paid_at"),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }),
@@ -499,7 +505,11 @@ export type UserUpdateRequest = z.infer<typeof userUpdateSchema>;
 export type PasswordResetRequest = z.infer<typeof passwordResetSchema>;
 
 // Order with items type
-export type OrderWithItems = Order & {
+export type OrderWithPaymentSource = Order & {
+  paymentSourceOrder?: Order | null;
+};
+
+export type OrderWithItems = OrderWithPaymentSource & {
   orderItems: (OrderItem & {
     assessment: Assessment;
   })[];
@@ -519,7 +529,7 @@ export type UserAssessmentWithDetails = UserAssessment & {
 
 export type PsychologistBookingWithDetails = PsychologistBooking & {
   service: BookingService;
-  order: Order;
+  order: OrderWithPaymentSource;
 };
 
 export type PsychologistDassScreeningWithClient = DassScreening & {

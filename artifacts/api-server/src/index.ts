@@ -24,6 +24,8 @@ httpServer.listen(port, () => {
   logger.info({ port }, "Server listening");
   const stopInstagram = startInstagramWorker(pool);
   httpServer.once('close', stopInstagram);
+  const stopPayments = app.locals.startPaymentWorker?.();
+  if (stopPayments) httpServer.once('close', stopPayments);
 });
 
 httpServer.on("error", (err: Error) => {

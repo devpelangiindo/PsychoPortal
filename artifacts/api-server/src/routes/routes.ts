@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "../storage";
+import { storage, isBookingReservationActiveForStorage } from "../storage";
 import { getSession } from "../replitAuth";
 import type { UserAssessmentWithDetails } from "@workspace/db";
 import { insertOrderSchema, insertOrderItemSchema, insertUserAssessmentSchema, registerSchema, loginSchema, otpVerificationSchema, adminLoginSchema, userUpdateSchema, passwordResetSchema } from "@workspace/db";
@@ -20,7 +20,9 @@ import { initializeInstagram, registerInstagramRoutes } from "../instagram";
 import { DEFAULT_THERAPY_CATEGORIES, DEFAULT_THERAPY_SERVICES } from "../therapy-seed";
 import { DEFAULT_ONSITE_ASSESSMENT_SERVICES } from "../onsite-assessment-seed";
 // Using Midtrans payment gateway
-import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, getMidtransPaymentStatus } from "../midtrans";
+import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, expireMidtransTransaction, cancelMidtransSession } from "../midtrans";
+import { createPaymentLifecycle, paymentLifecycleSchemaSql, PaymentLifecycleError } from "../payment-lifecycle";
+import { createBookingReconciliationService, registerBookingReconciliationRoutes, bookingReconciliationSchemaSql } from "../booking-reconciliation";
 
 type ConsultationType = "child" | "adult" | "family";
 type PsychologistOption = {
@@ -1714,6 +1716,7 @@ function getSrqCategory(score: number) {
 }
 
 function isPaidCounselingBooking(booking: { status: string; order: { status: string; paymentStatus?: string | null } }) {
+  if (['replaced','schedule_review','cancelled'].includes(booking.status)) return false;
   return booking.status === "paid" || booking.order.status === "completed" || booking.order.paymentStatus === "paid";
 }
 
@@ -1721,25 +1724,9 @@ function isScreeningEligibleConsultation(booking: { consultationType?: string | 
   return booking.consultationType !== "child";
 }
 
-function hasPaymentExpired(order: { status: string; paymentId?: string | null; paymentStatus?: string | null; updatedAt?: Date | string | null }) {
-  if (order.status !== "pending" || !order.paymentId || order.paymentStatus === "paid") return false;
-
-  const updatedAt = order.updatedAt ? new Date(order.updatedAt).getTime() : Number.NaN;
-  if (Number.isNaN(updatedAt)) return false;
-
-  return Date.now() - updatedAt >= PAYMENT_EXPIRY_MINUTES * 60 * 1000;
-}
-
 async function expireOrderIfNeeded<T extends { id: number; status: string; paymentId?: string | null; paymentStatus?: string | null; updatedAt?: Date | string | null }>(order: T) {
-  if (!hasPaymentExpired(order)) return order;
-
-  await storage.updateOrderStatus(order.id, "cancelled", order.paymentId || undefined, "expired");
-  await releasePhysicalOrderStock(order.id);
-  return {
-    ...order,
-    status: "cancelled",
-    paymentStatus: "expired",
-  };
+  // Reading an order never cancels it. The server reconciler verifies the provider first.
+  return order;
 }
 
 const bookingRequestSchema = z.object({
@@ -1810,6 +1797,7 @@ const manualCounselingBookingSchema = bookingRequestSchema.extend({
   gender: z.enum(["male", "female"]),
   age: z.number().int().min(0).max(120),
   markAsPaid: z.boolean().optional(),
+  sourceOrderId: z.number().int().positive().optional(),
 });
 
 const psychologistPriceSchema = z.string().trim().regex(/^\d+$/, "Harga hanya boleh angka").optional().or(z.literal(""));
@@ -2035,11 +2023,8 @@ function isValidTimeSlotRange(slot: string) {
   return range.startMinutes >= 7 * 60 && range.endMinutes <= 21 * 60 && range.startMinutes < range.endMinutes;
 }
 
-function isBookingReservationActive(booking: { status: string; order: { status: string; paymentStatus?: string | null; createdAt?: Date | string | null; updatedAt?: Date | string | null } }) {
-  if (booking.status === "paid" || booking.order.status === "completed" || booking.order.paymentStatus === "paid") return true;
-  if (booking.order.status !== "pending" || ["expired", "cancelled", "failed"].includes(booking.order.paymentStatus ?? "")) return false;
-  const referenceTime = booking.order.updatedAt ?? booking.order.createdAt;
-  return Boolean(referenceTime && Date.now() - new Date(referenceTime).getTime() < PAYMENT_EXPIRY_MINUTES * 60 * 1000);
+function isBookingReservationActive(booking: Parameters<typeof isBookingReservationActiveForStorage>[0]) {
+  return isBookingReservationActiveForStorage(booking);
 }
 
 function findOverlappingScheduleSlot(slots: { scheduleDate: string; timeSlot: string; isAvailable?: boolean }[]) {
@@ -3815,7 +3800,7 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
     return { assessmentsCreated: 0, bookingUpdated: false };
   }
 
-  await storage.updateOrderStatus(orderId, 'completed', paymentId, 'paid');
+  // Payment has already been committed with the provider's settlement time by paymentLifecycle.
 
   let assessmentsCreated = 0;
   if (order.orderItems.length > 0) {
@@ -3880,46 +3865,22 @@ async function fulfillPaidOrder(orderId: number, paymentId?: string) {
     return { assessmentsCreated: 0, bookingUpdated: true };
   }
 
-  return { assessmentsCreated: 0, bookingUpdated: false };
+  return { assessmentsCreated: 0, bookingUpdated: false, missingItems: bookings.length === 0 };
 }
 
+const bookingReconciliation = createBookingReconciliationService({
+  pool, verifyOrder: (id) => paymentLifecycle.verifyProof(id),
+});
+const paymentLifecycle = createPaymentLifecycle({
+  pool, checkStatus: checkTransactionStatus, expire: expireMidtransTransaction, cancelSession: cancelMidtransSession,
+  create: createMidtransTransaction, fulfillOtherOrder: fulfillPaidOrder,
+  hasReplacement: (id) => bookingReconciliation.hasReplacement(id),
+  applyReplacement: (id, proof) => bookingReconciliation.applyLinkedReplacementIfAny(id, proof),
+});
+
 async function applyVerifiedMidtransStatus(order: Awaited<ReturnType<typeof storage.getOrder>>, providerStatus: any) {
-  if (!order || !order.paymentId || providerStatus.order_id !== order.paymentId) {
-    return { valid: false as const };
-  }
-
-  const expectedAmount = Math.round(Number(order.totalAmount));
-  const reportedAmount = Math.round(Number(providerStatus.gross_amount));
-  if (!Number.isSafeInteger(expectedAmount) || !Number.isSafeInteger(reportedAmount) || expectedAmount !== reportedAmount) {
-    return { valid: false as const };
-  }
-
-  const paymentStatus = getMidtransPaymentStatus(
-    providerStatus.transaction_status,
-    providerStatus.fraud_status,
-  );
-  let updatedStatus = order.status;
-
-  if (paymentStatus === "paid") {
-    await fulfillPaidOrder(order.id, order.paymentId);
-    updatedStatus = "completed";
-  } else if ((paymentStatus === "failed" || paymentStatus === "cancelled") && order.status === "pending" && order.paymentStatus !== "paid") {
-    await storage.updateOrderStatus(order.id, "cancelled", order.paymentId, paymentStatus);
-    await releasePhysicalOrderStock(order.id);
-    updatedStatus = "cancelled";
-  } else if (paymentStatus === "pending" && order.status === "pending" && order.paymentStatus !== "pending") {
-    await storage.updateOrderStatus(order.id, "pending", order.paymentId, "pending");
-  }
-
-  return {
-    valid: true as const,
-    orderId: order.id,
-    previousStatus: order.status,
-    currentStatus: updatedStatus,
-    paymentStatus,
-    midtransStatus: providerStatus.transaction_status,
-    synced: updatedStatus !== order.status || paymentStatus === "paid",
-  };
+  if (!order) return { valid: false as const };
+  return paymentLifecycle.applyStatus(order.id, providerStatus);
 }
 
 async function synchronizeOwnedMidtransOrder(userId: string, orderId: number) {
@@ -3931,15 +3892,15 @@ async function synchronizeOwnedMidtransOrder(userId: string, orderId: number) {
     return { valid: false as const, reason: "payment_not_initialized" as const };
   }
 
-  const providerStatus = await checkTransactionStatus(order.paymentId);
-  const result = await applyVerifiedMidtransStatus(order, providerStatus);
-  return result.valid ? result : { valid: false as const, reason: "provider_mismatch" as const };
+  return paymentLifecycle.reconcileOrder(order.id);
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
   try {
     // Session middleware for custom authentication
     app.use(getSession());
+    await pool.query(paymentLifecycleSchemaSql);
+    await pool.query(bookingReconciliationSchemaSql);
 
     // Initialize default assessments
     await ensureExternalAssessmentInfrastructure();
@@ -3963,6 +3924,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error('Failed to initialize routes:', error);
     throw error;
   }
+
+  app.locals.startPaymentWorker = paymentLifecycle.startWorker;
+  registerBookingReconciliationRoutes(app, { service: bookingReconciliation, isAuthenticated,
+    canManage: canManageBookingsRole });
+  app.post('/api/admin/booking-reconciliation/verify/:orderId', isAuthenticated, async (req: any, res) => {
+    if (!canManageBookingsRole(req.user.role)) return res.status(403).json({message:'Akses hanya untuk admin/CSO.'});
+    const id=Number(req.params.orderId);
+    if(!Number.isSafeInteger(id) || id<=0)return res.status(400).json({message:'Nomor pesanan tidak valid.'});
+    try { return res.json(await paymentLifecycle.reconcileOrder(id)); }
+    catch(error) { return res.status(error instanceof PaymentLifecycleError ? error.statusCode : 503).json({message:error instanceof PaymentLifecycleError ? error.message : 'Status Midtrans belum dapat diverifikasi.'}); }
+  });
 
   // Contact form endpoint - public, no auth required
   app.post('/api/contact', async (req: any, res: any) => {
@@ -4051,7 +4023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Profil psikolog belum dihubungkan ke daftar booking" });
       }
 
-      const bookings = (await storage.getPsychologistBookingsByProvider(providerName)).filter((booking) => booking.status === "paid");
+      const bookings = (await storage.getPsychologistBookingsByProvider(providerName)).filter((booking) => booking.status === "paid" || booking.status === "schedule_review");
       res.json(bookings);
     } catch (error) {
       console.error("Error fetching psychologist bookings:", error);
@@ -4254,7 +4226,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      if (booking.status !== "paid") {
+      const canResolvePaidScheduleReview = booking.status === "schedule_review"
+        && booking.order.paymentStatus === "paid"
+        && !booking.order.paymentSourceOrderId
+        && !booking.order.replacedByOrderId;
+      if (booking.status !== "paid" && !canResolvePaidScheduleReview) {
         return res.status(400).json({ message: "Jadwal hanya dapat diubah untuk klien yang sudah membayar." });
       }
 
@@ -4284,6 +4260,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Data jadwal tidak valid", errors: error.flatten() });
+      }
+      if (error instanceof Error && error.message === "BOOKING_SLOT_UNAVAILABLE") {
+        return res.status(409).json({ message: "Jadwal baru saja dipilih klien lain. Silakan pilih jadwal berbeda." });
+      }
+      if (error instanceof Error && error.message === "BOOKING_SCHEDULE_NOT_EDITABLE") {
+        return res.status(409).json({ message: "Status booking telah berubah. Muat ulang daftar sebelum mengubah jadwal." });
       }
       console.error("Error updating psychologist schedule:", error);
       res.status(500).json({ message: "Failed to update psychologist schedule" });
@@ -5291,22 +5273,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedOrder = await expireOrderIfNeeded(order);
       if (normalizedOrder.status === "completed" || normalizedOrder.paymentStatus === "paid") {
-        return res.status(400).json({ message: "Order is already paid" });
+        return res.json({orderId:order.id,alreadyPaid:true,status:'completed',redirect_url:`/payment-return?orderId=${order.id}`});
       }
 
-      if (normalizedOrder.status === "cancelled" || normalizedOrder.paymentStatus === "expired" || normalizedOrder.paymentStatus === "cancelled" || normalizedOrder.paymentStatus === "failed") {
-        return res.status(400).json({ message: "Pesanan sudah dibatalkan atau kadaluwarsa. Silakan isi booking ulang." });
-      }
-
-      const timestamp = Date.now();
-      const midtransOrderId = `order_${booking.orderId}_${timestamp}`;
       const user = await storage.getUser(booking.userId);
       const groupedBookings = await storage.getPsychologistBookingsByOrder(booking.orderId);
       const bookingAmount = order.totalAmount;
       const unitPrice = parseInt(booking.psychologistFee || booking.service.price);
 
-      const transaction = await createMidtransTransaction({
-        orderId: midtransOrderId,
+      const transaction = await paymentLifecycle.createOrReuse(booking.orderId, {
         amount: parseInt(bookingAmount),
         expiryMinutes: PAYMENT_EXPIRY_MINUTES,
         customerDetails: {
@@ -5325,30 +5300,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ],
       });
 
-      await storage.updateOrderStatus(booking.orderId, 'pending', midtransOrderId, 'pending');
-
       const waReminderPlaceholder = createWaNotificationPlaceholder("booking_payment_reminder", {
         bookingId: booking.id,
         bookingIds: groupedBookings.map((item) => item.id),
         orderId: booking.orderId,
         clientName: booking.clientName,
         clientWhatsapp: booking.whatsappNumber,
-        paymentId: midtransOrderId,
+        paymentId: transaction.paymentId,
         trigger: "after_midtrans_payment_deadline_if_unpaid",
       });
 
       res.json({
         ...transaction,
-        paymentId: midtransOrderId,
+        paymentId: transaction.paymentId,
         orderId: booking.orderId,
         bookingId: booking.id,
         bookingIds: groupedBookings.map((item) => item.id),
         sessionCount: groupedBookings.length,
         amount: bookingAmount,
-        status: 'pending',
+        status: transaction.status,
         waReminderPlaceholder,
       });
     } catch (error) {
+      if(error instanceof PaymentLifecycleError)return res.status(error.statusCode).json({code:error.code,message:error.message});
       console.error("Booking payment creation failed", {
         errorName: error instanceof Error ? error.name : 'UnknownError',
       });
@@ -5362,6 +5336,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Akses hanya untuk admin/CSO." });
       }
 
+      if (req.body?.sourceOrderId != null) {
+        const {sourceOrderId}=z.object({sourceOrderId:z.number().int().positive()}).parse(req.body);
+        const source=await storage.getOrder(sourceOrderId);
+        const originalBookings=await storage.getPsychologistBookingsByOrder(sourceOrderId);
+        if(!source || !originalBookings.length)return res.status(409).json({message:'Booking asal tidak ditemukan. Periksa data melalui panel rekonsiliasi.'});
+        const proof=await paymentLifecycle.verifyProof(source.id);
+        const result=await paymentLifecycle.applyStatus(source.id,{order_id:proof.paymentId,gross_amount:proof.amount,
+          transaction_status:proof.transactionStatus,fraud_status:proof.fraudStatus,payment_type:proof.paymentType,
+          settlement_time:proof.settlementTime.toISOString()});
+        const recovered=await storage.getOrder(source.id);
+        if(recovered?.paymentStatus!=='paid')return res.status(409).json({message:'Pembayaran pesanan asal belum terverifikasi lunas. Tidak ada booking manual baru yang dibuat.',...result});
+        const activeBookings=recovered.replacedByOrderId ? await storage.getPsychologistBookingsByOrder(recovered.replacedByOrderId) : originalBookings;
+        const booking=activeBookings[0] ? await storage.getPsychologistBooking(activeBookings[0].id) : null;
+        return res.json({booking,integrationStatus:'recovered_existing_order',review:result.review,
+          message:result.review ? 'Pembayaran lunas. Jadwal perlu diperiksa pada panel rekonsiliasi.' : 'Pesanan asal berhasil diverifikasi; tidak ada transaksi manual baru.'});
+      }
       const data = manualCounselingBookingSchema.parse(req.body);
       const psychologist = await getPsychologistOption(data.psychologistName);
       if (!psychologist || !psychologist.types.includes(data.consultationType)) {
@@ -5383,6 +5373,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let user = await storage.getUserByEmail(data.email);
       let integrationStatus: "linked_existing_user" | "created_manual_user" = "linked_existing_user";
 
+      const potentialDuplicates=await pool.query(`SELECT DISTINCT b.order_id AS "id",o.status,o.payment_status AS "paymentStatus",b.preferred_time AS "preferredTime"
+        FROM psychologist_bookings b JOIN orders o ON o.id=b.order_id WHERE lower(trim(b.email))=lower(trim($1))
+        AND lower(trim(b.psychologist_name))=lower(trim($2)) AND b.preferred_date=$3
+        AND b.status<>'replaced' AND o.replaced_by_order_id IS NULL`,
+      [data.email,data.psychologistName,data.preferredDate]);
+      const duplicateCandidates=potentialDuplicates.rows.filter(item=>normalizeTimeSlot(item.preferredTime)===normalizeTimeSlot(data.preferredTime));
+      if(duplicateCandidates.length)return res.status(409).json({code:'EXISTING_BOOKING_REVIEW_REQUIRED',
+        message:'Ada pesanan untuk klien dan sesi ini. Gunakan pemulihan pesanan asal atau panel rekonsiliasi.',candidates:duplicateCandidates});
+
       if (!user) {
         user = await storage.createUser({
           id: AuthUtils.generateUserId(),
@@ -5402,17 +5401,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const manualPaymentId = `manual_counseling_${timestamp}`;
       const amount = getPsychologistFee(psychologist, data.consultationType);
 
-      const paidAt = data.markAsPaid === false ? undefined : new Date();
+      const paidAt = data.markAsPaid === true ? new Date() : undefined;
       const created = await storage.createPsychologistBookingOrder(
         {
           userId: user.id,
           totalAmount: amount,
-          status: data.markAsPaid === false ? "pending" : "completed",
-          paymentStatus: data.markAsPaid === false ? "pending" : "paid",
+          status: data.markAsPaid === true ? "completed" : "pending",
+          paymentStatus: data.markAsPaid === true ? "paid" : "pending",
           paymentId: manualPaymentId,
           paymentMethod: "manual_offline",
           paidAt,
-          paidAmount: data.markAsPaid === false ? undefined : amount,
+          paidAmount: data.markAsPaid === true ? amount : undefined,
         },
         [{
           userId: user.id,
@@ -5434,7 +5433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           psychologistName: data.psychologistName,
           psychologistFee: amount,
           location: data.location,
-          status: data.markAsPaid === false ? "pending_payment" : "paid",
+          status: data.markAsPaid === true ? "paid" : "pending_payment",
           paidAt,
         }],
       );
@@ -5451,6 +5450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Data booking manual tidak valid", errors: error.flatten() });
       }
+      if(error instanceof PaymentLifecycleError)return res.status(error.statusCode).json({code:error.code,message:error.message});
       if (error instanceof Error && error.message === "BOOKING_SLOT_UNAVAILABLE") {
         return res.status(409).json({ message: "Jadwal baru saja dipilih oleh booking lain. Silakan pilih jadwal yang berbeda." });
       }
@@ -5562,11 +5562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       order = await expireOrderIfNeeded(order);
 
       if (order.status === 'completed' || order.paymentStatus === 'paid') {
-        return res.status(400).json({ message: "Order is already paid" });
-      }
-
-      if (order.status === 'cancelled' || order.paymentStatus === 'expired' || order.paymentStatus === 'cancelled' || order.paymentStatus === 'failed') {
-        return res.status(400).json({ message: "Pesanan sudah dibatalkan atau kadaluwarsa. Silakan isi booking ulang." });
+        return res.json({orderId:order.id,alreadyPaid:true,status:'completed',redirect_url:`/payment-return?orderId=${order.id}`});
       }
 
       console.log(`🔄 Creating Midtrans payment for order ${orderId}`);
@@ -5577,10 +5573,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Create Midtrans transaction ID with timestamp
-      const timestamp = Date.now();
-      const midtransOrderId = `order_${orderId}_${timestamp}`;
-      
       // Prepare Midtrans transaction data
       const bookings = order.orderItems.length === 0
         ? await storage.getPsychologistBookingsByOrder(order.id)
@@ -5664,7 +5656,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const transactionData = {
-        orderId: midtransOrderId,
         amount: parseInt(order.totalAmount),
         expiryMinutes: PAYMENT_EXPIRY_MINUTES,
         customerDetails: {
@@ -5679,16 +5670,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.info("Creating Midtrans transaction", { orderId });
 
       // Create Midtrans transaction
-      const midtransResult = await createMidtransTransaction(transactionData);
-      
-      // Update order with Midtrans payment ID immediately
-      await storage.updateOrderStatus(orderId, 'pending', midtransOrderId, 'pending');
+      const midtransResult = await paymentLifecycle.createOrReuse(order.id, transactionData);
 
       const waReminderPlaceholder = createWaNotificationPlaceholder("order_payment_reminder", {
         orderId,
         clientName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
         clientWhatsapp: user.whatsappNumber || '',
-        paymentId: midtransOrderId,
+        paymentId: midtransResult.paymentId,
         trigger: "after_midtrans_payment_deadline_if_unpaid",
       });
       
@@ -5697,13 +5685,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         token: midtransResult.token,
         redirect_url: midtransResult.redirect_url,
-        paymentId: midtransOrderId,
-        status: 'pending',
+        paymentId: midtransResult.paymentId,
+        status: midtransResult.status,
+        expiresAt: 'expiresAt' in midtransResult ? midtransResult.expiresAt : null,
         amount: order.totalAmount,
         orderId: orderId,
         waReminderPlaceholder,
       });
     } catch (error) {
+      if(error instanceof PaymentLifecycleError)return res.status(error.statusCode).json({code:error.code,message:error.message});
       console.error("Midtrans payment creation failed", {
         errorName: error instanceof Error ? error.name : 'UnknownError',
       });
@@ -9556,7 +9546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const order = await storage.getOrder(numericOrderId);
-      if (!order || order.paymentId !== notificationResult.orderId) {
+      if (!order) {
         res.status(404).json({ error: 'Order payment not found' });
         return;
       }
@@ -9566,6 +9556,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gross_amount: notificationResult.amount,
         transaction_status: notificationResult.transactionStatus,
         fraud_status: notificationResult.fraudStatus,
+        payment_type: notificationResult.paymentType,
+        transaction_time: notificationResult.transactionTime,
+        settlement_time: notificationResult.settlementTime,
       });
       if (!applied.valid) {
         res.status(409).json({ error: 'Payment details do not match the order' });
@@ -9668,9 +9661,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderId: order.id,
         status: order.status,
         paymentStatus: order.paymentStatus,
+        paymentId: order.paymentId,
         paymentMethod: order.paymentMethod,
         totalAmount: order.totalAmount,
         paidAt: order.paidAt,
+        paidAmount: order.paidAmount,
+        paymentExpiresAt: order.paymentExpiresAt,
+        paymentReviewReason: order.paymentReviewReason,
+        paymentSourceOrderId: order.paymentSourceOrderId,
+        replacedByOrderId: order.replacedByOrderId,
+        paymentSourceOrder: order.paymentSourceOrder,
         items: order.orderItems?.map(item => ({
           assessmentName: item.assessment.name,
           price: item.price
@@ -9686,31 +9686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync only the signed-in user's recent pending orders.
   app.post('/api/sync/trigger', isAuthenticated, async (req: any, res) => {
     try {
-      const orders = await storage.getUserOrders(req.user.claims.sub);
-      const pendingOrders = orders
-        .filter((order) => order.status === 'pending' && Boolean(order.paymentId))
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-        .slice(0, 10);
-      let synced = 0;
-      let failed = 0;
-
-      for (const order of pendingOrders) {
-        try {
-          const result = await synchronizeOwnedMidtransOrder(req.user.claims.sub, order.id);
-          if (result.valid && result.synced) synced++;
-          else if (!result.valid) failed++;
-        } catch {
-          failed++;
-        }
-      }
-
-      res.json({
-        success: true,
-        attempted: pendingOrders.length,
-        synced,
-        failed,
-        timestamp: new Date().toISOString(),
-      });
+      res.json(await paymentLifecycle.reconcileBatch(req.user.claims.sub));
     } catch (error) {
       console.error('User payment sync failed', {
         errorName: error instanceof Error ? error.name : 'UnknownError',

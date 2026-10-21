@@ -31,6 +31,7 @@ import {
   type InsertSrqScreening,
   type PsychologistSrqScreeningWithClient,
   type Order,
+  type OrderWithPaymentSource,
   type InsertOrder,
   type OrderItem,
   type InsertOrderItem,
@@ -42,22 +43,64 @@ import {
   type InsertOtpVerification,
 } from "@workspace/db";
 import { db } from "./db";
-import { eq, and, or, sql, ilike, desc, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, or, sql, ilike, desc, gte, lte, inArray, isNull } from "drizzle-orm";
+
+const BOOKING_HOLD_MINUTES = 15;
+
+type ReservationOrder = Pick<Order, "status" | "paymentStatus" | "paymentId" | "createdAt" | "paymentExpiresAt" | "paymentReviewReason" | "replacedByOrderId">;
+
+export function normalizedBookingStatus(bookingStatus: string, order: Pick<ReservationOrder, "status" | "paymentStatus" | "replacedByOrderId">) {
+  if (order.replacedByOrderId || bookingStatus === "replaced") return "replaced";
+  if (bookingStatus === "schedule_review" || order.status === "schedule_review") return "schedule_review";
+  if (order.status === "completed" || order.paymentStatus === "paid") return "paid";
+  if (order.status === "cancelled" || ["expired", "cancelled", "failed"].includes(order.paymentStatus ?? "")) return "cancelled";
+  return bookingStatus === "paid" ? "pending_payment" : bookingStatus;
+}
+
+export function isBookingReservationActiveForStorage(booking: { status: string; order: ReservationOrder }, now = Date.now()) {
+  const status = normalizedBookingStatus(booking.status, booking.order);
+  if (status === "replaced" || status === "schedule_review") return false;
+  if (status === "paid") return true;
+  if (booking.order.status !== "pending") return false;
+  if (["expired", "cancelled", "failed"].includes(booking.order.paymentStatus ?? "")) return false;
+  // Keep an unresolved verification reserved until the provider can confirm it.
+  if (booking.order.paymentReviewReason) return true;
+  if (booking.order.paymentId?.startsWith("order_")) return true;
+  const expiresAt = booking.order.paymentExpiresAt?.getTime()
+    ?? (booking.order.createdAt ? booking.order.createdAt.getTime() + BOOKING_HOLD_MINUTES * 60 * 1000 : Number.NaN);
+  return Number.isFinite(expiresAt) && now < expiresAt;
+}
 
 function bookingWithPaymentStatus(row: {
   booking: PsychologistBooking;
   service: BookingService;
-  order: Order;
+  order: OrderWithPaymentSource;
 }): PsychologistBookingWithDetails {
-  const orderIsPaid = row.order.status === "completed" || row.order.paymentStatus === "paid";
+  const status = normalizedBookingStatus(row.booking.status, row.order);
 
   return {
     ...row.booking,
-    status: orderIsPaid ? "paid" : row.booking.status,
-    paidAt: row.booking.paidAt ?? (orderIsPaid ? row.order.paidAt : null),
+    status,
+    paidAt: row.booking.paidAt ?? (status === "paid" ? row.order.paidAt : null),
     service: row.service,
     order: row.order,
   };
+}
+
+async function hydrateOrderPaymentSources<T extends Order>(items: T[]): Promise<(T & OrderWithPaymentSource)[]> {
+  const sourceIds = Array.from(new Set(items.flatMap((order) => order.paymentSourceOrderId ? [order.paymentSourceOrderId] : [])));
+  if (sourceIds.length === 0) return items;
+  const sources = await db.select().from(orders).where(inArray(orders.id, sourceIds));
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+  return items.map((order) => ({
+    ...order,
+    ...(order.paymentSourceOrderId ? { paymentSourceOrder: sourceById.get(order.paymentSourceOrderId) ?? null } : {}),
+  }));
+}
+
+async function bookingsWithPaymentStatus(rows: { booking: PsychologistBooking; service: BookingService; order: Order }[]) {
+  const hydratedOrders = await hydrateOrderPaymentSources(rows.map((row) => row.order));
+  return rows.map((row, index) => bookingWithPaymentStatus({ ...row, order: hydratedOrders[index] }));
 }
 
 function normalizeDateSearchInput(value: string) {
@@ -90,7 +133,7 @@ function parseDateSearchRange(search?: string) {
 
 function operationalPsychologistBookingOrder() {
   return [
-    sql<number>`case when ${psychologistBookings.status} = 'paid' or ${orders.status} = 'completed' or ${orders.paymentStatus} = 'paid' then 0 else 1 end`,
+    sql<number>`case when ${orders.replacedByOrderId} is null and ${psychologistBookings.status} not in ('replaced', 'schedule_review') and (${orders.status} = 'completed' or ${orders.paymentStatus} = 'paid') then 0 else 1 end`,
     psychologistBookings.preferredDate,
     psychologistBookings.preferredTime,
     desc(psychologistBookings.createdAt),
@@ -500,21 +543,22 @@ export class DatabaseStorage implements IStorage {
             eq(psychologistBookings.preferredDate, booking.preferredDate),
           ));
 
-        const hasConflict = existingBookings.some(({ booking: existing, order: existingOrder }) => {
-          const isPaid = existing.status === "paid" || existingOrder.status === "completed" || existingOrder.paymentStatus === "paid";
-          const referenceTime = existingOrder.updatedAt ?? existingOrder.createdAt;
-          const isActivePending = existingOrder.status === "pending"
-            && !["expired", "cancelled", "failed"].includes(existingOrder.paymentStatus ?? "")
-            && Boolean(referenceTime && Date.now() - new Date(referenceTime).getTime() < 15 * 60 * 1000);
-          return (isPaid || isActivePending) && bookingTimesOverlap(existing.preferredTime, booking.preferredTime);
-        });
+        const hasConflict = existingBookings.some(({ booking: existing, order: existingOrder }) => (
+          isBookingReservationActiveForStorage({ status: existing.status, order: existingOrder })
+          && bookingTimesOverlap(existing.preferredTime, booking.preferredTime)
+        ));
 
         if (hasConflict) {
           throw new Error("BOOKING_SLOT_UNAVAILABLE");
         }
       }
 
-      const [createdOrder] = await tx.insert(orders).values(order).returning();
+      const createdAt = order.createdAt ?? new Date();
+      const [createdOrder] = await tx.insert(orders).values({
+        ...order,
+        createdAt,
+        paymentExpiresAt: order.paymentExpiresAt ?? new Date(createdAt.getTime() + BOOKING_HOLD_MINUTES * 60 * 1000),
+      }).returning();
       const createdBookings = await tx
         .insert(psychologistBookings)
         .values(bookings.map((booking) => ({ ...booking, orderId: createdOrder.id })))
@@ -536,7 +580,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(psychologistBookings.userId, userId))
       .orderBy(...operationalPsychologistBookingOrder());
 
-    return results.map(bookingWithPaymentStatus);
+    return bookingsWithPaymentStatus(results);
   }
 
   async getAllPsychologistBookings(): Promise<PsychologistBookingWithDetails[]> {
@@ -551,7 +595,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
       .orderBy(...operationalPsychologistBookingOrder());
 
-    return results.map(bookingWithPaymentStatus);
+    return bookingsWithPaymentStatus(results);
   }
 
   async getDassScreeningByOrder(orderId: number): Promise<DassScreening | undefined> {
@@ -671,7 +715,7 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(psychologistBookings.preferredDate), desc(psychologistBookings.createdAt));
 
-    return results.map(bookingWithPaymentStatus);
+    return bookingsWithPaymentStatus(results);
   }
 
   async getPsychologistBookingsByProvider(psychologistName: string): Promise<PsychologistBookingWithDetails[]> {
@@ -687,7 +731,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(psychologistBookings.psychologistName, psychologistName))
       .orderBy(...operationalPsychologistBookingOrder());
 
-    return results.map(bookingWithPaymentStatus);
+    return bookingsWithPaymentStatus(results);
   }
 
   async getPsychologistBooking(id: number): Promise<PsychologistBookingWithDetails | undefined> {
@@ -704,7 +748,7 @@ export class DatabaseStorage implements IStorage {
 
     if (!result) return undefined;
 
-    return bookingWithPaymentStatus(result);
+    return (await bookingsWithPaymentStatus([result]))[0];
   }
 
   async getPsychologistBookingByOrder(orderId: number): Promise<PsychologistBookingWithDetails | undefined> {
@@ -724,7 +768,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(psychologistBookings.orderId, orderId))
       .orderBy(psychologistBookings.preferredDate, psychologistBookings.preferredTime);
 
-    return results.map(bookingWithPaymentStatus);
+    return bookingsWithPaymentStatus(results);
   }
 
   async updatePsychologistBookingStatus(id: number, status: string): Promise<void> {
@@ -783,18 +827,82 @@ export class DatabaseStorage implements IStorage {
       meetingUrl?: string | null;
     },
   ): Promise<void> {
-    const updates: Partial<typeof psychologistBookings.$inferInsert> = {
-      updatedAt: new Date(),
-    };
-    if (schedule.preferredDate !== undefined) updates.preferredDate = schedule.preferredDate;
-    if (schedule.preferredTime !== undefined) updates.preferredTime = schedule.preferredTime;
-    if (schedule.location !== undefined) updates.location = schedule.location;
-    if (schedule.meetingUrl !== undefined) updates.meetingUrl = schedule.meetingUrl || null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await db.transaction(async (tx) => {
+          const [snapshot] = await tx.select().from(psychologistBookings).where(eq(psychologistBookings.id, id));
+          if (!snapshot) throw new Error("BOOKING_NOT_FOUND");
+          const changesSchedule = schedule.preferredDate !== undefined || schedule.preferredTime !== undefined;
+          if (changesSchedule) {
+            const providerKey = snapshot.psychologistName?.trim().toLocaleLowerCase();
+            const lockKeys = Array.from(new Set([snapshot.preferredDate, schedule.preferredDate ?? snapshot.preferredDate]
+              .map((date) => `${providerKey}:${date.trim()}`))).sort();
+            for (const lockKey of lockKeys) {
+              await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+            }
+          }
 
-    await db
-      .update(psychologistBookings)
-      .set(updates)
-      .where(eq(psychologistBookings.id, id));
+          // Match settlement's therapist/day -> order -> booking lock order.
+          const [lockedOrder] = await tx.select().from(orders)
+            .where(eq(orders.id, snapshot.orderId)).for("update");
+          if (!lockedOrder) throw new Error("BOOKING_NOT_FOUND");
+          const [booking] = await tx.select().from(psychologistBookings)
+            .where(eq(psychologistBookings.id, id)).for("update");
+          if (!booking) throw new Error("BOOKING_NOT_FOUND");
+          if (changesSchedule && (booking.psychologistName !== snapshot.psychologistName || booking.preferredDate !== snapshot.preferredDate)) {
+            // Release these advisory locks and retry with the booking's new day.
+            throw new Error("BOOKING_SCHEDULE_CHANGED");
+          }
+
+          const updates: Partial<typeof psychologistBookings.$inferInsert> = { updatedAt: new Date() };
+          if (schedule.preferredDate !== undefined) updates.preferredDate = schedule.preferredDate;
+          if (schedule.preferredTime !== undefined) updates.preferredTime = schedule.preferredTime;
+          if (schedule.location !== undefined) updates.location = schedule.location;
+          if (schedule.meetingUrl !== undefined) updates.meetingUrl = schedule.meetingUrl || null;
+
+          if (changesSchedule) {
+            const status = normalizedBookingStatus(booking.status, lockedOrder);
+            if (status !== "paid" && status !== "schedule_review") throw new Error("BOOKING_SCHEDULE_NOT_EDITABLE");
+            if (status === "schedule_review" && (
+              lockedOrder.paymentStatus !== "paid"
+              || lockedOrder.paymentSourceOrderId !== null
+              || lockedOrder.replacedByOrderId !== null
+            )) throw new Error("BOOKING_SCHEDULE_NOT_EDITABLE");
+            const preferredDate = schedule.preferredDate ?? booking.preferredDate;
+            const preferredTime = schedule.preferredTime ?? booking.preferredTime;
+            const existingBookings = await tx.select({ booking: psychologistBookings, order: orders })
+              .from(psychologistBookings)
+              .innerJoin(orders, eq(psychologistBookings.orderId, orders.id))
+              .where(and(
+                eq(psychologistBookings.psychologistName, booking.psychologistName ?? ""),
+                eq(psychologistBookings.preferredDate, preferredDate),
+              ));
+            const hasConflict = existingBookings.some((existing) => (
+              existing.booking.id !== id
+              && isBookingReservationActiveForStorage({ status: existing.booking.status, order: existing.order })
+              && bookingTimesOverlap(existing.booking.preferredTime, preferredTime)
+            ));
+            if (hasConflict) throw new Error("BOOKING_SLOT_UNAVAILABLE");
+
+            if (status === "schedule_review") {
+              updates.status = "paid";
+              updates.paidAt = booking.paidAt ?? lockedOrder.paidAt;
+              await tx.update(orders).set({
+                status: "completed",
+                paymentReviewReason: lockedOrder.paymentReviewReason === "schedule_conflict" ? null : lockedOrder.paymentReviewReason,
+                updatedAt: new Date(),
+              }).where(eq(orders.id, lockedOrder.id));
+            }
+          }
+
+          await tx.update(psychologistBookings).set(updates).where(eq(psychologistBookings.id, id));
+        });
+        return;
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== "BOOKING_SCHEDULE_CHANGED") throw error;
+      }
+    }
+    throw new Error("BOOKING_SLOT_UNAVAILABLE");
   }
 
   // Order operations
@@ -837,7 +945,7 @@ export class DatabaseStorage implements IStorage {
         })),
     };
 
-    return result;
+    return (await hydrateOrderPaymentSources([result]))[0];
   }
 
   async getUserOrders(userId: string): Promise<OrderWithItems[]> {
@@ -870,7 +978,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    return Array.from(ordersMap.values());
+    return hydrateOrderPaymentSources(Array.from(ordersMap.values()));
   }
 
   async updateOrderStatus(id: number, status: string, paymentId?: string, paymentStatus?: string): Promise<void> {
@@ -879,10 +987,15 @@ export class DatabaseStorage implements IStorage {
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
     if (status === "completed" || paymentStatus === "paid") updateData.paidAt = new Date();
 
+    const isPaidTransition = (status === "completed" || status === "schedule_review") && paymentStatus === "paid";
     await db
       .update(orders)
       .set(updateData)
-      .where(eq(orders.id, id));
+      .where(and(
+        eq(orders.id, id),
+        // A stale pending/expiry callback must never overwrite a verified payment.
+        isPaidTransition ? undefined : sql`${orders.status} <> 'completed' and coalesce(${orders.paymentStatus}, '') <> 'paid'`,
+      ));
   }
 
   async updateOrderPayment(id: number, paymentData: {
@@ -1095,7 +1208,11 @@ export class DatabaseStorage implements IStorage {
         eq(userAssessments.status, 'available')
       )
     );
-    const totalRevenueResults = await db.select().from(orders);
+    const paidRevenueOrder = and(
+      or(eq(orders.status, "completed"), eq(orders.paymentStatus, "paid")),
+      isNull(orders.paymentSourceOrderId),
+    );
+    const totalRevenueResults = await db.select().from(orders).where(paidRevenueOrder);
 
     // Get assessment type statistics based on order items (actual purchases)
     const orderItemsWithDetails = await db
@@ -1106,7 +1223,8 @@ export class DatabaseStorage implements IStorage {
       })
       .from(orderItems)
       .innerJoin(assessments, eq(orderItems.assessmentId, assessments.id))
-      .innerJoin(orders, eq(orderItems.orderId, orders.id));
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(paidRevenueOrder);
 
     // Get user assessments with assessment details to calculate completion stats
     const userAssessmentsWithDetails = await db
@@ -1123,7 +1241,7 @@ export class DatabaseStorage implements IStorage {
     orderItemsWithDetails.forEach(item => {
       const type = item.assessment.type;
       const name = item.assessment.name;
-      const price = parseFloat(item.assessment.price);
+      const price = parseFloat(item.orderItem.price);
       
       if (!typeStats.has(type)) {
         typeStats.set(type, { type, name, count: 0, revenue: 0, completedCount: 0, inProgressCount: 0 });

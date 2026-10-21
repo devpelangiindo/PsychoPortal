@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getAuthToken, queryClient } from "@/lib/queryClient";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/date-format";
+import { BookingPaymentNotice, bookingPaymentLabel, financialOrder, hasConfirmedPayment, isOperationalBookingPaid, needsPaymentReview, paymentMethodLabel, type PaymentOrder } from "@/components/booking-payment-state";
 
 type Booking = {
   id: number;
@@ -52,7 +53,7 @@ type Booking = {
   service: {
     name: string;
   };
-  order: {
+  order: PaymentOrder & {
     id: number;
     status: string;
     paymentId: string | null;
@@ -198,8 +199,10 @@ function escapeHtml(value: unknown) {
 }
 
 function printBookingReceipt(booking: Booking) {
-  if (booking.status !== "paid" && booking.order.paymentStatus !== "paid" && booking.order.status !== "completed") return;
-  const paidAt = booking.order.paidAt ?? booking.paidAt ?? booking.createdAt;
+  if (!hasConfirmedPayment(booking.order)) return;
+  const payment = financialOrder(booking.order);
+  if (!payment) return;
+  const paidAt = payment.paidAt;
 
   const receiptWindow = window.open("", "_blank", "width=720,height=900");
   if (!receiptWindow) return;
@@ -208,7 +211,7 @@ function printBookingReceipt(booking: Booking) {
     <!doctype html>
     <html>
       <head>
-        <title>Resi Transaksi #${escapeHtml(booking.order.id)}</title>
+        <title>Resi Transaksi #${escapeHtml(payment.id)}</title>
         <style>
           body { font-family: Arial, sans-serif; color: #1f2937; margin: 32px; }
           .receipt { max-width: 680px; margin: 0 auto; }
@@ -234,17 +237,20 @@ function printBookingReceipt(booking: Booking) {
 
           <div class="section">
             <h2>Detail Pembayaran</h2>
-            <div class="row"><span>No. Order</span><strong>#${escapeHtml(booking.order.id)}</strong></div>
-            <div class="row"><span>Payment ID</span><strong>${escapeHtml(booking.order.paymentId)}</strong></div>
-            <div class="row"><span>Tanggal/Jam Bayar</span><strong>${escapeHtml(paidAt ? formatDisplayDateTime(paidAt) : "-")}</strong></div>
-            <div class="row"><span>Status</span><strong>${escapeHtml(booking.order.paymentStatus ?? booking.order.status)}</strong></div>
+            <div class="row"><span>No. Order Pembayaran</span><strong>#${escapeHtml(payment.id)}</strong></div>
+            ${payment.id !== booking.order.id ? `<div class="row"><span>Pesanan Layanan Pengganti</span><strong>#${escapeHtml(booking.order.id)}</strong></div>` : ""}
+            <div class="row"><span>Payment ID</span><strong>${escapeHtml(payment.paymentId)}</strong></div>
+            <div class="row"><span>Metode</span><strong>${escapeHtml(paymentMethodLabel(payment.paymentMethod))}</strong></div>
+            <div class="row"><span>${payment.paymentMethod === "manual_offline" ? "Waktu Pencatatan Pembayaran" : "Tanggal/Jam Bayar"}</span><strong>${escapeHtml(paidAt ? formatDisplayDateTime(paidAt) : "Belum tersedia")}</strong></div>
+            <div class="row"><span>Status</span><strong>${escapeHtml(payment.paymentStatus ?? payment.status)}</strong></div>
           </div>
 
           <div class="section">
             <h2>Detail Konseling</h2>
             <div class="row"><span>Nama Klien</span><strong>${escapeHtml(booking.clientName)}</strong></div>
             <div class="row"><span>Psikolog</span><strong>${escapeHtml(booking.psychologistName)}</strong></div>
-            <div class="row"><span>Jadwal</span><strong>${escapeHtml(`${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`)}</strong></div>
+            <div class="row"><span>${booking.status === "schedule_review" || booking.order.status === "schedule_review" ? "Jadwal pilihan (perlu konfirmasi)" : "Jadwal"}</span><strong>${escapeHtml(`${formatDisplayDate(booking.preferredDate)}, ${booking.preferredTime}`)}</strong></div>
+            ${booking.order.replacedByOrderId ? `<div class="row"><span>Layanan pada pesanan pengganti</span><strong>#${escapeHtml(booking.order.replacedByOrderId)}</strong></div>` : ""}
             <div class="row"><span>Lokasi</span><strong>${escapeHtml(locationLabels[booking.location ?? ""] ?? booking.location ?? "-")}</strong></div>
           </div>
 
@@ -255,10 +261,10 @@ function printBookingReceipt(booking: Booking) {
               <tbody>
                 <tr>
                   <td>${escapeHtml(booking.service.name)}</td>
-                  <td class="right">${escapeHtml(formatCurrency(booking.order.totalAmount))}</td>
+                  <td class="right">${escapeHtml(formatCurrency(String(payment.totalAmount ?? booking.order.totalAmount)))}</td>
                 </tr>
               </tbody>
-              <tfoot><tr><td class="total">Total</td><td class="right total">${escapeHtml(formatCurrency(booking.order.totalAmount))}</td></tr></tfoot>
+              <tfoot><tr><td class="total">Total</td><td class="right total">${escapeHtml(formatCurrency(String(payment.totalAmount ?? booking.order.totalAmount)))}</td></tr></tfoot>
             </table>
           </div>
         </div>
@@ -350,9 +356,12 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
   const loginRedirect = isAdminMode ? (user?.role === "cso" || user?.role === "internal" ? "/cso/bookings" : "/admin/bookings") : "/psychologist/dashboard";
   const hasAccess = !!user && (isAdminMode ? isAdminOrCso : user.role === "psychologist");
 
-  const { data: bookings = [], isLoading } = useQuery<Booking[]>({
+  const { data: bookings = [], isLoading, error: bookingsError, refetch: refetchBookings, dataUpdatedAt } = useQuery<Booking[]>({
     queryKey: ["/api/psychologist/bookings", mode],
     enabled: hasAccess,
+    staleTime: 0,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: "always",
   });
 
   const { data: reports = [], isLoading: reportsLoading } = useQuery<Booking[]>({
@@ -380,7 +389,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
     setSelectedAdminPsychologist(psychologistNames[0]);
   }, [psychologistNames, selectedAdminPsychologist]);
 
-  const { data: scheduleData, isLoading: scheduleLoading } = useQuery<ScheduleResponse>({
+  const { data: scheduleData, isLoading: scheduleLoading, error: scheduleError } = useQuery<ScheduleResponse>({
     queryKey: ["/api/psychologist/schedule-slots", mode, isAdminMode ? selectedAdminPsychologist : "self", selectedScheduleMonth],
     queryFn: async () => {
       const params = new URLSearchParams({ month: selectedScheduleMonth });
@@ -389,6 +398,9 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
       return response.json();
     },
     enabled: hasAccess && (!isAdminMode || Boolean(selectedAdminPsychologist)),
+    staleTime: 0,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: "always",
   });
 
   const { data: dassScreenings = [] } = useQuery<DassScreeningResult[]>({
@@ -479,10 +491,12 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
           </Button>
         </div>
 
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-neutral-600"><Button variant="outline" size="sm" onClick={() => refetchBookings()}>Perbarui booking</Button>{dataUpdatedAt > 0 && <span>Terakhir diperbarui: {formatDisplayDateTime(new Date(dataUpdatedAt))}</span>}</div>
+        {bookingsError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Booking belum dapat diperbarui. {dataUpdatedAt ? "Data terakhir tetap ditampilkan; ketersediaan jadwal belum dapat dipastikan." : "Daftar klien dan ketersediaan jadwal belum dapat dipastikan."} Gunakan tombol perbarui untuk mencoba lagi.</div>}
         <div className="grid md:grid-cols-3 gap-4 mb-8">
-          <Metric label="Total klien" value={bookings.length} />
-          <Metric label="Sudah bayar" value={bookings.filter((booking) => booking.status === "paid").length} />
-          <Metric label="Menunggu bayar" value={bookings.filter((booking) => booking.status !== "paid").length} />
+          <Metric label="Booking layanan aktif" value={bookings.filter((booking) => booking.status !== "replaced" && !booking.order.replacedByOrderId).length} />
+          <Metric label="Pembayaran terkonfirmasi" value={bookings.filter((booking) => hasConfirmedPayment(booking.order) && booking.status !== "replaced" && !booking.order.replacedByOrderId).length} />
+          <Metric label="Perlu pemeriksaan" value={bookings.filter((booking) => booking.status === "schedule_review" || booking.order.status === "schedule_review" || needsPaymentReview(booking.order)).length} />
         </div>
 
         <Tabs defaultValue={isAdminMode ? "konseling" : "perubahan-jadwal"} className="space-y-6">
@@ -501,7 +515,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                 title="Perubahan Jadwal"
                 description="Atur jadwal per bulan kalender. Jadwal dapat diperbarui kembali selama jam sesi tidak saling bertabrakan."
               />
-              {scheduleLoading ? (
+              {bookingsError || scheduleError ? <div role="alert" className="rounded-lg border p-4 text-sm text-red-800">Kalender belum dapat dimuat dengan lengkap. Perbarui data sebelum mengubah jadwal.</div> : scheduleLoading ? (
                 <LoadingState label="Memuat jadwal..." compact />
               ) : (
                 <ScheduleUploadEditor
@@ -551,7 +565,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
             </div>
             {isLoading ? (
               <LoadingState label="Memuat booking..." compact />
-            ) : filteredBookings.length === 0 ? (
+            ) : bookingsError && !dataUpdatedAt ? <div role="alert" className="rounded-lg border p-4 text-sm text-red-800">Data booking belum tersedia karena pemeriksaan gagal. Coba perbarui kembali.</div> : filteredBookings.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center text-neutral-500">
                   {bookingSearch.trim() ? "Tidak ada booking yang cocok." : "Belum ada booking untuk akun psikolog ini."}
@@ -601,7 +615,7 @@ export default function PsychologistDashboard({ mode = "psychologist" }: { mode?
                   </select>
                 </CardContent>
               </Card>
-              {scheduleLoading ? (
+              {bookingsError || scheduleError ? <div role="alert" className="rounded-lg border p-4 text-sm text-red-800">Kalender belum dapat dimuat dengan lengkap. Perbarui data sebelum mengubah jadwal.</div> : scheduleLoading ? (
                 <LoadingState label="Memuat jadwal psikolog..." compact />
               ) : (
                 <ScheduleUploadEditor
@@ -1384,7 +1398,7 @@ function groupPaidBookingsByDate(bookings: Booking[]) {
 }
 
 function isPaidBooking(booking: Booking) {
-  return booking.status === "paid" || booking.order.paymentStatus === "paid" || booking.order.status === "completed";
+  return isOperationalBookingPaid(booking.status, booking.order);
 }
 
 function findBookingsForSession(bookings: Booking[], session: ScheduleDraftSession) {
@@ -1615,8 +1629,8 @@ function BookingCard({
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <div className="hidden text-right sm:block">
-              <Badge variant={booking.status === "paid" ? "default" : "secondary"}>
-                {booking.status === "paid" ? "Sudah bayar" : "Menunggu bayar"}
+              <Badge variant={isPaidBooking(booking) ? "default" : "secondary"}>
+                {bookingPaymentLabel(booking.status, booking.order)}
               </Badge>
               <p className="mt-2 text-sm text-neutral-500">{booking.service.name}</p>
             </div>
@@ -1635,19 +1649,22 @@ function BookingCard({
               </div>
               <div className="flex flex-wrap gap-2 lg:flex-col lg:items-end">
                 <div className="sm:hidden">
-                  <Badge variant={booking.status === "paid" ? "default" : "secondary"}>
-                    {booking.status === "paid" ? "Sudah bayar" : "Menunggu bayar"}
+                  <Badge variant={isPaidBooking(booking) ? "default" : "secondary"}>
+                    {bookingPaymentLabel(booking.status, booking.order)}
                   </Badge>
                 </div>
                 <span className="text-sm text-neutral-500 sm:hidden">{booking.service.name}</span>
-                {(booking.status === "paid" || booking.order.paymentStatus === "paid" || booking.order.status === "completed") && (
+                {hasConfirmedPayment(booking.order) && (
                   <Button size="sm" variant="outline" onClick={() => printBookingReceipt(booking)}>
                     <Printer className="w-4 h-4 mr-2" />
-                    Cetak Resi
+                    {booking.order.paymentSourceOrderId ? `Resi pesanan #${booking.order.paymentSourceOrderId}` : "Cetak Resi"}
                   </Button>
                 )}
               </div>
             </div>
+
+            <p className="mt-3 text-sm text-neutral-500">Pesanan #{booking.order.id} · Booking #{booking.id} · {paymentMethodLabel(booking.order.paymentMethod)}</p>
+            <BookingPaymentNotice order={booking.order} status={booking.status} />
 
             <div className="mt-5 grid md:grid-cols-2 gap-4">
               <BookingDataDialogActions booking={booking} />
