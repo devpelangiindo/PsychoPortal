@@ -47,7 +47,11 @@ const coreApi = new midtransClient.CoreApi({
 
 // Bound network calls so an unavailable provider cannot stall reconciliation indefinitely.
 for (const gateway of [snap, coreApi]) {
-  if (gateway.httpClient?.http_client?.defaults) gateway.httpClient.http_client.defaults.timeout = 10000;
+  if (gateway.httpClient?.http_client?.defaults) {
+    gateway.httpClient.http_client.defaults.timeout = 10000;
+    // Provider API URLs are fixed; native requests also clean up reused socket listeners.
+    gateway.httpClient.http_client.defaults.maxRedirects = 0;
+  }
 }
 
 export interface MidtransTransactionData {
