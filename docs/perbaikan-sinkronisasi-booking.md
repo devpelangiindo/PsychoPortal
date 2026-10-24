@@ -1,5 +1,7 @@
 # Perbaikan sinkronisasi pembayaran, booking, jadwal, dan resi
 
+Catatan ini merekam perbaikan sebelumnya. Aturan masa tahan jadwal di bawah telah digantikan oleh [revisi reservasi 15 menit](perbaikan-reservasi-15-menit.md): pembayaran yang belum terkonfirmasi tidak lagi menahan slot setelah tenggat, sementara verifikasi keuangan tetap berjalan.
+
 ## Ruang lingkup dan status
 
 Perbaikan tersedia pada kode lokal. Fokusnya mencegah pembayaran yang sudah diterima Midtrans tetap dianggap dibatalkan, booking tidak muncul, atau slot terlepas secara keliru. Pembahasan push/deployment dan penanganan pasangan order manual tetap ditangguhkan. Perubahan lokal sebelumnya dipertahankan; tidak ada perubahan data produksi, push GitHub, atau deployment dalam pekerjaan ini.

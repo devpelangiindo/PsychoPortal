@@ -126,10 +126,6 @@ export async function createMidtransTransaction(transactionData: MidtransTransac
         duration: transactionData.expiryMinutes ?? 15,
         unit: 'minutes',
       },
-      page_expiry: {
-        duration: transactionData.expiryMinutes ?? 15,
-        unit: 'minutes',
-      },
       // Add merchant configuration
       credit_card: {
         secure: true,

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { BOOKING_HOLD_MINUTES, getBookingHoldDeadline, isBookingReservationActive } from './booking-reservation';
 
-export const PAYMENT_WINDOW_MINUTES = 15;
+export const PAYMENT_WINDOW_MINUTES = BOOKING_HOLD_MINUTES;
 export const paymentLifecycleSchemaSql = `
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_expires_at timestamp;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_review_reason text;
@@ -87,12 +88,12 @@ export async function bookingConflicts(client: Queryable, orderId: number, booki
       WHERE b.order_id<>$1 AND lower(trim(b.psychologist_name))=lower(trim($2)) AND b.preferred_date=$3`,
     [orderId, booking.psychologist_name, booking.preferred_date]);
     for (const other of result.rows) {
-      if (other.replaced_by_order_id || ['replaced', 'schedule_review'].includes(other.status) || other.order_status==='schedule_review') continue;
-      const paid = other.payment_status === 'paid' || other.order_status === 'completed';
-      const pending = other.order_status === 'pending' && !['expired','cancelled','failed'].includes(other.payment_status || '')
-        && (other.payment_review_reason || other.payment_id?.startsWith('order_')
-          || new Date(other.payment_expires_at || new Date(other.order_created_at).getTime() + 15 * 60000).getTime() > Date.now());
-      if ((paid || pending) && timesOverlap(booking.preferred_time, other.preferred_time)) conflicts.push(other);
+      const active = isBookingReservationActive({ status: other.status, order: {
+        status: other.order_status, paymentStatus: other.payment_status,
+        replacedByOrderId: other.replaced_by_order_id,
+        createdAt: other.order_created_at, paymentExpiresAt: other.payment_expires_at,
+      } });
+      if (active && timesOverlap(booking.preferred_time, other.preferred_time)) conflicts.push(other);
     }
   }
   return conflicts;
@@ -100,6 +101,9 @@ export async function bookingConflicts(client: Queryable, orderId: number, booki
 
 export function createPaymentLifecycle(deps: Dependencies) {
   const { pool } = deps;
+  const bookingDeadline = (order: any) => getBookingHoldDeadline({
+    createdAt: order.created_at, paymentExpiresAt: order.payment_expires_at,
+  });
   async function transaction<T>(fn: (client: Queryable) => Promise<T>) {
     const client = await pool.connect();
     try { await client.query('BEGIN'); const result = await fn(client); await client.query('COMMIT'); return result; }
@@ -232,7 +236,8 @@ export function createPaymentLifecycle(deps: Dependencies) {
     const applyInTransaction = () => transaction(async client => {
       const snapshot = await bookingsFor(orderId,client);
       await lockBookingDays(client,snapshot);
-      const order = (await client.query('SELECT * FROM orders WHERE id=$1 FOR UPDATE',[orderId])).rows[0];
+      const order = (await client.query(`SELECT *,created_at AT TIME ZONE 'UTC' AS created_at,
+        payment_expires_at AT TIME ZONE 'UTC' AS payment_expires_at FROM orders WHERE id=$1 FOR UPDATE`,[orderId])).rows[0];
       // A reschedule may have committed while this transaction waited for the
       // snapshot's day locks. Never check conflicts or activate a stale slot.
       const bookings = await bookingsFor(orderId,client);
@@ -300,8 +305,10 @@ export function createPaymentLifecycle(deps: Dependencies) {
             WHERE id=$1 AND payment_status IS DISTINCT FROM 'paid' AND status<>'completed'`,[orderId]);
           currentStatus='cancelled';
         } else {
-          await client.query(`UPDATE orders SET payment_review_reason=CASE WHEN (payment_expires_at AT TIME ZONE 'UTC')<=now() THEN 'verification_pending' ELSE NULL END
-            WHERE id=$1 AND payment_status IS DISTINCT FROM 'paid'`,[orderId]);
+          const verificationDue = bookings.length ? bookingDeadline(order)<=Date.now()
+            : new Date(order.payment_expires_at).getTime()<=Date.now();
+          await client.query(`UPDATE orders SET payment_review_reason=CASE WHEN $2::boolean THEN 'verification_pending' ELSE NULL END
+            WHERE id=$1 AND payment_status IS DISTINCT FROM 'paid'`,[orderId,verificationDue]);
         }
       }
       await event(client,orderId,status.order_id,'provider_status',{status:status.transaction_status,review},
@@ -343,11 +350,15 @@ export function createPaymentLifecycle(deps: Dependencies) {
     const order = await loadOrder(orderId);
     if (!order) throw new PaymentLifecycleError('ORDER_NOT_FOUND','Pesanan tidak ditemukan.',404);
     await seedLegacy(order);
+    const bookings = await bookingsFor(orderId);
+    const holdDeadline = bookings.length ? bookingDeadline(order) : Number.POSITIVE_INFINITY;
     const attempts = (await pool.query('SELECT * FROM payment_attempts WHERE order_id=$1 ORDER BY created_at DESC',[orderId])).rows;
     let lastResult: any = {valid:true,orderId,currentStatus:order.status,paymentStatus:order.payment_status,synced:false,review:false};
     let failed = false;
     for (const attempt of attempts) {
       try {
+        // An older payment attempt must not prolong the original booking hold.
+        const attemptDeadline = Math.min(new Date(attempt.expires_at).getTime(), holdDeadline);
         let status: ProviderStatus;
         let postSnapClosureStatus=false;
         const recordedPaidAttempt=attempt.status==='paid'
@@ -357,7 +368,7 @@ export function createPaymentLifecycle(deps: Dependencies) {
           const code = String(error?.httpStatusCode || error?.ApiResponse?.status_code || error?.statusCode || '');
           // Core API 404 before a channel is selected is normal. Close the Snap page on the provider,
           // then verify again, instead of interpreting a network/404 error as unpaid.
-          if (code==='404' && !recordedPaidAttempt && (attempt.snap_cancelled_at || (closeDue && attempt.snap_token && new Date(attempt.expires_at).getTime()<=Date.now()))
+          if (code==='404' && !recordedPaidAttempt && (attempt.snap_cancelled_at || (closeDue && attempt.snap_token && attemptDeadline<=Date.now()))
               && await confirmSnapClosure(attempt)) {
             postSnapClosureStatus=true;
             try { status = await deps.checkStatus(attempt.provider_order_id); }
@@ -369,14 +380,14 @@ export function createPaymentLifecycle(deps: Dependencies) {
           } else throw error;
         }
         if(closeDue && !recordedPaidAttempt && !providerPaid(status) && ['deny','failure'].includes(status.transaction_status)
-            && new Date(attempt.expires_at).getTime()<=Date.now() && !postSnapClosureStatus) {
+            && attemptDeadline<=Date.now() && !postSnapClosureStatus) {
           if(!await confirmSnapClosure(attempt))throw new PaymentLifecycleError('SNAP_CLOSURE_UNCONFIRMED',
-            'Pembayaran gagal masih memerlukan konfirmasi penutupan sebelum jadwal dapat dilepas.');
+            'Status pembayaran gagal masih memerlukan konfirmasi penutupan dari penyedia pembayaran.');
           postSnapClosureStatus=true;
           status=await deps.checkStatus(attempt.provider_order_id);
         }
         if (closeDue && !recordedPaidAttempt && !providerPaid(status) && !['expire','cancel'].includes(status.transaction_status)
-            && !postSnapClosureStatus && new Date(attempt.expires_at).getTime()<=Date.now()) {
+            && !postSnapClosureStatus && attemptDeadline<=Date.now()) {
           // Only the GET following a provider-side expiration is authoritative (payment can win the race).
           try { await deps.expire(attempt.provider_order_id); } catch { /* verify below */ }
           status = await deps.checkStatus(attempt.provider_order_id);
@@ -391,8 +402,10 @@ export function createPaymentLifecycle(deps: Dependencies) {
         await recordUnknown(orderId,attempt.provider_order_id,error instanceof PaymentLifecycleError ? error.code : 'provider_unavailable');
       }
     }
+    const noAttemptDeadline = bookings.length ? holdDeadline
+      : new Date(order.payment_expires_at || new Date(order.created_at).getTime()+PAYMENT_WINDOW_MINUTES*60000).getTime();
     if (!attempts.length && !order.payment_id && order.status==='pending'
-        && new Date(order.payment_expires_at || new Date(order.created_at).getTime()+15*60000).getTime()<=Date.now()) {
+        && noAttemptDeadline<=Date.now()) {
       // No external transaction was ever initialized. This cannot erase received money.
       await pool.query(`UPDATE orders SET status='cancelled',payment_status='expired',payment_review_reason=NULL,updated_at=now()
         WHERE id=$1 AND status='pending' AND payment_status IS DISTINCT FROM 'paid' AND payment_id IS NULL
@@ -400,7 +413,9 @@ export function createPaymentLifecycle(deps: Dependencies) {
       lastResult={...lastResult,currentStatus:'cancelled',paymentStatus:'expired',synced:true};
     }
     const latest = await loadOrder(orderId);
-    return {...lastResult,currentStatus:latest.status,paymentStatus:latest.payment_status,review:Boolean(latest.payment_review_reason),failed};
+    return {...lastResult,currentStatus:latest.status,paymentStatus:latest.payment_status,review:Boolean(latest.payment_review_reason),failed,
+      ...(bookings.length ? { expiresAt: new Date(bookingDeadline(latest)),
+        reservationExpired: latest.payment_status!=='paid' && latest.status!=='completed' && bookingDeadline(latest)<=Date.now() } : {})};
   }
 
   async function createOrReuse(orderId: number, transactionData: any) {
@@ -408,24 +423,34 @@ export function createPaymentLifecycle(deps: Dependencies) {
     if (!original) throw new PaymentLifecycleError('ORDER_NOT_FOUND','Pesanan tidak ditemukan.',404);
     await seedLegacy(original);
     if (original.payment_id) await reconcileOrder(orderId);
-    const reserved = await transaction(async client => {
+    const reserve = () => transaction(async client => {
+      const snapshot = await bookingsFor(orderId,client);
+      await lockBookingDays(client,snapshot);
+      const order = (await client.query(`SELECT *,created_at AT TIME ZONE 'UTC' AS created_at,
+        payment_expires_at AT TIME ZONE 'UTC' AS payment_expires_at FROM orders WHERE id=$1 FOR UPDATE`,[orderId])).rows[0];
       const bookings = await bookingsFor(orderId,client);
-      await lockBookingDays(client,bookings);
-      const order = (await client.query('SELECT * FROM orders WHERE id=$1 FOR UPDATE',[orderId])).rows[0];
+      if (JSON.stringify(bookingDayKeys(snapshot)) !== JSON.stringify(bookingDayKeys(bookings))) {
+        throw new PaymentLifecycleError('BOOKING_SCHEDULE_CHANGED','Jadwal berubah saat pembayaran disiapkan. Coba kembali.');
+      }
       if (order.payment_source_order_id || order.replaced_by_order_id) throw new PaymentLifecycleError('RECONCILED_ORDER','Pesanan ini terhubung dengan pesanan lain. Buka resi pembayaran asal.');
       if (order.payment_status==='paid' || order.status==='completed') return {paid:true,order};
+      const holdDeadline = bookings.length ? bookingDeadline(order) : null;
+      if (holdDeadline !== null && (!Number.isFinite(holdDeadline) || holdDeadline<=Date.now())) {
+        throw new PaymentLifecycleError('ORDER_EXPIRED','Reservasi jadwal sudah kedaluwarsa setelah 15 menit. Pilih jadwal kembali untuk membuat pesanan baru.');
+      }
       if (!bookings.length && (order.status==='cancelled' || ['expired','cancelled','failed'].includes(order.payment_status || ''))) {
         throw new PaymentLifecycleError('ORDER_EXPIRED','Pesanan sudah kedaluwarsa. Buat pesanan baru agar stok atau kuota diperiksa kembali.');
       }
       const attempts = (await client.query('SELECT * FROM payment_attempts WHERE order_id=$1 ORDER BY created_at DESC FOR UPDATE',[orderId])).rows;
       const active = attempts.find((a:any)=>!['closed','paid'].includes(a.status));
       if (active) {
-        if (active.snap_token && new Date(active.expires_at).getTime()>Date.now()) return {active,order};
+        const expiresAt = new Date(Math.min(new Date(active.expires_at).getTime(), holdDeadline ?? Number.POSITIVE_INFINITY));
+        if (active.snap_token && expiresAt.getTime()>Date.now()) return {active,order,expiresAt};
         throw new PaymentLifecycleError('VERIFICATION_PENDING','Pembayaran sebelumnya sedang diverifikasi. Gunakan tombol sinkronisasi atau hubungi CSO.');
       }
       if (bookings.some((b:any)=>['replaced','schedule_review'].includes(b.status))) throw new PaymentLifecycleError('BOOKING_REVIEW','Booking ini memerlukan pemeriksaan CSO.');
       if ((await bookingConflicts(client,orderId,bookings)).length) throw new PaymentLifecycleError('BOOKING_SLOT_UNAVAILABLE','Jadwal sudah dipilih klien lain. Hubungi CSO atau pilih jadwal baru.');
-      const expiry = new Date(Date.now()+PAYMENT_WINDOW_MINUTES*60000);
+      const expiry = new Date(holdDeadline ?? Date.now()+PAYMENT_WINDOW_MINUTES*60000);
       const previous = attempts.reduce((n:number,a:any)=>Math.max(n,Number(a.provider_order_id.split('_')[2])||0),0);
       const id = `order_${orderId}_${Math.max(Date.now(),previous+1)}`;
       await client.query(`INSERT INTO payment_attempts(provider_order_id,order_id,amount,status,expires_at)
@@ -436,10 +461,16 @@ export function createPaymentLifecycle(deps: Dependencies) {
       await event(client,orderId,id,'payment_initialized', {expiresAt:expiry.toISOString()});
       return {id,expiry,order};
     });
+    let reserved: Awaited<ReturnType<typeof reserve>> | undefined;
+    for (let attempt=0;attempt<3;attempt++) {
+      try { reserved=await reserve(); break; }
+      catch(error:any) { if(error?.code!=='BOOKING_SCHEDULE_CHANGED' || attempt===2)throw error; }
+    }
+    if (!reserved) throw new PaymentLifecycleError('BOOKING_SCHEDULE_CHANGED','Jadwal berubah saat pembayaran disiapkan. Coba kembali.');
     if ('paid' in reserved) return {orderId,status:'completed',alreadyPaid:true,paymentId:reserved.order.payment_id,
       amount:reserved.order.total_amount,redirect_url:`/payment-return?orderId=${orderId}`};
     if ('active' in reserved) return {orderId,status:'pending',token:reserved.active.snap_token,redirect_url:reserved.active.redirect_url,
-      paymentId:reserved.active.provider_order_id,amount:reserved.order.total_amount,expiresAt:reserved.active.expires_at,reused:true};
+      paymentId:reserved.active.provider_order_id,amount:reserved.order.total_amount,expiresAt:reserved.expiresAt,reused:true};
     try {
       const response = await deps.create({...transactionData,orderId:reserved.id,amount:Number(reserved.order.total_amount),
         expiryMinutes:PAYMENT_WINDOW_MINUTES,expiryStartTime:new Date(reserved.expiry.getTime()-PAYMENT_WINDOW_MINUTES*60000)});

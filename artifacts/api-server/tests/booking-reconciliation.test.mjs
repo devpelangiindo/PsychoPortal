@@ -1,20 +1,21 @@
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { transform } from 'esbuild';
+import { build } from 'esbuild';
 import { PGlite } from '@electric-sql/pglite';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
-const source = readFileSync(new URL('../src/booking-reconciliation.ts', import.meta.url), 'utf8');
-const { code } = await transform(source, { loader: 'ts', format: 'cjs', target: 'es2022' });
-const compiledModule = { exports: {} };
-new Function('module', code)(compiledModule);
-const { createBookingReconciliationService, registerBookingReconciliationRoutes, bookingReconciliationSchemaSql } = compiledModule.exports;
-const lifecycleSource = readFileSync(new URL('../src/payment-lifecycle.ts', import.meta.url), 'utf8');
-const { code: lifecycleCode } = await transform(lifecycleSource, { loader: 'ts', format: 'cjs', target: 'es2022' });
-const lifecycleModule = { exports: {} };
-new Function('module', 'require', lifecycleCode)(lifecycleModule, createRequire(import.meta.url));
-const { createPaymentLifecycle, paymentLifecycleSchemaSql } = lifecycleModule.exports;
+async function loadTestModule(relativePath) {
+  const result = await build({
+    entryPoints: [fileURLToPath(new URL(relativePath, import.meta.url))],
+    bundle: true, write: false, packages: 'external', platform: 'node', format: 'cjs', target: 'es2022',
+  });
+  const compiledModule = { exports: {} };
+  new Function('module', 'require', result.outputFiles[0].text)(compiledModule, createRequire(import.meta.url));
+  return compiledModule.exports;
+}
+const { createBookingReconciliationService, registerBookingReconciliationRoutes, bookingReconciliationSchemaSql } = await loadTestModule('../src/booking-reconciliation.ts');
+const { createPaymentLifecycle, paymentLifecycleSchemaSql } = await loadTestModule('../src/payment-lifecycle.ts');
 const reason = 'Booking manual dibuat untuk menggantikan sesi yang sama; tidak ada pembayaran kedua.';
 const settlementTime = '2026-10-15T08:12:00.000Z';
 const proof = { paymentId: 'order_116_1792051716673', amount: '250000.00', settlementTime, transactionStatus: 'settlement', paymentType: 'gopay' };
@@ -25,14 +26,14 @@ async function fixture() {
     CREATE TABLE orders (
       id integer PRIMARY KEY, user_id text NOT NULL, total_amount numeric(10,2), status text, payment_id text,
       payment_status text, payment_method text, paid_at timestamp, paid_amount numeric(10,2),
-      created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now(), payment_expires_at timestamp,
+      created_at timestamp DEFAULT (now() AT TIME ZONE 'UTC'), updated_at timestamp DEFAULT (now() AT TIME ZONE 'UTC'), payment_expires_at timestamp,
       payment_review_reason text, payment_source_order_id integer, replaced_by_order_id integer
     );
     CREATE TABLE psychologist_bookings (
       id integer PRIMARY KEY, order_id integer NOT NULL REFERENCES orders(id), user_id text,
       service_id integer DEFAULT 1, psychologist_name text DEFAULT 'Therapist A', preferred_date text DEFAULT '2026-10-22',
       preferred_time text DEFAULT '09.00 - 10.00', location text DEFAULT 'online', consultation_type text DEFAULT 'adult',
-      status text, paid_at timestamp, session_report text, created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now()
+      status text, paid_at timestamp, session_report text, created_at timestamp DEFAULT (now() AT TIME ZONE 'UTC'), updated_at timestamp DEFAULT (now() AT TIME ZONE 'UTC')
     );
     CREATE TABLE payment_attempts (
       order_id integer NOT NULL REFERENCES orders(id), provider_order_id text PRIMARY KEY, amount numeric(10,2),
@@ -253,6 +254,45 @@ test('third appointment conflict rolls back snapshot and all status changes', as
     assert.equal((await f.db.query('SELECT status FROM orders WHERE id=116')).rows[0].status, 'cancelled');
     assert.equal((await f.db.query('SELECT count(*)::int AS count FROM booking_payment_reconciliations')).rows[0].count, 0);
     assert.equal((await f.db.query('SELECT count(*)::int AS count FROM booking_payment_reconciliation_events')).rows[0].count, 0);
+  } finally { await f.db.close(); }
+});
+
+test('reconciliation protects confirmed payment even when the third booking has a stale cancelled flag', async () => {
+  const f = await fixture();
+  try {
+    await f.db.exec(`INSERT INTO orders(id,user_id,total_amount,status,payment_status,payment_id,created_at)
+      VALUES (118,'other-client',250000,'completed','paid','order_118_paid',now()-interval '1 day');
+      INSERT INTO psychologist_bookings(id,order_id,user_id,status,preferred_time)
+      VALUES (218,118,'other-client','cancelled','09.30 - 10.30');`);
+    await assert.rejects(f.service.apply({ sourceOrderId: 116, replacementOrderId: 117, actorId: 'admin-1', reason }), error => error.issues.includes('another_booking_occupies_slot'));
+    assert.equal((await f.db.query('SELECT count(*)::int AS count FROM booking_payment_reconciliations')).rows[0].count, 0);
+  } finally { await f.db.close(); }
+});
+
+test('reconciliation releases expired unrelated holds without changing their payment or booking history', async () => {
+  const f = await fixture();
+  try {
+    await f.db.exec(`INSERT INTO orders(id,user_id,total_amount,status,payment_status,payment_id,created_at,payment_expires_at,payment_review_reason)
+      VALUES (118,'other-client',250000,'pending','pending','order_118_pending',(now() AT TIME ZONE 'UTC')-interval '20 minutes',(now() AT TIME ZONE 'UTC')+interval '1 day','verification_unavailable');
+      INSERT INTO psychologist_bookings(id,order_id,user_id,status,preferred_time,session_report)
+      VALUES (218,118,'other-client','pending_payment','09.30 - 10.30','Unpaid history must survive');`);
+    const before = (await f.db.query('SELECT * FROM orders WHERE id=118')).rows[0];
+    assert.equal((await f.service.apply({ sourceOrderId: 116, replacementOrderId: 117, actorId: 'admin-1', reason })).applied, true);
+    assert.deepEqual((await f.db.query('SELECT * FROM orders WHERE id=118')).rows[0], before);
+    const booking = (await f.db.query('SELECT status,session_report FROM psychologist_bookings WHERE id=218')).rows[0];
+    assert.equal(booking.status, 'pending_payment');
+    assert.equal(booking.session_report, 'Unpaid history must survive');
+  } finally { await f.db.close(); }
+});
+
+test('reconciliation keeps unrelated unpaid reservations protected before their deadline', async () => {
+  const f = await fixture();
+  try {
+    await f.db.exec(`INSERT INTO orders(id,user_id,total_amount,status,payment_status,payment_id,payment_review_reason)
+      VALUES (118,'other-client',250000,'pending','pending','order_118_pending','verification_unavailable');
+      INSERT INTO psychologist_bookings(id,order_id,user_id,status,preferred_time)
+      VALUES (218,118,'other-client','pending_payment','09.30 - 10.30');`);
+    await assert.rejects(f.service.apply({ sourceOrderId: 116, replacementOrderId: 117, actorId: 'admin-1', reason }), error => error.issues.includes('another_booking_occupies_slot'));
   } finally { await f.db.close(); }
 });
 

@@ -1,4 +1,5 @@
 import type { Express, RequestHandler } from "express";
+import { isBookingReservationActive } from "./booking-reservation";
 
 /** Provider evidence must come from the server's Midtrans status API, never request JSON. */
 export interface VerifiedReconciliationPayment {
@@ -323,11 +324,12 @@ export function createBookingReconciliationService(options: {
         reconciliationId: Number(proposal.id), sourceOrderId, replacementOrderId };
       // Keep unrelated appointments protected, using the same therapist/day locks as booking creation.
       const others = (await client.query(
-        `SELECT b.*, o.status AS order_status, o.payment_status AS order_payment_status, o.payment_id AS order_payment_id,
-                o.payment_review_reason, o.payment_expires_at AT TIME ZONE 'UTC' AS order_payment_expires_at,
-                o.created_at AT TIME ZONE 'UTC' AS order_created_at
+        `SELECT b.*, o.status AS order_status, o.payment_status AS order_payment_status,
+                o.payment_expires_at AT TIME ZONE 'UTC' AS order_payment_expires_at,
+                o.created_at AT TIME ZONE 'UTC' AS order_created_at,
+                o.replaced_by_order_id AS order_replaced_by_order_id
          FROM psychologist_bookings b JOIN orders o ON o.id = b.order_id
-         WHERE b.order_id <> ALL($1::int[]) AND b.status NOT IN ('replaced','schedule_review','cancelled') AND o.replaced_by_order_id IS NULL
+         WHERE b.order_id <> ALL($1::int[])
            AND lower(btrim(b.psychologist_name)) = ANY($2::text[]) AND b.preferred_date = ANY($3::text[])`,
         [[sourceOrderId, replacementOrderId],
           [...new Set(pair.replacementBookings.map((booking) => String(booking.psychologist_name).trim().toLocaleLowerCase()))],
@@ -337,11 +339,16 @@ export function createBookingReconciliationService(options: {
         const range = timeRange(booking.preferred_time);
         const conflict = others.some((other) => {
           if (therapistDay(other) !== therapistDay(booking)) return false;
-          const expiry = other.order_payment_expires_at ?? (other.order_created_at
-            ? new Date(new Date(other.order_created_at).getTime() + 15 * 60 * 1000) : null);
-          const active = other.status === "paid" || other.order_status === "completed" || other.order_payment_status === "paid"
-            || (other.order_status === "pending" && !["failed", "expired", "cancelled"].includes(other.order_payment_status)
-              && (other.payment_review_reason || other.order_payment_id?.startsWith("order_") || (expiry && new Date(expiry).getTime() > Date.now())));
+          const active = isBookingReservationActive({
+            status: other.status,
+            order: {
+              status: other.order_status,
+              paymentStatus: other.order_payment_status,
+              createdAt: other.order_created_at,
+              paymentExpiresAt: other.order_payment_expires_at,
+              replacedByOrderId: other.order_replaced_by_order_id,
+            },
+          });
           const otherRange = timeRange(other.preferred_time);
           const overlaps = range && otherRange ? range.start < otherRange.end && otherRange.start < range.end
             : String(booking.preferred_time) === String(other.preferred_time);

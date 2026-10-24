@@ -23,6 +23,7 @@ import { DEFAULT_ONSITE_ASSESSMENT_SERVICES } from "../onsite-assessment-seed";
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, expireMidtransTransaction, cancelMidtransSession } from "../midtrans";
 import { createPaymentLifecycle, paymentLifecycleSchemaSql, PaymentLifecycleError } from "../payment-lifecycle";
 import { createBookingReconciliationService, registerBookingReconciliationRoutes, bookingReconciliationSchemaSql } from "../booking-reconciliation";
+import { getBookingHoldDeadline } from "../booking-reservation";
 
 type ConsultationType = "child" | "adult" | "family";
 type PsychologistOption = {
@@ -4765,6 +4766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/psychologist-availability', async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     try {
       const psychologistName = typeof req.query.psychologistName === "string" ? req.query.psychologistName : "";
       if (!psychologistName) {
@@ -5238,6 +5240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const groupedBookings = await storage.getPsychologistBookingsByOrder(created.order.id);
       return res.status(201).json({
         ...groupedBookings[0],
+        expiresAt: new Date(getBookingHoldDeadline(created.order)).toISOString(),
         groupBookings: groupedBookings,
         sessionCount: groupedBookings.length,
       });

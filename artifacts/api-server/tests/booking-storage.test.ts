@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { getTableConfig, PgDialect } from "drizzle-orm/pg-core";
 import { DatabaseStorage, normalizedBookingStatus, isBookingReservationActiveForStorage } from "../src/storage";
+import { BOOKING_HOLD_MINUTES, getBookingHoldDeadline } from "../src/booking-reservation";
 import { client, db } from "./storage-test-db";
 import { users, assessments, orders, orderItems, userAssessments, bookingServices, psychologistBookings, type Order } from "../../../lib/db/src/schema/schema";
 
@@ -50,28 +51,83 @@ test("booking creation writes an explicit hold and rolls back conflicting orders
   assert.equal((await storage.getPsychologistBookingsByOrder(created.order.id)).length, 1);
 });
 
-test("updatedAt changes cannot extend a hold; verification uncertainty keeps it reserved", async () => {
+test("unpaid holds release exactly at the deadline despite provider IDs or financial review", () => {
+  const createdAt = new Date("2026-10-24T01:00:00.000Z");
+  const deadline = createdAt.getTime() + BOOKING_HOLD_MINUTES * 60 * 1000;
+  for (const details of [
+    {},
+    { paymentId: "order_91_123456" },
+    { paymentReviewReason: "verification_unavailable" },
+    { paymentId: "order_91_123456", paymentReviewReason: "verification_unavailable" },
+  ]) {
+    const pending = { status: "pending_payment", order: { status: "pending", paymentStatus: "pending", createdAt, ...details } };
+    assert.equal(isBookingReservationActiveForStorage(pending, deadline - 1), true);
+    assert.equal(isBookingReservationActiveForStorage(pending, deadline), false);
+  }
+});
+
+test("hold deadlines cap legacy extensions and accept valid legacy timestamp fallbacks", () => {
+  const createdAt = new Date("2026-10-24T01:00:00.000Z");
+  const deadline = createdAt.getTime() + BOOKING_HOLD_MINUTES * 60 * 1000;
+  const earlierExpiry = new Date(deadline - 5 * 60 * 1000);
+  assert.equal(getBookingHoldDeadline({ createdAt, paymentExpiresAt: new Date(deadline + 24 * 60 * 60 * 1000) }), deadline);
+  assert.equal(getBookingHoldDeadline({ createdAt: createdAt.toISOString(), paymentExpiresAt: earlierExpiry.toISOString() }), earlierExpiry.getTime());
+  assert.equal(getBookingHoldDeadline({ createdAt, paymentExpiresAt: "invalid" }), deadline);
+  assert.equal(getBookingHoldDeadline({ createdAt: "invalid", paymentExpiresAt: new Date(deadline) }), deadline);
+  assert.equal(getBookingHoldDeadline({ paymentExpiresAt: new Date(deadline) }), deadline);
+  assert.equal(Number.isNaN(getBookingHoldDeadline({})), true);
+  assert.equal(Number.isNaN(getBookingHoldDeadline({ createdAt: "invalid", paymentExpiresAt: "invalid" })), true);
+  assert.equal(isBookingReservationActiveForStorage({ status: "pending_payment", order: { status: "pending" } }, deadline), false);
+});
+
+test("expired unpaid bookings are bookable without a worker and preserve financial status and history", async () => {
   const psychologist = `Provider ${++provider}`;
-  const old = await create(psychologist, "09.00 - 10.00", { createdAt: new Date(Date.now() - 20 * 60 * 1000) });
+  const old = await create(psychologist, "09.00 - 10.00", {
+    createdAt: new Date(Date.now() - 20 * 60 * 1000),
+    paymentId: "order_91_123456",
+    paymentStatus: "pending",
+    paymentReviewReason: "verification_unavailable",
+  });
   await db.update(orders).set({ updatedAt: new Date() }).where(eq(orders.id, old.order.id));
   assert.equal(isBookingReservationActiveForStorage({ status: old.bookings[0].status, order: old.order }), false);
-  await db.update(orders).set({ paymentReviewReason: "verification_unavailable" }).where(eq(orders.id, old.order.id));
-  await assert.rejects(create(psychologist), /BOOKING_SLOT_UNAVAILABLE/);
-  await db.update(orders).set({ status: "cancelled", paymentStatus: "expired", paymentReviewReason: null }).where(eq(orders.id, old.order.id));
+  await create(psychologist);
+  const preserved = (await storage.getOrder(old.order.id))!;
+  assert.equal(preserved.status, "pending");
+  assert.equal(preserved.paymentStatus, "pending");
+  assert.equal(preserved.paymentId, "order_91_123456");
+  assert.equal(preserved.paymentReviewReason, "verification_unavailable");
+  assert.equal(preserved.createdAt!.getTime(), old.order.createdAt!.getTime());
+  assert.equal(preserved.paymentExpiresAt!.getTime(), old.order.paymentExpiresAt!.getTime());
+  assert.equal((await storage.getPsychologistBookingsByOrder(old.order.id)).length, 1);
+});
+
+test("extended legacy expiry cannot block a new booking beyond 15 minutes from creation", async () => {
+  const psychologist = `Provider ${++provider}`;
+  const createdAt = new Date(Date.now() - 15 * 60 * 1000 - 1000);
+  const pending = await create(psychologist, "09.00 - 10.00", {
+    createdAt,
+    paymentId: "order_91_123456",
+    paymentStatus: "pending",
+    paymentExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  });
+  assert.equal(pending.order.paymentExpiresAt!.getTime(), createdAt.getTime() + BOOKING_HOLD_MINUTES * 60 * 1000);
+  // Simulate a row written by the old payment flow, which extended the deadline.
+  await db.update(orders).set({ paymentExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) }).where(eq(orders.id, pending.order.id));
+  const legacy = (await storage.getOrder(pending.order.id))!;
+  assert.equal(isBookingReservationActiveForStorage({ status: pending.bookings[0].status, order: legacy }), false);
   await create(psychologist);
 });
 
-test("a pending Midtrans attempt holds the slot past its deadline until provider-confirmed closure", async () => {
+test("confirmed payment keeps an expired slot protected even if the booking flag is cancelled", async () => {
   const psychologist = `Provider ${++provider}`;
-  const pending = await create(psychologist, "09.00 - 10.00", {
-    createdAt: new Date(Date.now() - 15 * 60 * 1000 - 1000),
-    paymentId: "order_91_123456",
-    paymentStatus: "pending",
+  const paid = await create(psychologist, "09.00 - 10.00", {
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    status: "completed",
+    paymentStatus: "paid",
   });
-  assert.equal(isBookingReservationActiveForStorage({ status: pending.bookings[0].status, order: pending.order }), true);
+  await db.update(psychologistBookings).set({ status: "cancelled" }).where(eq(psychologistBookings.id, paid.bookings[0].id));
+  assert.equal(isBookingReservationActiveForStorage({ status: "cancelled", order: paid.order }), true);
   await assert.rejects(create(psychologist), /BOOKING_SLOT_UNAVAILABLE/);
-  await db.update(orders).set({ status: "cancelled", paymentStatus: "expired" }).where(eq(orders.id, pending.order.id));
-  await create(psychologist);
 });
 
 test("paid projection preserves replacement/review and does not trust a stale booking paid flag", async () => {
