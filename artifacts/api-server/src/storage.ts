@@ -44,32 +44,9 @@ import {
 } from "@workspace/db";
 import { db } from "./db";
 import { eq, and, or, sql, ilike, desc, gte, lte, inArray, isNull } from "drizzle-orm";
+import { getBookingHoldDeadline, isBookingReservationActive as isBookingReservationActiveForStorage, normalizedBookingStatus } from "./booking-reservation";
 
-const BOOKING_HOLD_MINUTES = 15;
-
-type ReservationOrder = Pick<Order, "status" | "paymentStatus" | "paymentId" | "createdAt" | "paymentExpiresAt" | "paymentReviewReason" | "replacedByOrderId">;
-
-export function normalizedBookingStatus(bookingStatus: string, order: Pick<ReservationOrder, "status" | "paymentStatus" | "replacedByOrderId">) {
-  if (order.replacedByOrderId || bookingStatus === "replaced") return "replaced";
-  if (bookingStatus === "schedule_review" || order.status === "schedule_review") return "schedule_review";
-  if (order.status === "completed" || order.paymentStatus === "paid") return "paid";
-  if (order.status === "cancelled" || ["expired", "cancelled", "failed"].includes(order.paymentStatus ?? "")) return "cancelled";
-  return bookingStatus === "paid" ? "pending_payment" : bookingStatus;
-}
-
-export function isBookingReservationActiveForStorage(booking: { status: string; order: ReservationOrder }, now = Date.now()) {
-  const status = normalizedBookingStatus(booking.status, booking.order);
-  if (status === "replaced" || status === "schedule_review") return false;
-  if (status === "paid") return true;
-  if (booking.order.status !== "pending") return false;
-  if (["expired", "cancelled", "failed"].includes(booking.order.paymentStatus ?? "")) return false;
-  // Keep an unresolved verification reserved until the provider can confirm it.
-  if (booking.order.paymentReviewReason) return true;
-  if (booking.order.paymentId?.startsWith("order_")) return true;
-  const expiresAt = booking.order.paymentExpiresAt?.getTime()
-    ?? (booking.order.createdAt ? booking.order.createdAt.getTime() + BOOKING_HOLD_MINUTES * 60 * 1000 : Number.NaN);
-  return Number.isFinite(expiresAt) && now < expiresAt;
-}
+export { normalizedBookingStatus, isBookingReservationActive as isBookingReservationActiveForStorage } from "./booking-reservation";
 
 function bookingWithPaymentStatus(row: {
   booking: PsychologistBooking;
@@ -557,7 +534,7 @@ export class DatabaseStorage implements IStorage {
       const [createdOrder] = await tx.insert(orders).values({
         ...order,
         createdAt,
-        paymentExpiresAt: order.paymentExpiresAt ?? new Date(createdAt.getTime() + BOOKING_HOLD_MINUTES * 60 * 1000),
+        paymentExpiresAt: new Date(getBookingHoldDeadline({ ...order, createdAt })),
       }).returning();
       const createdBookings = await tx
         .insert(psychologistBookings)

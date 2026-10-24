@@ -20,7 +20,7 @@ test('Snap request uses one fixed Jakarta expiry and documented channels',async(
   const request=requests.at(-1);
   assert.equal(request.expiry.start_time,'2026-10-15 15:08:36 +0700');
   assert.equal(request.expiry.duration,15);
-  assert.equal(request.page_expiry.duration,15);
+  assert.equal(request.page_expiry,undefined,'a relative page expiry must not override the fixed reservation deadline');
   assert.ok(request.enabled_payments.includes('other_qris'));
   assert.ok(request.enabled_payments.includes('echannel'));
   assert.ok(!request.enabled_payments.includes('gopay_static_qr'));

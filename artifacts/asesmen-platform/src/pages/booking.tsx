@@ -28,6 +28,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { hasConfirmedPayment, type PaymentOrder } from "@/components/booking-payment-state";
+import {
+  clearReservationSchedule,
+  earliestReservationDeadline,
+  isReservationExpiredError,
+  isSavedReservationExpired,
+  reservationSecondsRemaining,
+  type SavedBookingReservation,
+} from "@/lib/booking-reservation-state";
 import retnoPhoto from "@/assets/psychologists/retno-rahayu.jpg";
 import ridwanPhoto from "@/assets/psychologists/ridwan-rahmawan.jpg";
 import triaPhoto from "@/assets/psychologists/tria-khusni-barokah.jpg";
@@ -413,8 +422,8 @@ export default function Booking() {
   const [scheduleNow, setScheduleNow] = useState(() => new Date());
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [hasAppliedPreviousProfile, setHasAppliedPreviousProfile] = useState(false);
-  const savedBookingRef = useRef<{ id: number; orderId: number } | null>(null);
-  const [savedBooking, setSavedBooking] = useState<{ id: number; orderId: number } | null>(null);
+  const savedBookingRef = useRef<SavedBookingReservation | null>(null);
+  const [savedBooking, setSavedBooking] = useState<SavedBookingReservation | null>(null);
   const isFormRoute = location.startsWith("/booking/form");
   const [form, setForm] = useState<BookingForm>({
     clientName: "",
@@ -468,9 +477,9 @@ export default function Booking() {
   }, [step]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setScheduleNow(new Date()), 30_000);
+    const interval = window.setInterval(() => setScheduleNow(new Date()), savedBooking ? 1000 : 30_000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [savedBooking?.orderId]);
 
   useEffect(() => {
     if (isFormRoute && !authLoading && !isAuthenticated) {
@@ -490,6 +499,35 @@ export default function Booking() {
   const { data: psychologists = DEFAULT_PSYCHOLOGISTS } = useQuery<PsychologistOption[]>({
     queryKey: ["/api/psychologists"],
   });
+
+  const { data: reservationOrder } = useQuery<PaymentOrder>({
+    queryKey: ["/api/orders", savedBooking?.orderId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/orders/${savedBooking!.orderId}`);
+      return response.json();
+    },
+    enabled: Boolean(savedBooking),
+    staleTime: 0,
+    refetchInterval: 10_000,
+    refetchOnWindowFocus: "always",
+  });
+  const reservationPaid = Boolean(reservationOrder && hasConfirmedPayment(reservationOrder));
+  const reservationDeadline = earliestReservationDeadline(savedBooking?.expiresAt, reservationOrder?.paymentExpiresAt);
+  const reservationExpired = isSavedReservationExpired(savedBooking && { ...savedBooking, expiresAt: reservationDeadline }, reservationPaid, scheduleNow.getTime());
+  const reservationSeconds = reservationSecondsRemaining(reservationDeadline, scheduleNow.getTime());
+
+  useEffect(() => {
+    const reservation = savedBookingRef.current;
+    if (!reservation || !reservationDeadline || reservation.expiresAt === reservationDeadline) return;
+    savedBookingRef.current = { ...reservation, expiresAt: reservationDeadline };
+    setSavedBooking(savedBookingRef.current);
+  }, [reservationDeadline]);
+
+  useEffect(() => {
+    if (!reservationExpired) return;
+    void queryClient.invalidateQueries({ queryKey: ["/api/psychologist-availability"] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+  }, [reservationExpired]);
 
   useEffect(() => {
     if (!previousBookings || hasAppliedPreviousProfile) return;
@@ -724,8 +762,7 @@ export default function Booking() {
   const createBookingMutation = useMutation({
     mutationFn: async () => {
       if (savedBookingRef.current) {
-        const response = await apiRequest("POST", `/api/bookings/${savedBookingRef.current.id}/pay`, {});
-        return response.json();
+        throw new Error("Pesanan sudah tersimpan. Periksa pembayaran atau pilih jadwal untuk pesanan baru secara terpisah.");
       }
       if (!selectedService) throw new Error("Pilih layanan terlebih dahulu");
       if (!selectedPsychologist) throw new Error("Pilih psikolog terlebih dahulu");
@@ -734,16 +771,33 @@ export default function Booking() {
         serviceId: selectedService.id,
         ...buildBookingPayload(form, user),
       });
-      const booking = await bookingResponse.json() as { id: number; orderId: number };
-      savedBookingRef.current = { id: booking.id, orderId: booking.orderId };
+      const booking = await bookingResponse.json() as { id: number; orderId: number; expiresAt?: string | null; order?: PaymentOrder };
+      savedBookingRef.current = {
+        id: booking.id,
+        orderId: booking.orderId,
+        expiresAt: earliestReservationDeadline(booking.expiresAt, booking.order?.paymentExpiresAt),
+      };
       setSavedBooking(savedBookingRef.current);
 
       const paymentResponse = await apiRequest("POST", `/api/bookings/${booking.id}/pay`, {});
       return await paymentResponse.json();
     },
     onSuccess: (payment) => {
+      const reservation = savedBookingRef.current;
+      if (reservation) {
+        savedBookingRef.current = {
+          ...reservation,
+          expiresAt: earliestReservationDeadline(reservation.expiresAt, payment.expiresAt),
+        };
+        setSavedBooking(savedBookingRef.current);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      if (!payment.alreadyPaid && payment.status !== "completed" && isSavedReservationExpired(savedBookingRef.current, false)) {
+        setScheduleNow(new Date());
+        toast({ title: "Masa tahan jadwal sudah habis", description: "Periksa pembayaran pesanan yang tersimpan, atau pilih jadwal lagi untuk membuat pesanan baru." });
+        return;
+      }
       toast({
         title: "Booking dibuat",
         description: payment.redirect_url ? "Anda akan diarahkan ke pembayaran Midtrans." : "Status pembayaran akan diperiksa pada pesanan yang sudah tersimpan.",
@@ -756,6 +810,13 @@ export default function Booking() {
       }
     },
     onError: (error) => {
+      if (savedBookingRef.current && isReservationExpiredError(error)) {
+        savedBookingRef.current = { ...savedBookingRef.current, expired: true };
+        setSavedBooking(savedBookingRef.current);
+        queryClient.invalidateQueries({ queryKey: ["/api/psychologist-availability"] });
+        toast({ title: "Masa tahan jadwal sudah habis", description: "Jadwal dapat dipilih kembali. Data formulir Anda tetap tersimpan; pilih jadwal lagi untuk membuat pesanan baru." });
+        return;
+      }
       if (savedBookingRef.current) {
         queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
         queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
@@ -880,6 +941,15 @@ export default function Booking() {
     createBookingMutation.mutate();
   };
 
+  const chooseNewReservation = () => {
+    if (!reservationExpired || createBookingMutation.isPending) return;
+    savedBookingRef.current = null;
+    setSavedBooking(null);
+    setForm(clearReservationSchedule);
+    setStep(3);
+    void queryClient.invalidateQueries({ queryKey: ["/api/psychologist-availability"] });
+  };
+
   const steps = ["Form A", "Form B", "Informed Consent Form", "Penjadwalan", "Form C"];
 
   if (!isFormRoute) {
@@ -930,7 +1000,26 @@ export default function Booking() {
           </p>
         </div>
 
-        {savedBooking && !createBookingMutation.isPending && <div role="status" className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Booking sudah tersimpan pada pesanan #{savedBooking.orderId}.</p><p className="mt-1">Status pembayaran belum dapat dipastikan dari halaman ini. Gunakan pesanan yang sama untuk memeriksa status; pengisian booking baru belum diperlukan.</p><div className="mt-3 flex flex-wrap gap-3"><Button variant="outline" onClick={() => setLocation(`/payment-return?orderId=${savedBooking.orderId}`)}>Periksa pembayaran</Button><Button variant="outline" onClick={() => setLocation("/dashboard")}>Buka riwayat pesanan</Button></div></div>}
+        {savedBooking && !createBookingMutation.isPending && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <p role="status" className="font-semibold">{reservationExpired ? "Masa tahan jadwal sudah habis" : reservationPaid ? "Pembayaran sudah tercatat" : "Booking sudah tersimpan"} pada pesanan #{savedBooking.orderId}.</p>
+            {reservationExpired ? (
+              <p className="mt-1">Jadwal dapat dipilih klien lain. Jika sudah membayar, periksa pembayaran pesanan ini terlebih dahulu. Untuk pesanan baru, pilih jadwal lagi; data formulir Anda tetap tersimpan.</p>
+            ) : reservationPaid ? (
+              <p className="mt-1">Buka status pembayaran untuk melihat konfirmasi layanan.</p>
+            ) : (
+              <>
+                {reservationSeconds !== null && <p className="mt-1">Sisa masa tahan jadwal: <strong>{Math.floor(reservationSeconds / 60)}:{String(reservationSeconds % 60).padStart(2, "0")}</strong>. Setelah tenggat, jadwal kembali tersedia bila belum ada pembayaran terkonfirmasi.</p>}
+                <p className="mt-1">Gunakan pesanan yang sama untuk memeriksa status pembayaran.</p>
+              </>
+            )}
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Button variant="outline" onClick={() => setLocation(`/payment-return?orderId=${savedBooking.orderId}`)}>Periksa pembayaran</Button>
+              {reservationExpired && <Button variant="outline" onClick={chooseNewReservation}>Pilih jadwal untuk pesanan baru</Button>}
+              <Button variant="outline" onClick={() => setLocation("/dashboard")}>Buka riwayat pesanan</Button>
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-8">
           <div className="space-y-6">

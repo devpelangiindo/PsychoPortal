@@ -96,18 +96,26 @@ before(async () => {
 after(async () => { await db.close(); });
 
 let providerNumber = 0;
-async function bookingOrder(options: { paid?: boolean; psychologist?: string; time?: string; cancelled?: boolean; legacyId?: string } = {}) {
+async function bookingOrder(options: {
+  paid?: boolean; psychologist?: string; time?: string; cancelled?: boolean; legacyId?: string;
+  createdAt?: Date; bookingCreatedAt?: Date; expiresAt?: Date;
+} = {}) {
   const psychologist = options.psychologist ?? `Lifecycle Provider ${++providerNumber}`;
   const rows = await db.query<any>(`
-    INSERT INTO orders(user_id,total_amount,status,payment_status,payment_id)
-    VALUES ('client',250000,$1,$2,$3) RETURNING *`, [
+    INSERT INTO orders(user_id,total_amount,status,payment_status,payment_id,created_at,payment_expires_at)
+    VALUES ('client',250000,$1,$2,$3,COALESCE($4::timestamptz AT TIME ZONE 'UTC',now() AT TIME ZONE 'UTC'),$5::timestamptz AT TIME ZONE 'UTC') RETURNING *`, [
     options.paid ? "completed" : options.cancelled ? "cancelled" : "pending",
     options.paid ? "paid" : options.cancelled ? "expired" : "pending",
     options.legacyId ?? null,
+    options.createdAt?.toISOString() ?? null,
+    options.expiresAt?.toISOString() ?? null,
   ]);
   const order = rows.rows[0];
-  await db.query(`INSERT INTO psychologist_bookings(order_id,psychologist_name,preferred_date,preferred_time,status)
-    VALUES ($1,$2,'2026-11-01',$3,$4)`, [order.id, psychologist, options.time ?? "09.00 - 10.00", options.paid ? "paid" : "pending_payment"]);
+  await db.query(`INSERT INTO psychologist_bookings(order_id,psychologist_name,preferred_date,preferred_time,status,created_at)
+    VALUES ($1,$2,'2026-11-01',$3,$4,COALESCE($5::timestamptz AT TIME ZONE 'UTC',now() AT TIME ZONE 'UTC'))`, [
+    order.id, psychologist, options.time ?? "09.00 - 10.00", options.paid ? "paid" : "pending_payment",
+    (options.bookingCreatedAt ?? options.createdAt)?.toISOString() ?? null,
+  ]);
   return { ...order, psychologist };
 }
 const transaction = {
@@ -118,7 +126,7 @@ const transaction = {
 async function readOrder(id: number) {
   // Production stores UTC in timestamp columns; make the interpretation explicit
   // because PGlite's raw timestamp parser otherwise uses the host timezone.
-  return (await db.query<any>("SELECT *, paid_at AT TIME ZONE 'UTC' AS paid_at_utc FROM orders WHERE id=$1", [id])).rows[0];
+  return (await db.query<any>("SELECT *, paid_at AT TIME ZONE 'UTC' AS paid_at_utc, payment_expires_at AT TIME ZONE 'UTC' AS payment_expires_at_utc FROM orders WHERE id=$1", [id])).rows[0];
 }
 async function readBooking(id: number) {
   return (await db.query<any>("SELECT * FROM psychologist_bookings WHERE order_id=$1", [id])).rows[0];
@@ -129,6 +137,164 @@ async function start(id: number) {
   assert.equal(created.length, beforeCount + 1);
   return { result, attempt: created.at(-1)! };
 }
+
+test("initializing, reopening, and retrying payment share the original booking deadline", async (t) => {
+  const now = Date.now();
+  t.mock.timers.enable({ apis: ["Date"], now });
+  const createdAt = new Date(now - 5 * 60_000);
+  const deadline = createdAt.getTime() + 15 * 60_000;
+  const order = await bookingOrder({ createdAt });
+  const first = await start(order.id);
+  assert.equal(new Date(first.result.expiresAt).getTime(), deadline);
+  assert.equal(first.attempt.expiryMinutes, 15);
+  assert.equal(new Date(first.attempt.expiryStartTime).getTime(), createdAt.getTime());
+  assert.equal(new Date((await readOrder(order.id)).payment_expires_at_utc).getTime(), deadline);
+
+  t.mock.timers.setTime(now + 2 * 60_000);
+  const reused = await lifecycle.createOrReuse(order.id, transaction as any);
+  assert.equal(reused.reused, true);
+  assert.equal(new Date(reused.expiresAt).getTime(), deadline);
+  assert.equal(reused.paymentId, first.attempt.orderId);
+  provider.set(first.attempt.orderId, status(first.attempt.orderId, "expire"));
+
+  t.mock.timers.setTime(now + 3 * 60_000);
+  const second = await start(order.id);
+  assert.notEqual(second.attempt.orderId, first.attempt.orderId);
+  assert.equal(new Date(second.result.expiresAt).getTime(), deadline);
+  assert.equal(new Date(second.attempt.expiryStartTime).getTime(), createdAt.getTime());
+  assert.equal(second.attempt.expiryMinutes, 15);
+  const attempts = (await db.query<any>("SELECT * FROM payment_attempts WHERE order_id=$1", [order.id])).rows;
+  assert.equal(attempts.length, 2);
+  for (const attempt of attempts) assert.equal(new Date(attempt.expires_at).getTime(), deadline);
+  assert.equal(new Date((await readOrder(order.id)).payment_expires_at_utc).getTime(), deadline);
+});
+
+test("an earlier stored deadline is honored and a later deadline cannot extend the original reservation", async (t) => {
+  const now = Date.now();
+  t.mock.timers.enable({ apis: ["Date"], now });
+  const createdAt = new Date(now - 5 * 60_000);
+  const cases = [
+    { expiresAt: new Date(now + 2 * 60_000), expected: now + 2 * 60_000 },
+    { expiresAt: new Date(now + 60 * 60_000), expected: createdAt.getTime() + 15 * 60_000 },
+  ];
+  for (const { expiresAt, expected } of cases) {
+    const order = await bookingOrder({ createdAt, expiresAt });
+    const { result, attempt } = await start(order.id);
+    assert.equal(new Date(result.expiresAt).getTime(), expected);
+    assert.equal(new Date(attempt.expiryStartTime).getTime() + attempt.expiryMinutes * 60_000, expected);
+    assert.equal(new Date((await readOrder(order.id)).payment_expires_at_utc).getTime(), expected);
+  }
+  // Writing the booking after its order cannot start a fresh hold.
+  const order = await bookingOrder({ createdAt: new Date(now - 10 * 60_000), bookingCreatedAt: createdAt });
+  const { result } = await start(order.id);
+  assert.equal(new Date(result.expiresAt).getTime(), now + 5 * 60_000);
+});
+
+test("the exact fifteen-minute deadline blocks initialization and reuse without a worker or browser", async (t) => {
+  const now = Date.now();
+  t.mock.timers.enable({ apis: ["Date"], now });
+  const neverStarted = await bookingOrder({ createdAt: new Date(now) });
+  const existing = await bookingOrder({ createdAt: new Date(now) });
+  const first = await start(existing.id);
+  const count = created.length;
+  t.mock.timers.setTime(now + 15 * 60_000);
+  for (const order of [neverStarted, existing]) {
+    await assert.rejects(lifecycle.createOrReuse(order.id, transaction as any), (error: any) => error.code === "ORDER_EXPIRED");
+  }
+  assert.equal(created.length, count, "expired bookings cannot create or reopen a charge session");
+  assert.equal((await db.query<any>("SELECT * FROM payment_attempts WHERE order_id=$1", [neverStarted.id])).rows.length, 0);
+  assert.equal((await db.query<any>("SELECT * FROM payment_attempts WHERE order_id=$1", [existing.id])).rows.length, 1);
+  assert.equal((await readOrder(existing.id)).payment_id, first.attempt.orderId, "the historical provider ID remains available for reconciliation");
+});
+
+test("a previous-day unpaid reservation with an unresolved provider ID and no worker does not block a new client", async () => {
+  const old = await bookingOrder({ createdAt: new Date(Date.now() - 24 * 60 * 60_000) });
+  const providerId = `order_${old.id}_${Date.now() - 24 * 60 * 60_000}`;
+  await db.query("UPDATE orders SET payment_id=$1,payment_review_reason='verification_pending',payment_expires_at=(now() AT TIME ZONE 'UTC')+interval '1 day' WHERE id=$2", [providerId, old.id]);
+  const next = await bookingOrder({ psychologist: old.psychologist });
+  await start(next.id);
+  const retained = await readOrder(old.id);
+  assert.equal(retained.status, "pending");
+  assert.equal(retained.payment_status, "pending");
+  assert.equal(retained.payment_review_reason, "verification_pending");
+  assert.equal(retained.payment_id, providerId, "releasing a slot must not erase an unresolved financial record");
+  const third = await bookingOrder({ psychologist: old.psychologist });
+  await assert.rejects(lifecycle.createOrReuse(third.id, transaction as any), (error: any) => error.code === "BOOKING_SLOT_UNAVAILABLE");
+});
+
+test("a verified paid reservation still blocks a contender after its hold deadline", async () => {
+  const owner = await bookingOrder({ paid: true, createdAt: new Date(Date.now() - 24 * 60 * 60_000) });
+  const next = await bookingOrder({ psychologist: owner.psychologist });
+  const count = created.length;
+  await assert.rejects(lifecycle.createOrReuse(next.id, transaction as any), (error: any) => error.code === "BOOKING_SLOT_UNAVAILABLE");
+  assert.equal(created.length, count);
+  assert.equal((await readOrder(owner.id)).payment_status, "paid");
+  assert.equal((await readBooking(owner.id)).status, "paid");
+});
+
+test("reconciliation closes a legacy attempt by the booking deadline even when its stored expiry is later", async (t) => {
+  const now = Date.now();
+  t.mock.timers.enable({ apis: ["Date"], now });
+  const order = await bookingOrder({ createdAt: new Date(now) });
+  const { attempt } = await start(order.id);
+  await db.query("UPDATE payment_attempts SET expires_at=$1 WHERE provider_order_id=$2", [new Date(now + 60 * 60_000), attempt.orderId]);
+  await db.query("UPDATE orders SET payment_expires_at=$1::timestamptz AT TIME ZONE 'UTC' WHERE id=$2", [new Date(now + 60 * 60_000).toISOString(), order.id]);
+  const beforeExpiry = expireCalls;
+  t.mock.timers.setTime(now + 15 * 60_000);
+  await lifecycle.reconcileOrder(order.id, true);
+  assert.equal(expireCalls, beforeExpiry + 1);
+  assert.equal((await readOrder(order.id)).payment_status, "expired");
+  assert.equal((await readOrder(order.id)).status, "cancelled");
+  assert.equal((await db.query<any>("SELECT * FROM payment_attempts WHERE provider_order_id=$1", [attempt.orderId])).rows[0].status, "closed");
+});
+
+test("a nonbooking order with no payment attempt keeps its future explicit expiry after fifteen minutes", async () => {
+  const now = Date.now();
+  const expiresAt = new Date(now + 60 * 60_000);
+  const order = (await db.query<any>(`INSERT INTO orders(user_id,total_amount,created_at,payment_expires_at)
+    VALUES ('client',250000,$1::timestamptz AT TIME ZONE 'UTC',$2::timestamptz AT TIME ZONE 'UTC') RETURNING *`,
+  [new Date(now - 60 * 60_000).toISOString(), expiresAt.toISOString()])).rows[0];
+  await lifecycle.reconcileOrder(order.id, true);
+  const retained = await readOrder(order.id);
+  assert.equal(retained.status, "pending");
+  assert.equal(retained.payment_status, "pending");
+  assert.equal(new Date(retained.payment_expires_at_utc).getTime(), expiresAt.getTime());
+  assert.equal(retained.payment_id, null);
+  assert.equal((await db.query<any>("SELECT * FROM payment_attempts WHERE order_id=$1", [order.id])).rows.length, 0);
+});
+
+test("settlement after release preserves its receipt and cannot displace a new active client", async (t) => {
+  const now = Date.now();
+  t.mock.timers.enable({ apis: ["Date"], now });
+  const old = await bookingOrder({ createdAt: new Date(now) });
+  const first = await start(old.id);
+  provider.set(first.attempt.orderId, Object.assign(new Error("Provider network unavailable"), { code: "ECONNRESET" }));
+  t.mock.timers.setTime(now + 15 * 60_000);
+  await lifecycle.reconcileOrder(old.id, true);
+  const next = await bookingOrder({ psychologist: old.psychologist, time: "09.30 - 10.30", createdAt: new Date(Date.now()) });
+  const nextAttempt = await start(next.id);
+  await lifecycle.applyStatus(old.id, status(first.attempt.orderId, "settlement"));
+  const receipt = await readOrder(old.id);
+  assert.equal(receipt.payment_status, "paid");
+  assert.equal(receipt.payment_review_reason, "schedule_conflict");
+  assert.ok(receipt.paid_at);
+  assert.equal(Number(receipt.paid_amount), 250000);
+  assert.equal((await readBooking(old.id)).status, "schedule_review");
+  assert.equal((await readBooking(next.id)).status, "pending_payment");
+
+  await lifecycle.applyStatus(next.id, status(nextAttempt.attempt.orderId, "settlement"));
+  await lifecycle.applyStatus(old.id, status(first.attempt.orderId, "pending"));
+  await lifecycle.applyStatus(old.id, status(first.attempt.orderId, "expire"));
+  await lifecycle.applyStatus(old.id, status(first.attempt.orderId, "settlement"));
+  const retained = await readOrder(old.id);
+  assert.equal(retained.payment_status, "paid");
+  assert.equal(retained.payment_review_reason, "schedule_conflict");
+  assert.equal(new Date(retained.paid_at_utc).getTime(), new Date(receipt.paid_at_utc).getTime());
+  assert.equal((await readBooking(old.id)).status, "schedule_review");
+  assert.equal((await readBooking(next.id)).status, "paid");
+  const active = (await db.query<any>("SELECT * FROM psychologist_bookings WHERE psychologist_name=$1 AND status='paid'", [old.psychologist])).rows;
+  assert.deepEqual(active.map((booking: any) => booking.order_id), [next.id], "only the new client owns the slot even after duplicate old notifications");
+});
 
 test("an active Snap attempt is reused without creating a second provider transaction", async () => {
   const order = await bookingOrder();
@@ -270,11 +436,11 @@ test("payment proof verification of a legacy order is read-only", async () => {
   assert.deepEqual(await snapshot(), before, "verification must not create attempts/events, fulfill bookings, or mutate financial state");
 });
 
-test("provider network failures keep the reservation unpaid and prevent a second charge session", async () => {
+test("provider network failures retain financial verification without extending the expired slot hold", async () => {
   const order = await bookingOrder();
   const first = await start(order.id);
   provider.set(first.attempt.orderId, Object.assign(new Error("Provider network unavailable"), { code: "ECONNRESET" }));
-  await db.query("UPDATE orders SET payment_expires_at=now()-interval '1 minute' WHERE id=$1", [order.id]);
+  await db.query("UPDATE orders SET payment_expires_at=$1::timestamptz AT TIME ZONE 'UTC' WHERE id=$2", [new Date(Date.now() - 60_000).toISOString(), order.id]);
   await lifecycle.reconcileOrder(order.id, true);
   const current = await readOrder(order.id);
   assert.equal(current.status, "pending");
@@ -282,8 +448,12 @@ test("provider network failures keep the reservation unpaid and prevent a second
   assert.ok(current.payment_review_reason, "unknown provider outcomes must remain visible for verification");
   assert.equal((await readBooking(order.id)).status, "pending_payment");
   const count = created.length;
-  await lifecycle.createOrReuse(order.id, transaction as any).catch(() => undefined);
+  await assert.rejects(lifecycle.createOrReuse(order.id, transaction as any), (error: any) => error.code === "ORDER_EXPIRED");
   assert.equal(created.length, count);
+  const next = await bookingOrder({ psychologist: order.psychologist });
+  await start(next.id);
+  assert.equal((await readOrder(order.id)).payment_status, "pending", "a failed provider GET is not evidence of an unpaid transaction");
+  await assert.rejects(lifecycle.verifyProof(order.id), (error: any) => error.code === "VERIFICATION_UNAVAILABLE");
 });
 
 test("an expired Snap session with no selected channel closes only after cancellation and a confirming 404", async () => {
@@ -291,7 +461,7 @@ test("an expired Snap session with no selected channel closes only after cancell
   const first = await start(order.id);
   provider.delete(first.attempt.orderId);
   await db.query("UPDATE payment_attempts SET expires_at=$1 WHERE order_id=$2", [new Date(Date.now() - 60_000), order.id]);
-  await db.query("UPDATE orders SET payment_expires_at=now()-interval '1 minute' WHERE id=$1", [order.id]);
+  await db.query("UPDATE orders SET payment_expires_at=$1::timestamptz AT TIME ZONE 'UTC' WHERE id=$2", [new Date(Date.now() - 60_000).toISOString(), order.id]);
   const previousCancellations = cancelSessionCalls;
   const previousChecks = checked.filter((id) => id === first.attempt.orderId).length;
   await lifecycle.reconcileOrder(order.id, true);
@@ -305,12 +475,12 @@ test("an expired Snap session with no selected channel closes only after cancell
   assert.notEqual((await readBooking(order.id)).status, "paid");
 });
 
-test("404 without successful Snap cancellation retains a verification hold", async () => {
+test("404 without successful Snap cancellation retains verification while the expired slot is available", async () => {
   const order = await bookingOrder();
   const first = await start(order.id);
   provider.delete(first.attempt.orderId);
   await db.query("UPDATE payment_attempts SET expires_at=$1 WHERE order_id=$2", [new Date(Date.now() - 60_000), order.id]);
-  await db.query("UPDATE orders SET payment_expires_at=now()-interval '1 minute' WHERE id=$1", [order.id]);
+  await db.query("UPDATE orders SET payment_expires_at=$1::timestamptz AT TIME ZONE 'UTC' WHERE id=$2", [new Date(Date.now() - 60_000).toISOString(), order.id]);
   cancelSessionAllowed = false;
   try {
     await lifecycle.reconcileOrder(order.id, true);
@@ -318,9 +488,13 @@ test("404 without successful Snap cancellation retains a verification hold", asy
     assert.equal(current.status, "pending");
     assert.ok(current.payment_review_reason);
     assert.notEqual(current.payment_status, "paid");
+    assert.notEqual(current.payment_status, "expired", "404 without confirmed closure cannot establish a financial expiry");
     const count = created.length;
-    await lifecycle.createOrReuse(order.id, transaction as any).catch(() => undefined);
+    await assert.rejects(lifecycle.createOrReuse(order.id, transaction as any), (error: any) => error.code === "ORDER_EXPIRED");
     assert.equal(created.length, count);
+    const next = await bookingOrder({ psychologist: order.psychologist });
+    await start(next.id);
+    await assert.rejects(lifecycle.verifyProof(order.id), (error: any) => error.code === "VERIFICATION_UNAVAILABLE");
   } finally {
     cancelSessionAllowed = true;
   }
@@ -465,7 +639,7 @@ test("settlement racing a due denied Snap cancellation wins without releasing pa
   assert.equal((await readBooking(order.id)).status, "paid");
 });
 
-test("denied Snap cancellation failure or a failed confirming GET keeps the reservation", async () => {
+test("denied Snap cancellation failure or a failed confirming GET retains verification during the active hold", async () => {
   for (const failure of ["cancel_false", "cancel_throw", "confirmation_network"]) {
     const order = await bookingOrder();
     const first = await start(order.id);
@@ -595,14 +769,17 @@ test("a stale cancelled booking still owns its slot when its canonical order is 
   assert.equal((await readOrder(owner.id)).payment_status, "paid");
 });
 
-test("raw cancellation cannot release an unresolved external payment, while confirmed order expiry can", async () => {
+test("a raw cancellation cannot bypass an active hold, while the deadline releases a financially unresolved slot", async () => {
   const owner = await bookingOrder();
   await db.query("UPDATE psychologist_bookings SET status='cancelled' WHERE order_id=$1", [owner.id]);
-  await db.query("UPDATE orders SET payment_id=$1,payment_expires_at=now()-interval '1 minute' WHERE id=$2", [`order_${owner.id}_${Date.now()}`, owner.id]);
+  await db.query("UPDATE orders SET payment_id=$1,payment_expires_at=(now() AT TIME ZONE 'UTC')+interval '1 minute' WHERE id=$2", [`order_${owner.id}_${Date.now()}`, owner.id]);
   const contender = await bookingOrder({ psychologist: owner.psychologist });
   await assert.rejects(lifecycle.createOrReuse(contender.id, transaction as any), (error: any) => error.code === "BOOKING_SLOT_UNAVAILABLE");
-  await db.query("UPDATE orders SET status='cancelled',payment_status='expired' WHERE id=$1", [owner.id]);
+  await db.query("UPDATE orders SET payment_expires_at=(now() AT TIME ZONE 'UTC')-interval '1 minute',payment_review_reason='verification_pending' WHERE id=$1", [owner.id]);
   await start(contender.id);
+  assert.equal((await readOrder(owner.id)).status, "pending");
+  assert.equal((await readOrder(owner.id)).payment_status, "pending");
+  assert.equal((await readOrder(owner.id)).payment_review_reason, "verification_pending");
 });
 
 test("canonical schedule review does not reserve a slot despite an ordinary raw booking status", async () => {
