@@ -34,6 +34,9 @@ This repo is prepared for Render Blueprint deploys with `render.yaml`.
 - The Payload CMS is intentionally not deployed in this blueprint to keep launch costs down. CMS-backed content will fall back to the static content already in the frontends.
 - If a CMS is needed later, restore the `psychoportal-cms` service in `render.yaml` and set `VITE_CMS_BASE_URL` on the marketing site plus `PAYLOAD_PUBLIC_SERVER_URL` on the API.
 - Static frontend routes are rewritten to `index.html` so browser refreshes on client-side routes work.
+- Article deep links have a specific rewrite to the API for social preview metadata.
+  Deploy and verify the article-sharing API before enabling that rewrite; see
+  [article-sharing.md](docs/article-sharing.md) for deployment order and checks.
 
 ## Local Build Checks
 

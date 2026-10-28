@@ -19,6 +19,7 @@ import { psychologistMediaSql, registerPsychologistMedia, readStoredSignature, m
 import { initializeInstagram, registerInstagramRoutes } from "../instagram";
 import { DEFAULT_THERAPY_CATEGORIES, DEFAULT_THERAPY_SERVICES } from "../therapy-seed";
 import { DEFAULT_ONSITE_ASSESSMENT_SERVICES } from "../onsite-assessment-seed";
+import { registerArticleSharingRoutes } from "./article-sharing";
 // Using Midtrans payment gateway
 import { createMidtransTransaction, handleMidtransCallback, checkTransactionStatus, expireMidtransTransaction, cancelMidtransSession } from "../midtrans";
 import { createPaymentLifecycle, paymentLifecycleSchemaSql, PaymentLifecycleError } from "../payment-lifecycle";
@@ -8637,6 +8638,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: 'Gagal menghapus Promo & Info Booking' });
     }
   });
+
+  registerArticleSharingRoutes(app, pool);
 
   const managedArticleSelect = `
     SELECT article.id, article.slug, article.title, article.excerpt, article.content,

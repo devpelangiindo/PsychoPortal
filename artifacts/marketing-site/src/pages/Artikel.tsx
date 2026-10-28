@@ -3,6 +3,7 @@ import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ArticleShare, { useArticleMetadata } from "@/components/ArticleShare";
 import { Search, Calendar, ChevronRight, ArrowRight, Loader2, ListFilter } from "lucide-react";
 import { formatDate, CATEGORY_LABELS } from "@/lib/cms";
 
@@ -234,6 +235,13 @@ function ArticleDetail({ slug }: { slug: string }) {
   const selectedCategory = selectedCategoryFromUrl();
   const listHref = articleListHref(selectedCategory);
 
+  useArticleMetadata(managedPost && !isError ? {
+    slug: managedPost.slug,
+    title: managedPost.title,
+    excerpt: managedPost.excerpt,
+    apiBase: articleApiBase(),
+  } : null);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [slug]);
@@ -302,6 +310,7 @@ function ArticleDetail({ slug }: { slug: string }) {
       </div>
 
       <Footer />
+      {managedPost && !isError && <ArticleShare key={managedPost.slug} slug={managedPost.slug} title={managedPost.title} excerpt={managedPost.excerpt} apiBase={articleApiBase()} imageUrl={imageUrl} variant="floating" />}
     </div>
   );
 }
@@ -460,11 +469,14 @@ export default function Artikel() {
                   {filtered.map((a) => {
                     const label = a.categoryLabel ?? (a.category ? (CATEGORY_LABELS[a.category] ?? a.category) : "");
                     return (
-                      <Link
+                      <article
                         key={a.slug}
-                        href={`/artikel/${a.slug}${selectedCategory ? `?kategori=${encodeURIComponent(selectedCategory)}` : ""}`}
-                        className="flex gap-5 p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group"
+                        className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md group"
                       >
+                        <Link
+                          href={`/artikel/${a.slug}${selectedCategory ? `?kategori=${encodeURIComponent(selectedCategory)}` : ""}`}
+                          className="flex gap-5 p-5 pb-3"
+                        >
                         <div className="flex h-24 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl text-xs font-medium text-white" style={{ background: `${a.color}cc` }}>
                           {a.imageUrl ? <img src={a.imageUrl} alt={a.imageAlt || a.title} className="h-full w-full object-cover" style={{ objectPosition: `${a.imageFocusX ?? 50}% ${a.imageFocusY ?? 50}%` }} /> : "Foto"}
                         </div>
@@ -494,7 +506,11 @@ export default function Artikel() {
                             Lihat selengkapnya... <ArrowRight size={11} />
                           </div>
                         </div>
-                      </Link>
+                        </Link>
+                        <div className="mx-5 mb-4 flex justify-end border-t border-gray-100 pt-3">
+                          <ArticleShare slug={a.slug} title={a.title} excerpt={a.excerpt} apiBase={articleApiBase()} imageUrl={a.imageUrl} />
+                        </div>
+                      </article>
                     );
                   })}
                 </div>

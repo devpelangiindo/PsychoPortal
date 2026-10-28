@@ -7,6 +7,7 @@
     "test:booking-payments": "node tests/run-booking-payments.mjs",
     "test:payment-worker": "node tests/run-payment-worker-startup.mjs",
     "test:instagram": "node tests/run-instagram.mjs",
+    "test:article-sharing": "node tests/run-article-sharing.mjs",
     "dev": "pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --env-file=../../.env.local --enable-source-maps ./dist/index.mjs",
